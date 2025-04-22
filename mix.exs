@@ -8,7 +8,9 @@ defmodule ExSolana.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      deps: deps(),
+      description: "Solana library for Elixir",
+      package: package()
     ]
   end
 
@@ -55,8 +57,18 @@ defmodule ExSolana.MixProject do
       {:remote_ip, "~> 1.2"},
       {:websockex, "~> 0.4.3"},
 
-      # Mimic
-      {:mimic, "~> 1.7.0", only: :test}
+      # Dev & Test Dependencies
+      {:mimic, "~> 1.7.0", only: :test},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Mike Hostetler"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/mikehostetler/ex_solana"},
+      files: ~w(lib mix.exs README* LICENSE*)
     ]
   end
 end

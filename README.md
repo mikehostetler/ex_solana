@@ -1,21 +1,18 @@
-# ExSolana
+# Elixir Solana SDK
 
-**TODO: Add description**
+_This package is provided AS-IS - It's not a priority to improve it right now - so don't expect any updates. I welcome PRs if you'd like to contribute!_
+
+Solana SDK for Elixir - this is a fork of the original [solana](https://github.com/dcrck/solana-elixir) package with several additional features and improvements.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ex_solana` to your list of dependencies in `mix.exs`:
+I don't have any plans to publish this package to Hex, so you'll need to add it to your project manually. 
 
 ```elixir
 def deps do
   [
-    {:ex_solana, "~> 0.1.0"}
+    {:ex_solana, github: "mikehostetler/ex_solana"}
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/ex_solana>.
 
