@@ -246,7 +246,7 @@ defmodule ExSolana.Transaction do
 
   defp decode_signatures(encoded) do
     case CompactArray.decode_and_split(encoded, 64) do
-      {:ok, {signatures, rest, _count}} -> {:ok, signatures, rest}
+      {signatures, rest, _count} -> {:ok, signatures, rest}
       error -> {:error, :signatures, error}
     end
   end
@@ -281,7 +281,7 @@ defmodule ExSolana.Transaction do
 
   defp decode_account_keys(encoded) do
     case CompactArray.decode_and_split(encoded, 32) do
-      {:ok, {account_keys, rest, _count}} -> {:ok, account_keys, rest}
+      {account_keys, rest, _count} -> {:ok, account_keys, rest}
       error -> {:error, :account_keys, error}
     end
   end
@@ -291,12 +291,32 @@ defmodule ExSolana.Transaction do
 
   defp decode_instructions(encoded) do
     case CompactArray.decode_and_split(encoded) do
-      {:ok, {encoded_instructions, rest, _count}} ->
-        instructions = Enum.map(encoded_instructions, &decode_instruction/1)
-        {:ok, instructions, rest}
+      {rest, count} ->
+        # Decode count number of variable-length instructions
+        case decode_variable_instructions(rest, count, []) do
+          {:ok, instructions, remaining_rest} ->
+            {:ok, instructions, remaining_rest}
+          {:error, reason} ->
+            {:error, :instructions, reason}
+        end
 
       error ->
         {:error, :instructions, error}
+    end
+  end
+
+  defp decode_variable_instructions(rest, 0, acc), do: {:ok, Enum.reverse(acc), rest}
+
+  defp decode_variable_instructions(rest, count, acc) when count > 0 do
+    # Each instruction is: program_id_index(u8) + accounts_len(u8) + accounts(accounts_len bytes) + data_len(u8) + data(data_len bytes)
+    case rest do
+      <<program_id_index, accounts_len, accounts::binary-size(accounts_len), data_len, data::binary-size(data_len), remaining::binary>> ->
+        # Reconstruct the instruction in the format that decode_instruction expects
+        instruction_binary = <<program_id_index, accounts_len>> <> accounts <> <<data_len>> <> data
+        decoded_instruction = decode_instruction(instruction_binary)
+        decode_variable_instructions(remaining, count - 1, [decoded_instruction | acc])
+      _ ->
+        {:error, "invalid instruction format"}
     end
   end
 

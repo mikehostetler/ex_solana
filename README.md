@@ -16,3 +16,6 @@ def deps do
 end
 ```
 
+## Prereqs
+
+Install the [solana cli](https://solana.com/docs/intro/installation)

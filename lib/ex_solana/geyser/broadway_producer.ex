@@ -47,15 +47,9 @@ defmodule ExSolana.Geyser.Producer do
   def handle_cast({:update_stream_request, new_request}, state) do
     debug("Handling update stream request cast", new_request: new_request)
 
-    case update_subscription(state, new_request) do
-      {:ok, new_state} ->
-        debug("Subscription updated successfully", new_state: new_state)
-        {:noreply, [], new_state}
-
-      {:error, reason} ->
-        Logger.error("Failed to update subscription: #{inspect(reason)}")
-        {:noreply, [], state}
-    end
+    {:ok, new_state} = update_subscription(state, new_request)
+    debug("Subscription updated successfully", new_state: new_state)
+    {:noreply, [], new_state}
   end
 
   @impl true

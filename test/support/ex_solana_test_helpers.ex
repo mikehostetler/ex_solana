@@ -10,7 +10,7 @@ defmodule ExSolana.TestHelpers do
   """
   @spec create_payer(tracker :: pid, ExSolana.RPC.client(), keyword) ::
           {:ok, ExSolana.keypair()} | {:error, :timeout}
-  def create_payer(tracker, client, opts \\ []) do
+  def create_payer(tracker, _client, opts \\ []) do
     payer = ExSolana.keypair()
 
     lamports = Keyword.get(opts, :amount, 5) * ExSolana.lamports_per_sol()

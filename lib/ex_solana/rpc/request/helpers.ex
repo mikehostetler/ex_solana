@@ -89,7 +89,6 @@ defmodule ExSolana.RPC.Request.Helpers do
 
   def encode_key(key) do
     case ExSolana.Key.check(key) do
-      :ok -> {:ok, B58.encode58(key)}
       {:ok, validated_key} -> {:ok, B58.encode58(validated_key)}
       {:error, reason} -> {:error, "Invalid key: #{reason}"}
     end
@@ -125,7 +124,6 @@ defmodule ExSolana.RPC.Request.Helpers do
 
   def encode_signature(signature) do
     case ExSolana.Signature.check(signature) do
-      :ok -> {:ok, B58.encode58(signature)}
       {:ok, validated_signature} -> {:ok, B58.encode58(validated_signature)}
       {:error, reason} -> {:error, "Invalid signature: #{reason}"}
     end
