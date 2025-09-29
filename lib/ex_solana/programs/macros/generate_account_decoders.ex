@@ -9,9 +9,9 @@ defmodule ExSolana.Program.IDLMacros.GenerateAccountDecoders do
       if Enum.empty?(idl.accounts || []) do
         nil
       else
-        @accounts for {account, index} <- Enum.with_index(idl.accounts),
+        @accounts for account <- idl.accounts || [],
                       into: %{},
-                      do: {index, String.to_atom(Macro.underscore(account.name))}
+                      do: {account.discriminator, String.to_atom(Macro.underscore(account.name))}
 
         @doc """
         Returns a map of account discriminants to their corresponding atom names.
@@ -45,19 +45,25 @@ defmodule ExSolana.Program.IDLMacros.GenerateAccountDecoders do
         def decode_account(data) do
           debug("Decoding account", data: Base.encode16(data))
 
-          IO.inspect("FOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-
           result =
             case data do
-              <<discriminant::little-unsigned-integer-size(8), rest::binary>> ->
-                IO.inspect("BAAAAAAAAAAAAARRRRRRRRRRRRRRRRRR")
-                IO.inspect(discriminant)
-                account_type = @accounts[discriminant]
-                debug("Identified account type", type: account_type, discriminant: discriminant)
-                apply(__MODULE__, String.to_atom("decode_account_#{account_type}"), [rest])
+              <<discriminator::binary-size(8), rest::binary>> ->
+                discriminator_list = :binary.bin_to_list(discriminator)
+                account_type = @accounts[discriminator_list]
+                debug("Identified account type", type: account_type, discriminator: discriminator_list)
+
+                if account_type do
+                  case apply(__MODULE__, String.to_atom("decode_account_#{account_type}"), [rest]) do
+                    {atom, data} -> {:ok, {atom, data}}
+                    error -> error
+                  end
+                else
+                  error("Unknown account discriminator", discriminator: discriminator_list)
+                  {:error, :invalid_account_data}
+                end
 
               _ ->
-                error("Invalid account data structure", data: Base.encode16(data))
+                error("Invalid account data structure - insufficient data for discriminator", data: Base.encode16(data))
                 {:error, :invalid_account_data}
             end
 
@@ -66,50 +72,61 @@ defmodule ExSolana.Program.IDLMacros.GenerateAccountDecoders do
         end
 
         # Generate decode_account_$name functions for each account
-        for account <- idl.accounts do
+        for account <- idl.accounts || [] do
           account_name = String.to_atom(Macro.underscore(account.name))
-          field_pattern = Helpers.generate_field_pattern(account.type.fields)
 
-          @doc """
-          Decodes a #{account.name} account.
+          if account.type do
+            field_pattern = Helpers.generate_field_pattern(account.type.fields)
 
-          ## Parameters
+            @doc """
+            Decodes a #{account.name} account.
 
-            * `data` - Binary data of the account
+            ## Parameters
 
-          ## Returns
+              * `data` - Binary data of the account
 
-            * `{:#{account_name}, decoded_fields}` on success
-            * `{:error, :decode_failed}` on failure
+            ## Returns
 
-          ## Fields
+              * `{:#{account_name}, decoded_fields}` on success
+              * `{:error, :decode_failed}` on failure
 
-          #{Enum.map_join(account.type.fields, "\n", fn field -> "  * `#{field.name}` - #{inspect(field.type)}" end)}
+            ## Fields
 
-          ## Example
+            #{Enum.map_join(account.type.fields, "\n", fn field -> "  * `#{field.name}` - #{inspect(field.type)}" end)}
 
-              iex> #{__MODULE__}.decode_account_#{account_name}(<<...>>)
-              {:#{account_name}, %{...}}
-          """
-          def unquote(:"decode_account_#{account_name}")(data) do
-            debug("Decoding #{unquote(account_name)} account", data: Base.encode16(data))
+            ## Example
 
-            try do
-              {decoded_fields, _rest} =
-                ExSolana.BinaryDecoder.decode(data, unquote(Macro.escape(field_pattern)))
+                iex> #{__MODULE__}.decode_account_#{account_name}(<<...>>)
+                {:#{account_name}, %{...}}
+            """
+            def unquote(:"decode_account_#{account_name}")(data) do
+              debug("Decoding #{unquote(account_name)} account", data: Base.encode16(data))
 
-              result = {unquote(account_name), decoded_fields}
-              debug("Successfully decoded #{unquote(account_name)} account", result: result)
-              result
-            rescue
-              e ->
-                error("Failed to decode #{unquote(account_name)} account",
-                  account: unquote(account_name),
-                  data: Base.encode16(data),
-                  error: inspect(e)
-                )
+              try do
+                {decoded_fields, _rest} =
+                  ExSolana.BinaryDecoder.decode(data, unquote(Macro.escape(field_pattern)))
 
-                {:error, :decode_failed}
+                result = {unquote(account_name), decoded_fields}
+                debug("Successfully decoded #{unquote(account_name)} account", result: result)
+                result
+              rescue
+                e ->
+                  error("Failed to decode #{unquote(account_name)} account",
+                    account: unquote(account_name),
+                    data: Base.encode16(data),
+                    error: inspect(e)
+                  )
+
+                  {:error, :decode_failed}
+              end
+            end
+          else
+            @doc """
+            Account #{account.name} has no type definition in the IDL.
+            This function returns the discriminator-based detection only.
+            """
+            def unquote(:"decode_account_#{account_name}")(_data) do
+              {:error, :no_type_definition}
             end
           end
 

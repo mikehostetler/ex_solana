@@ -50,6 +50,21 @@ defmodule ExSolana.BinaryDecoder do
     result
   end
 
+  def decode(data, pattern) when is_binary(data) and is_list(pattern) do
+    debug("Starting decode with ordered pattern", data: data, pattern: pattern)
+
+    result =
+      Enum.reduce(pattern, {%{}, data}, fn {key, type}, {acc, rest} ->
+        debug("Decoding field", key: key, type: type)
+        {value, new_rest} = decode_field(rest, type)
+        debug("Decoded field", key: key, value: value)
+        {Map.put(acc, key, value), new_rest}
+      end)
+
+    debug("Finished decode", result: result)
+    result
+  end
+
   @doc """
   Decodes a single field based on its type.
 

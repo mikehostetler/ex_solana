@@ -9,9 +9,9 @@ defmodule ExSolana.Program.IDLMacros.GenerateEventDecoders do
       if Enum.empty?(idl.events || []) do
         nil
       else
-        @events for {event, index} <- Enum.with_index(idl.events),
+        @events for event <- idl.events || [],
                     into: %{},
-                    do: {index, String.to_atom(Macro.underscore(event.name))}
+                    do: {event.discriminator, String.to_atom(Macro.underscore(event.name))}
 
         @doc """
         Returns a map of event discriminants to their corresponding atom names.
@@ -82,13 +82,20 @@ defmodule ExSolana.Program.IDLMacros.GenerateEventDecoders do
               case Base.decode64(log_data) do
                 {:ok, decoded_data} ->
                   case decoded_data do
-                    <<discriminant::little-unsigned-integer-size(8), rest::binary>> ->
-                      event_type = @events[discriminant]
-                      debug("Identified event type", type: event_type, discriminant: discriminant)
-                      apply(__MODULE__, String.to_atom("decode_event_#{event_type}"), [rest])
+                    <<discriminator::binary-size(8), rest::binary>> ->
+                      discriminator_list = :binary.bin_to_list(discriminator)
+                      event_type = @events[discriminator_list]
+                      debug("Identified event type", type: event_type, discriminator: discriminator_list)
+
+                      if event_type do
+                        apply(__MODULE__, String.to_atom("decode_event_#{event_type}"), [rest])
+                      else
+                        debug("Unknown event discriminator", discriminator: discriminator_list)
+                        nil
+                      end
 
                     _ ->
-                      debug("Unknown event format", data: Base.encode16(decoded_data))
+                      debug("Unknown event format - insufficient data for discriminator", data: Base.encode16(decoded_data))
                       nil
                   end
 
@@ -105,51 +112,61 @@ defmodule ExSolana.Program.IDLMacros.GenerateEventDecoders do
         defoverridable decode_event: 1
 
         # Generate decode_event_$name functions for each event
-        for event <- idl.events do
+        for event <- idl.events || [] do
           event_name = String.to_atom(Macro.underscore(event.name))
 
-          field_pattern = Helpers.generate_field_pattern(event.fields)
+          if event.fields do
+            field_pattern = Helpers.generate_field_pattern(event.fields)
 
-          @doc """
-          Decodes a #{event.name} event.
+            @doc """
+            Decodes a #{event.name} event.
 
-          ## Parameters
+            ## Parameters
 
-            * `data` - Binary data of the event
+              * `data` - Binary data of the event
 
-          ## Returns
+            ## Returns
 
-            * `{:#{event_name}, decoded_fields}` on success
-            * `{:error, :decode_failed}` on failure
+              * `{:#{event_name}, decoded_fields}` on success
+              * `{:error, :decode_failed}` on failure
 
-          ## Fields
+            ## Fields
 
-          #{Enum.map_join(event.fields, "\n", fn field -> "  * `#{field.name}` - #{inspect(field.type)}" end)}
+            #{Enum.map_join(event.fields, "\n", fn field -> "  * `#{field.name}` - #{inspect(field.type)}" end)}
 
-          ## Example
+            ## Example
 
-              iex> #{__MODULE__}.decode_event_#{event_name}(<<...>>)
-              {:#{event_name}, %{...}}
-          """
-          def unquote(:"decode_event_#{event_name}")(data) do
-            debug("Decoding #{unquote(event_name)} event", data: Base.encode16(data))
+                iex> #{__MODULE__}.decode_event_#{event_name}(<<...>>)
+                {:#{event_name}, %{...}}
+            """
+            def unquote(:"decode_event_#{event_name}")(data) do
+              debug("Decoding #{unquote(event_name)} event", data: Base.encode16(data))
 
-            try do
-              {decoded_fields, _rest} =
-                ExSolana.BinaryDecoder.decode(data, unquote(Macro.escape(field_pattern)))
+              try do
+                {decoded_fields, _rest} =
+                  ExSolana.BinaryDecoder.decode(data, unquote(Macro.escape(field_pattern)))
 
-              result = {unquote(event_name), decoded_fields}
-              debug("Successfully decoded #{unquote(event_name)} event", result: result)
-              result
-            rescue
-              e ->
-                error("Failed to decode #{unquote(event_name)} event",
-                  event: unquote(event_name),
-                  data: Base.encode16(data),
-                  error: inspect(e)
-                )
+                result = {unquote(event_name), decoded_fields}
+                debug("Successfully decoded #{unquote(event_name)} event", result: result)
+                result
+              rescue
+                e ->
+                  error("Failed to decode #{unquote(event_name)} event",
+                    event: unquote(event_name),
+                    data: Base.encode16(data),
+                    error: inspect(e)
+                  )
 
-                nil
+                  nil
+              end
+            end
+          else
+            @doc """
+            Event #{event.name} has no field definition in the IDL.
+            This function returns the discriminator-based detection only.
+            """
+            def unquote(:"decode_event_#{event_name}")(_data) do
+              {:error, :no_field_definition}
             end
           end
 
