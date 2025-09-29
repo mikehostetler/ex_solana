@@ -99,7 +99,10 @@ defmodule ExSolana.Jito.BlockEngineClient do
   end
 
   @impl true
-  def handle_cast({:send_packet_batch_update, update}, %{streams: %{expiring_packet: stream}} = state) do
+  def handle_cast(
+        {:send_packet_batch_update, update},
+        %{streams: %{expiring_packet: stream}} = state
+      ) do
     GRPC.Stub.send_request(stream, %PacketBatchUpdate{msg: {:batches, update}})
     {:noreply, state}
   end

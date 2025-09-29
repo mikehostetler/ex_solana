@@ -98,7 +98,10 @@ defmodule ExSolana.SPL.AssociatedToken do
   end
 
   @impl true
-  def analyze_invocation(%Core.Invocation{instruction: instruction_type} = invocation, confirmed_transaction) do
+  def analyze_invocation(
+        %Core.Invocation{instruction: instruction_type} = invocation,
+        confirmed_transaction
+      ) do
     case instruction_type do
       :create ->
         analyze_create(invocation, confirmed_transaction)

@@ -106,7 +106,8 @@ defmodule ExSolana.Transaction.Builder do
   Adds Address Lookup Tables to the transaction builder.
   """
   @spec add_address_lookup_tables(t(), [binary()]) :: t()
-  def add_address_lookup_tables(%__MODULE__{} = builder, address_lookup_tables) when is_list(address_lookup_tables) do
+  def add_address_lookup_tables(%__MODULE__{} = builder, address_lookup_tables)
+      when is_list(address_lookup_tables) do
     %{builder | address_lookup_tables: builder.address_lookup_tables ++ address_lookup_tables}
   end
 
@@ -199,7 +200,8 @@ defmodule ExSolana.Transaction.Builder do
   end
 
   defp split_instructions(%Transaction{} = tx) do
-    Enum.reduce_while(tx.instructions, {[], tx.instructions}, fn instruction, {valid, remaining} ->
+    Enum.reduce_while(tx.instructions, {[], tx.instructions}, fn instruction,
+                                                                 {valid, remaining} ->
       candidate_tx = %Transaction{tx | instructions: valid ++ [instruction]}
 
       case Transaction.validate_limits(candidate_tx) do

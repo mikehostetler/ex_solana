@@ -29,7 +29,12 @@ defmodule ExSolana.Decoder.TxnActions do
     Enum.map(parsed_txn, &extract_actions_recursively/1)
   end
 
-  defp extract_actions_recursively(%{action: action, children: children, program: program, logs: logs}) do
+  defp extract_actions_recursively(%{
+         action: action,
+         children: children,
+         program: program,
+         logs: logs
+       }) do
     %ActionNode{
       action: action,
       children: extract_actions_recursively(children),

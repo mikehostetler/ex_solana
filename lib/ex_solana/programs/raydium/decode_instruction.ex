@@ -19,7 +19,8 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
 
   defp decode_instruction_data(
          :initialize2,
-         <<nonce, open_time::little-64, init_pc_amount::little-64, init_coin_amount::little-64, _rest::binary>>
+         <<nonce, open_time::little-64, init_pc_amount::little-64, init_coin_amount::little-64,
+           _rest::binary>>
        ) do
     {:initialize2,
      %{
@@ -32,7 +33,8 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
 
   defp decode_instruction_data(
          :monitor_step,
-         <<plan_order_limit::little-16, place_order_limit::little-16, cancel_order_limit::little-16, _rest::binary>>
+         <<plan_order_limit::little-16, place_order_limit::little-16,
+           cancel_order_limit::little-16, _rest::binary>>
        ) do
     {:monitor_step,
      %{
@@ -44,7 +46,8 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
 
   defp decode_instruction_data(
          :deposit,
-         <<max_coin_amount::little-64, max_pc_amount::little-64, base_side::little-64, _rest::binary>>
+         <<max_coin_amount::little-64, max_pc_amount::little-64, base_side::little-64,
+           _rest::binary>>
        ) do
     {:deposit,
      %{
@@ -77,7 +80,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
     {:withdraw_srm, %{amount: amount}}
   end
 
-  defp decode_instruction_data(:swap_base_in, <<amount_in::little-64, minimum_amount_out::little-64, _rest::binary>>) do
+  defp decode_instruction_data(
+         :swap_base_in,
+         <<amount_in::little-64, minimum_amount_out::little-64, _rest::binary>>
+       ) do
     {:swap_base_in, %{amount_in: amount_in, minimum_amount_out: minimum_amount_out}}
   end
 
@@ -85,7 +91,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
     {:pre_initialize, %{nonce: nonce}}
   end
 
-  defp decode_instruction_data(:swap_base_out, <<max_amount_in::little-64, amount_out::little-64, _rest::binary>>) do
+  defp decode_instruction_data(
+         :swap_base_out,
+         <<max_amount_in::little-64, amount_out::little-64, _rest::binary>>
+       ) do
     {:swap_base_out, %{max_amount_in: max_amount_in, amount_out: amount_out}}
   end
 
@@ -104,7 +113,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
     {:create_config_account, %{}}
   end
 
-  defp decode_instruction_data(:update_config_account, <<param::8, owner::binary-32, _rest::binary>>) do
+  defp decode_instruction_data(
+         :update_config_account,
+         <<param::8, owner::binary-32, _rest::binary>>
+       ) do
     {:update_config_account, %{param: param, owner: B58.encode58(owner)}}
   end
 
@@ -129,9 +141,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
 
   defp decode_set_params_fees(
          param,
-         <<min_separate_numerator::little-64, min_separate_denominator::little-64, trade_fee_numerator::little-64,
-           trade_fee_denominator::little-64, pnl_numerator::little-64, pnl_denominator::little-64,
-           swap_fee_numerator::little-64, swap_fee_denominator::little-64, _rest::binary>>
+         <<min_separate_numerator::little-64, min_separate_denominator::little-64,
+           trade_fee_numerator::little-64, trade_fee_denominator::little-64,
+           pnl_numerator::little-64, pnl_denominator::little-64, swap_fee_numerator::little-64,
+           swap_fee_denominator::little-64, _rest::binary>>
        ) do
     {:ok,
      %{
@@ -163,7 +176,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
      }}
   end
 
-  defp decode_set_params_need_take(param, <<need_take_pc::little-64, need_take_coin::little-64, _rest::binary>>) do
+  defp decode_set_params_need_take(
+         param,
+         <<need_take_pc::little-64, need_take_coin::little-64, _rest::binary>>
+       ) do
     {:ok,
      %{
        param: param,
@@ -183,7 +199,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
     end
   end
 
-  defp decode_simulate_info_swap_base_in(<<amount_in::little-64, minimum_amount_out::little-64, _rest::binary>>) do
+  defp decode_simulate_info_swap_base_in(
+         <<amount_in::little-64, minimum_amount_out::little-64, _rest::binary>>
+       ) do
     {:ok,
      %{
        param: 1,
@@ -191,7 +209,10 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeInstruction do
      }}
   end
 
-  defp decode_simulate_info_swap_base_out(<<max_amount_in::little-64, amount_out::little-64, _rest::binary>>) do
-    {:ok, %{param: 2, swap_base_out_value: %{max_amount_in: max_amount_in, amount_out: amount_out}}}
+  defp decode_simulate_info_swap_base_out(
+         <<max_amount_in::little-64, amount_out::little-64, _rest::binary>>
+       ) do
+    {:ok,
+     %{param: 2, swap_base_out_value: %{max_amount_in: max_amount_in, amount_out: amount_out}}}
   end
 end

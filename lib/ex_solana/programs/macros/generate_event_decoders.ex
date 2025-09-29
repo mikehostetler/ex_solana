@@ -85,7 +85,11 @@ defmodule ExSolana.Program.IDLMacros.GenerateEventDecoders do
                     <<discriminator::binary-size(8), rest::binary>> ->
                       discriminator_list = :binary.bin_to_list(discriminator)
                       event_type = @events[discriminator_list]
-                      debug("Identified event type", type: event_type, discriminator: discriminator_list)
+
+                      debug("Identified event type",
+                        type: event_type,
+                        discriminator: discriminator_list
+                      )
 
                       if event_type do
                         apply(__MODULE__, String.to_atom("decode_event_#{event_type}"), [rest])
@@ -95,7 +99,10 @@ defmodule ExSolana.Program.IDLMacros.GenerateEventDecoders do
                       end
 
                     _ ->
-                      debug("Unknown event format - insufficient data for discriminator", data: Base.encode16(decoded_data))
+                      debug("Unknown event format - insufficient data for discriminator",
+                        data: Base.encode16(decoded_data)
+                      )
+
                       nil
                   end
 

@@ -11,7 +11,8 @@ defmodule ExSolana.RPC.Request.GetBlockProduction do
                                   [
                                     identity: [
                                       type: :string,
-                                      doc: "Only return results for this validator identity (base-58 encoded)"
+                                      doc:
+                                        "Only return results for this validator identity (base-58 encoded)"
                                     ],
                                     range: [
                                       type: :map,

@@ -267,7 +267,8 @@ defmodule ExSolana.Transaction do
   end
 
   defp decode_header(
-         <<num_required_signatures, num_readonly_signed_accounts, num_readonly_unsigned_accounts, rest::binary>>
+         <<num_required_signatures, num_readonly_signed_accounts, num_readonly_unsigned_accounts,
+           rest::binary>>
        ) do
     {:ok,
      %{
@@ -296,6 +297,7 @@ defmodule ExSolana.Transaction do
         case decode_variable_instructions(rest, count, []) do
           {:ok, instructions, remaining_rest} ->
             {:ok, instructions, remaining_rest}
+
           {:error, reason} ->
             {:error, :instructions, reason}
         end
@@ -310,11 +312,15 @@ defmodule ExSolana.Transaction do
   defp decode_variable_instructions(rest, count, acc) when count > 0 do
     # Each instruction is: program_id_index(u8) + accounts_len(u8) + accounts(accounts_len bytes) + data_len(u8) + data(data_len bytes)
     case rest do
-      <<program_id_index, accounts_len, accounts::binary-size(accounts_len), data_len, data::binary-size(data_len), remaining::binary>> ->
+      <<program_id_index, accounts_len, accounts::binary-size(accounts_len), data_len,
+        data::binary-size(data_len), remaining::binary>> ->
         # Reconstruct the instruction in the format that decode_instruction expects
-        instruction_binary = <<program_id_index, accounts_len>> <> accounts <> <<data_len>> <> data
+        instruction_binary =
+          <<program_id_index, accounts_len>> <> accounts <> <<data_len>> <> data
+
         decoded_instruction = decode_instruction(instruction_binary)
         decode_variable_instructions(remaining, count - 1, [decoded_instruction | acc])
+
       _ ->
         {:error, "invalid instruction format"}
     end

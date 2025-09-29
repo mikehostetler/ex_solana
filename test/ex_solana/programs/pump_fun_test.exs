@@ -14,7 +14,8 @@ defmodule ExSolana.Program.PumpFunTest do
 
       # Construct the binary data: discriminator + amount (u64le) + max_sol_cost (u64le)
       buy_instruction_data =
-        discriminator <> <<amount::little-unsigned-integer-size(64)>> <>
+        discriminator <>
+          <<amount::little-unsigned-integer-size(64)>> <>
           <<max_sol_cost::little-unsigned-integer-size(64)>>
 
       expected_result = {:buy, %{amount: amount, max_sol_cost: max_sol_cost}}
@@ -31,7 +32,8 @@ defmodule ExSolana.Program.PumpFunTest do
       min_sol_output = 200_000
 
       sell_instruction_data =
-        discriminator <> <<amount::little-unsigned-integer-size(64)>> <>
+        discriminator <>
+          <<amount::little-unsigned-integer-size(64)>> <>
           <<min_sol_output::little-unsigned-integer-size(64)>>
 
       expected_result = {:sell, %{amount: amount, min_sol_output: min_sol_output}}
@@ -60,6 +62,7 @@ defmodule ExSolana.Program.PumpFunTest do
       creator_pubkey_string = B58.encode58(creator_pubkey_binary)
 
       # Construct the binary data for the account
+      # boolean true
       account_data =
         discriminator <>
           <<virtual_token_reserves::little-unsigned-integer-size(64)>> <>
@@ -67,7 +70,7 @@ defmodule ExSolana.Program.PumpFunTest do
           <<real_token_reserves::little-unsigned-integer-size(64)>> <>
           <<real_sol_reserves::little-unsigned-integer-size(64)>> <>
           <<token_total_supply::little-unsigned-integer-size(64)>> <>
-          <<1::unsigned-integer-size(8)>> <> # boolean true
+          <<1::unsigned-integer-size(8)>> <>
           creator_pubkey_binary
 
       {:ok, {decoded_type, decoded_struct}} = PumpFun.decode_account(account_data)
@@ -83,8 +86,8 @@ defmodule ExSolana.Program.PumpFunTest do
     end
 
     test "returns error for unrecognized account data" do
-        invalid_data = <<0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>
-        assert {:error, :invalid_account_data} = PumpFun.decode_account(invalid_data)
+      invalid_data = <<0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>
+      assert {:error, :invalid_account_data} = PumpFun.decode_account(invalid_data)
     end
   end
 end

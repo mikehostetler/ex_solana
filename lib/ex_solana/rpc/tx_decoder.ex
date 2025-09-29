@@ -12,7 +12,13 @@ defmodule ExSolana.RPC.TransactionDecoder do
   @type decode_result :: {:ok, Core.ConfirmedTransaction.t()} | {:error, String.t()}
 
   def decode(
-        %{"blockTime" => block_time, "meta" => meta, "slot" => slot, "transaction" => transaction, "version" => version},
+        %{
+          "blockTime" => block_time,
+          "meta" => meta,
+          "slot" => slot,
+          "transaction" => transaction,
+          "version" => version
+        },
         signature
       ) do
     with {:ok, decoded_transaction} <- decode_transaction(transaction),

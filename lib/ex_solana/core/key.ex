@@ -205,7 +205,8 @@ defmodule ExSolana.Key do
     if byte_size(secret_key) == 64, do: :ok, else: {:error, :bad_secret_key_size}
   end
 
-  defp split_secret_key(<<private_key::binary-size(32), public_key::binary-size(32)>>), do: {private_key, public_key}
+  defp split_secret_key(<<private_key::binary-size(32), public_key::binary-size(32)>>),
+    do: {private_key, public_key}
 
   defp maybe_validate_public_key(_private_key, _public_key, true), do: :ok
 

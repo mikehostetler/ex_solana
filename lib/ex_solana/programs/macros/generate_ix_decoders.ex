@@ -65,7 +65,10 @@ defmodule ExSolana.Program.IDLMacros.GenerateIXDecoders do
                 end
 
               _ ->
-                debug("Unknown instruction format - insufficient data for discriminator", data: Base.encode16(data))
+                debug("Unknown instruction format - insufficient data for discriminator",
+                  data: Base.encode16(data)
+                )
+
                 {:unknown_ix, %{data: data}}
             end
 

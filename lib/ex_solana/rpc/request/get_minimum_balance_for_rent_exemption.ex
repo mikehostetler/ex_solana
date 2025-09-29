@@ -24,7 +24,8 @@ defmodule ExSolana.RPC.Request.GetMinimumBalanceForRentExemption do
   """
   @spec get_minimum_balance_for_rent_exemption(non_neg_integer(), keyword()) ::
           Request.t() | {:error, String.t()}
-  def get_minimum_balance_for_rent_exemption(space, opts \\ []) when is_integer(space) and space >= 0 do
+  def get_minimum_balance_for_rent_exemption(space, opts \\ [])
+      when is_integer(space) and space >= 0 do
     with {:ok, validated_opts} <-
            validate(opts, @get_minimum_balance_for_rent_exemption_options) do
       {"getMinimumBalanceForRentExemption", [space, encode_opts(validated_opts)]}

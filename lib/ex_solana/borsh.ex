@@ -43,34 +43,49 @@ defmodule ExSolana.Borsh do
   end
 
   # Implement all Borsh types
-  defp do_decode_field(<<value::little-unsigned-integer-size(8), rest::binary>>, "u8"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-unsigned-integer-size(8), rest::binary>>, "u8"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(16), rest::binary>>, "u16"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-unsigned-integer-size(16), rest::binary>>, "u16"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(32), rest::binary>>, "u32"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-unsigned-integer-size(32), rest::binary>>, "u32"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(64), rest::binary>>, "u64"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-unsigned-integer-size(64), rest::binary>>, "u64"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(128), rest::binary>>, "u128"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-unsigned-integer-size(128), rest::binary>>, "u128"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-signed-integer-size(8), rest::binary>>, "i8"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-signed-integer-size(8), rest::binary>>, "i8"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-signed-integer-size(16), rest::binary>>, "i16"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-signed-integer-size(16), rest::binary>>, "i16"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-signed-integer-size(32), rest::binary>>, "i32"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-signed-integer-size(32), rest::binary>>, "i32"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-signed-integer-size(64), rest::binary>>, "i64"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-signed-integer-size(64), rest::binary>>, "i64"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-signed-integer-size(128), rest::binary>>, "i128"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-signed-integer-size(128), rest::binary>>, "i128"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-float-size(32), rest::binary>>, "f32"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-float-size(32), rest::binary>>, "f32"),
+    do: {:ok, {value, rest}}
 
-  defp do_decode_field(<<value::little-float-size(64), rest::binary>>, "f64"), do: {:ok, {value, rest}}
+  defp do_decode_field(<<value::little-float-size(64), rest::binary>>, "f64"),
+    do: {:ok, {value, rest}}
 
   defp do_decode_field(<<0, rest::binary>>, "bool"), do: {:ok, {false, rest}}
   defp do_decode_field(<<1, rest::binary>>, "bool"), do: {:ok, {true, rest}}
 
-  defp do_decode_field(<<len::little-unsigned-integer-size(32), value::binary-size(len), rest::binary>>, "string") do
+  defp do_decode_field(
+         <<len::little-unsigned-integer-size(32), value::binary-size(len), rest::binary>>,
+         "string"
+       ) do
     {:ok, {value, rest}}
   end
 
@@ -156,27 +171,33 @@ defmodule ExSolana.Borsh do
   defp do_encode_field(value, "u16") when is_integer(value) and value >= 0 and value <= 65_535,
     do: {:ok, <<value::little-unsigned-integer-size(16)>>}
 
-  defp do_encode_field(value, "u32") when is_integer(value) and value >= 0 and value <= 4_294_967_295,
-    do: {:ok, <<value::little-unsigned-integer-size(32)>>}
+  defp do_encode_field(value, "u32")
+       when is_integer(value) and value >= 0 and value <= 4_294_967_295,
+       do: {:ok, <<value::little-unsigned-integer-size(32)>>}
 
-  defp do_encode_field(value, "u64") when is_integer(value) and value >= 0 and value <= 18_446_744_073_709_551_615,
-    do: {:ok, <<value::little-unsigned-integer-size(64)>>}
+  defp do_encode_field(value, "u64")
+       when is_integer(value) and value >= 0 and value <= 18_446_744_073_709_551_615,
+       do: {:ok, <<value::little-unsigned-integer-size(64)>>}
 
   defp do_encode_field(value, "u128")
-       when is_integer(value) and value >= 0 and value <= 340_282_366_920_938_463_463_374_607_431_768_211_455,
+       when is_integer(value) and value >= 0 and
+              value <= 340_282_366_920_938_463_463_374_607_431_768_211_455,
        do: {:ok, <<value::little-unsigned-integer-size(128)>>}
 
   defp do_encode_field(value, "i8") when is_integer(value) and value >= -128 and value <= 127,
     do: {:ok, <<value::little-signed-integer-size(8)>>}
 
-  defp do_encode_field(value, "i16") when is_integer(value) and value >= -32_768 and value <= 32_767,
-    do: {:ok, <<value::little-signed-integer-size(16)>>}
+  defp do_encode_field(value, "i16")
+       when is_integer(value) and value >= -32_768 and value <= 32_767,
+       do: {:ok, <<value::little-signed-integer-size(16)>>}
 
-  defp do_encode_field(value, "i32") when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647,
-    do: {:ok, <<value::little-signed-integer-size(32)>>}
+  defp do_encode_field(value, "i32")
+       when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647,
+       do: {:ok, <<value::little-signed-integer-size(32)>>}
 
   defp do_encode_field(value, "i64")
-       when is_integer(value) and value >= -9_223_372_036_854_775_808 and value <= 9_223_372_036_854_775_807,
+       when is_integer(value) and value >= -9_223_372_036_854_775_808 and
+              value <= 9_223_372_036_854_775_807,
        do: {:ok, <<value::little-signed-integer-size(64)>>}
 
   defp do_encode_field(value, "i128")
@@ -184,9 +205,11 @@ defmodule ExSolana.Borsh do
               value <= 170_141_183_460_469_231_731_687_303_715_884_105_727,
        do: {:ok, <<value::little-signed-integer-size(128)>>}
 
-  defp do_encode_field(value, "f32") when is_float(value), do: {:ok, <<value::little-float-size(32)>>}
+  defp do_encode_field(value, "f32") when is_float(value),
+    do: {:ok, <<value::little-float-size(32)>>}
 
-  defp do_encode_field(value, "f64") when is_float(value), do: {:ok, <<value::little-float-size(64)>>}
+  defp do_encode_field(value, "f64") when is_float(value),
+    do: {:ok, <<value::little-float-size(64)>>}
 
   defp do_encode_field(false, "bool"), do: {:ok, <<0>>}
   defp do_encode_field(true, "bool"), do: {:ok, <<1>>}

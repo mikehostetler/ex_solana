@@ -50,7 +50,11 @@ defmodule ExSolana.Program.IDLMacros.GenerateAccountDecoders do
               <<discriminator::binary-size(8), rest::binary>> ->
                 discriminator_list = :binary.bin_to_list(discriminator)
                 account_type = @accounts[discriminator_list]
-                debug("Identified account type", type: account_type, discriminator: discriminator_list)
+
+                debug("Identified account type",
+                  type: account_type,
+                  discriminator: discriminator_list
+                )
 
                 if account_type do
                   case apply(__MODULE__, String.to_atom("decode_account_#{account_type}"), [rest]) do
@@ -63,7 +67,10 @@ defmodule ExSolana.Program.IDLMacros.GenerateAccountDecoders do
                 end
 
               _ ->
-                error("Invalid account data structure - insufficient data for discriminator", data: Base.encode16(data))
+                error("Invalid account data structure - insufficient data for discriminator",
+                  data: Base.encode16(data)
+                )
+
                 {:error, :invalid_account_data}
             end
 

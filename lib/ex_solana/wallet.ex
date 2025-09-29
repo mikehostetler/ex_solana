@@ -219,7 +219,9 @@ defmodule ExSolana.Wallet do
         mint = account["account"]["data"]["parsed"]["info"]["mint"]
 
         amount =
-          Decimal.new(account["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmountString"])
+          Decimal.new(
+            account["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmountString"]
+          )
 
         price = Decimal.new(prices[mint]["price"])
         value = Decimal.mult(amount, price)

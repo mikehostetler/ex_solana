@@ -312,8 +312,9 @@ defmodule ExSolana.Native.SystemProgram do
 
       # <<3::little-32, base::binary-32, seed_len::little-32, seed::binary-size(seed_len), lamports::little-64,
       #   space::little-64, owner::binary-32>> ->
-      <<3::little-32, base::binary-32, seed_len::little-32, _buffer::binary-size(4), seed::binary-size(seed_len),
-        lamports::little-64, space::little-64, owner::binary-32, _rest::binary>> ->
+      <<3::little-32, base::binary-32, seed_len::little-32, _buffer::binary-size(4),
+        seed::binary-size(seed_len), lamports::little-64, space::little-64, owner::binary-32,
+        _rest::binary>> ->
         {:create_account_with_seed,
          %{
            base: B58.encode58(base),
@@ -338,16 +339,19 @@ defmodule ExSolana.Native.SystemProgram do
       <<8::little-32, space::little-64>> ->
         {:allocate, %{space: space}}
 
-      <<9::little-32, base::binary-32, seed_len::little-32, seed::binary-size(seed_len), space::little-64,
-        owner::binary-32>> ->
-        {:allocate_with_seed, %{base: B58.encode58(base), seed: seed, space: space, owner: B58.encode58(owner)}}
+      <<9::little-32, base::binary-32, seed_len::little-32, seed::binary-size(seed_len),
+        space::little-64, owner::binary-32>> ->
+        {:allocate_with_seed,
+         %{base: B58.encode58(base), seed: seed, space: space, owner: B58.encode58(owner)}}
 
-      <<10::little-32, base::binary-32, seed_len::little-32, seed::binary-size(seed_len), owner::binary-32>> ->
+      <<10::little-32, base::binary-32, seed_len::little-32, seed::binary-size(seed_len),
+        owner::binary-32>> ->
         {:assign_with_seed, %{base: B58.encode58(base), seed: seed, owner: B58.encode58(owner)}}
 
-      <<11::little-32, lamports::little-64, from_seed_len::little-32, from_seed::binary-size(from_seed_len),
-        from_owner::binary-32>> ->
-        {:transfer_with_seed, %{lamports: lamports, from_seed: from_seed, from_owner: B58.encode58(from_owner)}}
+      <<11::little-32, lamports::little-64, from_seed_len::little-32,
+        from_seed::binary-size(from_seed_len), from_owner::binary-32>> ->
+        {:transfer_with_seed,
+         %{lamports: lamports, from_seed: from_seed, from_owner: B58.encode58(from_owner)}}
 
       <<12::little-32>> ->
         {:upgrade_nonce_account, %{}}

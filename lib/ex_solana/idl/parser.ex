@@ -77,6 +77,7 @@ defmodule ExSolana.IDL.Parser do
   # Link accounts to their corresponding type definitions
   defp link_accounts_to_types(nil, _types), do: nil
   defp link_accounts_to_types(accounts, nil), do: accounts
+
   defp link_accounts_to_types(accounts, types) do
     # Create a map of type names to type definitions
     types_map = Enum.into(types, %{}, fn type_def -> {type_def.name, type_def} end)
@@ -321,18 +322,18 @@ defmodule ExSolana.IDL.Parser do
     is_signer_val = Map.get(account, "isSigner", Map.get(account, "signer"))
 
     with {:ok, name} <- parse_name(account["name"]),
-        {:ok, is_mut} <- parse_boolean(is_mut_val),
-        {:ok, is_signer} <- parse_boolean(is_signer_val),
-        {:ok, docs} <- parse_optional_docs(account["docs"]),
-        {:ok, optional} <- parse_optional_boolean(account["optional"]) do
+         {:ok, is_mut} <- parse_boolean(is_mut_val),
+         {:ok, is_signer} <- parse_boolean(is_signer_val),
+         {:ok, docs} <- parse_optional_docs(account["docs"]),
+         {:ok, optional} <- parse_optional_boolean(account["optional"]) do
       {:ok,
-      %{
-        name: name,
-        isMut: is_mut,
-        isSigner: is_signer,
-        docs: docs,
-        optional: optional
-      }}
+       %{
+         name: name,
+         isMut: is_mut,
+         isSigner: is_signer,
+         docs: docs,
+         optional: optional
+       }}
     end
   end
 
@@ -413,7 +414,9 @@ defmodule ExSolana.IDL.Parser do
     end
   end
 
-  defp parse_event_fields(nil), do: {:ok, nil} # Add this line to handle missing fields
+  # Add this line to handle missing fields
+  defp parse_event_fields(nil), do: {:ok, nil}
+
   defp parse_event_fields(fields) when is_list(fields) do
     parsed_fields = Enum.map(fields, &parse_event_field/1)
 
@@ -469,7 +472,8 @@ defmodule ExSolana.IDL.Parser do
   defp parse_optional_fields(fields), do: parse_fields(fields)
 
   defp parse_boolean(value) when is_boolean(value), do: {:ok, value}
-  defp parse_boolean(nil), do: {:ok, false} # Add this line
+  # Add this line
+  defp parse_boolean(nil), do: {:ok, false}
   defp parse_boolean(_), do: {:error, "Invalid boolean value"}
 
   defp parse_optional_boolean(nil), do: {:ok, nil}

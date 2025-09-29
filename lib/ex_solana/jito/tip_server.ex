@@ -159,13 +159,17 @@ defmodule ExSolana.Jito.TipServer do
     {:ok, %{state | latest_tips: new_tips}}
   rescue
     error ->
-      Logger.error("Error processing Jito tip data: #{Exception.format(:error, error, __STACKTRACE__)}")
+      Logger.error(
+        "Error processing Jito tip data: #{Exception.format(:error, error, __STACKTRACE__)}"
+      )
 
       {:ok, state}
   end
 
   defp handle_decoded_message(decoded_msg, state) do
-    Logger.warning("Unexpected message format from Jito Tip WebSocket: #{inspect(decoded_msg, pretty: true)}")
+    Logger.warning(
+      "Unexpected message format from Jito Tip WebSocket: #{inspect(decoded_msg, pretty: true)}"
+    )
 
     {:ok, state}
   end
