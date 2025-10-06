@@ -1,12 +1,23 @@
-# Elixir Solana SDK
+# ExSolana - Elixir Solana SDK
 
 _This package is provided AS-IS - It's not a priority to improve it right now - so don't expect any updates. I welcome PRs if you'd like to contribute!_
 
-Solana SDK for Elixir - this is a fork of the original [solana](https://github.com/dcrck/solana-elixir) package with several additional features and improvements.
+Solana SDK for Elixir with support for blockchain interaction, transaction processing, and program integration.
+
+## Features
+
+- **Key Management**: Keypair generation, mnemonic support, and public key operations
+- **RPC Client**: JSON-RPC API client with middleware, caching, and retry logic
+- **Transaction Building**: Create, sign, and send transactions with blockhash management
+- **Program Integration**: Support for SPL Token, Jupiter, Raydium, and custom programs
+- **IDL Code Generation**: Generate Elixir modules from Anchor IDL files
+- **Geyser Support**: Real-time blockchain data streaming via Yellowstone gRPC
+- **Jito Integration**: MEV-protected transactions via Jito bundles
+- **Instruction Decoding**: Parse and analyze Solana instructions and events
+- **Transaction Tracking**: Monitor transaction status with confirmation polling
+- **Token Operations**: SPL token transfers and account management
 
 ## Installation
-
-I don't have any plans to publish this package to Hex, so you'll need to add it to your project manually. 
 
 ```elixir
 def deps do
@@ -16,15 +27,131 @@ def deps do
 end
 ```
 
-## Prereqs
+## Prerequisites
 
-Install the [solana cli](https://solana.com/docs/intro/installation)
+Install the [Solana CLI](https://solana.com/docs/intro/installation) for development:
+
+```bash
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+```
+
+## Quick Start
+
+```elixir
+# Create an RPC client
+client = ExSolana.rpc_client(network: "mainnet-beta")
+
+# Generate a keypair
+keypair = ExSolana.keypair()
+
+# Get account info
+request = ExSolana.RPC.Request.get_account_info("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+{:ok, account} = ExSolana.send(request, client: client)
+
+# Build and send a transaction
+alias ExSolana.Core.{TxBuilder, Instructions}
+
+tx = TxBuilder.new()
+|> TxBuilder.add_instruction(
+  Instructions.transfer(from: keypair, to: recipient, lamports: 1_000_000)
+)
+|> TxBuilder.sign([keypair])
+
+{:ok, signature} = ExSolana.send_and_confirm(tx, client: client)
+```
+
+## Core Modules
+
+### RPC Operations
+
+```elixir
+# Basic RPC calls
+client = ExSolana.rpc_client(network: "mainnet-beta")
+request = ExSolana.RPC.Request.get_balance(pubkey)
+{:ok, balance} = ExSolana.send(request, client: client)
+
+# Transaction tracking with a GenServer process
+tracker = ExSolana.tracker()
+{:ok, signature} = ExSolana.send_and_confirm(transaction, client: client, tracker: tracker)
+```
+
+### Key Management
+
+```elixir
+# Generate keypair
+keypair = ExSolana.keypair()
+{secret_key, public_key} = keypair
+
+# From mnemonic
+{:ok, keypair} = ExSolana.Key.from_mnemonic("your twelve word phrase...")
+
+# Decode public key
+{:ok, pubkey} = ExSolana.pubkey("Base58EncodedPublicKey")
+pubkey = ExSolana.pubkey!(keypair)
+```
+
+### IDL-Based Program Integration
+
+```elixir
+# Generate program module from IDL
+mix ex_solana.generate_program priv/idls/my_program.json
+
+# Use generated program
+alias ExSolana.Program.MyProgram
+
+# Decode instructions
+{:ok, {:initialize, params}} = MyProgram.decode_ix(instruction_data)
+
+# Decode accounts
+{:ok, {:user_account, account_data}} = MyProgram.decode_account(account_bytes)
+
+# Decode events
+events = MyProgram.decode_events(transaction_logs)
+```
+
+### Geyser (Real-time Data Streaming)
+
+```elixir
+# Subscribe to account updates
+alias ExSolana.Geyser.YellowstoneClient
+
+{:ok, client} = YellowstoneClient.connect(endpoint: "grpc://your-geyser-endpoint")
+
+YellowstoneClient.subscribe_accounts(client, %{
+  accounts: ["TokenMintAddress"],
+  owner: ["TokenProgramId"]
+})
+```
+
+### Jito Integration
+
+```elixir
+# Send bundle with MEV protection
+alias ExSolana.Jito.Bundle
+
+bundle = Bundle.new()
+|> Bundle.add_transaction(tx1)
+|> Bundle.add_transaction(tx2)
+
+{:ok, bundle_id} = ExSolana.Jito.send_bundle(bundle)
+```
+
+## Supported Programs
+
+Built-in decoders and helpers for:
+
+- **SPL Token**: Token operations, mint/burn, transfers
+- **Jupiter**: DEX aggregator swaps
+- **Raydium**: AMM pools (V4, CAMM, CPMM)
+- **System Program**: Account creation, transfers
+- **Compute Budget**: Priority fees, compute limits
+- **Pump.fun**: Token creation and trading (see below)
 
 ---
 
-# 🚀 Pump.fun Integration
+# Pump.fun Integration
 
-This library provides comprehensive support for interacting with [pump.fun](https://pump.fun), the most popular token launch platform on Solana. This section provides everything you need to understand and use pump.fun functionality through the `ex_solana` library.
+Support for interacting with [pump.fun](https://pump.fun), a token launch platform on Solana. This section covers pump.fun functionality in the `ex_solana` library.
 
 ## Table of Contents
 

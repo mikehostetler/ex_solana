@@ -31,7 +31,8 @@ defmodule ExSolana.MixProject do
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:jason, "~> 1.4"},
-      {:typed_struct, "~> 0.3.0"},  # Changed from typedstruct to avoid duplicates
+      # Changed from typedstruct to avoid duplicates
+      {:typed_struct, "~> 0.3.0"},
       {:basefiftyeight, "~> 0.1.0"},
       {:decimal, "~> 2.1"},
       {:ed25519, "~> 1.3"},

@@ -106,6 +106,7 @@ defmodule ExSolana.RPC do
   defp add_cache_middleware(middleware) do
     # Use Application.get_env instead of Mix.env() for production compatibility
     env = Application.get_env(:ex_solana, :env, :prod)
+
     if env in [:dev, :test] and Config.get({:cache, :enabled}) do
       debug("Adding cache middleware")
       middleware ++ [RPC.RequestCache]
