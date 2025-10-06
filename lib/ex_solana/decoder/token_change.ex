@@ -15,7 +15,9 @@ defmodule ExSolana.Decoder.TokenChange do
 
   defp get_fee(%{transaction: %{meta: %{fee: fee}}}), do: fee
 
-  defp compute_sol_balance_changes(%{transaction: %{meta: meta, transaction: %{message: message}}}) do
+  defp compute_sol_balance_changes(%{
+         transaction: %{meta: meta, transaction: %{message: message}}
+       }) do
     account_keys = message.account_keys
     fee_payer = List.first(account_keys)
 
@@ -39,7 +41,9 @@ defmodule ExSolana.Decoder.TokenChange do
     end)
   end
 
-  defp compute_token_balance_changes(%{transaction: %{meta: meta, transaction: %{message: message}}}) do
+  defp compute_token_balance_changes(%{
+         transaction: %{meta: meta, transaction: %{message: message}}
+       }) do
     pre_balances = Map.new(meta.pre_token_balances, &{&1.account_index, &1})
     post_balances = Map.new(meta.post_token_balances, &{&1.account_index, &1})
 

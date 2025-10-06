@@ -59,14 +59,8 @@ defmodule ExSolana.Transaction.Builder do
   """
   @spec payer(t(), ExSolana.key()) :: t()
   def payer(%__MODULE__{} = builder, payer) do
-    case Helpers.decode_if_base58(payer) do
-      {:ok, decoded_payer} ->
-        %{builder | payer: decoded_payer}
-
-      {:error, reason} ->
-        Logger.warning("Failed to decode payer: #{inspect(reason)}")
-        builder
-    end
+    {:ok, decoded_payer} = Helpers.decode_if_base58(payer)
+    %{builder | payer: decoded_payer}
   end
 
   @doc """
@@ -112,7 +106,8 @@ defmodule ExSolana.Transaction.Builder do
   Adds Address Lookup Tables to the transaction builder.
   """
   @spec add_address_lookup_tables(t(), [binary()]) :: t()
-  def add_address_lookup_tables(%__MODULE__{} = builder, address_lookup_tables) when is_list(address_lookup_tables) do
+  def add_address_lookup_tables(%__MODULE__{} = builder, address_lookup_tables)
+      when is_list(address_lookup_tables) do
     %{builder | address_lookup_tables: builder.address_lookup_tables ++ address_lookup_tables}
   end
 
@@ -137,7 +132,7 @@ defmodule ExSolana.Transaction.Builder do
       case create_transaction(builder) do
         {:ok, tx} ->
           case ExSolana.Transaction.validate_limits(tx) do
-            :ok -> tx
+            :ok -> {:ok, tx}
             {:error, _reason} -> split_transaction(tx)
           end
 
@@ -146,10 +141,10 @@ defmodule ExSolana.Transaction.Builder do
       end
 
     case result do
-      %ExSolana.Transaction{} = tx ->
+      {:ok, %ExSolana.Transaction{} = tx} ->
         maybe_encode(tx, encode, builder.address_lookup_tables)
 
-      [%ExSolana.Transaction{} | _] = txs ->
+      {:ok, [%ExSolana.Transaction{} | _] = txs} ->
         Enum.map(txs, &maybe_encode(&1, encode, builder.address_lookup_tables))
 
       other ->
@@ -205,7 +200,8 @@ defmodule ExSolana.Transaction.Builder do
   end
 
   defp split_instructions(%Transaction{} = tx) do
-    Enum.reduce_while(tx.instructions, {[], tx.instructions}, fn instruction, {valid, remaining} ->
+    Enum.reduce_while(tx.instructions, {[], tx.instructions}, fn instruction,
+                                                                 {valid, remaining} ->
       candidate_tx = %Transaction{tx | instructions: valid ++ [instruction]}
 
       case Transaction.validate_limits(candidate_tx) do

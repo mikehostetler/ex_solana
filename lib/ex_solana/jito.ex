@@ -42,7 +42,8 @@ defmodule ExSolana.Jito do
       ] ++
         Enum.map(@jito_regions, fn {region, config} ->
           Supervisor.child_spec(
-            {ExSolana.Jito.SearcherClient, [name: client_name(region), url: config.block_engine_url]},
+            {ExSolana.Jito.SearcherClient,
+             [name: client_name(region), url: config.block_engine_url]},
             id: :"searcher_client_#{region}"
           )
         end)
@@ -110,7 +111,8 @@ defmodule ExSolana.Jito do
   defp send_bundle_to_regions(bundle) do
     sorted_regions = Enum.sort_by(@jito_regions, fn {_, config} -> config.priority end)
 
-    Enum.reduce_while(sorted_regions, {:error, :all_regions_unavailable}, fn {region, _config}, acc ->
+    Enum.reduce_while(sorted_regions, {:error, :all_regions_unavailable}, fn {region, _config},
+                                                                             acc ->
       case check_rate_limit(region) do
         :ok ->
           case SearcherClient.send_bundle(client_name(region), bundle) do

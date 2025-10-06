@@ -12,9 +12,9 @@ defmodule ExSolana.Program.IDLMacros.GenerateInvocationAnalyzers do
       if Enum.empty?(idl.instructions || []) do
         nil
       else
-        @instructions for {ix, index} <- Enum.with_index(idl.instructions),
+        @instructions for ix <- idl.instructions || [],
                           into: %{},
-                          do: {index, String.to_atom(Macro.underscore(ix.name))}
+                          do: {ix.discriminator, String.to_atom(Macro.underscore(ix.name))}
 
         @doc """
         Returns a map of instruction discriminants to their corresponding atom names.
@@ -61,7 +61,7 @@ defmodule ExSolana.Program.IDLMacros.GenerateInvocationAnalyzers do
         end
 
         # Generate analyzer functions for each instruction
-        for ix <- idl.instructions do
+        for ix <- idl.instructions || [] do
           ix_name = String.to_atom(Macro.underscore(ix.name))
 
           @doc """

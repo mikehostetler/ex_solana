@@ -165,7 +165,8 @@ defmodule ExSolana.Geyser.YellowstoneClient do
   end
 
   @impl true
-  def handle_cast(:unsubscribe, %{subscription: subscription} = state) when not is_nil(subscription) do
+  def handle_cast(:unsubscribe, %{subscription: subscription} = state)
+      when not is_nil(subscription) do
     Task.shutdown(subscription)
     {:noreply, %{state | subscription: nil}}
   end
@@ -212,7 +213,8 @@ defmodule ExSolana.Geyser.YellowstoneClient do
   end
 
   @impl true
-  def handle_call({:subscribe, _request}, _from, %{subscription: subscription} = state) when not is_nil(subscription) do
+  def handle_call({:subscribe, _request}, _from, %{subscription: subscription} = state)
+      when not is_nil(subscription) do
     {:reply, {:error, :already_subscribed}, state}
   end
 
@@ -232,7 +234,8 @@ defmodule ExSolana.Geyser.YellowstoneClient do
 
   @impl true
   def handle_call({:get_block_height, commitment}, _from, %{channel: channel} = state) do
-    {:reply, Stub.get_block_height(channel, struct(GetBlockHeightRequest, commitment: commitment)), state}
+    {:reply,
+     Stub.get_block_height(channel, struct(GetBlockHeightRequest, commitment: commitment)), state}
   end
 
   @impl true
@@ -241,7 +244,11 @@ defmodule ExSolana.Geyser.YellowstoneClient do
   end
 
   @impl true
-  def handle_call({:is_blockhash_valid, blockhash, commitment}, _from, %{channel: channel} = state) do
+  def handle_call(
+        {:is_blockhash_valid, blockhash, commitment},
+        _from,
+        %{channel: channel} = state
+      ) do
     {:reply,
      Stub.is_blockhash_valid(
        channel,

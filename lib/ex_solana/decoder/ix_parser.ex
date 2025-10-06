@@ -52,7 +52,11 @@ defmodule ExSolana.Decoder.IxParser do
     }
   end
 
-  defp merge_instruction(%Node{children: children, level: level} = node, instruction, inner_instructions)
+  defp merge_instruction(
+         %Node{children: children, level: level} = node,
+         instruction,
+         inner_instructions
+       )
        when length(children) > 0 and level <= 1 do
     merged_children = merge_children(children, inner_instructions)
 

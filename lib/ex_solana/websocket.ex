@@ -193,7 +193,8 @@ defmodule ExSolana.Websocket do
         request = Request.build(unsubscribe_method, [subscription_id])
         debug("Sending unsubscribe request: #{inspect(request)}")
 
-        {:reply, :ok, {:text, Jason.encode!(request)}, %{state | subscriptions: new_subscriptions}}
+        {:reply, :ok, {:text, Jason.encode!(request)},
+         %{state | subscriptions: new_subscriptions}}
     end
   end
 
@@ -212,7 +213,10 @@ defmodule ExSolana.Websocket do
   # Private functions
 
   defp process_message(
-         %{"method" => _method, "params" => %{"result" => _result, "subscription" => subscription_id}} = msg,
+         %{
+           "method" => _method,
+           "params" => %{"result" => _result, "subscription" => subscription_id}
+         } = msg,
          state
        ) do
     debug("Received subscription message for subscription ID: #{subscription_id}")

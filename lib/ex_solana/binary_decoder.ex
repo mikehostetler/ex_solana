@@ -50,6 +50,21 @@ defmodule ExSolana.BinaryDecoder do
     result
   end
 
+  def decode(data, pattern) when is_binary(data) and is_list(pattern) do
+    debug("Starting decode with ordered pattern", data: data, pattern: pattern)
+
+    result =
+      Enum.reduce(pattern, {%{}, data}, fn {key, type}, {acc, rest} ->
+        debug("Decoding field", key: key, type: type)
+        {value, new_rest} = decode_field(rest, type)
+        debug("Decoded field", key: key, value: value)
+        {Map.put(acc, key, value), new_rest}
+      end)
+
+    debug("Finished decode", result: result)
+    result
+  end
+
   @doc """
   Decodes a single field based on its type.
 
@@ -70,57 +85,81 @@ defmodule ExSolana.BinaryDecoder do
     result
   end
 
-  defp do_decode_field(data, "u8") when byte_size(data) < 1, do: {{:insufficient_data, "u8"}, data}
+  defp do_decode_field(data, "u8") when byte_size(data) < 1,
+    do: {{:insufficient_data, "u8"}, data}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(8), rest::binary>>, "u8"), do: {value, rest}
+  defp do_decode_field(<<value::little-unsigned-integer-size(8), rest::binary>>, "u8"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "u16") when byte_size(data) < 2, do: {{:insufficient_data, "u16"}, data}
+  defp do_decode_field(data, "u16") when byte_size(data) < 2,
+    do: {{:insufficient_data, "u16"}, data}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(16), rest::binary>>, "u16"), do: {value, rest}
+  defp do_decode_field(<<value::little-unsigned-integer-size(16), rest::binary>>, "u16"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "u32") when byte_size(data) < 4, do: {{:insufficient_data, "u32"}, data}
+  defp do_decode_field(data, "u32") when byte_size(data) < 4,
+    do: {{:insufficient_data, "u32"}, data}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(32), rest::binary>>, "u32"), do: {value, rest}
+  defp do_decode_field(<<value::little-unsigned-integer-size(32), rest::binary>>, "u32"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "u64") when byte_size(data) < 8, do: {{:insufficient_data, "u64"}, data}
+  defp do_decode_field(data, "u64") when byte_size(data) < 8,
+    do: {{:insufficient_data, "u64"}, data}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(64), rest::binary>>, "u64"), do: {value, rest}
+  defp do_decode_field(<<value::little-unsigned-integer-size(64), rest::binary>>, "u64"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "u128") when byte_size(data) < 16, do: {{:insufficient_data, "u128"}, data}
+  defp do_decode_field(data, "u128") when byte_size(data) < 16,
+    do: {{:insufficient_data, "u128"}, data}
 
-  defp do_decode_field(<<value::little-unsigned-integer-size(128), rest::binary>>, "u128"), do: {value, rest}
+  defp do_decode_field(<<value::little-unsigned-integer-size(128), rest::binary>>, "u128"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "i8") when byte_size(data) < 1, do: {{:insufficient_data, "i8"}, data}
+  defp do_decode_field(data, "i8") when byte_size(data) < 1,
+    do: {{:insufficient_data, "i8"}, data}
 
-  defp do_decode_field(<<value::little-signed-integer-size(8), rest::binary>>, "i8"), do: {value, rest}
+  defp do_decode_field(<<value::little-signed-integer-size(8), rest::binary>>, "i8"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "i16") when byte_size(data) < 2, do: {{:insufficient_data, "i16"}, data}
+  defp do_decode_field(data, "i16") when byte_size(data) < 2,
+    do: {{:insufficient_data, "i16"}, data}
 
-  defp do_decode_field(<<value::little-signed-integer-size(16), rest::binary>>, "i16"), do: {value, rest}
+  defp do_decode_field(<<value::little-signed-integer-size(16), rest::binary>>, "i16"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "i32") when byte_size(data) < 4, do: {{:insufficient_data, "i32"}, data}
+  defp do_decode_field(data, "i32") when byte_size(data) < 4,
+    do: {{:insufficient_data, "i32"}, data}
 
-  defp do_decode_field(<<value::little-signed-integer-size(32), rest::binary>>, "i32"), do: {value, rest}
+  defp do_decode_field(<<value::little-signed-integer-size(32), rest::binary>>, "i32"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "i64") when byte_size(data) < 8, do: {{:insufficient_data, "i64"}, data}
+  defp do_decode_field(data, "i64") when byte_size(data) < 8,
+    do: {{:insufficient_data, "i64"}, data}
 
-  defp do_decode_field(<<value::little-signed-integer-size(64), rest::binary>>, "i64"), do: {value, rest}
+  defp do_decode_field(<<value::little-signed-integer-size(64), rest::binary>>, "i64"),
+    do: {value, rest}
 
-  defp do_decode_field(data, "f32") when byte_size(data) < 4, do: {{:insufficient_data, "f32"}, data}
+  defp do_decode_field(data, "f32") when byte_size(data) < 4,
+    do: {{:insufficient_data, "f32"}, data}
 
   defp do_decode_field(<<value::little-float-size(32), rest::binary>>, "f32"), do: {value, rest}
 
-  defp do_decode_field(data, "f64") when byte_size(data) < 8, do: {{:insufficient_data, "f64"}, data}
+  defp do_decode_field(data, "f64") when byte_size(data) < 8,
+    do: {{:insufficient_data, "f64"}, data}
 
   defp do_decode_field(<<value::little-float-size(64), rest::binary>>, "f64"), do: {value, rest}
 
-  defp do_decode_field(data, "bool") when byte_size(data) < 1, do: {{:insufficient_data, "bool"}, data}
+  defp do_decode_field(data, "bool") when byte_size(data) < 1,
+    do: {{:insufficient_data, "bool"}, data}
 
-  defp do_decode_field(<<value::unsigned-integer-size(8), rest::binary>>, "bool"), do: {value != 0, rest}
+  defp do_decode_field(<<value::unsigned-integer-size(8), rest::binary>>, "bool"),
+    do: {value != 0, rest}
 
-  defp do_decode_field(data, "publicKey") when byte_size(data) < 32, do: {{:insufficient_data, "publicKey"}, data}
+  defp do_decode_field(data, "publicKey") when byte_size(data) < 32,
+    do: {{:insufficient_data, "publicKey"}, data}
 
-  defp do_decode_field(<<value::binary-size(32), rest::binary>>, "publicKey"), do: {B58.encode58(value), rest}
+  defp do_decode_field(<<value::binary-size(32), rest::binary>>, "publicKey"),
+    do: {B58.encode58(value), rest}
 
   defp do_decode_field(data, [type, count]) when is_list(type) do
     debug("Decoding array", type: type, count: count)

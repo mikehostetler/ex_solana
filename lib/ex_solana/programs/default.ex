@@ -83,7 +83,9 @@ defmodule ExSolana.Programs.Default do
 
   defp extract_u8_discriminator(_), do: :error
 
-  defp extract_u32_discriminator(<<discriminator::little-unsigned-integer-size(32), rest::binary>>) do
+  defp extract_u32_discriminator(
+         <<discriminator::little-unsigned-integer-size(32), rest::binary>>
+       ) do
     if discriminator <= 1_000_000 do
       {:ok, {{:discriminator_32, discriminator}, rest}}
     else
@@ -93,7 +95,9 @@ defmodule ExSolana.Programs.Default do
 
   defp extract_u32_discriminator(_), do: :error
 
-  defp extract_u64_discriminator(<<discriminator::little-unsigned-integer-size(64), rest::binary>>) do
+  defp extract_u64_discriminator(
+         <<discriminator::little-unsigned-integer-size(64), rest::binary>>
+       ) do
     if discriminator <= 1_000_000_000_000 do
       {:ok, {{:discriminator_64, discriminator}, rest}}
     else

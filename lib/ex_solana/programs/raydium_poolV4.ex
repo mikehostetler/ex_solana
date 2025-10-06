@@ -83,7 +83,8 @@ defmodule ExSolana.Program.Raydium.PoolV4 do
     end
   end
 
-  defp get_token_balance_changes(%{additional: %{token_balance_changes: changes}}) when is_list(changes) do
+  defp get_token_balance_changes(%{additional: %{token_balance_changes: changes}})
+       when is_list(changes) do
     debug("Token balance changes found", changes: changes)
     {:ok, changes}
   end
@@ -132,7 +133,8 @@ defmodule ExSolana.Program.Raydium.PoolV4 do
     end
   end
 
-  defp calculate_price(amount_in, amount_out) when is_number(amount_in) and is_number(amount_out) and amount_out != 0 do
+  defp calculate_price(amount_in, amount_out)
+       when is_number(amount_in) and is_number(amount_out) and amount_out != 0 do
     price = Decimal.div(Decimal.new(amount_in), Decimal.new(amount_out))
     debug("Price calculated", amount_in: amount_in, amount_out: amount_out, price: price)
     price

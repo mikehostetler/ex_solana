@@ -99,7 +99,10 @@ defmodule ExSolana.Jito.BlockEngineClient do
   end
 
   @impl true
-  def handle_cast({:send_packet_batch_update, update}, %{streams: %{expiring_packet: stream}} = state) do
+  def handle_cast(
+        {:send_packet_batch_update, update},
+        %{streams: %{expiring_packet: stream}} = state
+      ) do
     GRPC.Stub.send_request(stream, %PacketBatchUpdate{msg: {:batches, update}})
     {:noreply, state}
   end
@@ -117,16 +120,10 @@ defmodule ExSolana.Jito.BlockEngineClient do
   defp handle_stream_data(data, state) do
     # Here you would implement the logic to decode the data based on the stream type
     # For example:
-    case decode_stream_data(data) do
-      {:ok, decoded_data} ->
-        Logger.info("Received stream data: #{inspect(decoded_data)}")
-        # Process the decoded data as needed
-        {:noreply, state}
-
-      {:error, error} ->
-        Logger.error("Error decoding stream data: #{inspect(error)}")
-        {:noreply, state}
-    end
+    {:ok, decoded_data} = decode_stream_data(data)
+    Logger.info("Received stream data: #{inspect(decoded_data)}")
+    # Process the decoded data as needed
+    {:noreply, state}
   end
 
   defp decode_stream_data(data) do

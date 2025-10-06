@@ -48,7 +48,13 @@ defmodule ExSolana.Decoder.TxnDecoder do
 
   defp do_decode(_), do: {:error, :invalid_transaction_structure}
 
-  defp decode_inner_transaction(%{transaction: txn, signature: sig, meta: meta, is_vote: is_vote, index: index}) do
+  defp decode_inner_transaction(%{
+         transaction: txn,
+         signature: sig,
+         meta: meta,
+         is_vote: is_vote,
+         index: index
+       }) do
     debug("Decoding transaction components", signature: sig, is_vote: is_vote, index: index)
 
     with {:ok, decoded_txn} <- decode_transaction(txn),
@@ -148,7 +154,10 @@ defmodule ExSolana.Decoder.TxnDecoder do
     result
   end
 
-  defp decode_instruction(%{program_id_index: pid_index, accounts: accs, data: data}, account_keys) do
+  defp decode_instruction(
+         %{program_id_index: pid_index, accounts: accs, data: data},
+         account_keys
+       ) do
     debug("Decoding instruction", program_id_index: pid_index, accounts: accs, data: data)
     program_id = Enum.at(account_keys, pid_index)
     decoded_accounts = decode_account_indexes(accs, account_keys)

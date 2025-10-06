@@ -56,12 +56,15 @@ defmodule ExSolana.IDL.Parser do
          {:ok, errors} <- parse_optional_errors(json["errors"]),
          {:ok, constants} <- parse_optional_constants(json["constants"]),
          {:ok, metadata} <- parse_optional_metadata(json["metadata"]) do
+      # Link accounts to their type definitions
+      linked_accounts = link_accounts_to_types(accounts, types)
+
       {:ok,
        %ExSolana.IDL.Core{
          version: version,
          name: name,
          instructions: instructions,
-         accounts: accounts,
+         accounts: linked_accounts,
          types: types,
          events: events,
          errors: errors,
@@ -69,6 +72,23 @@ defmodule ExSolana.IDL.Parser do
          metadata: metadata
        }}
     end
+  end
+
+  # Link accounts to their corresponding type definitions
+  defp link_accounts_to_types(nil, _types), do: nil
+  defp link_accounts_to_types(accounts, nil), do: accounts
+
+  defp link_accounts_to_types(accounts, types) do
+    # Create a map of type names to type definitions
+    types_map = Enum.into(types, %{}, fn type_def -> {type_def.name, type_def} end)
+
+    # Link each account to its type definition
+    Enum.map(accounts, fn account ->
+      case Map.get(types_map, account.name) do
+        nil -> account
+        type_def -> Map.put(account, :type, type_def.type)
+      end
+    end)
   end
 
   # Update these functions to handle optional fields
@@ -152,10 +172,13 @@ defmodule ExSolana.IDL.Parser do
     end
   end
 
+  defp parse_optional_type_def_ty_struct(nil), do: {:ok, nil}
+  defp parse_optional_type_def_ty_struct(type), do: parse_type_def_ty_struct(type)
+
   defp parse_account_def(account) do
     with {:ok, name} <- parse_name(account["name"]),
          {:ok, discriminator} <- parse_discriminator(account["discriminator"]),
-         {:ok, type} <- parse_type_def_ty_struct(account["type"]),
+         {:ok, type} <- parse_optional_type_def_ty_struct(account["type"]),
          {:ok, docs} <- parse_optional_docs(account["docs"]) do
       {:ok,
        %{
@@ -294,10 +317,14 @@ defmodule ExSolana.IDL.Parser do
   end
 
   defp parse_instruction_account(account) do
+    # Handle different key conventions: isMut/writable and isSigner/signer
+    is_mut_val = Map.get(account, "isMut", Map.get(account, "writable"))
+    is_signer_val = Map.get(account, "isSigner", Map.get(account, "signer"))
+
     with {:ok, name} <- parse_name(account["name"]),
-         {:ok, is_mut} <- parse_boolean(account["isMut"]),
-         {:ok, is_signer} <- parse_boolean(account["isSigner"]),
-         {:ok, docs} <- parse_docs(account["docs"]),
+         {:ok, is_mut} <- parse_boolean(is_mut_val),
+         {:ok, is_signer} <- parse_boolean(is_signer_val),
+         {:ok, docs} <- parse_optional_docs(account["docs"]),
          {:ok, optional} <- parse_optional_boolean(account["optional"]) do
       {:ok,
        %{
@@ -387,6 +414,9 @@ defmodule ExSolana.IDL.Parser do
     end
   end
 
+  # Add this line to handle missing fields
+  defp parse_event_fields(nil), do: {:ok, nil}
+
   defp parse_event_fields(fields) when is_list(fields) do
     parsed_fields = Enum.map(fields, &parse_event_field/1)
 
@@ -442,6 +472,8 @@ defmodule ExSolana.IDL.Parser do
   defp parse_optional_fields(fields), do: parse_fields(fields)
 
   defp parse_boolean(value) when is_boolean(value), do: {:ok, value}
+  # Add this line
+  defp parse_boolean(nil), do: {:ok, false}
   defp parse_boolean(_), do: {:error, "Invalid boolean value"}
 
   defp parse_optional_boolean(nil), do: {:ok, nil}

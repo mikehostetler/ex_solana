@@ -31,15 +31,15 @@ defmodule ExSolana.MixProject do
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:jason, "~> 1.4"},
-      {:typedstruct, "~> 0.5.3"},
+      # Changed from typedstruct to avoid duplicates
+      {:typed_struct, "~> 0.3.0"},
       {:basefiftyeight, "~> 0.1.0"},
       {:decimal, "~> 2.1"},
       {:ed25519, "~> 1.3"},
       {:mnemonic, "~> 0.3.1"},
       {:block_keys, "~> 1.0"},
-      # Protobuf
+      # Protobuf - removed google_protos as protobuf already includes Google.Protobuf.* modules
       {:protobuf, "~> 0.14.0"},
-      {:google_protos, "~> 0.4.0"},
       {:protobuf_generate, "~> 0.1.0"},
       {:grpc, "~> 0.9"},
 
@@ -47,6 +47,7 @@ defmodule ExSolana.MixProject do
       {:mint, "~> 1.6"},
       {:ex_rated, "~> 2.1"},
       {:phx_json_rpc, "~> 0.7"},
+      {:ex_json_schema, "~> 0.11.1", override: true},
 
       # Broadway
       {:broadway, "~> 1.1"},

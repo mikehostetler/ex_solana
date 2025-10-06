@@ -33,7 +33,11 @@ defmodule ExSolana.Native.SystemProgram.Nonce do
 
   def from_account_info(_), do: :error
 
-  defp from_nonce_account_info(%{"authority" => authority, "blockhash" => blockhash, "feeCalculator" => calculator}) do
+  defp from_nonce_account_info(%{
+         "authority" => authority,
+         "blockhash" => blockhash,
+         "feeCalculator" => calculator
+       }) do
     %{
       authority: ExSolana.pubkey!(authority),
       blockhash: B58.decode58!(blockhash),

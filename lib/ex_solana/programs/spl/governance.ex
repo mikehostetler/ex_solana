@@ -205,7 +205,8 @@ defmodule ExSolana.SPL.Governance do
   end
 
   @doc false
-  def validate_vote({rank, weight} = vote) when rank in 0..255 and weight in 0..100, do: {:ok, vote}
+  def validate_vote({rank, weight} = vote) when rank in 0..255 and weight in 0..100,
+    do: {:ok, vote}
 
   def validate_vote(other), do: {:error, "Expected a {rank, weight} tuple, got #{inspect(other)}"}
 
@@ -311,7 +312,8 @@ defmodule ExSolana.SPL.Governance do
             addin_accts,
             if(addin_accts == [], do: [], else: [%Account{key: realm_config, writable?: true}])
           ]),
-        data: Instruction.encode_data([0, {byte_size(name), 32}, name | realm_config_data(params)])
+        data:
+          Instruction.encode_data([0, {byte_size(name), 32}, name | realm_config_data(params)])
       }
     end
   end
@@ -1123,7 +1125,8 @@ defmodule ExSolana.SPL.Governance do
   end
 
   # https://docs.rs/spl-governance/2.1.4/spl_governance/state/proposal/enum.VoteType.html#variant.MultiChoice
-  defp check_proposal_options(%{vote_type: {:multiple, n}, options: options}) when n > length(options) do
+  defp check_proposal_options(%{vote_type: {:multiple, n}, options: options})
+       when n > length(options) do
     {:error, "number of choices greater than options available"}
   end
 
@@ -1222,7 +1225,8 @@ defmodule ExSolana.SPL.Governance do
     beneficiary: [
       type: {:custom, Key, :check, []},
       required: true,
-      doc: "Public key of the account to receive the disposed signatory record account's lamports."
+      doc:
+        "Public key of the account to receive the disposed signatory record account's lamports."
     ],
     program: [
       type: {:custom, Key, :check, []},

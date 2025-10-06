@@ -30,8 +30,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeEvents do
 
   defp decode_event_data(
          :init,
-         <<time::little-64, pc_decimals, coin_decimals, pc_lot_size::little-64, coin_lot_size::little-64,
-           pc_amount::little-64, coin_amount::little-64, market::binary-32>>
+         <<time::little-64, pc_decimals, coin_decimals, pc_lot_size::little-64,
+           coin_lot_size::little-64, pc_amount::little-64, coin_amount::little-64,
+           market::binary-32>>
        ) do
     {:init,
      %{
@@ -48,9 +49,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeEvents do
 
   defp decode_event_data(
          :deposit,
-         <<max_coin::little-64, max_pc::little-64, base::little-64, pool_coin::little-64, pool_pc::little-64,
-           pool_lp::little-64, calc_pnl_x::little-128, calc_pnl_y::little-128, deduct_coin::little-64,
-           deduct_pc::little-64, mint_lp::little-64>>
+         <<max_coin::little-64, max_pc::little-64, base::little-64, pool_coin::little-64,
+           pool_pc::little-64, pool_lp::little-64, calc_pnl_x::little-128, calc_pnl_y::little-128,
+           deduct_coin::little-64, deduct_pc::little-64, mint_lp::little-64>>
        ) do
     {:deposit,
      %{
@@ -70,8 +71,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeEvents do
 
   defp decode_event_data(
          :withdraw,
-         <<withdraw_lp::little-64, user_lp::little-64, pool_coin::little-64, pool_pc::little-64, pool_lp::little-64,
-           calc_pnl_x::little-128, calc_pnl_y::little-128, out_coin::little-64, out_pc::little-64>>
+         <<withdraw_lp::little-64, user_lp::little-64, pool_coin::little-64, pool_pc::little-64,
+           pool_lp::little-64, calc_pnl_x::little-128, calc_pnl_y::little-128,
+           out_coin::little-64, out_pc::little-64>>
        ) do
     {:withdraw,
      %{
@@ -89,8 +91,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeEvents do
 
   defp decode_event_data(
          :swap_base_in,
-         <<amount_in::little-64, minimum_amount_out::little-64, direction::little-64, user_source::little-64,
-           pool_coin::little-64, pool_pc::little-64, out_amount::little-64>>
+         <<amount_in::little-64, minimum_amount_out::little-64, direction::little-64,
+           user_source::little-64, pool_coin::little-64, pool_pc::little-64,
+           out_amount::little-64>>
        ) do
     {:swap_base_in,
      %{
@@ -106,8 +109,9 @@ defmodule ExSolana.Program.Raydium.PoolV4.DecodeEvents do
 
   defp decode_event_data(
          :swap_base_out,
-         <<max_amount_in::little-64, amount_out::little-64, direction::little-64, user_source::little-64,
-           pool_coin::little-64, pool_pc::little-64, deduct_in::little-64>>
+         <<max_amount_in::little-64, amount_out::little-64, direction::little-64,
+           user_source::little-64, pool_coin::little-64, pool_pc::little-64,
+           deduct_in::little-64>>
        ) do
     {:swap_base_out,
      %{

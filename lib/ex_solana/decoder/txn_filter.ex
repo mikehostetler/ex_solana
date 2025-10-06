@@ -29,7 +29,8 @@ defmodule ExSolana.Decoder.TxnFilter do
   Returns `{:ok, filtered_actions}` or `{:error, reason}`.
   """
   @spec filter(list(), t()) :: {:ok, list()} | {:error, atom()}
-  def filter(actions, %__MODULE__{token_swap: token_swap_filter} = _filters) when is_list(actions) do
+  def filter(actions, %__MODULE__{token_swap: token_swap_filter} = _filters)
+      when is_list(actions) do
     filtered_actions = Enum.filter(actions, &action_matches_filter?(&1, token_swap_filter))
 
     case filtered_actions do
@@ -62,12 +63,18 @@ defmodule ExSolana.Decoder.TxnFilter do
       (is_nil(filter_to) or to == filter_to)
   end
 
-  defp amount_in_range?(%TokenSwap{amount_in: amount}, %TokenSwapFilter{min_amount_in: min, max_amount_in: max}) do
+  defp amount_in_range?(%TokenSwap{amount_in: amount}, %TokenSwapFilter{
+         min_amount_in: min,
+         max_amount_in: max
+       }) do
     (is_nil(min) or Decimal.compare(amount, min) in [:gt, :eq]) and
       (is_nil(max) or Decimal.compare(amount, max) in [:lt, :eq])
   end
 
-  defp amount_out_range?(%TokenSwap{amount_out: amount}, %TokenSwapFilter{min_amount_out: min, max_amount_out: max}) do
+  defp amount_out_range?(%TokenSwap{amount_out: amount}, %TokenSwapFilter{
+         min_amount_out: min,
+         max_amount_out: max
+       }) do
     (is_nil(min) or Decimal.compare(amount, min) in [:gt, :eq]) and
       (is_nil(max) or Decimal.compare(amount, max) in [:lt, :eq])
   end

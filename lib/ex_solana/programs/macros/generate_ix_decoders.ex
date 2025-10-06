@@ -11,9 +11,9 @@ defmodule ExSolana.Program.IDLMacros.GenerateIXDecoders do
       if Enum.empty?(idl.instructions || []) do
         nil
       else
-        @instructions for {ix, index} <- Enum.with_index(idl.instructions),
+        @instructions for ix <- idl.instructions || [],
                           into: %{},
-                          do: {index, String.to_atom(Macro.underscore(ix.name))}
+                          do: {ix.discriminator, String.to_atom(Macro.underscore(ix.name))}
 
         @doc """
         Returns a map of instruction discriminants to their corresponding atom names.
@@ -48,18 +48,27 @@ defmodule ExSolana.Program.IDLMacros.GenerateIXDecoders do
 
           result =
             case data do
-              <<discriminant::little-unsigned-integer-size(8), rest::binary>> ->
-                instruction_type = @instructions[discriminant]
+              <<discriminator::binary-size(8), rest::binary>> ->
+                discriminator_list = :binary.bin_to_list(discriminator)
+                instruction_type = @instructions[discriminator_list]
 
                 debug("Identified instruction type",
                   type: instruction_type,
-                  discriminant: discriminant
+                  discriminator: discriminator_list
                 )
 
-                apply(__MODULE__, String.to_atom("decode_ix_#{instruction_type}"), [rest])
+                if instruction_type do
+                  apply(__MODULE__, String.to_atom("decode_ix_#{instruction_type}"), [rest])
+                else
+                  debug("Unknown instruction discriminator", discriminator: discriminator_list)
+                  {:unknown_ix, %{data: data}}
+                end
 
               _ ->
-                debug("Unknown instruction format", data: Base.encode16(data))
+                debug("Unknown instruction format - insufficient data for discriminator",
+                  data: Base.encode16(data)
+                )
+
                 {:unknown_ix, %{data: data}}
             end
 
@@ -68,7 +77,7 @@ defmodule ExSolana.Program.IDLMacros.GenerateIXDecoders do
         end
 
         # Generate decode_ix_$name functions for each instruction
-        for ix <- idl.instructions do
+        for ix <- idl.instructions || [] do
           ix_name = String.to_atom(Macro.underscore(ix.name))
 
           field_pattern = Helpers.generate_field_pattern(ix.args)

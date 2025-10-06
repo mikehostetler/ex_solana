@@ -12,11 +12,13 @@ defmodule ExSolana.RPC.Request.GetSignaturesForAddress do
                                         [
                                           before: [
                                             type: :string,
-                                            doc: "Start searching backwards from this transaction signature."
+                                            doc:
+                                              "Start searching backwards from this transaction signature."
                                           ],
                                           until: [
                                             type: :string,
-                                            doc: "Search until this transaction signature, if found before limit reached."
+                                            doc:
+                                              "Search until this transaction signature, if found before limit reached."
                                           ],
                                           limit: [
                                             type: :integer,
