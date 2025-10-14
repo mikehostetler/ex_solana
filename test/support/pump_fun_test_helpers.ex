@@ -125,7 +125,14 @@ defmodule ExSolana.PumpFunTestHelpers do
   def encode_create_instruction_data(name, symbol, uri, creator) do
     # From IDL: discriminator [24, 30, 200, 40, 5, 28, 7, 119]
     discriminator = <<24, 30, 200, 40, 5, 28, 7, 119>>
-    creator_binary = B58.decode58!(creator)
+
+    # Handle both binary and base58 string formats
+    creator_binary =
+      if is_binary(creator) and byte_size(creator) == 32 do
+        creator
+      else
+        B58.decode58!(creator)
+      end
 
     # String encoding: u32 length + utf8 bytes
     name_data = <<byte_size(name)::little-unsigned-integer-size(32)>> <> name

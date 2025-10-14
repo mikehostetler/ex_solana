@@ -39,7 +39,7 @@ defmodule ExSolana.MixProject do
       {:mnemonic, "~> 0.3.1"},
       {:block_keys, "~> 1.0"},
       # Protobuf - removed google_protos as protobuf already includes Google.Protobuf.* modules
-      {:protobuf, "~> 0.14.0"},
+      {:protobuf, "~> 0.15.0"},
       {:protobuf_generate, "~> 0.1.0"},
       {:grpc, "~> 0.9"},
 
@@ -59,7 +59,7 @@ defmodule ExSolana.MixProject do
       {:websockex, "~> 0.4.3"},
 
       # Dev & Test Dependencies
-      {:mimic, "~> 1.7.0", only: :test},
+      {:mimic, "~> 2.1.0", only: :test},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end
