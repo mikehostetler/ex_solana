@@ -31,15 +31,6 @@ defmodule Jido.MixProject do
         summary: [threshold: 80],
         export: "cov",
         ignore_modules: [~r/^JidoTest\./]
-      ],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.github": :test,
-        "coveralls.lcov": :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test,
-        "coveralls.cobertura": :test
       ]
     ]
   end
@@ -49,6 +40,20 @@ defmodule Jido.MixProject do
     [
       extra_applications: [:logger],
       mod: {Jido.Application, []}
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.github": :test,
+        "coveralls.lcov": :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test,
+        "coveralls.cobertura": :test
+      ]
     ]
   end
 
