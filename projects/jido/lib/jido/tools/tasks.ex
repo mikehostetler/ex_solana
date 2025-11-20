@@ -101,8 +101,8 @@ defmodule Jido.Tools.Tasks.Update do
       nil ->
         {:error, :task_not_found}
 
-      task ->
-        updated_task = %Task{
+      %Task{} = task ->
+        updated_task = %{
           task
           | title: Map.get(params, :title, task.title),
             deadline: Map.get(params, :deadline, task.deadline)
@@ -153,8 +153,8 @@ defmodule Jido.Tools.Tasks.Toggle do
       nil ->
         {:error, :task_not_found}
 
-      task ->
-        updated_task = %Task{task | completed: !task.completed}
+      %Task{} = task ->
+        updated_task = %{task | completed: !task.completed}
         tasks = Map.get(context.state, :tasks, %{})
         updated_tasks = Map.put(tasks, params.id, updated_task)
 
