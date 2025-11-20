@@ -214,8 +214,8 @@ defmodule JidoTest.ExecEdgeCasesTest do
       end)
     end
 
-    test "handles task group cleanup edge cases" do
-      # This test exercises the cleanup_task_group function with orphaned processes
+    test "handles task cleanup on timeout" do
+      # This test exercises Task.Supervisor cleanup on timeout
       capture_log(fn ->
         # Start a long-running action that will timeout and trigger cleanup
         assert {:error, %Error.TimeoutError{}} =

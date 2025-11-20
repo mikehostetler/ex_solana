@@ -311,17 +311,10 @@ defmodule JidoTest.TestActions do
       name: "task_action",
       description: "Runs multiple concurrent tasks"
 
-    def run(%{count: count, delay: delay, link_to_group?: link_to_group?}, context) do
-      task_group = Map.get(context, :__task_group__)
-
+    def run(%{count: count, delay: delay, link_to_group?: _link_to_group?}, _context) do
       tasks =
         for _ <- 1..count do
           Task.Supervisor.async_nolink(Jido.Action.TaskSupervisor, fn ->
-            # Link to task group for cleanup
-            if link_to_group? do
-              Process.group_leader(self(), task_group)
-            end
-
             Process.sleep(delay)
             {:ok, %{result: "Task completed"}}
           end)
@@ -476,6 +469,10 @@ defmodule JidoTest.TestActions do
         custom: [type: {:custom, __MODULE__, :validate_custom, []}]
       ]
 
+    # WARNING: This uses String.to_atom which is UNSAFE in production!
+    # This creates new atoms from user input, which can lead to atom table exhaustion DoS.
+    # Only for testing custom validation functions - DO NOT use this pattern in real actions.
+    # In production, use String.to_existing_atom/1 or keep keys as strings.
     @spec validate_custom(any()) :: {:error, <<_::128>>} | {:ok, atom()}
     def validate_custom(value) when is_binary(value), do: {:ok, String.to_atom(value)}
     def validate_custom(_), do: {:error, "must be a string"}

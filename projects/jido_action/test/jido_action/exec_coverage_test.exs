@@ -325,7 +325,7 @@ defmodule JidoTest.ExecCoverageTest do
       end)
     end
 
-    test "action returning non-standard result gets validated as output" do
+    test "action returning non-standard result fails with execution error" do
       defmodule NonStandardResultAction do
         use Jido.Action,
           name: "non_standard_result",
@@ -338,8 +338,10 @@ defmodule JidoTest.ExecCoverageTest do
       end
 
       capture_log(fn ->
-        assert {:ok, %{value: 1}} =
+        assert {:error, %Error.ExecutionFailureError{message: message}} =
                  Exec.run(NonStandardResultAction, %{value: 1}, %{}, [])
+
+        assert message =~ "Unexpected return shape: %{value: 1}"
       end)
     end
   end
@@ -557,12 +559,12 @@ defmodule JidoTest.ExecCoverageTest do
   end
 
   describe "task cleanup coverage" do
-    test "cleanup_task_group handles orphaned processes" do
+    test "Task.Supervisor handles task shutdown on timeout" do
       capture_log(fn ->
         # Create a long-running action that will be killed to test cleanup
         async_ref = Exec.run_async(DelayAction, %{delay: 5000}, %{}, timeout: 100)
 
-        # Let it timeout to trigger cleanup
+        # Let it timeout to trigger cleanup via Task.Supervisor
         assert {:error, %Error.TimeoutError{}} = Exec.await(async_ref, 150)
       end)
     end

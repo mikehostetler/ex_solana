@@ -35,16 +35,16 @@ defmodule Jido.PlanCoverageTest do
 
   describe "Error handling coverage" do
     test "add/4 raises error when instruction normalization fails" do
-      # This tests line 172: raise "Invalid instruction format" 
-      assert_raise RuntimeError, "Invalid instruction format", fn ->
+      # This tests line 172: raise "Invalid instruction format"
+      assert_raise Jido.Action.Error.InvalidInputError, "Invalid instruction format", fn ->
         Plan.new()
-        |> Plan.add(:invalid, {:not_an_atom, %{}, []})
+        |> Plan.add(:invalid, {"not_an_atom", %{}, []})
       end
     end
 
     test "build/3 error when add_step_from_def raises exception" do
       # This tests line 287: error -> {:error, error}
-      # We need to create a case where add() raises an exception 
+      # We need to create a case where add() raises an exception
       # Since atoms are valid actions, let's use a completely invalid format
       plan_def = [
         # Invalid format - not an atom, tuple, or instruction
@@ -124,13 +124,14 @@ defmodule Jido.PlanCoverageTest do
       }
 
       plan_instruction = %Plan.PlanInstruction{
+        id: Uniq.UUID.uuid7(),
         name: :test_step,
         instruction: instruction,
         depends_on: [],
         opts: []
       }
 
-      plan = %Plan{steps: %{test_step: plan_instruction}}
+      plan = %Plan{id: Uniq.UUID.uuid7(), steps: %{test_step: plan_instruction}}
       result = Plan.to_keyword(plan)
       result_map = Map.new(result)
 
@@ -147,13 +148,14 @@ defmodule Jido.PlanCoverageTest do
       }
 
       plan_instruction = %Plan.PlanInstruction{
+        id: Uniq.UUID.uuid7(),
         name: :test_step,
         instruction: instruction,
         depends_on: [],
         opts: []
       }
 
-      plan = %Plan{steps: %{test_step: plan_instruction}}
+      plan = %Plan{id: Uniq.UUID.uuid7(), steps: %{test_step: plan_instruction}}
       result = Plan.to_keyword(plan)
       result_map = Map.new(result)
 
@@ -205,13 +207,14 @@ defmodule Jido.PlanCoverageTest do
       }
 
       plan_instruction = %Plan.PlanInstruction{
+        id: Uniq.UUID.uuid7(),
         name: :test_step,
         instruction: instruction,
         depends_on: [:step1],
         opts: []
       }
 
-      plan = %Plan{steps: %{test_step: plan_instruction}}
+      plan = %Plan{id: Uniq.UUID.uuid7(), steps: %{test_step: plan_instruction}}
       result = Plan.to_keyword(plan)
       result_map = Map.new(result)
 

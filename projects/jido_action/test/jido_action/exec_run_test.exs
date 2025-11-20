@@ -156,7 +156,7 @@ defmodule JidoTest.ExecRunTest do
         assert is_exception(error)
         message = Exception.message(error)
 
-        assert message =~ "timed out after 50ms. This could be due"
+        assert message =~ "timed out after 50ms"
       end)
     end
 

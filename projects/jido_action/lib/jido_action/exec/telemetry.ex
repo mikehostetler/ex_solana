@@ -18,7 +18,11 @@ defmodule Jido.Exec.Telemetry do
     :telemetry.execute(
       [:jido, :action, :start],
       %{system_time: System.system_time()},
-      %{action: action, params: params, context: context}
+      %{
+        action: action,
+        params: params,
+        context: context
+      }
     )
   end
 

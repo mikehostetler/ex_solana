@@ -126,15 +126,14 @@ defmodule Jido.Tools.ReqTool do
                 response = Req.request!(req_options)
                 {:ok, response}
               rescue
-                e -> {:error, %{type: :http_error, message: Exception.message(e)}}
+                e -> {:error, Error.execution_error("HTTP request failed", %{exception: e})}
               end
             else
               {:error,
-               %{
-                 type: :dependency_error,
-                 message:
-                   "Req library is required for ReqTool. Add {:req, \"~> 0.3.0\"} to your dependencies."
-               }}
+               Error.config_error(
+                 "Req library is required for ReqTool. Add {:req, \"~> 0.5\"} to your deps.",
+                 %{dependency: :req}
+               )}
             end
           end
 

@@ -31,8 +31,13 @@ defmodule JidoAction.MixProject do
       # Coverage
       test_coverage: [
         tool: ExCoveralls
-      ],
-      preferred_cli_env: [
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.github": :test,
         "coveralls.lcov": :test,
@@ -195,11 +200,13 @@ defmodule JidoAction.MixProject do
       {:telemetry_metrics, "~> 1.1"},
       {:typed_struct, "~> 0.3.0"},
       {:uniq, "~> 0.6.1"},
+      {:zoi, "~> 0.10"},
       {:splode, "~> 0.2.4"},
 
       # Skill & Action Dependencies for examples
       {:abacus, "~> 2.1"},
       {:libgraph, "~> 0.16.0"},
+      {:lua, "~> 0.3"},
       {:req, "~> 0.5.10"},
       {:tentacat, "~> 2.5"},
       {:weather, "~> 0.4.0"},
