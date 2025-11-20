@@ -180,7 +180,7 @@ defmodule Jido.Signal.Ext.Dispatch do
 
   defp deserialize_config(%{"adapter" => adapter_str, "opts" => opts_map})
        when is_binary(adapter_str) and is_map(opts_map) do
-    adapter = String.to_atom(adapter_str)
+    adapter = String.to_existing_atom(adapter_str)
     opts = deserialize_opts(opts_map)
     {adapter, opts}
   end
@@ -197,16 +197,25 @@ defmodule Jido.Signal.Ext.Dispatch do
   defp deserialize_opts(opts_map) when is_map(opts_map) do
     # Convert map with string keys back to keyword list
     # Try to deserialize string values back to atoms for known atom keys
-    Enum.map(opts_map, fn {k, v} ->
-      key = String.to_atom(k)
-      value = deserialize_value(key, v)
-      {key, value}
+    # Use to_existing_atom to prevent atom exhaustion attacks
+    Enum.reduce(opts_map, [], fn {k, v}, acc ->
+      try do
+        key = String.to_existing_atom(k)
+        value = deserialize_value(key, v)
+        [{key, value} | acc]
+      rescue
+        ArgumentError -> acc
+      end
     end)
+    |> Enum.reverse()
   end
 
   # Convert certain string values back to atoms for known keys
+  # Use to_existing_atom to prevent atom exhaustion
   defp deserialize_value(key, value) when key in [:method, :level] and is_binary(value) do
-    String.to_atom(value)
+    String.to_existing_atom(value)
+  rescue
+    ArgumentError -> value
   end
 
   defp deserialize_value(_key, value), do: value

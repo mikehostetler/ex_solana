@@ -38,6 +38,43 @@ defmodule Jido.Signal.Dispatch do
   2. Asynchronous (via `dispatch_async/2`) - Returns immediately with a task that can be monitored
   3. Batched (via `dispatch_batch/3`) - Handles large numbers of dispatches in configurable batches
 
+  ## Concurrency
+
+  When dispatching to multiple targets (via a list of configs), the dispatch system processes
+  them in parallel using `Task.Supervisor.async_stream/3`. The maximum concurrency can be
+  configured at compile-time or runtime:
+
+      # In config.exs (compile-time)
+      config :jido, :dispatch_max_concurrency, 16
+
+      # Default: 8 concurrent dispatches
+
+  This parallel processing significantly improves throughput for multiple targets. For example,
+  dispatching to 10 targets with 100ms latency each completes in ~200ms (with default concurrency)
+  instead of ~1000ms sequentially.
+
+  ## Error Handling
+
+  **BREAKING CHANGE in behavior:** When dispatching to multiple targets (list of configs),
+  `dispatch/2` now aggregates all errors instead of returning only the first error:
+
+  - Single config: `dispatch(signal, config)` returns `:ok` or `{:error, reason}`
+  - Multiple configs: `dispatch(signal, configs)` returns `:ok` or `{:error, [reason1, reason2, ...]}`
+
+  The batch dispatch function `dispatch_batch/3` continues to return indexed errors as before:
+  `{:error, [{index, reason}, ...]}`.
+
+  ## Reserved Options
+
+  The following option keys are reserved for internal use and should not be used in dispatch configurations:
+
+  * `:__validated__` - Marks pre-validated configurations (internal optimization flag)
+
+  ## Deprecated
+
+  * `batch_size` option in `dispatch_batch/3` - Kept for backwards compatibility but no longer used.
+    All dispatches now use the same parallel processing with `max_concurrency` control.
+
   ## Examples
 
       # Synchronous dispatch
@@ -50,7 +87,16 @@ defmodule Jido.Signal.Dispatch do
 
       # Batch dispatch
       configs = List.duplicate({:pid, [target: pid]}, 1000)
-      :ok = Dispatch.dispatch_batch(signal, configs, batch_size: 100)
+      :ok = Dispatch.dispatch_batch(signal, configs, max_concurrency: 20)
+
+      # Multiple targets with parallel dispatch
+      configs = [
+        {:pid, [target: pid1]},
+        {:http, [url: "https://api.example.com/webhook"]},
+        {:pubsub, [target: :my_pubsub, topic: "events"]}
+      ]
+      # Returns :ok or {:error, [error1, error2, ...]}
+      Dispatch.dispatch(signal, configs)
 
       # HTTP dispatch
       config = {:http, [
@@ -91,6 +137,11 @@ defmodule Jido.Signal.Dispatch do
 
   @default_batch_size 50
   @default_max_concurrency 5
+  @default_dispatch_max_concurrency Application.compile_env(
+                                      :jido,
+                                      :dispatch_max_concurrency,
+                                      8
+                                    )
   @normalize_errors_compile_time Application.compile_env(:jido, :normalize_dispatch_errors, false)
 
   @builtin_adapters %{
@@ -119,7 +170,11 @@ defmodule Jido.Signal.Dispatch do
   # end
 
   @doc """
-  Validates a dispatch configuration.
+  Validates a dispatch configuration without executing the dispatch.
+
+  This is useful for pre-validating configurations before dispatch time, or for testing
+  adapter configurations. Validation is automatically performed during dispatch, but
+  this function allows explicit validation for debugging or testing purposes.
 
   ## Parameters
 
@@ -144,11 +199,22 @@ defmodule Jido.Signal.Dispatch do
       ...> ]
       iex> Jido.Signal.Dispatch.validate_opts(config)
       {:ok, ^config}
+
+      # Pre-validation for testing
+      {:ok, validated} = Dispatch.validate_opts({:pid, [target: pid]})
+      # Use validated config later...
   """
   @spec validate_opts(dispatch_configs()) :: {:ok, dispatch_configs()} | {:error, term()}
   # Handle single dispatcher config
   def validate_opts({adapter, opts} = config) when is_atom(adapter) and is_list(opts) do
-    validate_single_config(config)
+    case validate_single_config(config) do
+      {:ok, {adapter, validated_opts}} ->
+        # Remove internal marker before returning to user
+        {:ok, {adapter, Keyword.delete(validated_opts, :__validated__)}}
+
+      error ->
+        error
+    end
   end
 
   # Handle list of dispatchers
@@ -156,8 +222,16 @@ defmodule Jido.Signal.Dispatch do
     results = Enum.map(configs, &validate_single_config/1)
 
     case Enum.find(results, &match?({:error, _}, &1)) do
-      nil -> {:ok, Enum.map(results, fn {:ok, value} -> value end)}
-      error -> error
+      nil ->
+        cleaned_results =
+          Enum.map(results, fn {:ok, {adapter, opts}} ->
+            {adapter, Keyword.delete(opts, :__validated__)}
+          end)
+
+        {:ok, cleaned_results}
+
+      error ->
+        error
     end
   end
 
@@ -180,10 +254,19 @@ defmodule Jido.Signal.Dispatch do
   For asynchronous dispatch, use `dispatch_async/2`.
   For batch dispatch, use `dispatch_batch/3`.
 
+  When dispatching to multiple targets (list of configs), dispatches are executed in parallel
+  with configurable concurrency (default: 8 concurrent tasks).
+
   ## Parameters
 
   - `signal` - The signal to dispatch
   - `config` - Either a single dispatch configuration tuple or a list of configurations
+
+  ## Returns
+
+  - `:ok` - All dispatches succeeded
+  - `{:error, reason}` - Single config dispatch failed
+  - `{:error, [reason1, reason2, ...]}` - One or more multi-config dispatches failed (aggregated errors)
 
   ## Examples
 
@@ -192,13 +275,22 @@ defmodule Jido.Signal.Dispatch do
       iex> Jido.Signal.Dispatch.dispatch(signal, config)
       :ok
 
-      # Multiple destinations
+      # Multiple destinations (executed in parallel)
       iex> config = [
       ...>   {:bus, [target: {:bus, :default}, stream: "events"]},
       ...>   {:pubsub, [target: :audit, topic: "audit"]}
       ...> ]
       iex> Jido.Signal.Dispatch.dispatch(signal, config)
       :ok
+
+      # Error aggregation for multiple targets
+      iex> config = [
+      ...>   {:pid, [target: pid1]},
+      ...>   {:invalid_adapter, []},
+      ...>   {:pid, [target: pid2]}
+      ...> ]
+      iex> Jido.Signal.Dispatch.dispatch(signal, config)
+      {:error, [%Jido.Signal.Error{...}]}
   """
   @spec dispatch(Jido.Signal.t(), dispatch_configs()) :: :ok | {:error, term()}
   # Handle single dispatcher
@@ -208,11 +300,28 @@ defmodule Jido.Signal.Dispatch do
 
   # Handle multiple dispatchers
   def dispatch(signal, configs) when is_list(configs) do
-    results = Enum.map(configs, &dispatch_single(signal, &1))
+    results =
+      Task.Supervisor.async_stream(
+        Jido.Signal.TaskSupervisor,
+        configs,
+        fn config -> dispatch_single(signal, config) end,
+        max_concurrency: @default_dispatch_max_concurrency,
+        ordered: true,
+        timeout: :infinity
+      )
+      |> Enum.map(fn
+        {:ok, result} -> result
+        {:exit, reason} -> {:error, reason}
+      end)
 
-    case Enum.find(results, &match?({:error, _}, &1)) do
-      nil -> :ok
-      error -> error
+    # Collect ALL errors instead of returning first error
+    errors =
+      Enum.filter(results, &match?({:error, _}, &1))
+      |> Enum.map(fn {:error, reason} -> reason end)
+
+    case errors do
+      [] -> :ok
+      _ -> {:error, errors}
     end
   end
 
@@ -260,16 +369,15 @@ defmodule Jido.Signal.Dispatch do
   Dispatches a signal to multiple destinations in batches.
 
   This is useful when dispatching to a large number of destinations to avoid
-  overwhelming the system. The dispatches are processed in batches of configurable
-  size with configurable concurrency.
+  overwhelming the system. The dispatches are processed with configurable concurrency.
 
   ## Parameters
 
   - `signal` - The signal to dispatch
   - `configs` - List of dispatch configurations
   - `opts` - Batch options:
-    * `:batch_size` - Size of each batch (default: #{@default_batch_size})
-    * `:max_concurrency` - Maximum number of concurrent batches (default: #{@default_max_concurrency})
+    * `:batch_size` - **Deprecated** (kept for backwards compatibility, no longer used)
+    * `:max_concurrency` - Maximum number of concurrent dispatches (default: #{@default_max_concurrency})
 
   ## Returns
 
@@ -279,7 +387,7 @@ defmodule Jido.Signal.Dispatch do
   ## Examples
 
       configs = List.duplicate({:pid, [target: pid]}, 1000)
-      :ok = Dispatch.dispatch_batch(signal, configs, batch_size: 100)
+      :ok = Dispatch.dispatch_batch(signal, configs, max_concurrency: 20)
   """
   @spec dispatch_batch(Jido.Signal.t(), [dispatch_config()], batch_opts()) ::
           :ok | {:error, [{non_neg_integer(), term()}]}
@@ -307,7 +415,7 @@ defmodule Jido.Signal.Dispatch do
     configs_with_index = Enum.with_index(configs)
 
     Enum.map(configs_with_index, fn {config, idx} ->
-      case validate_opts(config) do
+      case validate_single_config(config) do
         {:ok, validated_config} -> {:ok, {validated_config, idx}}
         {:error, reason} -> {:error, {idx, reason}}
       end
@@ -325,28 +433,22 @@ defmodule Jido.Signal.Dispatch do
     Enum.map(valid_configs, fn {:ok, {config, idx}} -> {config, idx} end)
   end
 
-  defp process_batches(signal, validated_configs_with_idx, batch_size, max_concurrency) do
-    if validated_configs_with_idx == [] do
-      []
-    else
-      batches = Enum.chunk_every(validated_configs_with_idx, batch_size)
-
-      Task.Supervisor.async_stream(
-        Jido.Signal.TaskSupervisor,
-        batches,
-        fn batch ->
-          Enum.map(batch, fn {config, original_idx} ->
-            case dispatch_single(signal, config) do
-              :ok -> {:ok, original_idx}
-              {:error, reason} -> {:error, {original_idx, reason}}
-            end
-          end)
-        end,
-        max_concurrency: max_concurrency,
-        ordered: true
-      )
-      |> Enum.flat_map(fn {:ok, batch_results} -> batch_results end)
-    end
+  defp process_batches(signal, validated_configs_with_idx, _batch_size, max_concurrency) do
+    # Single stream over all configs (batch_size is now a no-op for backwards compat)
+    Task.Supervisor.async_stream(
+      Jido.Signal.TaskSupervisor,
+      validated_configs_with_idx,
+      fn {config, original_idx} ->
+        case dispatch_single(signal, config) do
+          :ok -> {:ok, original_idx}
+          {:error, reason} -> {:error, {original_idx, reason}}
+        end
+      end,
+      max_concurrency: max_concurrency,
+      ordered: true,
+      timeout: :infinity
+    )
+    |> Enum.map(fn {:ok, result} -> result end)
   end
 
   defp extract_validation_errors(validation_errors) do
@@ -446,8 +548,12 @@ defmodule Jido.Signal.Dispatch do
           {:ok, {adapter, opts}}
         else
           case adapter_module.validate_opts(opts) do
-            {:ok, validated_opts} -> {:ok, {adapter, validated_opts}}
-            {:error, reason} -> normalize_validation_error(reason, adapter, {adapter, opts})
+            {:ok, validated_opts} ->
+              # Mark as validated to skip re-validation
+              {:ok, {adapter, Keyword.put(validated_opts, :__validated__, true)}}
+
+            {:error, reason} ->
+              normalize_validation_error(reason, adapter, {adapter, opts})
           end
         end
 
@@ -506,15 +612,24 @@ defmodule Jido.Signal.Dispatch do
   defp do_dispatch_with_adapter(_signal, nil, {_adapter, _opts}), do: :ok
 
   defp do_dispatch_with_adapter(signal, adapter_module, {adapter, opts}) do
-    case adapter_module.validate_opts(opts) do
-      {:ok, validated_opts} ->
-        case adapter_module.deliver(signal, validated_opts) do
-          :ok -> :ok
-          {:error, reason} -> normalize_error(reason, adapter, {adapter, opts})
-        end
+    # Skip validation if already validated
+    if Keyword.get(opts, :__validated__, false) do
+      dispatch_deliver(signal, adapter_module, adapter, opts)
+    else
+      case adapter_module.validate_opts(opts) do
+        {:ok, validated_opts} ->
+          dispatch_deliver(signal, adapter_module, adapter, validated_opts)
 
-      {:error, reason} ->
-        normalize_error(reason, adapter, {adapter, opts})
+        {:error, reason} ->
+          normalize_error(reason, adapter, {adapter, opts})
+      end
+    end
+  end
+
+  defp dispatch_deliver(signal, adapter_module, adapter, opts) do
+    case adapter_module.deliver(signal, opts) do
+      :ok -> :ok
+      {:error, reason} -> normalize_error(reason, adapter, {adapter, opts})
     end
   end
 

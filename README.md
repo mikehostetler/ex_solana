@@ -193,7 +193,7 @@ defmodule UserCreated do
     default_source: "/users",
     schema: [
       user_id: [type: :string, required: true],
-      email: [type: :string, required: true, format: ~r/@/],
+      email: [type: :string, required: true],
       name: [type: :string, required: true]
     ]
 end
@@ -228,14 +228,14 @@ routes = [
   {"audit.**", :audit_logger, 100},  # High priority
   
   # Pattern matching functions
-  {fn signal -> String.contains?(signal.type, "error") end, :error_handler}
+  {"**", fn signal -> String.contains?(signal.type, "error") end, :error_handler}
 ]
 
 {:ok, router} = Router.new(routes)
 
 # Route signals to handlers
-{:ok, targets} = Router.route(router, %Signal{type: "user.profile.updated"})
-# => {:ok, [:handle_user_updates, :audit_logger]}
+{:ok, targets} = Router.route(router, Jido.Signal.new!("user.profile.updated", %{}))
+# => {:ok, [:handle_user_updates]}
 ```
 
 ### Dispatch System

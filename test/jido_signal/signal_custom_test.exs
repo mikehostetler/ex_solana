@@ -57,7 +57,8 @@ defmodule Jido.Signal.CustomTest do
       data = %{message: "Missing user_id"}
 
       assert {:error, error} = TestSignal.new(data)
-      assert error =~ "required :user_id option not found"
+      assert error =~ "user_id"
+      assert error =~ "required"
     end
 
     test "validates data types" do
@@ -85,12 +86,15 @@ defmodule Jido.Signal.CustomTest do
 
     test "exposes metadata functions" do
       assert TestSignal.type() == "test.signal"
-      assert is_list(TestSignal.schema())
+      # Schema is now a Zoi schema struct
+      schema = TestSignal.schema()
+      assert schema != nil
       assert TestSignal.default_source() == nil
 
       metadata = TestSignal.to_json()
       assert metadata.type == "test.signal"
-      assert is_list(metadata.schema)
+      # Schema in metadata is also the Zoi schema
+      assert metadata.schema != nil
     end
 
     test "validates data with validate_data/1" do
@@ -100,7 +104,8 @@ defmodule Jido.Signal.CustomTest do
 
       invalid_data = %{message: "Missing user_id"}
       assert {:error, error} = TestSignal.validate_data(invalid_data)
-      assert error =~ "required :user_id option not found"
+      assert error =~ "user_id"
+      assert error =~ "required"
     end
   end
 
@@ -137,15 +142,13 @@ defmodule Jido.Signal.CustomTest do
 
       opts = [
         source: "/runtime/source",
-        subject: "runtime-subject",
-        jido_dispatch: {:pubsub, topic: "test"}
+        subject: "runtime-subject"
       ]
 
       assert {:ok, signal} = ComplexSignal.new(data, opts)
       assert signal.type == "complex.signal"
       assert signal.source == "/runtime/source"
       assert signal.subject == "runtime-subject"
-      assert signal.jido_dispatch == {:pubsub, topic: "test"}
       assert signal.datacontenttype == "application/json"
     end
 

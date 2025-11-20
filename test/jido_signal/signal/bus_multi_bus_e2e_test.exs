@@ -102,10 +102,10 @@ defmodule Jido.Signal.BusMultiBusE2ETest do
 
     @impl true
     def before_dispatch(signal, _subscriber, _context, state) do
-      # Tag the signal with bus name in jido_dispatch metadata
+      # Tag the signal with bus name in data metadata
       tagged_signal = %{
         signal
-        | jido_dispatch: Map.put(signal.jido_dispatch || %{}, :bus_name, state.bus_name)
+        | data: Map.put(signal.data || %{}, :bus_name, state.bus_name)
       }
 
       {:cont, tagged_signal, state}

@@ -32,6 +32,7 @@ if Code.ensure_loaded?(Msgpax) do
 
     @behaviour Jido.Signal.Serialization.Serializer
 
+    alias Jido.Signal.Serialization.CloudEventsTransform
     alias Jido.Signal.Serialization.TypeProvider
 
     @doc """
@@ -55,40 +56,63 @@ if Code.ensure_loaded?(Msgpax) do
     Deserialize given MessagePack binary data back to the original format.
     """
     @impl true
-    def deserialize(binary, config \\ []) do
-      {:ok, unpacked} = Msgpax.unpack(binary)
-      unpacked = inflate_extensions_for_deserialization(unpacked)
+    def deserialize(binary, config \\ []) when is_binary(binary) do
+      max_size = Jido.Signal.Serialization.Config.max_payload_bytes()
 
-      result =
-        case Keyword.get(config, :type) do
-          nil ->
-            # Post-process to restore some Elixir types
-            postprocess_from_msgpack(unpacked)
+      if byte_size(binary) > max_size do
+        {:error, {:payload_too_large, byte_size(binary), max_size}}
+      else
+        do_deserialize(binary, config)
+      end
+    end
 
-          type_str ->
-            # Convert to specific struct type
-            type_provider = Keyword.get(config, :type_provider, TypeProvider)
-            target_struct = type_provider.to_struct(type_str)
+    defp do_deserialize(binary, config) do
+      case Msgpax.unpack(binary) do
+        {:ok, unpacked} ->
+          unpacked = CloudEventsTransform.inflate_for_deserialization(unpacked)
 
-            processed = postprocess_from_msgpack(unpacked)
+          result =
+            case Keyword.get(config, :type) do
+              nil ->
+                postprocess_from_msgpack(unpacked)
 
-            if is_map(processed) and not is_struct(processed) do
-              # Convert string keys to atoms for struct creation
-              atom_keyed_map =
-                for {k, v} <- processed, into: %{} do
-                  key = if is_binary(k), do: String.to_atom(k), else: k
-                  {key, v}
+              type_str ->
+                type_provider = Keyword.get(config, :type_provider, TypeProvider)
+                target_struct = type_provider.to_struct(type_str)
+
+                processed = postprocess_from_msgpack(unpacked)
+
+                if is_map(processed) and not is_struct(processed) do
+                  safe_build_struct(target_struct.__struct__, processed)
+                else
+                  processed
                 end
-
-              struct(target_struct.__struct__, atom_keyed_map)
-            else
-              processed
             end
+
+          {:ok, result}
+
+        {:error, reason} ->
+          {:error, {:msgpack_decode_failed, reason}}
+      end
+    rescue
+      e in ArgumentError ->
+        {:error, {:msgpack_deserialize_failed, Exception.message(e)}}
+
+      e ->
+        {:error, {:msgpack_deserialize_failed, Exception.message(e)}}
+    end
+
+    defp safe_build_struct(mod, data) do
+      # Only assign known fields; do not create new atoms
+      permitted = Map.keys(struct(mod)) -- [:__struct__]
+
+      attrs =
+        for k <- permitted, into: %{} do
+          ks = if is_atom(k), do: Atom.to_string(k), else: k
+          {k, Map.get(data, ks, Map.get(data, k))}
         end
 
-      {:ok, result}
-    rescue
-      e -> {:error, Exception.message(e)}
+      struct(mod, attrs)
     end
 
     # Pre-process Elixir data for MessagePack serialization
@@ -154,7 +178,9 @@ if Code.ensure_loaded?(Msgpax) do
 
     # Prepare term for serialization by flattening extensions in Signal structs
     defp prepare_for_serialization(%Jido.Signal{} = signal) do
-      Jido.Signal.flatten_extensions(signal)
+      signal
+      |> CloudEventsTransform.flatten_for_serialization()
+      |> Map.put("jido_schema_version", 1)
     end
 
     defp prepare_for_serialization(signals) when is_list(signals) do
@@ -162,34 +188,5 @@ if Code.ensure_loaded?(Msgpax) do
     end
 
     defp prepare_for_serialization(term), do: term
-
-    # Inflate extensions during deserialization for Signal maps
-    defp inflate_extensions_for_deserialization(data) when is_list(data) do
-      Enum.map(data, &inflate_extensions_for_deserialization/1)
-    end
-
-    defp inflate_extensions_for_deserialization(data) when is_map(data) do
-      # Check if this looks like a Signal by having required CloudEvents fields
-      if is_signal_map?(data) do
-        {extensions, remaining_attrs} = Jido.Signal.inflate_extensions(data)
-
-        # Add extensions map to the remaining attributes
-        if Enum.empty?(extensions) do
-          remaining_attrs
-        else
-          Map.put(remaining_attrs, "extensions", extensions)
-        end
-      else
-        data
-      end
-    end
-
-    defp inflate_extensions_for_deserialization(data), do: data
-
-    # Check if a map represents a CloudEvents/Signal structure
-    defp is_signal_map?(data) when is_map(data) do
-      Map.has_key?(data, "type") and Map.has_key?(data, "source") and
-        (Map.has_key?(data, "specversion") or Map.has_key?(data, "id"))
-    end
   end
 end

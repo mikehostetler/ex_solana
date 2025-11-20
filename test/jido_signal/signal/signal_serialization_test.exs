@@ -549,11 +549,9 @@ defmodule Jido.SignalSerializationTest do
         assert %Signal{} = deserialized
         assert deserialized.type == "unknown.test"
 
-        # Unknown fields should be preserved as opaque data (not cause errors)
-        assert deserialized.extensions == %{
-                 "unknown_field" => "unknown_value",
-                 "another_unknown" => 42
-               }
+        # With Zoi validation enabled, unknown fields are stripped during validation
+        # This ensures only known CloudEvents fields are preserved
+        assert deserialized.extensions == %{}
       end)
     end
 

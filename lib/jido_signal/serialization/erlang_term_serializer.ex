@@ -24,6 +24,7 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
 
   @behaviour Jido.Signal.Serialization.Serializer
 
+  alias Jido.Signal.Serialization.CloudEventsTransform
   alias Jido.Signal.Serialization.TypeProvider
 
   @doc """
@@ -45,9 +46,19 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
   type is requested, we can still convert it.
   """
   @impl true
-  def deserialize(binary, config \\ []) do
+  def deserialize(binary, config \\ []) when is_binary(binary) do
+    max_size = Jido.Signal.Serialization.Config.max_payload_bytes()
+
+    if byte_size(binary) > max_size do
+      {:error, {:payload_too_large, byte_size(binary), max_size}}
+    else
+      do_deserialize(binary, config)
+    end
+  end
+
+  defp do_deserialize(binary, config) do
     result = :erlang.binary_to_term(binary, [:safe])
-    result = inflate_extensions_for_deserialization(result)
+    result = CloudEventsTransform.inflate_for_deserialization(result)
 
     # If a specific type is requested, convert to that type
     case Keyword.get(config, :type) do
@@ -59,7 +70,6 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
 
         converted_result =
           if is_map(result) and not is_struct(result) do
-            # Convert map to struct if needed
             target_struct = type_provider.to_struct(type_str)
             struct(target_struct.__struct__, result)
           else
@@ -69,7 +79,11 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
         {:ok, converted_result}
     end
   rescue
-    e -> {:error, Exception.message(e)}
+    e in ArgumentError ->
+      {:error, {:erlang_term_decode_failed, Exception.message(e)}}
+
+    e ->
+      {:error, {:erlang_term_decode_failed, Exception.message(e)}}
   end
 
   @doc """
@@ -87,7 +101,9 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
 
   # Prepare term for serialization by flattening extensions in Signal structs
   defp prepare_for_serialization(%Jido.Signal{} = signal) do
-    Jido.Signal.flatten_extensions(signal)
+    signal
+    |> CloudEventsTransform.flatten_for_serialization()
+    |> Map.put("jido_schema_version", 1)
   end
 
   defp prepare_for_serialization(signals) when is_list(signals) do
@@ -95,37 +111,4 @@ defmodule Jido.Signal.Serialization.ErlangTermSerializer do
   end
 
   defp prepare_for_serialization(term), do: term
-
-  # Inflate extensions during deserialization for Signal maps
-  defp inflate_extensions_for_deserialization(data) when is_list(data) do
-    Enum.map(data, &inflate_extensions_for_deserialization/1)
-  end
-
-  defp inflate_extensions_for_deserialization(data) when is_map(data) and not is_struct(data) do
-    # Check if this looks like a Signal by having required CloudEvents fields
-    if is_signal_map?(data) do
-      # Convert keys to strings for consistent processing
-      string_keyed_data = Map.new(data, fn {k, v} -> {to_string(k), v} end)
-      {extensions, remaining_attrs} = Jido.Signal.inflate_extensions(string_keyed_data)
-
-      # Add extensions map to the remaining attributes
-      if Enum.empty?(extensions) do
-        remaining_attrs
-      else
-        Map.put(remaining_attrs, "extensions", extensions)
-      end
-    else
-      data
-    end
-  end
-
-  defp inflate_extensions_for_deserialization(data), do: data
-
-  # Check if a map represents a CloudEvents/Signal structure
-  defp is_signal_map?(data) when is_map(data) do
-    (Map.has_key?(data, "type") or Map.has_key?(data, :type)) and
-      (Map.has_key?(data, "source") or Map.has_key?(data, :source)) and
-      (Map.has_key?(data, "specversion") or Map.has_key?(data, :specversion) or
-         Map.has_key?(data, "id") or Map.has_key?(data, :id))
-  end
 end

@@ -462,53 +462,36 @@ defmodule Jido.Signal.Ext.DispatchTest do
     end
   end
 
-  describe "parallel operation with jido_dispatch field" do
-    test "signal can have both jido_dispatch field and dispatch extension" do
-      # Create signal with jido_dispatch field
+  describe "dispatch extension validation" do
+    test "signal can have dispatch extension" do
+      # Create signal
       {:ok, signal} =
-        Signal.new("test.event", %{},
-          source: "/test",
-          jido_dispatch: {:logger, [level: :error]}
-        )
+        Signal.new("test.event", %{}, source: "/test")
 
       # Add dispatch extension
       {:ok, updated_signal} = Signal.put_extension(signal, "dispatch", {:console, []})
 
-      # Both should coexist
-      assert updated_signal.jido_dispatch == {:logger, [level: :error]}
       assert Signal.get_extension(updated_signal, "dispatch") == {:console, []}
     end
 
-    test "extension does not interfere with jido_dispatch functionality" do
-      # Create signal with both dispatch mechanisms
+    test "extension validates dispatch config" do
+      # Create signal
       {:ok, signal} =
-        Signal.new("test.event", %{},
-          source: "/test",
-          jido_dispatch: {:noop, []}
-        )
+        Signal.new("test.event", %{}, source: "/test")
 
       {:ok, signal_with_ext} = Signal.put_extension(signal, "dispatch", {:logger, []})
 
-      # jido_dispatch should be unchanged
-      assert signal_with_ext.jido_dispatch == signal.jido_dispatch
-
-      # Extension should work independently
+      # Extension should work correctly
       assert Signal.get_extension(signal_with_ext, "dispatch") == {:logger, []}
     end
 
-    test "different validation results for field vs extension" do
-      # Create signal with valid jido_dispatch
+    test "invalid extension config fails validation" do
+      # Create signal
       {:ok, signal} =
-        Signal.new("test.event", %{},
-          source: "/test",
-          jido_dispatch: {:console, []}
-        )
+        Signal.new("test.event", %{}, source: "/test")
 
       # Try to add invalid extension - should fail
       {:error, _} = Signal.put_extension(signal, "dispatch", {"invalid", []})
-
-      # Original jido_dispatch should be unaffected
-      assert signal.jido_dispatch == {:console, []}
     end
   end
 

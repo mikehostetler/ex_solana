@@ -10,7 +10,9 @@ if Code.ensure_loaded?(Jason) do
 
     @behaviour Jido.Signal.Serialization.Serializer
 
+    alias Jido.Signal.Serialization.CloudEventsTransform
     alias Jido.Signal.Serialization.JsonDecoder
+    alias Jido.Signal.Serialization.Schema
     alias Jido.Signal.Serialization.TypeProvider
 
     @doc """
@@ -28,72 +30,102 @@ if Code.ensure_loaded?(Jason) do
     Deserialize given JSON binary data to the expected type.
     """
     @impl true
-    def deserialize(binary, config \\ []) do
+    def deserialize(binary, config \\ []) when is_binary(binary) do
+      max_size = Jido.Signal.Serialization.Config.max_payload_bytes()
+
+      if byte_size(binary) > max_size do
+        {:error, {:payload_too_large, byte_size(binary), max_size}}
+      else
+        do_deserialize(binary, config)
+      end
+    end
+
+    defp do_deserialize(binary, config) do
       {type, opts} =
         case Keyword.get(config, :type) do
           nil ->
             {nil, []}
 
           type_str ->
-            # Check if the module exists before trying to convert to a struct
-            module_name = String.to_atom(type_str)
+            type_provider = Keyword.get(config, :type_provider, TypeProvider)
 
-            if Code.ensure_loaded?(module_name) do
-              type_provider = Keyword.get(config, :type_provider, TypeProvider)
-              {type_provider.to_struct(type_str), [keys: :atoms]}
-            else
-              raise ArgumentError, "Cannot deserialize to non-existent module: #{type_str}"
+            case type_provider.to_struct(type_str) do
+              {:error, reason} ->
+                throw({:unknown_type, type_str, reason})
+
+              target_struct ->
+                {target_struct, []}
             end
         end
 
-      result =
+      decoded =
         binary
         |> Jason.decode!(opts)
-        |> inflate_extensions_for_deserialization()
+        |> CloudEventsTransform.inflate_for_deserialization()
+
+      validated =
+        if CloudEventsTransform.signal_map?(decoded) do
+          case Schema.validate_signal(decoded) do
+            {:ok, valid} -> valid
+            {:error, errors} -> throw({:schema_validation_failed, errors})
+          end
+        else
+          decoded
+        end
+
+      result =
+        validated
         |> to_struct(type)
         |> JsonDecoder.decode()
 
       {:ok, result}
     rescue
-      e -> {:error, Exception.message(e)}
-    end
+      e in Jason.DecodeError ->
+        {:error, {:json_decode_failed, Exception.message(e)}}
 
-    # Legacy API for backward compatibility
-    @doc false
-    def serialize_legacy(term) do
-      case serialize(term) do
-        {:ok, result} -> result
-        {:error, _} -> raise "Serialization failed"
-      end
-    end
+      e in ArgumentError ->
+        {:error, {:json_deserialize_failed, Exception.message(e)}}
 
-    @doc false
-    def deserialize_legacy(binary, config \\ []) do
-      case deserialize(binary, config) do
-        {:ok, result} -> result
-        {:error, reason} -> raise reason
-      end
+      e ->
+        {:error, {:json_deserialize_failed, Exception.message(e)}}
+    catch
+      {:unknown_type, type_str, reason} ->
+        {:error, {:unknown_type, type_str, reason}}
+
+      {:schema_validation_failed, errors} ->
+        {:error, {:schema_validation_failed, errors}}
     end
 
     defp to_struct(data, nil), do: data
 
-    defp to_struct(data, struct) when is_atom(struct) do
-      # Check if the module exists to prevent UndefinedFunctionError
-      if Code.ensure_loaded?(struct) do
-        struct(struct, data)
-      else
-        raise ArgumentError, "Cannot deserialize to non-existent module: #{inspect(struct)}"
-      end
+    defp to_struct(data, %mod{} = _struct) when is_map(data) do
+      safe_build_struct(mod, data)
     end
 
-    # Handle the case where struct is already a struct type (not a module name)
-    defp to_struct(data, %type{} = _struct) do
-      struct(type, data)
+    defp to_struct(data, mod) when is_atom(mod) and is_map(data) do
+      safe_build_struct(mod, data)
+    end
+
+    defp to_struct(data, _mod), do: data
+
+    defp safe_build_struct(mod, data) do
+      # Only assign known fields; do not create new atoms
+      permitted = Map.keys(struct(mod)) -- [:__struct__]
+
+      attrs =
+        for k <- permitted, into: %{} do
+          ks = Atom.to_string(k)
+          {k, Map.get(data, ks, Map.get(data, k))}
+        end
+
+      struct(mod, attrs)
     end
 
     # Prepare term for serialization by flattening extensions in Signal structs
     defp prepare_for_serialization(%Jido.Signal{} = signal) do
-      Jido.Signal.flatten_extensions(signal)
+      signal
+      |> CloudEventsTransform.flatten_for_serialization()
+      |> Map.put("jido_schema_version", 1)
     end
 
     defp prepare_for_serialization(signals) when is_list(signals) do
@@ -101,34 +133,5 @@ if Code.ensure_loaded?(Jason) do
     end
 
     defp prepare_for_serialization(term), do: term
-
-    # Inflate extensions during deserialization for Signal maps
-    defp inflate_extensions_for_deserialization(data) when is_list(data) do
-      Enum.map(data, &inflate_extensions_for_deserialization/1)
-    end
-
-    defp inflate_extensions_for_deserialization(data) when is_map(data) do
-      # Check if this looks like a Signal by having required CloudEvents fields
-      if is_signal_map?(data) do
-        {extensions, remaining_attrs} = Jido.Signal.inflate_extensions(data)
-
-        # Add extensions map to the remaining attributes
-        if Enum.empty?(extensions) do
-          remaining_attrs
-        else
-          Map.put(remaining_attrs, "extensions", extensions)
-        end
-      else
-        data
-      end
-    end
-
-    defp inflate_extensions_for_deserialization(data), do: data
-
-    # Check if a map represents a CloudEvents/Signal structure
-    defp is_signal_map?(data) when is_map(data) do
-      Map.has_key?(data, "type") and Map.has_key?(data, "source") and
-        (Map.has_key?(data, "specversion") or Map.has_key?(data, "id"))
-    end
   end
 end

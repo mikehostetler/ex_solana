@@ -280,18 +280,14 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
       case DateTime.from_iso8601(signal.time) do
         {:ok, timestamp, _offset} ->
           if DateTime.to_unix(timestamp) > state.checkpoint do
-            dispatch_config = state.bus_subscription.dispatch
+            case Dispatch.dispatch(signal, state.bus_subscription.dispatch) do
+              :ok ->
+                :ok
 
-            if dispatch_config != nil do
-              case Dispatch.dispatch(signal, dispatch_config) do
-                :ok ->
-                  :ok
-
-                {:error, reason} ->
-                  Logger.debug(
-                    "Dispatch failed during replay, signal: #{inspect(signal)}, reason: #{inspect(reason)}"
-                  )
-              end
+              {:error, reason} ->
+                Logger.debug(
+                  "Dispatch failed during replay, signal: #{inspect(signal)}, reason: #{inspect(reason)}"
+                )
             end
           end
 

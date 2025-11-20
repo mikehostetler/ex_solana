@@ -50,11 +50,17 @@ defmodule Jido.Signal.Bus.RecordedSignal do
   """
   @spec serialize(t() | list(t())) :: binary()
   def serialize(%__MODULE__{} = recorded_signal) do
-    JsonSerializer.serialize_legacy(recorded_signal)
+    case JsonSerializer.serialize(recorded_signal) do
+      {:ok, binary} -> binary
+      {:error, reason} -> raise "Serialization failed: #{inspect(reason)}"
+    end
   end
 
   def serialize(recorded_signals) when is_list(recorded_signals) do
-    JsonSerializer.serialize_legacy(recorded_signals)
+    case JsonSerializer.serialize(recorded_signals) do
+      {:ok, binary} -> binary
+      {:error, reason} -> raise "Serialization failed: #{inspect(reason)}"
+    end
   end
 
   @doc """
