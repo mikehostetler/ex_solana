@@ -3,6 +3,7 @@ defmodule JidoTest.Actions.ReqTest do
 
   import Mimic
 
+  alias Jido.Action.Error
   alias Jido.Tools.ReqTool
 
   # Import Mimic for mocking
@@ -136,5 +137,14 @@ defmodule JidoTest.Actions.ReqTest do
 
     # Call run with params
     assert {:ok, _result} = SimplePost.run(%{"key" => "value"}, %{})
+  end
+
+  test "handles request exceptions" do
+    expect(Req, :request!, fn _ -> raise "Network error" end)
+
+    assert {:error, error} = SimpleGet.run(%{}, %{})
+    assert %Error.ExecutionFailureError{} = error
+    assert error.message == "HTTP request failed"
+    assert error.details.exception.message == "Network error"
   end
 end

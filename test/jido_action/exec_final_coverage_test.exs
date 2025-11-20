@@ -142,14 +142,12 @@ defmodule JidoTest.ExecFinalCoverageTest do
           name: "task_spawning",
           description: "Action that spawns tasks"
 
-        def run(_params, context) do
-          if _task_group = Map.get(context, :__task_group__) do
-            # Spawn a task under the task group (if available)
-            {:ok, _pid} =
-              Task.start(fn ->
-                Process.sleep(10)
-              end)
-          end
+        def run(_params, _context) do
+          # Spawn a task
+          {:ok, _pid} =
+            Task.start(fn ->
+              Process.sleep(10)
+            end)
 
           {:ok, %{spawned: true}}
         end
@@ -205,10 +203,12 @@ defmodule JidoTest.ExecFinalCoverageTest do
                  Exec.run(ResultNormalizationAction, %{result_type: :three_tuple_error}, %{}, [])
       end)
 
-      # Test raw value (gets validated as output)
+      # Test raw value (should fail with execution error)
       capture_log(fn ->
-        assert {:ok, %{raw: true}} =
+        assert {:error, %Error.ExecutionFailureError{message: message}} =
                  Exec.run(ResultNormalizationAction, %{result_type: :raw_value}, %{}, [])
+
+        assert message =~ "Unexpected return shape: %{raw: true}"
       end)
     end
 

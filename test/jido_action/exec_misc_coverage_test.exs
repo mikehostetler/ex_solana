@@ -87,14 +87,11 @@ defmodule JidoTest.ExecMiscCoverageTest do
     end
 
     test "task cleanup and process group management" do
-      # Create an action that will trigger task group cleanup
+      # Create an action that will trigger task cleanup
       defmodule CleanupTestAction do
         use Jido.Action, name: "cleanup_test", description: "Test cleanup"
 
-        def run(_params, context) do
-          # Access the task group to trigger that code path
-          _task_group = Map.get(context, :__task_group__)
-
+        def run(_params, _context) do
           # Force a timeout to trigger cleanup
           Process.sleep(200)
           {:ok, %{}}

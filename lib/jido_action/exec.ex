@@ -451,118 +451,44 @@ defmodule Jido.Exec do
 
     defp execute_action_with_timeout(action, params, context, timeout, opts)
          when is_integer(timeout) and timeout > 0 do
-      parent = self()
-      ref = make_ref()
-
-      # Create a temporary task group for this execution
-      {:ok, task_group} =
-        Task.Supervisor.start_child(
-          Jido.Action.TaskSupervisor,
-          fn ->
-            Process.flag(:trap_exit, true)
-
-            receive do
-              {:shutdown} -> :ok
-            end
-          end
-        )
-
-      # Add task_group to context so Actions can use it
-      enhanced_context = Map.put(context, :__task_group__, task_group)
-
-      # Get the current process's group leader
+      # Get the current process's group leader for IO routing
       current_gl = Process.group_leader()
 
-      {pid, monitor_ref} =
-        spawn_monitor(fn ->
+      # Spawn task under supervisor using async_nolink
+      task =
+        Task.Supervisor.async_nolink(Jido.Action.TaskSupervisor, fn ->
           # Use the parent's group leader to ensure IO is properly captured
           Process.group_leader(self(), current_gl)
 
-          result =
-            try do
-              result = execute_action(action, params, enhanced_context, opts)
-              result
-            catch
-              kind, reason ->
-                stacktrace = __STACKTRACE__
-
-                {:error,
-                 Error.execution_error(
-                   "Caught #{kind}: #{inspect(reason)}",
-                   %{kind: kind, reason: reason, action: action, stacktrace: stacktrace}
-                 )}
-            end
-
-          send(parent, {:done, ref, result})
+          execute_action(action, params, context, opts)
         end)
 
-      result =
-        receive do
-          {:done, ^ref, result} ->
-            cleanup_task_group(task_group)
-            Process.demonitor(monitor_ref, [:flush])
-            result
+      # Wait for task completion or timeout
+      case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+        {:ok, result} ->
+          result
 
-          {:DOWN, ^monitor_ref, :process, ^pid, :killed} ->
-            cleanup_task_group(task_group)
-            {:error, Error.execution_error("Task was killed")}
+        {:exit, reason} ->
+          {:error,
+           Error.execution_error("Task exited: #{inspect(reason)}", %{
+             reason: reason,
+             action: action
+           })}
 
-          {:DOWN, ^monitor_ref, :process, ^pid, reason} ->
-            cleanup_task_group(task_group)
-            {:error, Error.execution_error("Task exited: #{inspect(reason)}")}
-        after
-          timeout ->
-            cleanup_task_group(task_group)
-            Process.exit(pid, :kill)
-
-            receive do
-              {:DOWN, ^monitor_ref, :process, ^pid, _} -> :ok
-            after
-              0 -> :ok
-            end
-
-            {:error,
-             Error.timeout_error(
-               "Action #{inspect(action)} timed out after #{timeout}ms. This could be due to:
-1. The action is taking too long to complete (current timeout: #{timeout}ms)
-2. The action is stuck in an infinite loop
-3. The action's return value doesn't match the expected format ({:ok, map()} | {:ok, map(), directive} | {:error, reason})
-4. An unexpected error occurred without proper error handling
-5. The action may be using unsafe IO operations (IO.inspect, etc).
-
-Debug info:
-- Action module: #{inspect(action)}
-- Params: #{inspect(params)}
-- Context: #{inspect(Map.delete(context, :__task_group__))}",
-               %{
-                 timeout: timeout,
-                 action: action,
-                 params: params,
-                 context: Map.delete(context, :__task_group__)
-               }
-             )}
-        end
-
-      result
+        nil ->
+          {:error,
+           Error.timeout_error(
+             "Action #{inspect(action)} timed out after #{timeout}ms",
+             %{
+               timeout: timeout,
+               action: action
+             }
+           )}
+      end
     end
 
     defp execute_action_with_timeout(action, params, context, _timeout, opts) do
       execute_action_with_timeout(action, params, context, get_default_timeout(), opts)
-    end
-
-    defp cleanup_task_group(task_group) do
-      send(task_group, {:shutdown})
-
-      Process.exit(task_group, :kill)
-
-      Task.Supervisor.children(Jido.Action.TaskSupervisor)
-      |> Enum.filter(fn pid ->
-        case Process.info(pid, :group_leader) do
-          {:group_leader, ^task_group} -> true
-          _ -> false
-        end
-      end)
-      |> Enum.each(&Process.exit(&1, :kill))
     end
 
     @spec execute_action(action(), params(), context(), run_opts()) :: exec_result
@@ -609,18 +535,10 @@ Debug info:
           Telemetry.cond_log_error(log_level, action, reason)
           {:error, Error.execution_error(reason)}
 
-        result ->
-          case Validator.validate_output(action, result, opts) do
-            {:ok, validated_result} ->
-              Telemetry.cond_log_end(log_level, action, {:ok, validated_result})
-
-              {:ok, validated_result}
-
-            {:error, validation_error} ->
-              Telemetry.cond_log_validation_failure(log_level, action, validation_error)
-
-              {:error, validation_error}
-          end
+        unexpected_result ->
+          error = Error.execution_error("Unexpected return shape: #{inspect(unexpected_result)}")
+          Telemetry.cond_log_error(log_level, action, error)
+          {:error, error}
       end
     rescue
       e in RuntimeError ->

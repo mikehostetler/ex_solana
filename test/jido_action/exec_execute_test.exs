@@ -58,15 +58,17 @@ defmodule JidoTest.ExecExecuteTest do
       assert log =~ "Finished execution of JidoTest.TestActions.NoParamsAction"
     end
 
-    test "successfully executes a Action with raw result" do
+    test "action with raw result fails with execution error" do
       log =
         capture_log(fn ->
-          assert {:ok, %{value: 5}} =
+          assert {:error, %Jido.Action.Error.ExecutionFailureError{message: message}} =
                    Exec.execute_action(RawResultAction, %{value: 5}, %{}, log_level: :debug)
+
+          assert message =~ "Unexpected return shape: %{value: 5}"
         end)
 
       assert log =~ "Starting execution of JidoTest.TestActions.RawResultAction"
-      assert log =~ "Finished execution of JidoTest.TestActions.RawResultAction"
+      assert log =~ "Action JidoTest.TestActions.RawResultAction failed"
     end
 
     test "handles Action execution error" do
@@ -258,7 +260,7 @@ defmodule JidoTest.ExecExecuteTest do
                    )
 
           assert is_exception(error)
-          assert Exception.message(error) =~ "Caught throw: \"Action threw an error\""
+          assert Exception.message(error) =~ "Task exited"
         end)
 
       assert log =~ "Starting execution of JidoTest.TestActions.ErrorAction"
@@ -343,7 +345,7 @@ defmodule JidoTest.ExecExecuteTest do
 
           assert {:error, error} = result
           assert is_exception(error)
-          assert Exception.message(error) =~ "Task was killed"
+          assert Exception.message(error) =~ "Task exited"
         end)
 
       assert log =~ "Starting execution of JidoTest.TestActions.KilledAction"

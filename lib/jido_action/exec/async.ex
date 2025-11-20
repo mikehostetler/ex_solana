@@ -105,33 +105,57 @@ defmodule Jido.Exec.Async do
   """
   @spec await(async_ref(), timeout()) :: exec_result
   def await(%{ref: ref, pid: pid}, timeout) do
+    result =
+      receive do
+        {:action_async_result, ^ref, result} ->
+          result
+
+        {:DOWN, _monitor_ref, :process, ^pid, :normal} ->
+          # Process completed normally, but we might still receive the result
+          receive do
+            {:action_async_result, ^ref, result} ->
+              result
+          after
+            100 ->
+              # Flush any stray result message to prevent mailbox leak
+              receive do
+                {:action_async_result, ^ref, _} -> :ok
+              after
+                0 -> :ok
+              end
+
+              {:error, Error.execution_error("Process completed but result was not received")}
+          end
+
+        {:DOWN, _monitor_ref, :process, ^pid, reason} ->
+          {:error, Error.execution_error("Server error in async action: #{inspect(reason)}")}
+      after
+        timeout ->
+          Process.exit(pid, :kill)
+
+          receive do
+            {:DOWN, _, :process, ^pid, _} -> :ok
+          after
+            0 -> :ok
+          end
+
+          {:error,
+           Error.timeout_error("Async action timed out after #{timeout}ms", %{timeout: timeout})}
+      end
+
+    # Flush any remaining messages for this ref/pid to prevent mailbox leaks
+    flush_messages(ref, pid)
+
+    result
+  end
+
+  # Flush any stray messages related to this async operation
+  defp flush_messages(ref, pid) do
     receive do
-      {:action_async_result, ^ref, result} ->
-        result
-
-      {:DOWN, _monitor_ref, :process, ^pid, :normal} ->
-        # Process completed normally, but we might still receive the result
-        receive do
-          {:action_async_result, ^ref, result} ->
-            result
-        after
-          100 ->
-            {:error, Error.execution_error("Process completed but result was not received")}
-        end
-
-      {:DOWN, _monitor_ref, :process, ^pid, reason} ->
-        {:error, Error.execution_error("Server error in async action: #{inspect(reason)}")}
+      {:action_async_result, ^ref, _} -> flush_messages(ref, pid)
+      {:DOWN, _, :process, ^pid, _} -> flush_messages(ref, pid)
     after
-      timeout ->
-        Process.exit(pid, :kill)
-
-        receive do
-          {:DOWN, _, :process, ^pid, _} -> :ok
-        after
-          0 -> :ok
-        end
-
-        {:error, Error.timeout_error("Async action timed out after #{timeout}ms")}
+      0 -> :ok
     end
   end
 
