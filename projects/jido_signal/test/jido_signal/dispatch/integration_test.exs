@@ -10,26 +10,20 @@ defmodule Jido.Signal.DispatchIntegrationTest do
     :ok
   end
 
-  test "dispatch extension works alongside traditional jido_dispatch" do
-    # Test 1: Create signal with traditional jido_dispatch
+  test "dispatch extension works" do
+    # Test 1: Create signal
     {:ok, signal1} =
-      Signal.new("test.event", %{message: "hello"},
-        source: "/test",
-        jido_dispatch: {:logger, [level: :info]}
-      )
+      Signal.new("test.event", %{message: "hello"}, source: "/test")
 
-    assert signal1.jido_dispatch == {:logger, [level: :info]}
     assert Signal.list_extensions(signal1) == []
 
-    # Test 2: Add dispatch extension to existing signal
+    # Test 2: Add dispatch extension to signal
     {:ok, signal2} = Signal.put_extension(signal1, "dispatch", {:console, []})
 
-    assert signal2.jido_dispatch == {:logger, [level: :info]}
     assert Signal.get_extension(signal2, "dispatch") == {:console, []}
     assert "dispatch" in Signal.list_extensions(signal2)
 
-    # Test 3: Test extension serialization (jido_dispatch doesn't serialize due to tuple issue)
-    # Create a signal with only the dispatch extension for serialization test
+    # Test 3: Test extension serialization
     {:ok, ext_only_signal} = Signal.new("test.event", %{message: "hello"}, source: "/test")
     {:ok, ext_only_signal} = Signal.put_extension(ext_only_signal, "dispatch", {:console, []})
 
@@ -41,12 +35,10 @@ defmodule Jido.Signal.DispatchIntegrationTest do
     {:ok, deserialized} = Signal.deserialize(json)
     assert Signal.get_extension(deserialized, "dispatch") == {:console, []}
 
-    # Test 4: Validate different configs for each system
-    # Valid jido_dispatch, invalid extension
-    {:ok, signal3} = Signal.new("test.event", %{}, source: "/test", jido_dispatch: {:noop, []})
+    # Test 4: Validate invalid extension config
+    {:ok, signal3} = Signal.new("test.event", %{}, source: "/test")
     {:error, error} = Signal.put_extension(signal3, "dispatch", {"invalid", []})
     assert error =~ "Invalid dispatch configuration"
-    assert signal3.jido_dispatch == {:noop, []}
 
     # Test 5: Complex dispatch configuration
     complex_dispatch = [
@@ -69,30 +61,21 @@ defmodule Jido.Signal.DispatchIntegrationTest do
     assert http_opts[:method] == :post
   end
 
-  test "dispatch extension provides same functionality as jido_dispatch" do
+  test "dispatch extension provides dispatch configuration" do
     dispatch_config = {:logger, [level: :debug]}
 
-    # Using traditional jido_dispatch
-    {:ok, signal1} =
-      Signal.new("test.event", %{},
-        source: "/test",
-        jido_dispatch: dispatch_config
-      )
-
     # Using dispatch extension
-    {:ok, signal2} = Signal.new("test.event", %{}, source: "/test")
-    {:ok, signal2} = Signal.put_extension(signal2, "dispatch", dispatch_config)
+    {:ok, signal} = Signal.new("test.event", %{}, source: "/test")
+    {:ok, signal} = Signal.put_extension(signal, "dispatch", dispatch_config)
 
-    # Both should have the dispatch configuration available
-    assert signal1.jido_dispatch == dispatch_config
-    assert Signal.get_extension(signal2, "dispatch") == dispatch_config
+    assert Signal.get_extension(signal, "dispatch") == dispatch_config
 
-    # Test extension serialization (jido_dispatch has serialization issues with tuples)
-    {:ok, json2} = Signal.serialize(signal2)
-    {:ok, deserialized2} = Signal.deserialize(json2)
+    # Test extension serialization
+    {:ok, json} = Signal.serialize(signal)
+    {:ok, deserialized} = Signal.deserialize(json)
 
     # Extension should roundtrip correctly
-    assert Signal.get_extension(deserialized2, "dispatch") == dispatch_config
+    assert Signal.get_extension(deserialized, "dispatch") == dispatch_config
   end
 
   test "dispatch extension serializes to CloudEvents compliant format" do

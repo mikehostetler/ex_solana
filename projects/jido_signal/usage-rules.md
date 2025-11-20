@@ -63,17 +63,65 @@ Bus.publish(:my_bus, [signal])
 
 ## Signal Router
 
+High-performance trie-based routing for pattern matching and handler dispatch.
+
 ```elixir
-router = Jido.Signal.Router.new!([
-  {"user.created", MyHandler},
-  {"audit.**", AuditHandler, 100},  # priority
-  {"payment.*", fn signal -> signal.data.amount > 1000 end, LargePaymentHandler}
+# Create router with routes
+{:ok, router} = Jido.Signal.Router.new([
+  # Exact match
+  {"user.created", :handle_user_created},
+  
+  # Single wildcard (matches one segment)
+  {"user.*.updated", :handle_user_update},
+  
+  # Multi-level wildcard (matches zero or more segments)
+  {"audit.**", :audit_logger, 100},  # priority: -100 to 100
+  
+  # Pattern matching with function
+  {"payment.processed",
+    fn signal -> signal.data.amount > 1000 end,
+    :handle_large_payment,
+    90},
+  
+  # Multiple dispatch targets
+  {"system.error", [
+    {:logger, [level: :error]},
+    {:metrics, [type: :error_count]},
+    {:alert, [priority: :high]}
+  ]}
 ])
 
-:ok = Jido.Signal.Router.route(router, signal)
+# Route signal to handlers
+{:ok, handlers} = Router.route(router, signal)
+
+# Check if route exists
+Router.has_route?(router, "user.created")  # => true
+
+# Check if signal matches pattern
+Router.matches?("user.123", "user.*")      # => true
+
+# Filter signals by pattern
+filtered = Router.filter(signals, "user.*")
+
+# Dynamic route management
+{:ok, router} = Router.add(router, {"metrics.**", :metrics_handler})
+{:ok, router} = Router.remove(router, "metrics.**")
 ```
 
-**Priority**: -100 to 100 (higher first). Exact matches before wildcards.
+**Path Patterns**:
+- Exact: `"user.created"` (matches exact type)
+- Single wildcard: `"user.*"` (matches one segment)
+- Multi-level: `"audit.**"` (matches zero or more segments)
+
+**Handler Ordering**: Handlers execute by:
+1. **Complexity** (exact > single wildcard > multi-wildcard)
+2. **Priority** (-100 to 100, higher first)
+3. **Registration order** (FIFO for equal complexity/priority)
+
+**Performance**: Optimized for high-throughput pattern matching:
+- O(k) routing where k = number of segments
+- Direct segment matching (no trie build per match)
+- Efficient multi-wildcard traversal
 
 ## Error Handling
 

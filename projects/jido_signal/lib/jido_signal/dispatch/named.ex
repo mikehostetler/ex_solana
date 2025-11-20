@@ -17,6 +17,7 @@ defmodule Jido.Signal.Dispatch.Named do
 
   * `:async` - Uses `send/2` to deliver the signal without waiting for a response
   * `:sync` - Uses `GenServer.call/3` to deliver the signal and wait for a response
+    - **Note:** Self-call detection prevents deadlocks when a process dispatches to itself in sync mode
 
   ## Examples
 
@@ -46,6 +47,7 @@ defmodule Jido.Signal.Dispatch.Named do
   * `:process_not_found` - The named process is not registered
   * `:process_not_alive` - The process exists but is not alive
   * `:timeout` - Synchronous delivery timed out
+  * `{:calling_self, {GenServer, :call, [pid, message, timeout]}}` - Attempted self-call in sync mode (deadlock prevention)
   * Other errors from the target process
   """
 
@@ -158,7 +160,12 @@ defmodule Jido.Signal.Dispatch.Named do
             if Process.alive?(pid) do
               try do
                 message = message_format.(signal)
-                GenServer.call(pid, message, timeout)
+
+                if pid == self() do
+                  {:error, {:calling_self, {GenServer, :call, [pid, message, timeout]}}}
+                else
+                  GenServer.call(pid, message, timeout)
+                end
               catch
                 :exit, {:timeout, _} -> {:error, :timeout}
                 :exit, {:noproc, _} -> {:error, :process_not_alive}

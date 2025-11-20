@@ -33,8 +33,13 @@ defmodule Jido.Signal.MixProject do
         summary: [threshold: 90],
         export: "cov",
         ignore_modules: [~r/^JidoTest\./]
-      ],
-      preferred_cli_env: [
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.github": :test,
         "coveralls.lcov": :test,
@@ -189,6 +194,7 @@ defmodule Jido.Signal.MixProject do
       {:typed_struct, "~> 0.3.0"},
       {:uniq, "~> 0.6.1"},
       {:splode, "~> 0.2.9"},
+      {:zoi, "~> 0.10"},
 
       # Development & Test Dependencies
       {:credo, "~> 1.7", only: [:dev, :test]},

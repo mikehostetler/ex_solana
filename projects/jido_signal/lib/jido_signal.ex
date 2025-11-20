@@ -35,9 +35,8 @@ defmodule Jido.Signal do
 
   ## Jido Extensions
 
-  Beyond the CloudEvents spec, Signals include Jido-specific fields:
-
-  - `jido_dispatch`: Routing and delivery configuration (optional)
+  Beyond the CloudEvents spec, Signals support a flexible extension system for
+  adding custom metadata and behavior. See `Jido.Signal.Ext` for details.
 
   ## Creating Signals
 
@@ -48,8 +47,7 @@ defmodule Jido.Signal do
 
   # Preferred: positional constructor (type, data, attrs)
   {:ok, signal} = Signal.new("metrics.collected", %{cpu: 80, memory: 70},
-    source: "/monitoring",
-    jido_dispatch: {:pubsub, topic: "metrics"}
+    source: "/monitoring"
   )
 
   # Also available: map/keyword constructor (backwards compatible)
@@ -88,8 +86,7 @@ defmodule Jido.Signal do
   {:ok, signal} = MySignal.new(
     %{user_id: "123", message: "Hello"},
     source: "/different/source",
-    subject: "user-notification",
-    jido_dispatch: {:pubsub, topic: "events"}
+    subject: "user-notification"
   )
   ```
 
@@ -123,18 +120,14 @@ defmodule Jido.Signal do
 
   ## Dispatch Configuration
 
-  The `jido_dispatch` field controls how the Signal is delivered:
+  Signal dispatch is configured when subscribing to the Bus or when calling Dispatch directly:
 
   ```elixir
-  # Single dispatch config
-  jido_dispatch: {:pubsub, topic: "events"}
+  # Configure dispatch when subscribing
+  Bus.subscribe(bus, "user.*", dispatch: {:pubsub, topic: "events"})
 
-  # Multiple dispatch targets
-  jido_dispatch: [
-    {:pubsub, topic: "events"},
-    {:logger, level: :info},
-    {:webhook, url: "https://api.example.com/webhook"}
-  ]
+  # Or dispatch directly with config
+  Dispatch.dispatch(signal, {:logger, level: :info})
   ```
 
   ## See Also
@@ -147,7 +140,6 @@ defmodule Jido.Signal do
 
   import Jido.Signal.Ext.Registry, only: [get: 1]
 
-  alias Jido.Signal.Dispatch
   alias Jido.Signal.Ext
   alias Jido.Signal.ID
   alias Jido.Signal.Serialization.Serializer
@@ -189,6 +181,28 @@ defmodule Jido.Signal do
                           ]
                         )
 
+  # Zoi schema for Signal struct - testing new default pattern
+  @signal_schema Zoi.struct(
+                   __MODULE__,
+                   %{
+                     # Required fields
+                     id: Zoi.string(),
+                     source: Zoi.string(),
+                     type: Zoi.string(),
+                     # Test: Zoi.default(...) |> Zoi.optional() pattern for static defaults
+                     specversion: Zoi.default(Zoi.string(), "1.0.2") |> Zoi.optional(),
+                     datacontenttype:
+                       Zoi.default(Zoi.string(), "application/json") |> Zoi.optional(),
+                     extensions: Zoi.default(Zoi.map(), %{}) |> Zoi.optional(),
+                     # Optional fields
+                     subject: Zoi.string() |> Zoi.nullable() |> Zoi.optional(),
+                     time: Zoi.string() |> Zoi.nullable() |> Zoi.optional(),
+                     dataschema: Zoi.string() |> Zoi.nullable() |> Zoi.optional(),
+                     data: Zoi.any() |> Zoi.optional(),
+                     jido_dispatch: Zoi.any() |> Zoi.optional()
+                   }
+                 )
+
   @derive {Jason.Encoder,
            only: [
              :id,
@@ -203,20 +217,13 @@ defmodule Jido.Signal do
              :extensions
            ]}
 
-  typedstruct do
-    field(:specversion, String.t(), default: "1.0.2")
-    field(:id, String.t(), enforce: true, default: ID.generate!())
-    field(:source, String.t(), enforce: true)
-    field(:type, String.t(), enforce: true)
-    field(:subject, String.t())
-    field(:time, String.t())
-    field(:datacontenttype, String.t())
-    field(:dataschema, String.t())
-    field(:data, term())
-    field(:extensions, map(), default: %{})
-    # Jido-specific fields
-    field(:jido_dispatch, Dispatch.dispatch_configs())
-  end
+  # Use Zoi.Struct helpers for automatic generation
+  @type t :: unquote(Zoi.type_spec(@signal_schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@signal_schema)
+  defstruct Zoi.Struct.struct_fields(@signal_schema)
+
+  @doc "Returns the Zoi schema for Signal"
+  def schema, do: @signal_schema
 
   @doc """
   Defines a new Signal module.
@@ -419,7 +426,7 @@ defmodule Jido.Signal do
 
   - `type`: A string representing the event type (e.g., `"user.created"`).
   - `data`: The payload (any term; see CloudEvents rules below).
-  - `attrs`: (Optional) A map or keyword list of additional Signal attributes (e.g., `:source`, `:subject`, `:jido_dispatch`).
+  - `attrs`: (Optional) A map or keyword list of additional Signal attributes (e.g., `:source`, `:subject`).
 
   ## Returns
 
@@ -747,10 +754,22 @@ defmodule Jido.Signal do
   defp parse_jido_dispatch(nil), do: {:ok, nil}
 
   defp parse_jido_dispatch({adapter, opts} = config) when is_atom(adapter) and is_list(opts) do
+    IO.warn(
+      "Signal.jido_dispatch field is deprecated and will be removed in the next major version. " <>
+        "Use the Dispatch extension or pass dispatch configs to Bus.subscribe/3 or Dispatch.dispatch/2 instead.",
+      []
+    )
+
     {:ok, config}
   end
 
   defp parse_jido_dispatch(config) when is_list(config) do
+    IO.warn(
+      "Signal.jido_dispatch field is deprecated and will be removed in the next major version. " <>
+        "Use the Dispatch extension or pass dispatch configs to Bus.subscribe/3 or Dispatch.dispatch/2 instead.",
+      []
+    )
+
     {:ok, config}
   end
 
@@ -1167,35 +1186,49 @@ defmodule Jido.Signal do
 
                   {true, matching_attrs} ->
                     # Found relevant attributes, validate them
-                    # Convert to atom keys for validation
+                    # Convert to atom keys for validation (only for known keys)
+                    # Skip any keys that don't exist as atoms (security: prevent atom exhaustion)
                     atom_keyed_attrs =
-                      Map.new(matching_attrs, fn {k, v} -> {String.to_atom(k), v} end)
+                      Enum.reduce(matching_attrs, %{}, fn {k, v}, acc ->
+                        try do
+                          Map.put(acc, String.to_existing_atom(k), v)
+                        rescue
+                          ArgumentError -> acc
+                        end
+                      end)
 
-                    case Ext.safe_validate_data(extension_module, atom_keyed_attrs) do
-                      {:ok, {:ok, validated_data}} ->
-                        # Remove the extension's attributes from remaining attrs
-                        updated_attrs =
-                          Enum.reduce(matching_attrs, attrs_acc, fn {key, _value}, acc ->
-                            if key in core_fields do
-                              # Don't remove core fields
-                              acc
-                            else
-                              Map.delete(acc, key)
-                            end
-                          end)
-
-                        {Map.put(ext_acc, namespace, validated_data), updated_attrs}
-
-                      {:ok, {:error, _reason}} ->
-                        # Validation failed, skip this extension
+                    # Skip validation if no valid atom keys were found
+                    case map_size(atom_keyed_attrs) do
+                      0 ->
                         {ext_acc, attrs_acc}
 
-                      {:error, reason} ->
-                        Logger.warning(
-                          "Extension #{namespace} validate_data failed: #{inspect(reason)} - skipping"
-                        )
+                      _ ->
+                        case Ext.safe_validate_data(extension_module, atom_keyed_attrs) do
+                          {:ok, {:ok, validated_data}} ->
+                            # Remove the extension's attributes from remaining attrs
+                            updated_attrs =
+                              Enum.reduce(matching_attrs, attrs_acc, fn {key, _value}, acc ->
+                                if key in core_fields do
+                                  # Don't remove core fields
+                                  acc
+                                else
+                                  Map.delete(acc, key)
+                                end
+                              end)
 
-                        {ext_acc, attrs_acc}
+                            {Map.put(ext_acc, namespace, validated_data), updated_attrs}
+
+                          {:ok, {:error, _reason}} ->
+                            # Validation failed, skip this extension
+                            {ext_acc, attrs_acc}
+
+                          {:error, reason} ->
+                            Logger.warning(
+                              "Extension #{namespace} validate_data failed: #{inspect(reason)} - skipping"
+                            )
+
+                            {ext_acc, attrs_acc}
+                        end
                     end
                 end
 

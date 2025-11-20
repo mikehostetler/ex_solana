@@ -24,3 +24,5 @@ jido_signal-*.tar
 
 # Elixir LS
 .elixir_ls/
+
+.tool-versions

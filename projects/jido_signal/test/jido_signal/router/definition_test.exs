@@ -640,4 +640,52 @@ defmodule Jido.Signal.RouterDefinitionTest do
       assert route2.target == :test_action2
     end
   end
+
+  describe "has_route?/2 optimization" do
+    test "returns true for exact paths that exist" do
+      {:ok, router} =
+        Router.new([
+          {"user.created", :handler1},
+          {"order.placed", :handler2}
+        ])
+
+      assert Router.has_route?(router, "user.created")
+      assert Router.has_route?(router, "order.placed")
+    end
+
+    test "returns false for paths that don't exist" do
+      {:ok, router} = Router.new({"user.created", :handler1})
+
+      refute Router.has_route?(router, "user.updated")
+      refute Router.has_route?(router, "nonexistent")
+    end
+
+    test "returns false for partial paths" do
+      {:ok, router} = Router.new({"user.created.verified", :handler1})
+
+      # Partial paths don't match
+      refute Router.has_route?(router, "user")
+      refute Router.has_route?(router, "user.created")
+
+      # Only exact match
+      assert Router.has_route?(router, "user.created.verified")
+    end
+
+    test "returns false for invalid paths" do
+      {:ok, router} = Router.new({"user.created", :handler1})
+
+      refute Router.has_route?(router, "invalid..path")
+      refute Router.has_route?(router, "")
+    end
+
+    test "works with wildcard patterns stored in router" do
+      {:ok, router} = Router.new({"user.*", :handler1})
+
+      # Exact path match (literal "user.*")
+      assert Router.has_route?(router, "user.*")
+
+      # Not a pattern matcher - doesn't match expanded paths
+      refute Router.has_route?(router, "user.123")
+    end
+  end
 end

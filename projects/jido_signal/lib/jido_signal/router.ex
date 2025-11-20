@@ -81,20 +81,14 @@ defmodule Jido.Signal.Router do
   Signal routing:
   ```elixir
   # Route to handler
-  {:ok, [HandleUserCreated]} = Router.route(router, %Signal{
-    type: "user.created",
-    data: %{id: "123"}
-  })
+  {:ok, [HandleUserCreated]} = Router.route(router, Jido.Signal.new!("user.created", %{id: "123"}))
 
   # Route to multiple dispatch targets
   {:ok, [
     {MetricsAdapter, [type: :error]},
     {AlertAdapter, [priority: :high]},
     {LogAdapter, [level: :error]}
-  ]} = Router.route(router, %Signal{
-    type: "system.error",
-    data: %{message: "Critical error"}
-  })
+  ]} = Router.route(router, Jido.Signal.new!("system.error", %{message: "Critical error"}))
   ```
 
   ## Path Complexity Scoring
@@ -275,7 +269,17 @@ defmodule Jido.Signal.Router do
     with {:ok, normalized} <- Validator.normalize(routes),
          {:ok, validated} <- validate(normalized) do
       trie = Engine.build_trie(validated)
-      {:ok, %Router{trie: trie, route_count: length(validated)}}
+
+      # Count targets (multi-target routes count as multiple)
+      route_count =
+        Enum.reduce(validated, 0, fn route, acc ->
+          case route.target do
+            targets when is_list(targets) -> acc + length(targets)
+            _single_target -> acc + 1
+          end
+        end)
+
+      {:ok, %Router{trie: trie, route_count: route_count}}
     end
   end
 
@@ -317,7 +321,17 @@ defmodule Jido.Signal.Router do
     with {:ok, normalized} <- Validator.normalize(routes),
          {:ok, validated} <- validate(normalized) do
       new_trie = Engine.build_trie(validated, router.trie)
-      {:ok, %{router | trie: new_trie, route_count: router.route_count + length(validated)}}
+
+      # Count new targets (multi-target routes count as multiple)
+      added_count =
+        Enum.reduce(validated, 0, fn route, acc ->
+          case route.target do
+            targets when is_list(targets) -> acc + length(targets)
+            _single_target -> acc + 1
+          end
+        end)
+
+      {:ok, %{router | trie: new_trie, route_count: router.route_count + added_count}}
     end
   end
 
@@ -342,8 +356,13 @@ defmodule Jido.Signal.Router do
   """
   @spec remove(Router.t(), String.t() | [String.t()]) :: {:ok, Router.t()}
   def remove(%Router{} = router, paths) when is_list(paths) do
-    new_trie = Enum.reduce(paths, router.trie, &Engine.remove_path/2)
-    route_count = Engine.count_routes(new_trie)
+    {new_trie, total_removed} =
+      Enum.reduce(paths, {router.trie, 0}, fn path, {trie, count} ->
+        {updated_trie, removed} = Engine.remove_path(path, trie)
+        {updated_trie, count + removed}
+      end)
+
+    route_count = max(router.route_count - total_removed, 0)
     {:ok, %{router | trie: new_trie, route_count: route_count}}
   end
 
@@ -605,37 +624,65 @@ defmodule Jido.Signal.Router do
     end
   end
 
-  defp do_matches?(type, pattern) do
-    # Create a test signal with required fields
-    test_signal = %Signal{
-      type: type,
-      source: "/test",
-      id: Jido.Signal.ID.generate!(),
-      specversion: "1.0.2",
-      data: %{}
-    }
+  # Fast segment-based pattern matching (no trie build required)
+  @spec match_segments?(String.t(), String.t()) :: boolean()
+  defp match_segments?(type, pattern) do
+    type_segments = String.split(type, ".")
+    pattern_segments = String.split(pattern, ".")
 
-    # Create a test route with a dummy target
-    test_route = %Route{
-      path: pattern,
-      target: {:noop, []},
-      priority: 0
-    }
+    do_match_segments(type_segments, pattern_segments, 0, 0, nil, nil)
+  end
 
-    # Validate the pattern first
-    case Validator.validate_path(pattern) do
-      {:ok, _} ->
-        # Build a trie with just this route
-        trie = Engine.build_trie([test_route])
+  # Two-pointer matcher with backtracking for **
+  # Algorithm: https://leetcode.com/problems/wildcard-matching/
+  @spec do_match_segments(
+          [String.t()],
+          [String.t()],
+          non_neg_integer(),
+          non_neg_integer(),
+          non_neg_integer() | nil,
+          non_neg_integer() | nil
+        ) :: boolean()
+  defp do_match_segments(type_segs, pattern_segs, i, j, star_i, star_j) do
+    type_len = length(type_segs)
+    pattern_len = length(pattern_segs)
 
-        # Route the signal and check if we got any matches
-        case Engine.route_signal(trie, test_signal) do
-          [] -> false
-          _matches -> true
-        end
+    cond do
+      # Both exhausted - match
+      i >= type_len and j >= pattern_len ->
+        true
 
-      {:error, _} ->
+      # Pattern exhausted but type remains - only OK if we have trailing **
+      i >= type_len ->
+        # Check if remaining pattern is all **
+        Enum.drop(pattern_segs, j) |> Enum.all?(&(&1 == "**"))
+
+      # Pattern has ** - record backtrack position and advance pattern pointer
+      j < pattern_len and Enum.at(pattern_segs, j) == "**" ->
+        do_match_segments(type_segs, pattern_segs, i, j + 1, i, j + 1)
+
+      # Pattern has * or exact match - advance both pointers
+      j < pattern_len and
+          (Enum.at(pattern_segs, j) == "*" or
+             Enum.at(pattern_segs, j) == Enum.at(type_segs, i)) ->
+        do_match_segments(type_segs, pattern_segs, i + 1, j + 1, star_i, star_j)
+
+      # Mismatch - backtrack to last ** if available
+      star_j != nil ->
+        # Try consuming one more segment with **
+        do_match_segments(type_segs, pattern_segs, star_i + 1, star_j, star_i + 1, star_j)
+
+      # No match possible
+      true ->
         false
+    end
+  end
+
+  # Direct segment matching - replaces trie-based approach
+  defp do_matches?(type, pattern) do
+    case Validator.validate_path(pattern) do
+      {:ok, _} -> match_segments?(type, pattern)
+      {:error, _} -> false
     end
   end
 
@@ -675,29 +722,10 @@ defmodule Jido.Signal.Router do
   def filter(_signals, pattern) when not is_binary(pattern), do: []
 
   def filter(signals, pattern) when is_list(signals) and is_binary(pattern) do
-    # Validate the pattern first
     case Validator.validate_path(pattern) do
       {:ok, _} ->
-        # Create a test route with a dummy target
-        test_route = %Route{
-          path: pattern,
-          target: {:noop, []},
-          priority: 0
-        }
-
-        # Build a trie with just this route
-        trie = Engine.build_trie([test_route])
-
-        # Filter signals by routing each one
-        Enum.filter(signals, fn
-          %Signal{type: nil} ->
-            false
-
-          signal ->
-            case Engine.route_signal(trie, signal) do
-              [] -> false
-              _matches -> true
-            end
+        Enum.filter(signals, fn signal ->
+          matches?(signal.type, pattern)
         end)
 
       {:error, _} ->
@@ -717,9 +745,14 @@ defmodule Jido.Signal.Router do
   - `false` otherwise
   """
   @spec has_route?(Router.t(), String.t()) :: boolean()
-  def has_route?(%Router{} = router, route_path) when is_binary(route_path) do
-    case list(router) do
-      {:ok, routes} -> Enum.any?(routes, fn route -> route.path == route_path end)
+  def has_route?(%Router{} = router, path) when is_binary(path) do
+    case Validator.validate_path(path) do
+      {:ok, _} ->
+        segments = String.split(path, ".")
+        Engine.has_path?(router.trie, segments)
+
+      {:error, _} ->
+        false
     end
   end
 

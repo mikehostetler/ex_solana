@@ -1,5 +1,5 @@
 defmodule Jido.Signal.DispatchTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Jido.Signal.Dispatch
 
@@ -43,6 +43,11 @@ defmodule Jido.Signal.DispatchTest do
     end
 
     def deliver(signal, opts) do
+      # Simulate delay if provided
+      if delay = opts[:delay] do
+        Process.sleep(delay)
+      end
+
       send(opts[:target], {:batch_signal, signal, opts[:index]})
       :ok
     end
@@ -271,12 +276,12 @@ defmodule Jido.Signal.DispatchTest do
       test_pid = self()
 
       config = [
-        {:pid, [target: test_pid, delivery_mode: :sync]},
+        {:pid, [target: test_pid, delivery_mode: :sync, timeout: 100]},
         {:pid, [target: test_pid, delivery_mode: :async]},
         {:logger, [level: :debug]}
       ]
 
-      assert {:error, %Jido.Signal.Error.DispatchError{}} = Dispatch.dispatch(signal, config)
+      assert {:error, [%Jido.Signal.Error.DispatchError{}]} = Dispatch.dispatch(signal, config)
 
       # Should still receive the async signal
       assert_receive {:signal, received_signal}
@@ -298,7 +303,7 @@ defmodule Jido.Signal.DispatchTest do
         {:logger, [level: :debug]}
       ]
 
-      assert {:error, %Jido.Signal.Error.DispatchError{}} = Dispatch.dispatch(signal, config)
+      assert {:error, [%Jido.Signal.Error.DispatchError{}]} = Dispatch.dispatch(signal, config)
 
       # Verify successful dispatches still occurred
       assert_receive {:signal, received_signal}
@@ -529,6 +534,40 @@ defmodule Jido.Signal.DispatchTest do
 
       assert max_concurrent <= max_concurrency,
              "Max concurrency exceeded: got #{max_concurrent} concurrent batches"
+    end
+
+    test "batch processes configs in parallel with improved throughput", %{signal: signal} do
+      test_pid = self()
+
+      # 50 configs with 50ms delay each
+      configs =
+        for i <- 1..50 do
+          {TestBatchAdapter, [target: test_pid, index: i, delay: 50]}
+        end
+
+      {elapsed_us, :ok} =
+        :timer.tc(fn ->
+          Dispatch.dispatch_batch(signal, configs, max_concurrency: 10)
+        end)
+
+      elapsed_ms = div(elapsed_us, 1000)
+
+      # With max_concurrency: 10, should complete in ~250ms (5 batches of 10 * 50ms)
+      # Sequential would take ~2500ms (50 * 50ms)
+      assert elapsed_ms < 1000,
+             "Expected parallel batch processing (< 1000ms), got #{elapsed_ms}ms"
+
+      # Verify all dispatched
+      signals =
+        for _ <- 1..50 do
+          receive do
+            {:batch_signal, ^signal, idx} -> idx
+          after
+            2000 -> flunk("Timeout waiting for signal")
+          end
+        end
+
+      assert Enum.sort(signals) == Enum.to_list(1..50)
     end
   end
 end

@@ -37,7 +37,6 @@ defmodule Jido.Signal.Topology do
   @doc """
   Creates a new empty topology.
   """
-  @spec new() :: t()
   def new do
     %__MODULE__{}
   end

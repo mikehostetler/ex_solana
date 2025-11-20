@@ -122,7 +122,7 @@ defmodule Jido.Signal.Dispatch.ConsoleAdapter do
     id=#{signal.id}
     type=#{signal.type}
     source=#{signal.source}
-    data=#{inspect(signal.data, pretty: true)}
+    data=#{inspect(signal.data, pretty: true, limit: :infinity)}
     """)
 
     :ok

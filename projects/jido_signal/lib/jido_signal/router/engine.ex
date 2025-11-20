@@ -18,9 +18,14 @@ defmodule Jido.Signal.Router.Engine do
   """
   @spec build_trie([Route.t()], TrieNode.t()) :: TrieNode.t()
   def build_trie(routes, base_trie \\ %TrieNode{}) do
-    Enum.reduce(routes, base_trie, fn %Route{} = route, trie ->
-      segments = route.path |> sanitize_path() |> String.split(".")
+    # Precompute segments to avoid repeated splits
+    routes_with_segments =
+      Enum.map(routes, fn route ->
+        segments = route.path |> sanitize_path() |> String.split(".")
+        {route, segments}
+      end)
 
+    Enum.reduce(routes_with_segments, base_trie, fn {route, segments}, trie ->
       case route.match do
         nil ->
           handler_info = %HandlerInfo{
@@ -55,9 +60,9 @@ defmodule Jido.Signal.Router.Engine do
   end
 
   @doc """
-  Removes a path from the trie.
+  Removes a path from the trie and returns the number of handlers removed.
   """
-  @spec remove_path(String.t(), TrieNode.t()) :: TrieNode.t()
+  @spec remove_path(String.t(), TrieNode.t()) :: {TrieNode.t(), non_neg_integer()}
   def remove_path(path, trie) do
     segments = path |> sanitize_path() |> String.split(".")
     do_remove_path(segments, trie)
@@ -70,8 +75,10 @@ defmodule Jido.Signal.Router.Engine do
   def count_routes(%TrieNode{segments: segments, handlers: handlers}) do
     handler_count =
       case handlers do
-        %NodeHandlers{handlers: handlers} when is_list(handlers) ->
-          length(handlers)
+        %NodeHandlers{handlers: handlers, matchers: matchers} ->
+          h_count = if is_list(handlers), do: length(handlers), else: 0
+          m_count = if is_list(matchers), do: length(matchers), else: 0
+          h_count + m_count
 
         _ ->
           0
@@ -83,6 +90,14 @@ defmodule Jido.Signal.Router.Engine do
   end
 
   @doc """
+  Checks if handlers exist at the exact path in the trie.
+  """
+  @spec has_path?(TrieNode.t(), [String.t()]) :: boolean()
+  def has_path?(trie, segments) do
+    do_has_path?(trie, segments)
+  end
+
+  @doc """
   Collects all routes from the trie into a list of Route structs.
   """
   @spec collect_routes(TrieNode.t()) :: [Route.t()]
@@ -91,6 +106,28 @@ defmodule Jido.Signal.Router.Engine do
   end
 
   # Private helpers
+
+  # Check if handlers exist at exact path
+  @spec do_has_path?(TrieNode.t(), [String.t()]) :: boolean()
+  defp do_has_path?(%TrieNode{handlers: nil}, []) do
+    # At leaf but no handlers exist
+    false
+  end
+
+  defp do_has_path?(
+         %TrieNode{handlers: %NodeHandlers{handlers: handlers, matchers: matchers}},
+         []
+       ) do
+    # At leaf - check if any handlers exist at this exact path
+    not Enum.empty?(handlers || []) or not Enum.empty?(matchers || [])
+  end
+
+  defp do_has_path?(%TrieNode{} = node, [segment | rest]) do
+    case Map.get(node.segments, segment) do
+      nil -> false
+      child_node -> do_has_path?(child_node, rest)
+    end
+  end
 
   defp sanitize_path(path) do
     path
@@ -246,24 +283,30 @@ defmodule Jido.Signal.Router.Engine do
         matching_handlers
 
       %TrieNode{} = node ->
+        # Collect handlers from ** node first
         handlers = collect_handlers(node.handlers, signal, matching_handlers)
-
-        # Try all possible remaining segment combinations
-        [rest, []]
-        |> Stream.concat(tails(rest))
-        |> Enum.reduce(handlers, fn remaining, acc ->
-          if remaining == [] do
-            acc
-          else
-            do_route(remaining, node, signal, acc)
-          end
-        end)
+        # Iteratively try matching by consuming 0, 1, 2, ... segments
+        do_route_multi_wildcard(node, rest, signal, handlers)
     end
   end
 
-  # Helper to get all possible tails of a list
-  defp tails([]), do: []
-  defp tails([_h | t]), do: [t | tails(t)]
+  # Iteratively match zero or more segments for ** wildcard
+  # Preserves exact same traversal order as tails/1 approach
+  @spec do_route_multi_wildcard(TrieNode.t(), [String.t()], Signal.t(), [HandlerInfo.t()]) ::
+          [HandlerInfo.t()]
+  defp do_route_multi_wildcard(node, segments, signal, acc) do
+    # Try matching remaining path (zero-length ** match)
+    acc = do_route(segments, node, signal, acc)
+
+    # Try dropping one segment at a time (greedy ** matching)
+    case segments do
+      [] ->
+        acc
+
+      [_ | tail] ->
+        do_route_multi_wildcard(node, tail, signal, acc)
+    end
+  end
 
   # Handler collection logic
   defp collect_handlers(%NodeHandlers{} = node_handlers, %Signal{} = signal, acc) do
@@ -332,32 +375,32 @@ defmodule Jido.Signal.Router.Engine do
 
   # Route addition to trie
   defp do_add_path_route([segment], %TrieNode{} = trie, %HandlerInfo{} = handler_info) do
+    # Expand multi-target routes into separate handlers
+    handlers =
+      case handler_info.target do
+        targets when is_list(targets) ->
+          Enum.map(targets, fn target ->
+            %HandlerInfo{
+              target: target,
+              priority: handler_info.priority,
+              complexity: handler_info.complexity
+            }
+          end)
+
+        _ ->
+          [handler_info]
+      end
+
     Map.update(
       trie,
       :segments,
-      %{segment => %TrieNode{handlers: %NodeHandlers{handlers: [handler_info]}}},
+      %{segment => %TrieNode{handlers: %NodeHandlers{handlers: handlers}}},
       fn segments ->
         Map.update(
           segments,
           segment,
-          %TrieNode{handlers: %NodeHandlers{handlers: [handler_info]}},
+          %TrieNode{handlers: %NodeHandlers{handlers: handlers}},
           fn node ->
-            # If the target is a list of dispatch configs, create a handler info for each
-            handlers =
-              case handler_info.target do
-                targets when is_list(targets) ->
-                  Enum.map(targets, fn target ->
-                    %HandlerInfo{
-                      target: target,
-                      priority: handler_info.priority,
-                      complexity: handler_info.complexity
-                    }
-                  end)
-
-                _ ->
-                  [handler_info]
-              end
-
             %{
               node
               | handlers: %NodeHandlers{
@@ -393,21 +436,43 @@ defmodule Jido.Signal.Router.Engine do
   end
 
   defp do_add_pattern_route([segment], %TrieNode{} = trie, %PatternMatch{} = matcher) do
+    # Expand multi-target routes into separate matchers
+    matchers =
+      case matcher.target do
+        targets when is_list(targets) ->
+          Enum.map(targets, fn target ->
+            %PatternMatch{
+              match: matcher.match,
+              target: target,
+              priority: matcher.priority,
+              complexity: matcher.complexity
+            }
+          end)
+
+        _ ->
+          [matcher]
+      end
+
     Map.update(
       trie,
       :segments,
-      %{segment => %TrieNode{handlers: %NodeHandlers{matchers: [matcher]}}},
+      %{segment => %TrieNode{handlers: %NodeHandlers{matchers: matchers}}},
       fn segments ->
         Map.update(
           segments,
           segment,
-          %TrieNode{handlers: %NodeHandlers{matchers: [matcher]}},
+          %TrieNode{handlers: %NodeHandlers{matchers: matchers}},
           fn node ->
             %{
               node
               | handlers: %NodeHandlers{
                   handlers: node.handlers.handlers,
-                  matchers: insert_matcher_sorted(node.handlers.matchers || [], matcher)
+                  matchers:
+                    Enum.reduce(
+                      matchers,
+                      node.handlers.matchers || [],
+                      fn m, acc -> insert_matcher_sorted(acc, m) end
+                    )
                 }
             }
           end
@@ -432,29 +497,62 @@ defmodule Jido.Signal.Router.Engine do
     )
   end
 
-  # Recursively removes a path from the trie
-  defp do_remove_path([], trie), do: trie
+  # Recursively removes a path from the trie and counts removed handlers
+  defp do_remove_path([], trie), do: {trie, 0}
 
   defp do_remove_path([segment], %TrieNode{segments: segments} = trie) do
+    # Count handlers at this leaf node before removing
+    removed_count =
+      case Map.get(segments, segment) do
+        nil -> 0
+        node -> count_handlers(node.handlers)
+      end
+
     # Remove the leaf node
     new_segments = Map.delete(segments, segment)
-    %{trie | segments: new_segments}
+    {%{trie | segments: new_segments}, removed_count}
   end
 
   defp do_remove_path([segment | rest], %TrieNode{segments: segments} = trie) do
     case Map.get(segments, segment) do
       nil ->
-        trie
+        {trie, 0}
 
       node ->
-        new_node = do_remove_path(rest, node)
+        {new_node, removed_count} = do_remove_path(rest, node)
+
         # If the node is empty after removal, remove it too
-        if map_size(new_node.segments) == 0 do
-          %{trie | segments: Map.delete(segments, segment)}
+        if node_empty?(new_node) do
+          {%{trie | segments: Map.delete(segments, segment)}, removed_count}
         else
-          %{trie | segments: Map.put(segments, segment, new_node)}
+          {%{trie | segments: Map.put(segments, segment, new_node)}, removed_count}
         end
     end
+  end
+
+  # Helper to count handlers in a NodeHandlers struct
+  @spec count_handlers(NodeHandlers.t() | nil) :: non_neg_integer()
+  defp count_handlers(nil), do: 0
+
+  defp count_handlers(%NodeHandlers{handlers: handlers, matchers: matchers}) do
+    handler_count = if is_list(handlers), do: length(handlers), else: 0
+    matcher_count = if is_list(matchers), do: length(matchers), else: 0
+    handler_count + matcher_count
+  end
+
+  # Helper to check if node is completely empty
+  @spec node_empty?(TrieNode.t()) :: boolean()
+  defp node_empty?(%TrieNode{} = node) do
+    handlers_empty =
+      case node.handlers do
+        nil ->
+          true
+
+        %NodeHandlers{handlers: handlers, matchers: matchers} ->
+          Enum.empty?(handlers || []) and Enum.empty?(matchers || [])
+      end
+
+    handlers_empty and map_size(node.segments) == 0
   end
 
   # Collects all routes from the trie into a list of Route structs

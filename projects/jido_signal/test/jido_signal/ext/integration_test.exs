@@ -453,38 +453,12 @@ defmodule Jido.Signal.Ext.IntegrationTest do
       assert basic_signal.data.message == "basic test"
       assert basic_signal.extensions == %{}
 
-      # Signal with jido_dispatch still works
-      {:ok, dispatch_signal} =
-        Signal.new(
-          "test.dispatch",
-          %{message: "dispatch test"},
-          jido_dispatch: {:logger, [level: :info]}
-        )
-
-      assert dispatch_signal.jido_dispatch == {:logger, [level: :info]}
-
       # Serialization of basic signals still works
       {:ok, serialized} = JsonSerializer.serialize(basic_signal)
       {:ok, deserialized} = JsonSerializer.deserialize(serialized, type: "Elixir.Jido.Signal")
       assert deserialized.type == "test.basic"
-      assert deserialized.data.message == "basic test"
-    end
-
-    test "jido_dispatch backward compatibility works" do
-      # Create signal with old-style dispatch
-      {:ok, signal_with_old_dispatch} =
-        Signal.new(
-          "dispatch.compatibility.test",
-          %{message: "test dispatch compatibility"},
-          jido_dispatch: {:logger, [level: :info]}
-        )
-
-      # Should have jido_dispatch
-      assert signal_with_old_dispatch.jido_dispatch == {:logger, [level: :info]}
-
-      # Note: JSON serialization of tuples may not be supported
-      # This test validates that the jido_dispatch field works correctly
-      # even without serialization testing
+      # After deserialization, data keys become strings (security: no unsafe atom creation)
+      assert deserialized.data["message"] == "basic test"
     end
   end
 
@@ -657,16 +631,6 @@ defmodule Jido.Signal.Ext.IntegrationTest do
       assert basic_signal.type == "test.basic"
       assert basic_signal.data.message == "basic test"
       assert basic_signal.extensions == %{}
-
-      # Test signal with jido_dispatch still works
-      {:ok, dispatch_signal} =
-        Signal.new(
-          "test.dispatch",
-          %{message: "dispatch test"},
-          jido_dispatch: {:logger, [level: :info]}
-        )
-
-      assert dispatch_signal.jido_dispatch == {:logger, [level: :info]}
     end
   end
 end

@@ -12,10 +12,24 @@
 
 ## Architecture
 - OTP application with supervision tree: `Jido.Signal.Supervisor` → Registry + Task.Supervisor
-- Main modules: `Jido.Signal` (struct), `Jido.Signal.Bus` (GenServer pub/sub), `Jido.Signal.Router` (pattern matching)
+- Main modules: `Jido.Signal` (struct), `Jido.Signal.Bus` (GenServer pub/sub), `Jido.Signal.Router` (trie-based routing)
 - Dispatch adapters: `:pid`, `:pubsub`, `:http`, `:bus`, `:named`, `:console`, `:logger`, `:noop`
 - In-memory persistence via ETS or maps, no external DB dependency
 - Middleware pipeline for cross-cutting concerns
+
+## Router System
+- **Trie-based routing**: Efficient prefix tree for path matching with O(k) complexity (k = segments)
+- **Pattern matching**: Exact (`"user.created"`), single wildcard (`"user.*"`), multi-level (`"audit.**"`)
+- **Handler ordering**: By complexity (exact > wildcard) → priority (-100 to 100) → registration FIFO
+- **Performance optimizations**: Direct segment matching (no trie build per match), efficient wildcard traversal
+- **Route definition formats**:
+  - `{path, target}` - Simple route with default priority 0
+  - `{path, target, priority}` - Route with priority (-100 to 100)
+  - `{path, match_fn, target, priority}` - Route with pattern matching function
+  - `{path, [targets]}` - Route with multiple dispatch targets
+- **Dynamic management**: `Router.add/2`, `Router.remove/2`, `Router.has_route?/2`
+- **Pattern utilities**: `Router.matches?/2`, `Router.filter/2` for signal filtering
+- **Internal structure**: Router.Engine (trie ops), Router.Validator (path validation), Router.Route (definition)
 
 ## Code Style
 - snake_case functions, PascalCase modules under `Jido.Signal.*`

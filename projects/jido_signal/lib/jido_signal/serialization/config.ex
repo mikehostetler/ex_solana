@@ -61,6 +61,29 @@ defmodule Jido.Signal.Serialization.Config do
     Application.put_env(:jido, :default_type_provider, type_provider)
   end
 
+  @default_max_payload_bytes 10_000_000
+
+  @doc """
+  Get the configured maximum payload size in bytes.
+
+  Returns the maximum allowed payload size for deserialization. Defaults to 10MB.
+
+  ## Configuration
+
+  Configure in your application config:
+
+      config :jido, :max_payload_bytes, 5_000_000  # 5MB
+
+  ## Examples
+
+      iex> Jido.Signal.Serialization.Config.max_payload_bytes()
+      10_000_000
+  """
+  @spec max_payload_bytes() :: non_neg_integer()
+  def max_payload_bytes do
+    Application.get_env(:jido, :max_payload_bytes, @default_max_payload_bytes)
+  end
+
   @doc """
   Get all serialization configuration as a keyword list.
   """

@@ -32,7 +32,9 @@ defmodule JidoTest.Signal.SerializationTest do
       {:ok, deserialized} =
         JsonSerializer.deserialize(serialized, type: "Elixir.JidoTest.TestStructs.TestStruct")
 
-      assert deserialized == original
+      # After deserialization, nested map keys become strings (security: no unsafe atom creation)
+      assert deserialized.field1 == %{"nested" => "value"}
+      assert deserialized.field2 == 123
     end
 
     test "serializes and deserializes structs with lists" do
@@ -103,6 +105,44 @@ defmodule JidoTest.Signal.SerializationTest do
 
     test "returns error on non-existent type" do
       {:error, _reason} = JsonSerializer.deserialize("{}", type: "NonExistentModule")
+    end
+  end
+
+  describe "Zoi validation" do
+    test "deserialize returns structured error for invalid Signal with empty type" do
+      invalid_json = ~s({"type": "", "source": "/test", "id": "123"})
+
+      assert {:error, {:schema_validation_failed, errors}} =
+               JsonSerializer.deserialize(invalid_json)
+
+      assert is_map(errors)
+      assert Map.has_key?(errors, "type")
+    end
+
+    test "deserialize returns structured error for invalid Signal with empty source" do
+      invalid_json = ~s({"type": "test.event", "source": "", "id": "123"})
+
+      assert {:error, {:schema_validation_failed, errors}} =
+               JsonSerializer.deserialize(invalid_json)
+
+      assert is_map(errors)
+      assert Map.has_key?(errors, "source")
+    end
+
+    test "deserialize succeeds for valid Signal" do
+      valid_json = ~s({"type": "test.event", "source": "/test", "id": "123"})
+
+      assert {:ok, result} = JsonSerializer.deserialize(valid_json)
+      assert result["type"] == "test.event"
+      assert result["source"] == "/test"
+    end
+
+    test "deserialize allows CloudEvents extensions" do
+      json_with_ext = ~s({"type": "test", "source": "/s", "id": "x", "custom_field": "value"})
+
+      assert {:ok, result} = JsonSerializer.deserialize(json_with_ext)
+      assert result["type"] == "test"
+      # Zoi validation strips unknown fields by default
     end
   end
 
