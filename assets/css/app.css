@@ -1,0 +1,52 @@
+/* Tailwind CSS v4 imports */
+@import "tailwindcss" source(none);
+@source "../../deps/ash_authentication_phoenix";
+@source "../css";
+@source "../js";
+@source "../../lib/jido_hub_web";
+
+/* Heroicons plugin */
+@plugin "../vendor/heroicons";
+
+/* DaisyUI enabled themes */
+@plugin "../vendor/daisyui" {
+  themes: light, dark, cupcake, wireframe, business, nord;
+}
+
+/* Custom theme overrides */
+@import "./themes/light.css";
+@import "./themes/dark.css";
+
+/* Ensure root elements use theme colors with lighter background */
+html[data-theme],
+html[data-theme] body {
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+}
+
+/* Alpine.js cloak support */
+[x-cloak] {
+  display: none !important;
+}
+
+/* Dashboard layout */
+@import "./dashboard.css";
+
+/* Admin layout */
+@import "./admin.css";
+
+/* Typography */
+@import "./typography.css";
+
+/* LiveView variants */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Dark mode variant using data attribute */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent */
+[data-phx-session], [data-phx-teleported-src] { 
+  display: contents;
+}

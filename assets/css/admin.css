@@ -1,0 +1,38 @@
+/* Admin Layout - Similar to Dashboard but simpler */
+
+#admin-layout {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  grid-template-columns: var(--left) 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "left   header"
+    "left   main";
+}
+
+@media (max-width: 1020px) {
+  #admin-layout {
+    grid-template-columns: 0 1fr;
+    grid-template-areas:
+      "header header"
+      "main   main";
+  }
+  
+  #admin-layout .dashboard-left {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--left);
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  #admin-layout .dashboard-left[x-show="true"] {
+    transform: translateX(0);
+  }
+}

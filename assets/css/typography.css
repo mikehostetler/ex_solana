@@ -1,0 +1,61 @@
+/* Typography Hierarchy - Linear-inspired refinement */
+
+.text-page-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.text-section-header {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.text-subsection-header {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+.text-body {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-body-medium {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.text-meta {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.text-meta-medium {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.text-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+/* Table header refinement */
+table thead th {
+  font-weight: 600;
+  font-size: 13px;
+}

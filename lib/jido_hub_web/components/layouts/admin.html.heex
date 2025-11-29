@@ -1,0 +1,47 @@
+<div
+  id="admin-layout"
+  x-data="{ leftOpen: window.innerWidth >= 1024, isMobile: window.innerWidth < 1024 }"
+  x-init="$watch('isMobile', value => { if (!value) leftOpen = true; }); window.addEventListener('resize', () => { isMobile = window.innerWidth < 1024; });"
+>
+  <div
+    class="fixed inset-0 bg-black/50 z-35 lg:hidden"
+    x-show="leftOpen && isMobile"
+    x-transition:enter="transition-opacity ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition-opacity ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @click="leftOpen = false"
+    style="display: none;"
+  >
+  </div>
+
+  <div class="dashboard-header">
+    <div class="flex items-center justify-center w-full">
+      <button
+        class="btn btn-square btn-ghost lg:hidden absolute left-4"
+        @click="leftOpen = !leftOpen"
+        aria-label="Toggle sidebar"
+      >
+        <.icon name="hero-bars-3" class="w-5 h-5" />
+      </button>
+      <h3 class="text-sm font-medium text-base-content/60 uppercase tracking-wide">Admin</h3>
+    </div>
+  </div>
+
+  <div class="dashboard-left" x-show="leftOpen" x-transition>
+    <.sidebar
+      items={JidoHubWeb.Menus.items(:admin)}
+      current_path={@current_path}
+      context={:admin}
+    />
+  </div>
+
+  <div class="dashboard-main">
+    <div class="h-full overflow-auto">
+      <.flash_group flash={@flash} />
+      {@inner_content}
+    </div>
+  </div>
+</div>

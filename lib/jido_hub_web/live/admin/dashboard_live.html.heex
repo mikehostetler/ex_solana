@@ -1,0 +1,104 @@
+<div class="p-6 space-y-6">
+  <.header>
+    Admin Dashboard
+    <:subtitle>Overview of system metrics and recent activity</:subtitle>
+  </.header>
+
+  <dl class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
+    <.dashboard_stat
+      label={"New Users in #{Calendar.strftime(DateTime.utc_now(), "%b")}"}
+      stat={@user_total_for_this_month}
+      percentage_change={@user_percentage_change}
+      icon="hero-users"
+      chart_event="users_data"
+      empty={@user_empty?}
+    />
+
+    <.dashboard_stat
+      label={"New Orgs in #{Calendar.strftime(DateTime.utc_now(), "%b")}"}
+      stat={@org_total_for_this_month}
+      percentage_change={@org_percentage_change}
+      icon="hero-building-office"
+      chart_event="orgs_data"
+      empty={@org_empty?}
+    />
+
+    <.dashboard_stat
+      label={"Newsletter Subscribers in #{Calendar.strftime(DateTime.utc_now(), "%b")}"}
+      stat={@subscribed_total_for_this_month}
+      percentage_change={@subscribed_percentage_change}
+      icon="hero-envelope-open"
+      chart_event="newsletter_subscribed_data"
+      empty={@subscribed_empty?}
+    />
+  </dl>
+
+  <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <.dashboard_graph
+      graph_type="line"
+      heading="User Acquisition"
+      chart_event="user_acquisitions"
+      empty={@user_acquisitions_empty?}
+    />
+
+    <.dashboard_graph
+      graph_type="line"
+      heading="Newsletter Subscriber Acquisition"
+      chart_event="newsletter_subscriber_acquisitions"
+      empty={@newsletter_subscriber_acquisitions_empty?}
+    />
+  </div>
+
+  <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-6">
+    <.dashboard_graph
+      class="col-span-4"
+      graph_type="line"
+      heading="Organization Acquisition"
+      chart_event="org_acquisitions"
+      empty={@org_acquisitions_empty?}
+    />
+  </div>
+
+  <div class="mt-5">
+    <h3 class="text-lg font-semibold mb-4">Recently Joined Users</h3>
+    <.table id="recent-users" rows={@last_joined_users}>
+      <:col :let={user} label="User">
+        <div class="flex items-center gap-3">
+          <div>
+            <div class="font-medium">{user.name || user.email}</div>
+            <div class="text-sm text-gray-500">{user.email}</div>
+          </div>
+        </div>
+      </:col>
+      <:col :let={user} label="Confirmed">
+        <.icon
+          :if={user.confirmed_at != nil}
+          name="hero-check-circle"
+          class="h-5 w-5 text-green-500"
+        />
+        <.icon
+          :if={user.confirmed_at == nil}
+          name="hero-x-circle"
+          class="h-5 w-5 text-red-500"
+        />
+      </:col>
+      <:col :let={user} label="Onboarded">
+        <.icon
+          :if={user.is_onboarded == true}
+          name="hero-check-circle"
+          class="h-5 w-5 text-green-500"
+        />
+        <.icon
+          :if={user.is_onboarded != true}
+          name="hero-x-circle"
+          class="h-5 w-5 text-red-500"
+        />
+      </:col>
+      <:action :let={_user}>
+        <.link navigate={~p"/admin/users"} class="text-primary-600 underline">
+          View
+        </.link>
+      </:action>
+    </.table>
+  </div>
+</div>

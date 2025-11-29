@@ -1,0 +1,14 @@
+/**
+ * JidoHub Dark Theme Overrides
+ * Custom dark theme colors using oklch color space
+ */
+@plugin "../../vendor/daisyui-theme" {
+  name: "dark";
+  
+  --color-primary: oklch(0.73 0.20 262);
+  --color-secondary: oklch(0.75 0.12 210);
+  --color-accent: oklch(0.80 0.12 150);
+  --color-neutral: oklch(0.27 0.02 260);
+  --color-base-100: oklch(0.14 0.02 95);
+  --color-base-content: oklch(0.95 0.02 95);
+}
