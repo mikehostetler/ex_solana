@@ -26,8 +26,8 @@ defmodule Jido.HTN.Visualize do
       [
         "graph TD",
         generate_nodes(tasks),
-        generate_edges(tasks),
-        generate_task_details(tasks),
+        generate_edges(domain),
+        generate_task_details(domain),
         generate_subgraphs(tasks),
         generate_legend(),
         generate_styles(tasks)
@@ -47,34 +47,35 @@ defmodule Jido.HTN.Visualize do
     end)
   end
 
-  defp generate_edges(tasks) do
-    Enum.flat_map(tasks, fn {name, task} ->
+  defp generate_edges(%Domain{} = domain) do
+    Enum.flat_map(domain.tasks, fn {name, task} ->
       case task do
-        %CompoundTask{methods: methods} ->
-          Enum.flat_map(methods, fn method ->
-            subtasks = Map.get(method, :subtasks) || []
-            conditions = Map.get(method, :conditions) || []
-            condition_string = extract_conditions(conditions)
-
-            Enum.map(subtasks, fn subtask ->
-              "    #{node_id(name)} -->|\"#{condition_string}\"| #{node_id(subtask)}"
-            end)
-          end)
-
-        _ ->
-          []
+        %CompoundTask{methods: methods} -> generate_method_edges(name, methods, domain)
+        _ -> []
       end
     end)
   end
 
-  defp generate_task_details(tasks) do
-    Enum.flat_map(tasks, fn {name, task} ->
+  defp generate_method_edges(task_name, methods, domain) do
+    Enum.flat_map(methods, fn method ->
+      subtasks = Map.get(method, :subtasks) || []
+      conditions = Map.get(method, :conditions) || []
+      condition_string = extract_conditions(conditions, domain)
+
+      Enum.map(subtasks, fn subtask ->
+        "    #{node_id(task_name)} -->|\"#{condition_string}\"| #{node_id(subtask)}"
+      end)
+    end)
+  end
+
+  defp generate_task_details(%Domain{} = domain) do
+    Enum.flat_map(domain.tasks, fn {name, task} ->
       case task do
         %PrimitiveTask{} = pt ->
           [
             "    subgraph \"#{name} Details\"",
-            "        #{node_id(name)}_pre[\"Preconditions:<br/>#{extract_conditions(pt.preconditions)}\"]",
-            "        #{node_id(name)}_eff[\"Effects:<br/>#{extract_effects(pt.effects)}\"]",
+            "        #{node_id(name)}_pre[\"Preconditions:<br/>#{extract_conditions(pt.preconditions, domain)}\"]",
+            "        #{node_id(name)}_eff[\"Effects:<br/>#{extract_effects(pt.effects, domain)}\"]",
             "        #{node_id(name)} --> #{node_id(name)}_pre",
             "        #{node_id(name)} --> #{node_id(name)}_eff",
             "    end"
@@ -110,10 +111,12 @@ defmodule Jido.HTN.Visualize do
       "        compound_legend{{\"Compound Task\"}}",
       "        primitive_legend[\"Primitive Task\"]",
       "        condition_legend[\"Condition/Precondition/Effect\"]",
+      "        anon_legend[\"[anon_cond] = Anonymous Function\"]",
       "    end",
       "    class compound_legend compound;",
       "    class primitive_legend primitive;",
-      "    class condition_legend details;"
+      "    class condition_legend details;",
+      "    class anon_legend details;"
     ]
   end
 
@@ -133,31 +136,42 @@ defmodule Jido.HTN.Visualize do
     "node_" <> String.replace(name, ~r/[^a-zA-Z0-9]/, "_")
   end
 
-  defp extract_conditions(conditions) do
+  defp extract_conditions(conditions, domain) do
     conditions
-    |> Enum.map(&extract_function_name/1)
+    |> Enum.map(&extract_function_name(&1, domain))
     |> Enum.reject(&is_nil/1)
     |> Enum.join(", ")
   end
 
-  defp extract_effects(effects) do
+  defp extract_effects(effects, domain) do
     effects
-    |> Enum.map(&extract_function_name/1)
+    |> Enum.map(&extract_function_name(&1, domain))
     |> Enum.reject(&is_nil/1)
     |> Enum.join(", ")
   end
 
-  defp extract_function_name(func) when is_function(func) do
-    func
-    |> Function.info()
-    |> Keyword.get(:name)
-    |> case do
-      nil -> nil
-      name -> name |> Atom.to_string() |> String.replace("?", "")
+  defp extract_function_name(name, _domain) when is_binary(name), do: name
+
+  defp extract_function_name(func, domain) when is_function(func) do
+    info = Function.info(func)
+    module = Keyword.get(info, :module)
+    name = Keyword.get(info, :name)
+    arity = Keyword.get(info, :arity)
+
+    if module != :erl_eval and name do
+      "#{inspect(module)}.#{name}/#{arity}"
+    else
+      find_callback_name(func, domain.callbacks) || "[anon_cond]"
     end
   end
 
-  defp extract_function_name(_), do: nil
+  defp extract_function_name(_, _domain), do: nil
+
+  defp find_callback_name(func, callbacks) do
+    Enum.find_value(callbacks, fn {name, callback} ->
+      if callback == func, do: name, else: nil
+    end)
+  end
 
   defp get_compound_task_ids(tasks) do
     tasks

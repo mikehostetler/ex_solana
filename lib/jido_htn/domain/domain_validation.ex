@@ -1,57 +1,97 @@
 defmodule Jido.HTN.Domain.ValidationHelpers do
   @moduledoc false
-  use ExDbug, enabled: false
+  require Logger
+
   alias Jido.HTN.CompoundTask
   alias Jido.HTN.Domain
   alias Jido.HTN.Domain.Builder
   alias Jido.HTN.Method
   alias Jido.HTN.PrimitiveTask
 
-  require Logger
-
   @type validation_result :: :ok | {:error, String.t() | [String.t()]}
+
+  @validation_functions [
+    :validate_non_empty_domain,
+    :validate_unique_names,
+    :validate_subtasks,
+    :validate_allowed_workflows,
+    :validate_defined_tasks,
+    :validate_unique_callbacks,
+    :validate_workflow_module_interface,
+    :validate_callback_signatures,
+    :validate_methods_have_subtasks,
+    :validate_root_task_presence,
+    :validate_name_conflicts,
+    :validate_primitive_task_structure,
+    :validate_naming_conventions,
+    :validate_workflow_parameters,
+    :validate_costs_and_durations
+  ]
 
   @doc """
   Validates the domain structure, checking for consistency and completeness.
   """
   @spec validate(Domain.t() | Builder.t() | {:ok, Domain.t()} | {:error, String.t()}) ::
           validation_result
-  def validate({:ok, domain}), do: validate(domain)
-  def validate({:error, error}) when is_binary(error), do: {:error, error}
-  def validate(%Builder{domain: domain, error: nil}), do: validate(domain)
-  def validate(%Builder{error: error}) when is_binary(error), do: {:error, error}
+  def validate(domain_or_result), do: validate(domain_or_result, [])
 
-  def validate(%Domain{} = domain) do
-    dbug("Validating domain structure")
+  @spec validate(
+          Domain.t() | Builder.t() | {:ok, Domain.t()} | {:error, String.t()},
+          keyword()
+        ) :: validation_result
+  def validate({:ok, domain}, opts), do: validate(domain, opts)
+  def validate({:error, error}, _opts) when is_binary(error), do: {:error, error}
+  def validate(%Builder{domain: domain, error: nil}, opts), do: validate(domain, opts)
+  def validate(%Builder{error: error}, _opts) when is_binary(error), do: {:error, error}
 
-    with {:ok, _} <- validate_non_empty_domain(domain),
-         {:ok, _} <- validate_unique_names(domain),
-         {:ok, _} <- validate_subtasks(domain),
-         {:ok, _} <- validate_allowed_workflows(domain),
-         {:ok, _} <- validate_defined_tasks(domain),
-         {:ok, _} <- validate_unique_callbacks(domain),
-         {:ok, _} <- validate_workflow_module_interface(domain),
-         {:ok, _} <- validate_callback_signatures(domain),
-         {:ok, _} <- validate_methods_have_subtasks(domain),
-         {:ok, _} <- validate_root_task_presence(domain),
-         {:ok, _} <- validate_name_conflicts(domain),
-         {:ok, _} <- validate_primitive_task_structure(domain),
-         {:ok, _} <- validate_naming_conventions(domain),
-         {:ok, _} <- validate_workflow_parameters(domain),
-         {:ok, _} <- validate_costs_and_durations(domain) do
-      :ok
+  def validate(%Domain{} = domain, opts) do
+    Logger.debug("Validating domain structure")
+    verbose = Keyword.get(opts, :verbose, false)
+
+    if verbose do
+      run_validation_pipeline_verbose(domain)
     else
-      {:error, errors} when is_list(errors) -> {:error, errors}
-      {:error, error} -> {:error, [error]}
+      run_validation_pipeline(domain)
     end
   end
 
-  def validate(_), do: {:error, "Invalid domain structure"}
+  def validate(_, _opts), do: {:error, "Invalid domain structure"}
+
+  defp run_validation_pipeline(domain) do
+    Enum.reduce_while(@validation_functions, :ok, fn validator_name, _acc ->
+      case apply(__MODULE__, validator_name, [domain]) do
+        {:ok, _} -> {:cont, :ok}
+        {:error, errors} when is_list(errors) -> {:halt, {:error, errors}}
+        {:error, error} -> {:halt, {:error, [error]}}
+      end
+    end)
+  end
+
+  defp run_validation_pipeline_verbose(domain) do
+    errors =
+      Enum.reduce(@validation_functions, [], fn validator_name, acc ->
+        case apply(__MODULE__, validator_name, [domain]) do
+          {:ok, _} ->
+            acc
+
+          {:error, errors} when is_list(errors) ->
+            acc ++ errors
+
+          {:error, error} ->
+            [error | acc]
+        end
+      end)
+
+    case errors do
+      [] -> :ok
+      _ -> {:error, Enum.reverse(errors)}
+    end
+  end
 
   @doc "Validates that the domain is not empty"
   @spec validate_non_empty_domain(Domain.t()) :: validation_result
   def validate_non_empty_domain(%Domain{tasks: tasks, allowed_workflows: ops}) do
-    dbug("Validating non-empty domain")
+    Logger.debug("Validating non-empty domain")
 
     cond do
       map_size(tasks) == 0 -> {:error, "Domain must contain at least one task"}
@@ -63,7 +103,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates unique names across tasks and callbacks"
   @spec validate_unique_names(Domain.t()) :: validation_result
   def validate_unique_names(%Domain{tasks: tasks, callbacks: callbacks}) do
-    dbug("Validating unique names")
+    Logger.debug("Validating unique names")
     task_names = Map.keys(tasks)
     callback_names = Map.keys(callbacks)
     all_names = task_names ++ callback_names
@@ -80,7 +120,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that all subtasks refer to defined tasks"
   @spec validate_subtasks(Domain.t()) :: validation_result
   def validate_subtasks(%Domain{tasks: tasks}) do
-    dbug("Validating subtasks")
+    Logger.debug("Validating subtasks")
     task_names = MapSet.new(Map.keys(tasks))
 
     result =
@@ -104,7 +144,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that all allowed workflows are defined"
   @spec validate_allowed_workflows(Domain.t()) :: validation_result
   def validate_allowed_workflows(%Domain{tasks: tasks, allowed_workflows: allowed_ops}) do
-    dbug("Validating allowed workflows")
+    Logger.debug("Validating allowed workflows")
 
     result =
       Enum.reduce(tasks, [], fn
@@ -133,7 +173,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @spec validate_defined_tasks(Domain.t()) :: validation_result
   @spec validate_defined_tasks(Domain.t()) :: validation_result
   def validate_defined_tasks(%Domain{tasks: tasks}) do
-    dbug("Validating defined tasks")
+    Logger.debug("Validating defined tasks")
 
     undefined_tasks =
       Enum.reduce(tasks, MapSet.new(), fn
@@ -160,7 +200,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that callback names are unique"
   @spec validate_unique_callbacks(Domain.t()) :: validation_result
   def validate_unique_callbacks(%Domain{callbacks: callbacks}) do
-    dbug("Validating unique callbacks")
+    Logger.debug("Validating unique callbacks")
     callback_names = Map.keys(callbacks)
 
     if length(callback_names) == length(Enum.uniq(callback_names)) do
@@ -174,7 +214,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that workflow modules implement the required run/3 function"
   @spec validate_workflow_module_interface(Domain.t()) :: validation_result
   def validate_workflow_module_interface(%Domain{allowed_workflows: ops}) do
-    dbug("Validating workflow module interface")
+    Logger.debug("Validating workflow module interface")
 
     result =
       Enum.reduce(ops, [], fn {name, module}, acc ->
@@ -194,7 +234,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates callback function signatures and behavior"
   @spec validate_callback_signatures(Domain.t()) :: validation_result
   def validate_callback_signatures(%Domain{callbacks: callbacks}) do
-    dbug("Validating callback signatures")
+    Logger.debug("Validating callback signatures")
 
     result =
       Enum.reduce(callbacks, [], fn {name, callback}, acc ->
@@ -219,7 +259,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that each method in compound tasks has at least one subtask"
   @spec validate_methods_have_subtasks(Domain.t()) :: validation_result
   def validate_methods_have_subtasks(%Domain{tasks: tasks}) do
-    dbug("Validating methods have subtasks")
+    Logger.debug("Validating methods have subtasks")
 
     result =
       Enum.reduce(tasks, [], fn
@@ -245,7 +285,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates the presence of at least one root task"
   @spec validate_root_task_presence(Domain.t()) :: validation_result
   def validate_root_task_presence(%Domain{root_tasks: root_tasks, tasks: tasks}) do
-    dbug("Validating root task presence")
+    Logger.debug("Validating root task presence")
 
     cond do
       MapSet.size(root_tasks) == 0 ->
@@ -271,7 +311,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that there are no name conflicts between tasks and callbacks"
   @spec validate_name_conflicts(Domain.t()) :: validation_result
   def validate_name_conflicts(%Domain{tasks: tasks, callbacks: callbacks}) do
-    dbug("Validating name conflicts")
+    Logger.debug("Validating name conflicts")
 
     task_names = MapSet.new(Map.keys(tasks))
     callback_names = MapSet.new(Map.keys(callbacks))
@@ -287,7 +327,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates the structure of primitive tasks"
   @spec validate_primitive_task_structure(Domain.t()) :: validation_result
   def validate_primitive_task_structure(%Domain{tasks: tasks}) do
-    dbug("Validating primitive task structure")
+    Logger.debug("Validating primitive task structure")
 
     result =
       Enum.reduce(tasks, [], fn
@@ -362,7 +402,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates naming conventions for tasks and callbacks"
   @spec validate_naming_conventions(Domain.t()) :: validation_result
   def validate_naming_conventions(%Domain{tasks: tasks, callbacks: callbacks}) do
-    dbug("Validating naming conventions")
+    Logger.debug("Validating naming conventions")
 
     all_names = Map.keys(tasks) ++ Map.keys(callbacks)
     invalid_names = Enum.filter(all_names, &(!valid_name?(&1)))
@@ -377,7 +417,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates workflow parameters and options"
   @spec validate_workflow_parameters(Domain.t()) :: validation_result
   def validate_workflow_parameters(%Domain{tasks: tasks}) do
-    dbug("Validating workflow parameters")
+    Logger.debug("Validating workflow parameters")
 
     result =
       Enum.reduce(tasks, [], fn
@@ -400,7 +440,7 @@ defmodule Jido.HTN.Domain.ValidationHelpers do
   @doc "Validates that costs and durations are non-negative"
   @spec validate_costs_and_durations(Domain.t()) :: validation_result
   def validate_costs_and_durations(%Domain{tasks: tasks}) do
-    dbug("Validating costs and durations")
+    Logger.debug("Validating costs and durations")
 
     result =
       Enum.reduce(tasks, [], fn

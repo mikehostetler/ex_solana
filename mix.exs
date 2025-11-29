@@ -26,7 +26,8 @@ defmodule JidoHtn.MixProject do
       {:ex_dbug, "~> 2.0"},
       {:proper_case, "~> 1.3"},
       {:private, "~> 0.1.2"},
-      {:jido, path: "../ship/jido"},
+      jido_dep(:jido, "../jido", "~> 1.3.0"),
+      jido_dep(:jido_action, "../jido_action", "~> 1.3.0"),
 
       # Development & Test Dependencies
       {:credo, "~> 1.7", only: [:dev, :test]},
@@ -51,6 +52,9 @@ defmodule JidoHtn.MixProject do
       # Helper to run docs
       docs: "docs -f html --open",
 
+      # Run example
+      "example.hello": ["run -e Jido.Examples.HelloWorld.run()"],
+
       # Run to check the quality of your code
       q: ["quality"],
       quality: [
@@ -61,5 +65,19 @@ defmodule JidoHtn.MixProject do
         "credo --all"
       ]
     ]
+  end
+
+  defp jido_dep(app, rel_path, hex_req, extra_opts \\ []) do
+    path = Path.expand(rel_path, __DIR__)
+
+    if File.dir?(path) and File.exists?(Path.join(path, "mix.exs")) do
+      {app, Keyword.merge([path: rel_path, override: true], extra_opts)}
+    else
+      {app, hex_req, extra_opts}
+    end
+    |> case do
+      {app, opts} when is_list(opts) -> {app, opts}
+      {app, req, opts} -> {app, req, opts}
+    end
   end
 end

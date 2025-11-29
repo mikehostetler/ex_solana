@@ -1,6 +1,6 @@
 defmodule Jido.HTN.Domain.ReadHelpers do
   @moduledoc false
-  use ExDbug, enabled: false
+  require Logger
 
   alias Jido.HTN.CompoundTask
   alias Jido.HTN.Domain
@@ -11,24 +11,24 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec get_primitive(Domain.t(), String.t()) :: {:ok, PrimitiveTask.t()} | {:error, String.t()}
   def get_primitive(%Domain{tasks: tasks}, name) when is_binary(name) do
-    dbug("Getting primitive task: #{name}")
+    Logger.debug("Getting primitive task", task_name: name)
 
     case Map.get(tasks, name) do
       %PrimitiveTask{} = task ->
         {:ok, task}
 
       %CompoundTask{} ->
-        dbug("Task '#{name}' is not a primitive task")
+        Logger.debug("Task is not a primitive task", task_name: name)
         {:error, "Task '#{name}' is not a primitive task"}
 
       nil ->
-        dbug("Task '#{name}' not found")
+        Logger.debug("Task not found", task_name: name)
         {:error, "Task '#{name}' not found"}
     end
   end
 
   def get_primitive(_, _) do
-    dbug("Invalid arguments for get_primitive")
+    Logger.debug("Invalid arguments for get_primitive")
     {:error, "Invalid arguments for get_primitive"}
   end
 
@@ -37,24 +37,24 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec get_compound(Domain.t(), String.t()) :: {:ok, CompoundTask.t()} | {:error, String.t()}
   def get_compound(%Domain{tasks: tasks}, name) when is_binary(name) do
-    dbug("Getting compound task: #{name}")
+    Logger.debug("Getting compound task", task_name: name)
 
     case Map.get(tasks, name) do
       %CompoundTask{} = task ->
         {:ok, task}
 
       %PrimitiveTask{} ->
-        dbug("Task '#{name}' is not a compound task")
+        Logger.debug("Task is not a compound task", task_name: name)
         {:error, "Task '#{name}' is not a compound task"}
 
       nil ->
-        dbug("Task '#{name}' not found")
+        Logger.debug("Task not found", task_name: name)
         {:error, "Task '#{name}' not found"}
     end
   end
 
   def get_compound(_, _) do
-    dbug("Invalid arguments for get_compound")
+    Logger.debug("Invalid arguments for get_compound")
     {:error, "Invalid arguments for get_compound"}
   end
 
@@ -63,7 +63,7 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec tasks_to_map(Domain.t()) :: %{String.t() => CompoundTask.t() | PrimitiveTask.t()}
   def tasks_to_map(%Domain{tasks: tasks}) do
-    dbug("Converting tasks to map")
+    Logger.debug("Converting tasks to map")
     tasks
   end
 
@@ -72,7 +72,7 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec list_tasks(Domain.t()) :: [String.t()]
   def list_tasks(%Domain{tasks: tasks}) do
-    dbug("Listing all tasks")
+    Logger.debug("Listing all tasks")
     Map.keys(tasks)
   end
 
@@ -81,7 +81,7 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec list_allowed_workflows(Domain.t()) :: [String.t()]
   def list_allowed_workflows(%Domain{allowed_workflows: allowed_ops}) do
-    dbug("Listing allowed workflows")
+    Logger.debug("Listing allowed workflows")
     Map.keys(allowed_ops)
   end
 
@@ -90,7 +90,7 @@ defmodule Jido.HTN.Domain.ReadHelpers do
   """
   @spec list_callbacks(Domain.t()) :: [String.t()]
   def list_callbacks(%Domain{callbacks: callbacks}) do
-    dbug("Listing callbacks")
+    Logger.debug("Listing callbacks")
     Map.keys(callbacks)
   end
 end
