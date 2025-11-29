@@ -1,0 +1,29 @@
+id = "text-embedding-ada-002"
+name = "Text Embedding Ada 002"
+provider_model_id = "text-embedding-ada-002"
+knowledge = "2021-09"
+release_date = "2021-09-01"
+last_updated = "2021-09-01"
+
+[limits]
+context = 8191
+
+[cost]
+input = 0.0001
+
+[modalities]
+input = ["text"]
+output = ["embedding"]
+
+[capabilities.embeddings]
+min_dimensions = 1536
+max_dimensions = 1536
+default_dimensions = 1536
+
+[extra]
+type = "embedding"
+attachment = false
+open_weights = false
+reasoning = false
+temperature = false
+tool_call = false

@@ -1,0 +1,5 @@
+id = "zai_coder"
+name = "Z.AI Coder"
+base_url = "https://api.zai.chat"
+doc = "https://docs.zai.chat"
+env = ["ZAI_CODER_API_KEY"]

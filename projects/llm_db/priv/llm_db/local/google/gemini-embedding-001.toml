@@ -1,0 +1,27 @@
+id = "gemini-embedding-001"
+name = "Gemini Embedding 001"
+provider_model_id = "models/gemini-embedding-001"
+release_date = "2024-03-07"
+last_updated = "2024-03-07"
+
+[limits]
+context = 2048
+
+[cost]
+input = 0.00001
+
+[modalities]
+input = ["text"]
+output = ["embedding"]
+
+[capabilities.embeddings]
+min_dimensions = 3072
+max_dimensions = 3072
+default_dimensions = 3072
+
+[extra]
+type = "embedding"
+open_weights = false
+reasoning = false
+temperature = false
+tool_call = false

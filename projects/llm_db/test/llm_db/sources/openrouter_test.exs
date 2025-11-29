@@ -1,0 +1,348 @@
+defmodule LLMDB.Sources.OpenRouterTest do
+  use ExUnit.Case, async: false
+
+  alias LLMDB.Sources.OpenRouter
+
+  setup do
+    # Clean up test cache directory
+    File.rm_rf!("tmp/test/upstream")
+
+    on_exit(fn ->
+      File.rm_rf!("tmp/test/upstream")
+    end)
+
+    :ok
+  end
+
+  defp make_plug(fun) do
+    fn conn ->
+      fun.(conn)
+    end
+  end
+
+  describe "pull/1" do
+    test "fetches and caches data on 200 response" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+
+      body = %{
+        "data" => [
+          %{
+            "id" => "openai/gpt-4",
+            "name" => "GPT-4",
+            "context_length" => 128_000,
+            "pricing" => %{
+              "prompt" => "0.00003",
+              "completion" => "0.00006"
+            },
+            "architecture" => %{
+              "modality" => "text->text"
+            },
+            "top_provider" => %{
+              "max_completion_tokens" => 16_384
+            }
+          }
+        ]
+      }
+
+      plug =
+        make_plug(fn conn ->
+          conn
+          |> Plug.Conn.put_resp_header("etag", "abc123")
+          |> Plug.Conn.put_resp_header("last-modified", "Mon, 01 Jan 2024")
+          |> Plug.Conn.send_resp(200, Jason.encode!(body))
+        end)
+
+      assert {:ok, cache_path} = OpenRouter.pull(%{url: test_url, req_opts: [plug: plug]})
+
+      assert File.exists?(cache_path)
+      {:ok, cached} = File.read(cache_path)
+      decoded = Jason.decode!(cached)
+      assert decoded["data"]
+
+      manifest_path = String.replace_suffix(cache_path, ".json", ".manifest.json")
+      assert File.exists?(manifest_path)
+      {:ok, manifest_bin} = File.read(manifest_path)
+      manifest = Jason.decode!(manifest_bin)
+      assert manifest["etag"] == "abc123"
+      assert manifest["last_modified"] == "Mon, 01 Jan 2024"
+      assert manifest["sha256"]
+      assert manifest["downloaded_at"]
+    end
+
+    test "returns :noop on 304 not modified" do
+      plug = make_plug(fn conn -> Plug.Conn.send_resp(conn, 304, "") end)
+      assert :noop = OpenRouter.pull(%{req_opts: [plug: plug]})
+    end
+
+    test "returns error on non-200/304 status" do
+      plug = make_plug(fn conn -> Plug.Conn.send_resp(conn, 404, "Not Found") end)
+      assert {:error, {:http_status, 404}} = OpenRouter.pull(%{req_opts: [plug: plug]})
+    end
+
+    test "sends conditional headers from manifest on subsequent pulls" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+      body = %{"data" => []}
+
+      plug_first =
+        make_plug(fn conn ->
+          conn
+          |> Plug.Conn.put_resp_header("etag", "tag1")
+          |> Plug.Conn.put_resp_header("last-modified", "Mon, 01 Jan 2024")
+          |> Plug.Conn.send_resp(200, Jason.encode!(body))
+        end)
+
+      OpenRouter.pull(%{url: test_url, req_opts: [plug: plug_first]})
+
+      plug_second =
+        make_plug(fn conn ->
+          headers = Enum.into(conn.req_headers, %{})
+          assert headers["if-none-match"] == "tag1"
+          assert headers["if-modified-since"] == "Mon, 01 Jan 2024"
+
+          Plug.Conn.send_resp(conn, 304, "")
+        end)
+
+      assert :noop = OpenRouter.pull(%{url: test_url, req_opts: [plug: plug_second]})
+    end
+
+    test "includes authorization header when api_key provided" do
+      body = %{"data" => []}
+
+      plug =
+        make_plug(fn conn ->
+          headers = Enum.into(conn.req_headers, %{})
+          assert headers["authorization"] == "Bearer test-api-key"
+          Plug.Conn.send_resp(conn, 200, Jason.encode!(body))
+        end)
+
+      OpenRouter.pull(%{api_key: "test-api-key", req_opts: [plug: plug]})
+    end
+  end
+
+  describe "load/1" do
+    test "loads and transforms cached OpenRouter data" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+
+      cache_data = %{
+        "data" => [
+          %{
+            "id" => "openai/gpt-4",
+            "name" => "GPT-4",
+            "description" => "GPT-4 by OpenAI",
+            "context_length" => 128_000,
+            "pricing" => %{
+              "prompt" => "0.00003",
+              "completion" => "0.00006"
+            },
+            "architecture" => %{
+              "modality" => "text->text"
+            },
+            "top_provider" => %{
+              "max_completion_tokens" => 16_384
+            },
+            "created" => 1_672_531_200,
+            "supported_parameters" => ["temperature", "top_p", "tools"]
+          }
+        ]
+      }
+
+      hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
+
+      File.mkdir_p!(Path.dirname(cache_path))
+      File.write!(cache_path, Jason.encode!(cache_data))
+
+      {:ok, data} = OpenRouter.load(%{url: test_url})
+
+      assert is_map(data)
+      assert Map.has_key?(data, "openai")
+
+      provider = data["openai"]
+      assert provider[:id] == :openai
+      assert provider[:name] == "OpenAI"
+      assert is_list(provider[:models])
+      assert length(provider[:models]) == 1
+
+      model = hd(provider[:models])
+      assert model[:id] == "gpt-4"
+      assert model[:provider] == :openai
+      assert model[:name] == "GPT-4"
+      assert model[:description] == "GPT-4 by OpenAI"
+      assert model[:limits][:context] == 128_000
+      assert model[:limits][:output] == 16_384
+      assert_in_delta model[:cost][:input], 0.03, 0.001
+      assert_in_delta model[:cost][:output], 0.06, 0.001
+      assert model[:modalities][:input] == [:text]
+      assert model[:modalities][:output] == [:text]
+      assert model[:capabilities][:tools][:enabled] == true
+      assert model[:release_date] == "2023-01-01"
+    end
+
+    test "groups models by provider correctly" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+
+      cache_data = %{
+        "data" => [
+          %{
+            "id" => "openai/gpt-4",
+            "name" => "GPT-4"
+          },
+          %{
+            "id" => "openai/gpt-3.5-turbo",
+            "name" => "GPT-3.5 Turbo"
+          },
+          %{
+            "id" => "anthropic/claude-3-5-sonnet",
+            "name" => "Claude 3.5 Sonnet"
+          }
+        ]
+      }
+
+      hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
+
+      File.mkdir_p!(Path.dirname(cache_path))
+      File.write!(cache_path, Jason.encode!(cache_data))
+
+      {:ok, data} = OpenRouter.load(%{url: test_url})
+
+      assert map_size(data) == 2
+      assert Map.has_key?(data, "openai")
+      assert Map.has_key?(data, "anthropic")
+
+      assert length(data["openai"][:models]) == 2
+      assert length(data["anthropic"][:models]) == 1
+
+      assert Enum.all?(data["openai"][:models], fn m -> m[:provider] == :openai end)
+      assert Enum.all?(data["anthropic"][:models], fn m -> m[:provider] == :anthropic end)
+    end
+
+    test "handles models without provider prefix" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+
+      cache_data = %{
+        "data" => [
+          %{
+            "id" => "custom-model",
+            "name" => "Custom Model"
+          }
+        ]
+      }
+
+      hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
+
+      File.mkdir_p!(Path.dirname(cache_path))
+      File.write!(cache_path, Jason.encode!(cache_data))
+
+      {:ok, data} = OpenRouter.load(%{url: test_url})
+
+      assert Map.has_key?(data, "openrouter")
+      model = hd(data["openrouter"][:models])
+      assert model[:id] == "custom-model"
+      assert model[:provider] == :openrouter
+    end
+
+    test "handles multi-modal models" do
+      test_url = "https://test.openrouter.ai/api/v1/models"
+
+      cache_data = %{
+        "data" => [
+          %{
+            "id" => "openai/gpt-4-vision",
+            "name" => "GPT-4 Vision",
+            "architecture" => %{
+              "modality" => "text+image->text"
+            }
+          }
+        ]
+      }
+
+      hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
+
+      File.mkdir_p!(Path.dirname(cache_path))
+      File.write!(cache_path, Jason.encode!(cache_data))
+
+      {:ok, data} = OpenRouter.load(%{url: test_url})
+
+      model = hd(data["openai"][:models])
+      assert model[:modalities][:input] == [:text, :image]
+      assert model[:modalities][:output] == [:text]
+    end
+
+    test "returns error when cache file missing" do
+      test_url = "https://missing.openrouter.ai/api/v1/models"
+      assert {:error, :no_cache} = OpenRouter.load(%{url: test_url})
+    end
+
+    test "returns error on invalid JSON" do
+      test_url = "https://invalid.openrouter.ai/api/v1/models"
+      hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
+
+      File.mkdir_p!(Path.dirname(cache_path))
+      File.write!(cache_path, "not json")
+
+      assert {:error, {:json_error, _}} = OpenRouter.load(%{url: test_url})
+    end
+  end
+
+  describe "transform/1" do
+    test "transforms minimal model correctly" do
+      input = %{
+        "data" => [
+          %{
+            "id" => "test/model-1",
+            "name" => "Test Model 1"
+          }
+        ]
+      }
+
+      result = OpenRouter.transform(input)
+
+      assert Map.has_key?(result, "test")
+      provider = result["test"]
+      assert provider[:id] == :test
+      assert length(provider[:models]) == 1
+
+      model = hd(provider[:models])
+      assert model[:id] == "model-1"
+      assert model[:provider] == :test
+      assert model[:name] == "Test Model 1"
+    end
+
+    test "handles empty data array" do
+      input = %{"data" => []}
+      result = OpenRouter.transform(input)
+      assert result == %{}
+    end
+  end
+
+  describe "integration" do
+    test "pull then load workflow" do
+      test_url = "https://integration.openrouter.ai/api/v1/models"
+
+      body = %{
+        "data" => [
+          %{
+            "id" => "test/model-1",
+            "name" => "Test Model 1",
+            "context_length" => 4096
+          }
+        ]
+      }
+
+      plug = make_plug(fn conn -> Plug.Conn.send_resp(conn, 200, Jason.encode!(body)) end)
+
+      assert {:ok, _} = OpenRouter.pull(%{url: test_url, req_opts: [plug: plug]})
+
+      assert {:ok, data} = OpenRouter.load(%{url: test_url})
+      assert Map.has_key?(data, "test")
+      assert data["test"][:name] == "Test"
+      assert length(data["test"][:models]) == 1
+      assert hd(data["test"][:models])[:provider] == :test
+      assert hd(data["test"][:models])[:limits][:context] == 4096
+    end
+  end
+end

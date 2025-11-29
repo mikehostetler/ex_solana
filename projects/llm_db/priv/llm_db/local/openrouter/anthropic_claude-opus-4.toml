@@ -1,0 +1,4 @@
+id = "anthropic/claude-opus-4"
+
+[capabilities.reasoning]
+enabled = false

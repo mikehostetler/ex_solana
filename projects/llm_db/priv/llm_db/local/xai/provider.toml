@@ -1,0 +1,18 @@
+# xAI Provider Definition
+id = "xai"
+name = "xAI"
+base_url = "https://api.x.ai/v1"
+doc = "https://docs.x.ai"
+
+env = ["XAI_API_KEY"]
+
+exclude_models = [
+  "grok-vision-beta",
+  "grok-beta",
+  "grok-2",
+  "grok-2-1212",
+  "grok-2-latest",
+  "grok-2-vision",
+  "grok-2-vision-1212",
+  "grok-2-vision-latest"
+]

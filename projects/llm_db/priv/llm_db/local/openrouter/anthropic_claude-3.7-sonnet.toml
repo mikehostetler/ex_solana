@@ -1,0 +1,4 @@
+id = "anthropic/claude-3.7-sonnet"
+
+[capabilities.reasoning]
+enabled = false

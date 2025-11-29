@@ -1,0 +1,4 @@
+id = "gpt-3.5-turbo"
+
+[extra]
+api = "chat"

@@ -1,0 +1,4 @@
+id = "o3-mini"
+
+[extra]
+api = "responses"

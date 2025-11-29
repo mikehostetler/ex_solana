@@ -1,0 +1,70 @@
+name: Model Metadata
+description: Modify model metadata
+labels: ["metadata"]
+body:
+  - type: markdown
+    attributes:
+      value: Explain the model metadata that needs to change
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      description: Which provider?
+      options:
+        - OpenAI
+        - Anthropic
+        - Google
+        - Mistral
+        - Cohere
+        - Groq
+        - Replicate
+        - DeepSeek
+        - XAI
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: model-id
+    attributes:
+      label: Model ID
+      description: The model identifier
+      placeholder: "gpt-4o, claude-3-5-sonnet-20241022, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's Wrong?
+      description: What's incorrect or missing?
+      placeholder: "Context window is listed as 128k but it's actually 200k"
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct-values
+    attributes:
+      label: Correct Values
+      description: What should the values be?
+      placeholder: "context_length: 200000"
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source/Reference
+      description: Link to official documentation or announcement
+      placeholder: "https://platform.openai.com/docs/models"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Notes
+      description: Any other relevant details
+    validations:
+      required: false

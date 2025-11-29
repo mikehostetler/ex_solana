@@ -1,0 +1,4 @@
+id = "grok-4"
+
+[capabilities.reasoning]
+enabled = false
