@@ -23,7 +23,6 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido_signal"
     },
-
     %{
       name: "ash_jido",
       upstream_url: "git@github.com:agentjido/ash_jido.git",
@@ -145,21 +144,21 @@ config :jido_workspace,
       dependencies: []
     },
     %{
-      name: "jido_action", 
+      name: "jido_action",
       path: "projects/jido_action",
       publish_order: 2,
       dependencies: []
     },
     %{
       name: "jido",
-      path: "projects/jido", 
+      path: "projects/jido",
       publish_order: 3,
       dependencies: ["jido_signal", "jido_action"]
     },
     %{
       name: "jido_ai",
       path: "projects/jido_ai",
-      publish_order: 4, 
+      publish_order: 4,
       dependencies: ["jido", "jido_action"]
     }
   ]
