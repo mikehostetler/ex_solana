@@ -104,12 +104,18 @@ defmodule Jido.HTN.Domain.Serializer do
   defp deserialize_task(_), do: {:error, "Invalid task format"}
 
   defp deserialize_methods(methods) do
-    Enum.reduce_while(methods, {:ok, []}, fn method, {:ok, acc} ->
-      case deserialize_method(method) do
-        {:ok, deserialized_method} -> {:cont, {:ok, [deserialized_method | acc]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+    result =
+      Enum.reduce_while(methods, {:ok, []}, fn method, {:ok, acc} ->
+        case deserialize_method(method) do
+          {:ok, deserialized_method} -> {:cont, {:ok, [deserialized_method | acc]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case result do
+      {:ok, list} -> {:ok, Enum.reverse(list)}
+      error -> error
+    end
   end
 
   defp deserialize_method(%{
@@ -159,12 +165,18 @@ defmodule Jido.HTN.Domain.Serializer do
   end
 
   defp deserialize_functions(functions) do
-    Enum.reduce_while(functions, {:ok, []}, fn func, {:ok, acc} ->
-      case deserialize_function(func) do
-        {:ok, deserialized_func} -> {:cont, {:ok, [deserialized_func | acc]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+    result =
+      Enum.reduce_while(functions, {:ok, []}, fn func, {:ok, acc} ->
+        case deserialize_function(func) do
+          {:ok, deserialized_func} -> {:cont, {:ok, [deserialized_func | acc]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case result do
+      {:ok, list} -> {:ok, Enum.reverse(list)}
+      error -> error
+    end
   end
 
   defp deserialize_module(module_name) when is_binary(module_name) do
@@ -176,18 +188,29 @@ defmodule Jido.HTN.Domain.Serializer do
     end
   end
 
-  defp deserialize_function(func_string) when is_binary(func_string) do
-    # For testing purposes, we'll create a simple function that always returns true
-    {:ok, fn _ -> true end}
+  defp deserialize_function(%{"__jido_mfa__" => %{"m" => mod, "f" => fun, "a" => arity}}) do
+    try do
+      module = String.to_existing_atom(to_string(mod))
+      function_name = String.to_existing_atom(to_string(fun))
+
+      if Code.ensure_loaded?(module) and function_exported?(module, function_name, arity) do
+        {:ok, Function.capture(module, function_name, arity)}
+      else
+        {:error, "Cannot deserialize MFA: #{module}.#{function_name}/#{arity} not found"}
+      end
+    rescue
+      ArgumentError -> {:error, "Cannot deserialize MFA: module or function does not exist"}
+    end
   end
 
+  defp deserialize_function(val) when is_boolean(val), do: {:ok, val}
+  defp deserialize_function(val) when is_binary(val), do: {:ok, val}
   defp deserialize_function(func) when is_function(func), do: {:ok, func}
   defp deserialize_function(_), do: {:error, "Invalid function format"}
 end
 
 defimpl Jason.Encoder, for: Jido.HTN.Domain do
   alias Jido.HTN.CompoundTask
-  alias Jido.HTN.Domain.Helpers
   alias Jido.HTN.Method
   alias Jido.HTN.PrimitiveTask
 
@@ -249,7 +272,7 @@ defimpl Jason.Encoder, for: Jido.HTN.Domain do
   end
 
   defp encode_callbacks(callbacks) do
-    Map.new(callbacks, fn {name, callback} -> {name, Helpers.function_to_string(callback)} end)
+    Map.new(callbacks, fn {name, callback} -> {name, serialize_function(callback)} end)
   end
 
   defp encode_workflow({module, opts}) do
@@ -260,6 +283,26 @@ defimpl Jason.Encoder, for: Jido.HTN.Domain do
   end
 
   defp encode_functions(functions) do
-    Enum.map(functions, fn _ -> "fn state -> true end" end)
+    Enum.map(functions, &serialize_function/1)
   end
+
+  defp serialize_function(fun) when is_function(fun) do
+    info = Function.info(fun)
+    name = info[:name] |> Atom.to_string()
+
+    # Check for anonymous functions - :erl_eval module or names starting with "-"
+    if info[:module] == :erl_eval or String.starts_with?(name, "-") do
+      raise "Anonymous functions cannot be reliably serialized. Use named functions or callback name strings."
+    else
+      %{
+        __jido_mfa__: %{
+          m: info[:module],
+          f: info[:name],
+          a: info[:arity]
+        }
+      }
+    end
+  end
+
+  defp serialize_function(other), do: other
 end

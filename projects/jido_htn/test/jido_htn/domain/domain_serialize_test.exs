@@ -28,8 +28,8 @@ defmodule JidoTest.HTN.DomainSerializeTest do
         )
         |> Domain.primitive("primitive_task", {TestModule, []},
           preconditions: [&TestModule.test_function/1],
-          effects: [fn _ -> %{} end],
-          expected_effects: [fn _ -> %{} end]
+          effects: [&TestModule.test_function/1],
+          expected_effects: [&TestModule.test_function/1]
         )
         |> Domain.allow("test_op", TestModule)
         |> Domain.callback("test_callback", &TestModule.test_function/1)
@@ -50,19 +50,22 @@ defmodule JidoTest.HTN.DomainSerializeTest do
       assert Map.has_key?(deserialized.allowed_workflows, "test_op")
       assert Map.has_key?(deserialized.callbacks, "test_callback")
 
-      # Test deserialized functions
+      # Test deserialized functions are the same as original
       compound_task_condition =
         List.first(List.first(deserialized.tasks["compound_task"].methods).conditions)
 
       assert is_function(compound_task_condition)
-      assert compound_task_condition.(%{})
+      assert compound_task_condition.(%{}) == true
 
       primitive_task_precondition = List.first(deserialized.tasks["primitive_task"].preconditions)
       assert is_function(primitive_task_precondition)
-      assert primitive_task_precondition.(%{})
+      assert primitive_task_precondition.(%{}) == true
+
+      # Verify MFA was used for serialization
+      assert deserialized.callbacks["test_callback"].(%{}) == true
     end
 
-    test "handles complex functions in conditions and effects" do
+    test "rejects anonymous functions in conditions and effects" do
       complex_function = fn state ->
         case state do
           %{a: a, b: b} when a > b -> true
@@ -79,17 +82,9 @@ defmodule JidoTest.HTN.DomainSerializeTest do
         )
         |> Domain.build()
 
-      serialized = Serializer.serialize(domain)
-      {:ok, deserialized} = Serializer.deserialize(serialized)
-
-      assert %PrimitiveTask{} = deserialized.tasks["complex_task"]
-      assert length(deserialized.tasks["complex_task"].preconditions) == 1
-      assert length(deserialized.tasks["complex_task"].effects) == 1
-
-      deserialized_func = List.first(deserialized.tasks["complex_task"].preconditions)
-      assert is_function(deserialized_func)
-      assert deserialized_func.(%{a: 2, b: 1}) == true
-      assert deserialized_func.(%{a: 1, b: 2}) == false
+      assert_raise RuntimeError, ~r/Anonymous functions cannot be reliably serialized/, fn ->
+        Serializer.serialize(domain)
+      end
     end
 
     test "handles empty domain" do

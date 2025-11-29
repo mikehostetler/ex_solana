@@ -13,7 +13,7 @@ end
 
 defmodule Jido.HTN.Domain.BuilderHelpers do
   @moduledoc false
-  use ExDbug, enabled: false
+  require Logger
 
   alias Jido.HTN.CompoundTask
   alias Jido.HTN.Domain
@@ -24,7 +24,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @doc "Creates a new HTN domain with the given name."
   @spec new(String.t()) :: Builder.t()
   def new(name) when is_binary(name) do
-    dbug("Creating new domain: #{name}")
+    Logger.debug("Creating new domain", domain_name: name)
     Builder.new(%Domain{name: name})
   end
 
@@ -33,12 +33,13 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @doc "Adds a compound task to the domain."
   @spec compound(Builder.t(), String.t(), keyword()) :: Builder.t()
   def compound(%Builder{domain: domain, error: nil} = builder, name, opts) when is_binary(name) do
-    dbug("Adding compound task: #{name}")
+    methods = opts |> Keyword.get(:methods, [])
+    Logger.debug("Adding compound task", task_name: name, method_count: length(methods))
 
     if Map.has_key?(domain.tasks, name) do
       task_exists_error(name)
     else
-      methods = opts |> Keyword.get(:methods, []) |> Enum.map(&normalize_method/1)
+      methods = Enum.map(methods, &normalize_method/1)
       task = CompoundTask.new(name, methods)
       %{builder | domain: %{domain | tasks: Map.put(domain.tasks, name, task)}}
     end
@@ -51,7 +52,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @spec primitive(Builder.t(), String.t(), {atom(), keyword()}, keyword()) :: Builder.t()
   def primitive(%Builder{domain: domain, error: nil} = builder, name, {action, params}, opts)
       when is_binary(name) and is_atom(action) do
-    dbug("Adding primitive task: #{name}")
+    Logger.debug("Adding primitive task", task_name: name, action: action)
 
     if Map.has_key?(domain.tasks, name) do
       task_exists_error(name)
@@ -64,7 +65,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   end
 
   def primitive(%Builder{domain: domain, error: nil} = builder, name, action, opts) do
-    dbug("Adding primitive task: #{name}")
+    Logger.debug("Adding primitive task", task_name: name, action: action)
 
     if Map.has_key?(domain.tasks, name) do
       task_exists_error(name)
@@ -85,7 +86,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @doc "Marks a task as a root task in the domain."
   @spec root(Builder.t(), String.t()) :: Builder.t()
   def root(%Builder{domain: domain, error: nil} = builder, name) when is_binary(name) do
-    dbug("Marking task as root: #{name}")
+    Logger.debug("Marking task as root", task_name: name)
 
     case Map.get(domain.tasks, name) do
       nil ->
@@ -106,7 +107,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @spec allow(Builder.t(), String.t(), module()) :: Builder.t()
   def allow(%Builder{domain: domain, error: nil} = builder, name, module)
       when is_binary(name) and is_atom(module) do
-    dbug("Allowing workflow: #{name}")
+    Logger.debug("Allowing workflow", workflow_name: name, module: module)
 
     %{
       builder
@@ -126,7 +127,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @spec callback(Builder.t(), String.t(), (map() -> boolean()) | (map() -> map())) :: Builder.t()
   def callback(%Builder{domain: domain, error: nil} = builder, name, callback)
       when is_binary(name) and is_function(callback, 1) do
-    dbug("Adding callback: #{name}")
+    Logger.debug("Adding callback", callback_name: name)
 
     %{builder | domain: %{domain | callbacks: Map.put(domain.callbacks, name, callback)}}
   end
@@ -145,7 +146,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   def replace(%Domain{tasks: tasks} = domain, name, new_task)
       when is_binary(name) and
              (is_struct(new_task, CompoundTask) or is_struct(new_task, PrimitiveTask)) do
-    dbug("Replacing task: #{name}")
+    Logger.debug("Replacing task", task_name: name)
 
     if Map.has_key?(tasks, name) do
       {:ok, %{domain | tasks: Map.put(tasks, name, new_task)}}
@@ -156,19 +157,116 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
 
   def replace(_, _, _), do: {:error, "Invalid arguments for replace"}
 
-  @doc "Builds the final domain or returns an error."
-  @spec build(Builder.t()) :: {:ok, Domain.t()} | {:error, String.t()}
-  def build(%Builder{domain: domain, error: nil}), do: {:ok, domain}
-  def build(%Builder{error: error}), do: {:error, error}
+  @doc """
+  Builds the final domain or returns an error.
 
-  def build!(%Builder{domain: domain, error: nil}), do: domain
-  def build!(%Builder{error: error}), do: raise(error)
+  ## Options
+
+  - `:validate` - Boolean flag to enable default domain validation. Defaults to `false`.
+    When `true`, runs the default validation before any custom validators.
+
+  - `:custom_validators` - List of validator functions that conform to the
+    `Jido.HTN.Domain.Builder.Validator` behaviour. Each validator receives
+    the domain and returns `:ok`, `{:ok, domain}`, or `{:error, reason}`.
+    When provided, custom validators run after default validation (if enabled).
+    The validation chain stops at the first error.
+
+  ## Examples
+
+      # Build without validation (default behavior)
+      domain =
+        Domain.new("example")
+        |> Domain.primitive("task1", MyAction)
+        |> Domain.build()
+
+      # Build with default validation enabled
+      domain =
+        Domain.new("example")
+        |> Domain.compound("task1", methods: [...])
+        |> Domain.root("task1")
+        |> Domain.build(validate: true)
+
+      # Build with custom validator only (no default validation)
+      domain =
+        Domain.new("example")
+        |> Domain.compound("task1", methods: [...])
+        |> Domain.build(custom_validators: [&MyValidator.validate/1])
+
+      # Build with both default and custom validation
+      domain =
+        Domain.new("example")
+        |> Domain.compound("task1", methods: [...])
+        |> Domain.root("task1")
+        |> Domain.build(
+          validate: true,
+          custom_validators: [
+            &Validator1.validate/1,
+            &Validator2.validate/1
+          ]
+        )
+  """
+  @spec build(Builder.t(), keyword()) :: {:ok, Domain.t()} | {:error, String.t() | [String.t()]}
+  def build(builder, opts \\ [])
+
+  def build(%Builder{error: error}, _opts) when not is_nil(error), do: {:error, error}
+
+  def build(%Builder{domain: domain, error: nil}, opts) do
+    # Get options
+    custom_validators = Keyword.get(opts, :custom_validators, [])
+    validate? = Keyword.get(opts, :validate, false)
+
+    # Only run validators if requested or if custom validators are provided
+    if validate? or custom_validators != [] do
+      Logger.debug("Building domain with validation")
+
+      # Build the validator pipeline
+      validators =
+        if validate? do
+          [(&Domain.ValidationHelpers.validate/1) | custom_validators]
+        else
+          custom_validators
+        end
+
+      # Run validators sequentially, stopping at first error
+      Enum.reduce_while(validators, {:ok, domain}, fn validator_fun, {:ok, current_domain} ->
+        case validator_fun.(current_domain) do
+          :ok ->
+            {:cont, {:ok, current_domain}}
+
+          {:ok, validated_domain} ->
+            {:cont, {:ok, validated_domain}}
+
+          {:error, _reason} = err ->
+            {:halt, err}
+        end
+      end)
+    else
+      {:ok, domain}
+    end
+  end
+
+  @spec build!(Builder.t(), keyword()) :: Domain.t()
+  def build!(builder, opts \\ [])
+
+  def build!(%Builder{} = builder, opts) do
+    case build(builder, opts) do
+      {:ok, domain} ->
+        domain
+
+      {:error, errors} when is_list(errors) ->
+        raise Enum.join(errors, "\n")
+
+      {:error, error} when is_binary(error) ->
+        raise error
+
+      {:error, error} ->
+        raise inspect(error)
+    end
+  end
 
   # Private helper functions
 
   defp normalize_method(%{conditions: conditions, subtasks: subtasks} = method) do
-    dbug("Normalizing method")
-
     normalized =
       struct(Method, %{
         name: Map.get(method, :name),
@@ -200,7 +298,6 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
        do: condition
 
   defp normalize_primitive_task_opts(opts) do
-    dbug("Normalizing primitive task options")
     opts
   end
 

@@ -52,6 +52,9 @@ defmodule JidoHtn.MixProject do
       # Helper to run docs
       docs: "docs -f html --open",
 
+      # Run example
+      "example.hello": ["run -e Jido.Examples.HelloWorld.run()"],
+
       # Run to check the quality of your code
       q: ["quality"],
       quality: [

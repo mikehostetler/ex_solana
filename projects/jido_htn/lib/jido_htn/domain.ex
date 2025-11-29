@@ -29,8 +29,9 @@ defmodule Jido.HTN.Domain do
   defdelegate allow(builder, name, module), to: Domain.BuilderHelpers
   defdelegate replace(builder, name, new_task), to: Domain.BuilderHelpers
   defdelegate root(builder, name), to: Domain.BuilderHelpers
-  defdelegate build(builder), to: Domain.BuilderHelpers
-  defdelegate build!(builder), to: Domain.BuilderHelpers
+
+  def build(builder, opts \\ []), do: Domain.BuilderHelpers.build(builder, opts)
+  def build!(builder, opts \\ []), do: Domain.BuilderHelpers.build!(builder, opts)
 
   # Read Methods
   defdelegate get_primitive(domain, name), to: Domain.ReadHelpers
@@ -42,4 +43,5 @@ defmodule Jido.HTN.Domain do
 
   # Validation Methods
   defdelegate validate(domain), to: Domain.ValidationHelpers
+  defdelegate validate(domain, opts), to: Domain.ValidationHelpers
 end
