@@ -1,0 +1,29 @@
+id = "text-embedding-3-large"
+name = "Text Embedding 3 Large"
+provider_model_id = "text-embedding-3-large"
+knowledge = "2024-01"
+release_date = "2024-01-25"
+last_updated = "2024-01-25"
+
+[limits]
+context = 8191
+
+[cost]
+input = 0.00013
+
+[modalities]
+input = ["text"]
+output = ["embedding"]
+
+[capabilities.embeddings]
+min_dimensions = 1
+max_dimensions = 3072
+default_dimensions = 3072
+
+[extra]
+type = "embedding"
+attachment = false
+open_weights = false
+reasoning = false
+temperature = false
+tool_call = false

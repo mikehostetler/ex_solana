@@ -1,0 +1,7 @@
+id = "gpt-5-pro"
+
+[capabilities.json]
+schema = true
+
+[extra]
+api = "responses"

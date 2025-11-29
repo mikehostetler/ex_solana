@@ -1,0 +1,7 @@
+id = "gpt-oss-120b"
+
+[capabilities.reasoning]
+enabled = true
+
+[capabilities.tools]
+strict = true

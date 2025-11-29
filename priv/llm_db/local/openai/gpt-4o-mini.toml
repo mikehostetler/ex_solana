@@ -1,0 +1,10 @@
+id = "gpt-4o-mini"
+
+[capabilities.json]
+schema = true
+
+[capabilities.tools]
+strict = true
+
+[extra]
+api = "chat"

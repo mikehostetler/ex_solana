@@ -1,0 +1,30 @@
+id = "grok-4-fast-reasoning"
+name = "Grok 4 Fast Reasoning"
+provider_model_id = "grok-4-fast-reasoning"
+knowledge = "2024-11"
+release_date = "2025-09-21"
+last_updated = "2025-09-21"
+
+[limits]
+context = 2000000
+output = 64000
+
+[cost]
+input = 0.2
+output = 0.5
+cache_read = 0.02
+
+[modalities]
+input = ["text"]
+output = ["text"]
+
+[capabilities.reasoning]
+enabled = false
+
+[capabilities.tools]
+enabled = true
+
+[extra]
+attachment = false
+open_weights = false
+temperature = true

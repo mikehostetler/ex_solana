@@ -1,0 +1,28 @@
+id = "glm-4.5v"
+name = "GLM 4.5V"
+provider_model_id = "glm-4.5v"
+release_date = "2025-10-25"
+last_updated = "2025-10-25"
+
+[limits]
+context = 131072
+output = 131072
+
+[cost]
+input = 0.0
+output = 0.0
+
+[modalities]
+input = ["text", "image"]
+output = ["text"]
+
+[capabilities.reasoning]
+enabled = false
+
+[capabilities.tools]
+enabled = true
+strict = false
+
+[extra]
+temperature = true
+attachment = true

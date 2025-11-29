@@ -1,0 +1,4 @@
+id = "x-ai/grok-3-mini"
+
+[capabilities.reasoning]
+enabled = false

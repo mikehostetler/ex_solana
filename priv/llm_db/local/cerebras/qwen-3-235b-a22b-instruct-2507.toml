@@ -1,0 +1,4 @@
+id = "qwen-3-235b-a22b-instruct-2507"
+
+[capabilities.tools]
+strict = false

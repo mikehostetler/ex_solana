@@ -1,0 +1,4 @@
+id = "grok-3-mini-fast-latest"
+
+[capabilities.reasoning]
+enabled = false

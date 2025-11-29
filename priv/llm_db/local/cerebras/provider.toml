@@ -1,0 +1,11 @@
+# Cerebras Provider Definition
+id = "cerebras"
+name = "Cerebras"
+base_url = "https://api.cerebras.ai/v1"
+doc = "https://cerebras.ai/docs"
+
+env = ["CEREBRAS_API_KEY"]
+
+exclude_models = [
+  "qwen-3-235b-a22b-thinking-2507"
+]

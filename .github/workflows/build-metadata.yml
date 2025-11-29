@@ -1,0 +1,116 @@
+name: Build Metadata
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: "Force"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-metadata:
+    name: Pull and update LLM model metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.16"
+          otp-version: "26"
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-1.16-26-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-1.16-26-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          mix deps.get
+
+      - name: Pull latest metadata from sources
+        id: pull
+        run: |
+          echo "Pulling latest LLM model metadata..."
+          mix llm_models.pull
+          mix llm_models.build
+          echo "pull_complete=true" >> $GITHUB_OUTPUT
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ "${{ inputs.force_update }}" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Force update enabled - proceeding with PR creation"
+          elif git diff --quiet priv/llm_models/upstream/ priv/llm_models/snapshot.json lib/llm_models/generated/valid_providers.ex; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in metadata files"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in metadata files"
+          fi
+
+      - name: Generate metadata summary
+        if: steps.changes.outputs.has_changes == 'true'
+        id: summary
+        run: |
+          chmod +x .github/workflows/scripts/generate_summary.sh
+          .github/workflows/scripts/generate_summary.sh
+
+      - name: Create branch and commit changes
+        if: steps.changes.outputs.has_changes == 'true'
+        id: commit
+        run: |
+          BRANCH_NAME="metadata-update-${{ github.run_number }}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+          git add priv/llm_models/upstream/
+          git add priv/llm_models/snapshot.json
+          git add lib/llm_models/generated/valid_providers.ex
+
+          git commit -m "Update model metadata" \
+                     -m "Automated metadata update from upstream sources"
+
+          git push origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Update model metadata - $(date +%Y-%m-%d)"
+          gh pr create \
+            --base main \
+            --head "${{ steps.commit.outputs.branch_name }}" \
+            --title "$TITLE" \
+            --body-file "/tmp/metadata_summary.md" \
+            --label "metadata-update" \
+            --label "automated"
+
+      - name: Report no changes
+        if: steps.changes.outputs.has_changes == 'false'
+        run: |
+          echo "No metadata changes detected. Skipping PR creation."
+          echo "All model metadata is up to date."
