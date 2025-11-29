@@ -134,6 +134,13 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/kaizen"
+    },
+    %{
+      name: "jido_hub",
+      upstream_url: "git@github.com:mikehostetler/jido_hub.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_hub"
     }
   ],
   hex_packages: [
