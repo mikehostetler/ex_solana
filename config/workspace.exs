@@ -32,6 +32,13 @@ config :jido_workspace,
       path: "projects/ash_jido"
     },
     %{
+      name: "ash_ai",
+      upstream_url: "git@github.com:mikehostetler/ash_ai.git",
+      branch: "main",
+      type: :library,
+      path: "projects/ash_ai"
+    },
+    %{
       name: "jido_ai",
       upstream_url: "git@github.com:agentjido/jido_ai.git",
       branch: "main",
