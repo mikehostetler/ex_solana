@@ -1,0 +1,14 @@
+/**
+ * JidoHub Light Theme Overrides
+ * Custom light theme colors using oklch color space
+ */
+@plugin "../../vendor/daisyui-theme" {
+  name: "light";
+  
+  --color-primary: oklch(0.64 0.20 262);
+  --color-secondary: oklch(0.70 0.12 210);
+  --color-accent: oklch(0.73 0.14 150);
+  --color-neutral: oklch(0.35 0.02 260);
+  --color-base-100: oklch(0.98 0.01 95);
+  --color-base-content: oklch(0.24 0.02 95);
+}

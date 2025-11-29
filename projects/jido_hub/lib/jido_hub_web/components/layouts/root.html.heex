@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%!-- {Application.get_env(:live_debugger, :live_debugger_tags)} --%>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <meta name="csp-nonce" content={@csp_nonce} />
+    <.live_title default="JidoHub" suffix=" · Phoenix Framework">
+      {assigns[:page_title]}
+    </.live_title>
+
+    <%!-- Apply theme before CSS loads to prevent FOUC --%>
+    <script nonce={@csp_nonce}>
+      (function () {
+        try {
+          var t = localStorage.getItem('jido_hub:theme') || 'system';
+          if (t === 'system') {
+            var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+          } else {
+            document.documentElement.setAttribute('data-theme', t);
+          }
+        } catch (_) {}
+      })();
+    </script>
+
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+  </head>
+  <body>
+    {@inner_content}
+  </body>
+</html>
