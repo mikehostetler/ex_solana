@@ -46,22 +46,22 @@ defmodule ReqLLM.Providers.OpenAI do
 
   ## Configuration
 
-  Set your OpenAI API key via environment variable or JidoKeys:
+  Set your OpenAI API key via environment variable or application config:
 
-      # Option 1: Environment variable (automatically loaded)
+      # Option 1: Environment variable (automatically loaded from .env via dotenvy)
       OPENAI_API_KEY=sk-...
 
-      # Option 2: Set directly in JidoKeys
+      # Option 2: Store in application config
       ReqLLM.put_key(:openai_api_key, "sk-...")
 
   ## Examples
 
       # Simple text generation (ChatAPI)
-      model = ReqLLM.Model.from("openai:gpt-4")
+      model = ReqLLM.model("openai:gpt-4")
       {:ok, response} = ReqLLM.generate_text(model, "Hello!")
 
       # Reasoning model (ResponsesAPI)
-      model = ReqLLM.Model.from("openai:o1")
+      model = ReqLLM.model("openai:o1")
       {:ok, response} = ReqLLM.generate_text(model, "Solve this problem...")
       response.usage.reasoning_tokens  # Reasoning tokens used
 
@@ -79,68 +79,85 @@ defmodule ReqLLM.Providers.OpenAI do
       {:ok, response} = ReqLLM.generate_text(
         "openai:gpt-5",
         "Hard problem",
-        provider_options: [reasoning_effort: :high]
+        reasoning_effort: :high
       )
   """
 
-  @behaviour ReqLLM.Provider
-
-  use ReqLLM.Provider.DSL,
+  use ReqLLM.Provider,
     id: :openai,
-    base_url: "https://api.openai.com/v1",
-    metadata: "priv/models_dev/openai.json",
-    default_env_key: "OPENAI_API_KEY",
-    provider_schema: [
-      dimensions: [
-        type: :pos_integer,
-        doc: "Dimensions for embedding models (e.g., text-embedding-3-small supports 512-1536)"
-      ],
-      encoding_format: [type: :string, doc: "Format for embedding output (float, base64)"],
-      max_completion_tokens: [
-        type: :integer,
-        doc: "Maximum completion tokens (required for reasoning models like o1, o3, gpt-5)"
-      ],
-      openai_structured_output_mode: [
-        type: {:in, [:auto, :json_schema, :tool_strict]},
-        default: :auto,
-        doc: """
-        Strategy for structured output generation:
-        - `:auto` - Use json_schema when supported, else strict tools (default)
-        - `:json_schema` - Force response_format with json_schema (requires model support)
-        - `:tool_strict` - Force strict: true on function tools
-        """
-      ],
-      response_format: [
-        type: :map,
-        doc: "Response format configuration (e.g., json_schema for structured output)"
-      ],
-      openai_parallel_tool_calls: [
-        type: {:or, [:boolean, nil]},
-        default: nil,
-        doc: "Override parallel_tool_calls setting. Required false for json_schema mode."
-      ],
-      previous_response_id: [
-        type: :string,
-        doc: "Previous response ID for Responses API tool resume flow"
-      ],
-      tool_outputs: [
-        type: {:list, :any},
-        doc:
-          "Tool execution results for Responses API tool resume flow (list of %{call_id, output})"
-      ]
-    ]
+    default_base_url: "https://api.openai.com/v1",
+    default_env_key: "OPENAI_API_KEY"
 
   require Logger
 
+  @provider_schema [
+    dimensions: [
+      type: :pos_integer,
+      doc: "Dimensions for embedding models (e.g., text-embedding-3-small supports 512-1536)"
+    ],
+    encoding_format: [type: :string, doc: "Format for embedding output (float, base64)"],
+    max_completion_tokens: [
+      type: :integer,
+      doc: "Maximum completion tokens (required for reasoning models like o1, o3, gpt-5)"
+    ],
+    openai_structured_output_mode: [
+      type: {:in, [:auto, :json_schema, :tool_strict]},
+      default: :auto,
+      doc: """
+      Strategy for structured output generation:
+      - `:auto` - Use json_schema when supported, else strict tools (default)
+      - `:json_schema` - Force response_format with json_schema (requires model support)
+      - `:tool_strict` - Force strict: true on function tools
+      """
+    ],
+    response_format: [
+      type: :map,
+      doc: "Response format configuration (e.g., json_schema for structured output)"
+    ],
+    openai_parallel_tool_calls: [
+      type: {:or, [:boolean, nil]},
+      default: nil,
+      doc: "Override parallel_tool_calls setting. Required false for json_schema mode."
+    ],
+    previous_response_id: [
+      type: :string,
+      doc: "Previous response ID for Responses API tool resume flow"
+    ],
+    tool_outputs: [
+      type: {:list, :any},
+      doc:
+        "Tool execution results for Responses API tool resume flow (list of %{call_id, output})"
+    ]
+  ]
+
   @compile {:no_warn_undefined, [{nil, :path, 0}, {nil, :attach_stream, 4}]}
 
-  defp select_api_mod(%ReqLLM.Model{} = model) do
-    api_type = get_in(model, [Access.key(:_metadata, %{}), "api"])
+  defp get_api_type(%LLMDB.Model{} = model) do
+    get_in(model, [Access.key(:extra, %{}), :api])
+  end
 
-    case api_type do
+  defp select_api_mod(%LLMDB.Model{} = model) do
+    case get_api_type(model) do
       "chat" -> ReqLLM.Providers.OpenAI.ChatAPI
       "responses" -> ReqLLM.Providers.OpenAI.ResponsesAPI
       _ -> ReqLLM.Providers.OpenAI.ChatAPI
+    end
+  end
+
+  defp get_timeout_for_model(api_mod, opts) do
+    user_timeout = Keyword.get(opts, :receive_timeout)
+    default_timeout = Application.get_env(:req_llm, :receive_timeout, 30_000)
+    thinking_timeout = Application.get_env(:req_llm, :thinking_timeout, 300_000)
+
+    cond do
+      user_timeout != nil ->
+        user_timeout
+
+      api_mod == ReqLLM.Providers.OpenAI.ResponsesAPI ->
+        thinking_timeout
+
+      true ->
+        default_timeout
     end
   end
 
@@ -152,7 +169,7 @@ defmodule ReqLLM.Providers.OpenAI do
   - :object operations maintain OpenAI-specific token handling
   """
   def prepare_request(:chat, model_spec, prompt, opts) do
-    with {:ok, model} <- ReqLLM.Model.from(model_spec),
+    with {:ok, model} <- ReqLLM.model(model_spec),
          {:ok, context} <- ReqLLM.Context.normalize(prompt, opts),
          opts_with_context = Keyword.put(opts, :context, context),
          http_opts = Keyword.get(opts, :req_http_options, []),
@@ -170,23 +187,29 @@ defmodule ReqLLM.Providers.OpenAI do
             :stream,
             :model,
             :provider_options,
-            :api_mod
+            :api_mod,
+            :max_completion_tokens,
+            :reasoning_effort
           ]
+
+      timeout = get_timeout_for_model(api_mod, processed_opts)
 
       request =
         Req.new(
           [
             url: path,
             method: :post,
-            receive_timeout: Keyword.get(processed_opts, :receive_timeout, 30_000)
+            receive_timeout: timeout,
+            pool_timeout: timeout,
+            connect_options: [timeout: timeout]
           ] ++ http_opts
         )
         |> Req.Request.register_options(req_keys)
         |> Req.Request.merge_options(
           Keyword.take(processed_opts, req_keys) ++
             [
-              model: model.model,
-              base_url: Keyword.get(processed_opts, :base_url, default_base_url()),
+              model: model.id,
+              base_url: Keyword.get(processed_opts, :base_url, base_url()),
               api_mod: api_mod
             ]
         )
@@ -198,7 +221,7 @@ defmodule ReqLLM.Providers.OpenAI do
 
   def prepare_request(:object, model_spec, prompt, opts) do
     compiled_schema = Keyword.fetch!(opts, :compiled_schema)
-    {:ok, model} = ReqLLM.Model.from(model_spec)
+    {:ok, model} = ReqLLM.model(model_spec)
 
     mode = determine_output_mode(model, opts)
 
@@ -309,18 +332,16 @@ defmodule ReqLLM.Providers.OpenAI do
   `{translated_opts, warnings}` where warnings is a list of transformation messages.
   """
   @impl ReqLLM.Provider
-  def translate_options(op, %ReqLLM.Model{} = model, opts) do
+  def translate_options(op, %LLMDB.Model{} = model, opts) do
     steps = ReqLLM.Providers.OpenAI.ParamProfiles.steps_for(op, model)
     {opts1, warns} = ReqLLM.ParamTransform.apply(opts, steps)
 
-    api_type = get_in(model, [Access.key(:_metadata, %{}), "api"])
+    if get_api_type(model) == "responses" do
+      mct = Keyword.get(opts1, :max_completion_tokens)
 
-    if api_type == "responses" do
-      mot = Keyword.get(opts1, :max_output_tokens) || Keyword.get(opts1, :max_completion_tokens)
-
-      if is_integer(mot) and mot < 16 do
-        {Keyword.put(opts1, :max_output_tokens, 16),
-         ["Raised :max_output_tokens to API minimum (16)" | warns]}
+      if is_integer(mct) and mct < 16 do
+        {Keyword.put(opts1, :max_completion_tokens, 16),
+         ["Raised :max_completion_tokens to API minimum (16)" | warns]}
       else
         {opts1, warns}
       end
@@ -377,25 +398,21 @@ defmodule ReqLLM.Providers.OpenAI do
   end
 
   @doc """
-  Custom decode_sse_event to route based on model API type.
+  Custom decode_stream_event to route based on model API type.
   """
   @impl ReqLLM.Provider
-  def decode_sse_event(event, model) do
-    api_type = get_in(model, [Access.key(:_metadata, %{}), "api"])
-
-    if api_type == "responses" do
-      ReqLLM.Providers.OpenAI.ResponsesAPI.decode_sse_event(event, model)
+  def decode_stream_event(event, model) do
+    if get_api_type(model) == "responses" do
+      ReqLLM.Providers.OpenAI.ResponsesAPI.decode_stream_event(event, model)
     else
-      ReqLLM.Providers.OpenAI.ChatAPI.decode_sse_event(event, model)
+      ReqLLM.Providers.OpenAI.ChatAPI.decode_stream_event(event, model)
     end
   end
 
   defp put_default_max_tokens_for_model(opts, model_spec) do
-    case ReqLLM.Model.from(model_spec) do
+    case ReqLLM.model(model_spec) do
       {:ok, model} ->
-        api = get_in(model, [Access.key(:_metadata, %{}), "api"])
-
-        case api do
+        case get_api_type(model) do
           "responses" ->
             Keyword.put_new(opts, :max_completion_tokens, 4096)
 
@@ -409,13 +426,13 @@ defmodule ReqLLM.Providers.OpenAI do
   end
 
   @doc false
-  def supports_json_schema?(%ReqLLM.Model{} = model) do
-    get_in(model, [Access.key(:_metadata, %{}), "supports_json_schema_response_format"]) == true
+  def supports_json_schema?(%LLMDB.Model{} = model) do
+    ReqLLM.ModelHelpers.json_schema?(model)
   end
 
   @doc false
-  def supports_strict_tools?(%ReqLLM.Model{} = model) do
-    get_in(model, [Access.key(:_metadata, %{}), "supports_strict_tools"]) == true
+  def supports_strict_tools?(%LLMDB.Model{} = model) do
+    ReqLLM.ModelHelpers.tools_strict?(model)
   end
 
   @doc false

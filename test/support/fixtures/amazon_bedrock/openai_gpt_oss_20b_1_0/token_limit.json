@@ -1,0 +1,92 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoxMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6Im9wZW5haS5ncHQtb3NzLTIwYi0xOjAiLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MC41fQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "openai.gpt-oss-20b-1:0",
+      "stream": false,
+      "temperature": 0.5
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "host": [
+        "bedrock-runtime.us-east-1.amazonaws.com"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ],
+      "x-amz-content-sha256": [
+        "29b597b5231a0adde066cfd82e8b9ed1bf4dc5f6d20883501f69b1cce738de0e"
+      ],
+      "x-amz-date": [
+        "20251102T171403Z"
+      ]
+    },
+    "method": "post",
+    "url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/openai.gpt-oss-20b-1:0/invoke"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "length",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "<reasoning>We need to produce a very long story about dragons and adventures. The user wants a very long story. There's no constraints on length. We should produce a detailed, engaging narrative. We can create a fantasy setting with dragons, heroes, quests, etc. \"Very long\" means maybe a few thousand words. We should aim for a story with multiple chapters, subplots, characters, world-building. We should avoid being too repetitive. We should keep it engaging. Use descriptive language,</reasoning>",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1762103643,
+      "id": "chatcmpl-0afb9c4e-fa2a-432e-9215-365a969d0195",
+      "model": "openai.gpt-oss-20b-1:0",
+      "object": "chat.completion",
+      "service_tier": "auto",
+      "usage": {
+        "completion_tokens": 100,
+        "prompt_tokens": 78,
+        "total_tokens": 178
+      }
+    },
+    "headers": {
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:14:03 GMT"
+      ],
+      "x-amzn-bedrock-input-token-count": [
+        "78"
+      ],
+      "x-amzn-bedrock-invocation-latency": [
+        "505"
+      ],
+      "x-amzn-bedrock-output-token-count": [
+        "100"
+      ],
+      "x-amzn-requestid": [
+        "1b970ed1-ad34-4b0c-af0b-a345654bfbd2"
+      ]
+    },
+    "status": 200
+  }
+}

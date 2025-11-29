@@ -1,0 +1,130 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoxMjgwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJUZWxsIG1lIGEgam9rZSBhYm91dCBjYXRzIiwicm9sZSI6InVzZXIifV0sIm1vZGVsIjoiYW50aHJvcGljL2NsYXVkZS1oYWlrdS00LjUiLCJuIjoxLCJyZWFzb25pbmdfZWZmb3J0IjoibG93Iiwic2VlZCI6NDIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjowLjAsInRvb2xzIjpbeyJmdW5jdGlvbiI6eyJkZXNjcmlwdGlvbiI6IkdldCBjdXJyZW50IHdlYXRoZXIgaW5mb3JtYXRpb24gZm9yIGEgbG9jYXRpb24iLCJuYW1lIjoiZ2V0X3dlYXRoZXIiLCJwYXJhbWV0ZXJzIjp7ImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJsb2NhdGlvbiI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJsb2NhdGlvbiJdLCJ0eXBlIjoib2JqZWN0In19LCJ0eXBlIjoiZnVuY3Rpb24ifV19"
+    },
+    "canonical_json": {
+      "max_tokens": 12800,
+      "messages": [
+        {
+          "content": "Tell me a joke about cats",
+          "role": "user"
+        }
+      ],
+      "model": "anthropic/claude-haiku-4.5",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 0.0,
+      "tools": [
+        {
+          "function": {
+            "description": "Get current weather information for a location",
+            "name": "get_weather",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "location": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "Why don't cats play poker in the jungle?\n\nBecause there are too many cheetahs! 🐱",
+            "reasoning": "The user is asking me to tell a joke about cats. This is a simple request that doesn't require any tool usage - they're just asking for a joke, which I can provide directly without needing to call any functions.\n\nLet me think of a good cat joke to share!",
+            "reasoning_details": [
+              {
+                "format": "anthropic-claude-v1",
+                "index": 0,
+                "signature": "EqgDCkYICRgCKkCPo3oWFk3AQ5/q38aqnPbJj3U0FYA9yblHTeIN72ZzCBo+2znIBU/JrmkRJR5VoSgVjqCubIg4GbuHpxiqQEugEgwGUCX7IeSgr34su08aDFk5O5WyW06N43yKMyIwc5XVsn6rbH8g23YBufleOEhNQTRZSs8+s9Y15tWxoqZOuvLo4Lrm9NyyUTnHHy2DKo8CeiRPiMh72akWV2TbdgCW1rNmdicCKT1B87S1MQ096faV53KUW1lg7AQwXTld6lOLGn4sekwLrCMTHOnv7jvp2I4EniJ0kpozuXs0O2RP2Ak9fL8MDoSesZ3sd8MZjHi2wHt5v3X+yzc9YUealge24lNuCZid/sbawp3O62Qpq4/m8AdZh1c+n7fe0DQyIKocr2V2R8qUWV8lP2aGg2IpxSoqdoodW3Gf044HAWCvoqzd5A4lEm0kqcHAx/QvS9E4O56SlDeWBVUmgBttkvsOCP6i/lu/0IUcj9Vssz5UJ/vZgFYoxp/9+g5JN579b3k3hy65+JsGMiDdKwDUW7BrjHZTw9hdgtoBYKsp/uEHABgB",
+                "text": "The user is asking me to tell a joke about cats. This is a simple request that doesn't require any tool usage - they're just asking for a joke, which I can provide directly without needing to call any functions.\n\nLet me think of a good cat joke to share!",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "stop"
+        }
+      ],
+      "created": 1762104930,
+      "id": "gen-1762104930-M2TX94s1k408enNLikBp",
+      "model": "anthropic/claude-haiku-4.5",
+      "object": "chat.completion",
+      "provider": "Anthropic",
+      "usage": {
+        "completion_tokens": 95,
+        "prompt_tokens": 600,
+        "total_tokens": 695
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998563896952eac7-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:35:31 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

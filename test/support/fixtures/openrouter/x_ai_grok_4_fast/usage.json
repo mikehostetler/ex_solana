@@ -36,17 +36,17 @@
     "body": {
       "choices": [
         {
-          "finish_reason": "stop",
+          "finish_reason": null,
           "index": 0,
           "logprobs": null,
           "message": {
-            "content": "Hi! What's on your mind today?",
+            "content": "Hi! How can I help you today?",
             "reasoning": null,
             "reasoning_details": [
               {
-                "data": "O9iarLtTKrCmCuGri7jFc9gFy1j3ZsqRJ3fPMLokgKjK1KQG6jVpKBWzsbK0YJG12oe6vHi8oBc9nuVIxuttb2O8CJjfP9Yvi2dnDT7gGKDtiDfdkKVIm9HS22dfz9i+L5vDK3H3mvuilMZWEgoNGjk4DRVM3+SLT+49m+CvfXbXDVcF4aKaf7fCxo/Mvzo6tjvr1hocv+rhdz/w8SxHyvu1D1MRn3W89u2lIIKVT5epG/8Y5ZoHTEKqjjDQUqAJK71OQ9d+f9V/tCW0aCizlW6B7NHDxj5a6l5AsFZigXrYM5uIRlwgch4pAPcxMu9SHlsek9TBj68oIlbVNdhymXn51/btpZXXQ/X1kB8HojjSzn/MuhjxS6urEe9E93pChBK0HiOV7LnxRQvILneLa0OAoPveK/CNAT+j/7FAYc7TiU8vLSZZ5CFSG3DvrBKzu5PWeFLSPHgyfpRcHfbjw5vpwsVcN+I1jgIrVGBdgF91jsX+JlVi88Jvm5DeEIu+X7walYwyXUgepeO+plC7O7w0GpUJvuuK04CWr7jmsV89UBXuBiZy+SACYfASlQ/E/75iqCgETDHxYCxREvCUaKtJt9aNNpXmF3njEyHymXPMBPK/TV7794US4abQKpYsylpnoCkf1ihe/dOpuTmqkJyp1Opb0MWAtyfpiTJDZJDOEpTCEJGPvsm1/cWxGMj5Mf7xE2xTrr+dsiH/Ekg0Uc1dK3/UBCCF5/fepjAgYMmK/aMbc8bCe2B++CY0fqfABhwiDThC7iFa2hdbkhwsO5FGTFogvzqRLqwWAdggwgi+lWozQ0LeRBt/BdTvIH/RRnpSQLS412ORg+cW9l4gPxKAlj+/rkTLZ3cZZPlKxAQbxkCvbki9WdDFytrU3HW+mY8btpDUxVMXIich76kS5RgJ/5eNOgaU6upBcUe6kKZYmoOOM8YOAPWZwafF7ZzYytrXGzYkcCFSP3X+4ES2Qw/0CJteWGSa0W0X7DkAKBRT9Vl7PmtuczG69nuemjVAuwHowZWnrjL6v9oCFHAUGms7IIHBN/lhbqPBI14ue4WdsdC4+zaBVopJFt+zulEI7P5uDNYfAQIxDOOaDfsdq3lxAqOdsw",
+                "data": "wzHTXEAnpdtP/9TDnhRHkCUS604P8VDWg7OpbHERWVbXEnn9hs1YKE5T5vJRC3Nhj7ZbIAth00k8aG3tbWQ+oJluZnN82NwrteiBtluNeOyV+ElePHEFj9Qt03vxaxDbMaVza9I7bKzTM9M7P72709ESB2rYeImEQn8kCys/9PTYXhlOEameexQ3tfdTlnfE6NubosBJN+aYu5/alSsRyBxiynhAKHRf9DVlvYiNTbaL9oTeUcIbqytZ8L3xGVVyPZm/2bl8eRhGZhwEn01bl7fNVtvMrG92cPL+qOAKUg9Mk6vmGwebI4Fm4AMhFCjqbzpYNFtheEVuBtcjSSYCOdJs18X7QBmgYKM26O76JGayczs9X8raoWAAK7fd6tsccfwSV49slrkq5C3KOfGgewcklJ8EP0aOsJsBIvR4OgOQ6GXZdByjQhplKK757Mi/Iy8e9VhqDgEzScfCftPPys8daB0oGZPnXcLu/vFIepfGZ5JL4dgR8hnIyJxCQ2WyiBJOWfBS3bZlZjyRFPbBO1Jtx2awyw3tIg4SeYDTA2fEt88ZDIZ41m4/sPA5F5hvZMURORsWvFD/fIB4Oc1Ome3ibprER315jzCMbZgtxrCQaYZa3e3fTrRIAMtFsdDctZw35IS9BArSgaYE2pBJ8/UdQT/qT8eHr7EqLqWLDRVcCmKbD5q/vTYAhd+AGZHwTy0Oig0oHFY/Owz39TxoEKkWGNYWUalfu64XP4GSZjIW2Dx/vfoBjpQM7QwmpxsUwyLlDrl+LRUcTlfBCnc6IMBH1ZxkNr9Ovz/IqyckPPcEGHJY6O+6F+rcsw79EVkG3MxBZ4tR4VlpCWa0PMj96PJJC9MMiqhI0mXE+mckwi1gx6VNCGXGi8jaXqXqyyvrSULWUpm66i0clDqCNsbgqhjwqkKd0/rDaSwKHSRs1qcVWugnj4tGQztO9lBLOihaWBtOn5iJN8wkTi7ac61EVjEs05M",
                 "format": "xai-responses-v1",
-                "id": "rs_a5f6934e-3eb7-7842-b80c-484c53a08265_us-east-1",
+                "id": "rs_5334d588-66cb-ff3f-417e-ca7e8d486bad_us-east-1",
                 "index": 0,
                 "type": "reasoning.encrypted"
               }
@@ -54,18 +54,18 @@
             "refusal": null,
             "role": "assistant"
           },
-          "native_finish_reason": "completed"
+          "native_finish_reason": null
         }
       ],
-      "created": 1760532570,
-      "id": "gen-1760532570-aJEVNyPcHgra9Gj2yjuP",
+      "created": 1762105054,
+      "id": "gen-1762105054-YFsrpAiCJiccCliHhA44",
       "model": "x-ai/grok-4-fast",
       "object": "chat.completion",
       "provider": "xAI",
       "usage": {
-        "completion_tokens": 168,
-        "prompt_tokens": 159,
-        "total_tokens": 327
+        "completion_tokens": 9,
+        "prompt_tokens": 10,
+        "total_tokens": 19
       }
     },
     "headers": {
@@ -73,7 +73,7 @@
         "*"
       ],
       "cf-ray": [
-        "98ef6fd32a10f85a-ORD"
+        "9985668b8e6e7073-ORD"
       ],
       "connection": [
         "keep-alive"
@@ -82,7 +82,7 @@
         "application/json"
       ],
       "date": [
-        "Wed, 15 Oct 2025 12:49:30 GMT"
+        "Sun, 02 Nov 2025 17:37:34 GMT"
       ],
       "permissions-policy": [
         "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"

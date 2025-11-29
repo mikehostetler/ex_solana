@@ -10,8 +10,8 @@ defmodule ReqLLM.Providers.Cerebras do
 
   - System messages have stronger influence compared to OpenAI's implementation
   - Streaming not supported with reasoning models in JSON mode or tool calling
-  - Requires `strict: true` in tool schemas for structured output (automatically added)
-  - Qwen models do NOT support `strict: true` (automatically excluded)
+  - `strict: true` is automatically added to tool schemas when the model supports it
+  - Models that don't support `strict: true` (e.g., Qwen, ZAI GLM models) have it automatically excluded
   - Only supports `tool_choice: "auto"` or `"none"`, not function-specific choices
 
   ## Unsupported OpenAI Features
@@ -29,26 +29,23 @@ defmodule ReqLLM.Providers.Cerebras do
       CEREBRAS_API_KEY=csk_...
   """
 
-  @behaviour ReqLLM.Provider
-
-  use ReqLLM.Provider.DSL,
+  use ReqLLM.Provider,
     id: :cerebras,
-    base_url: "https://api.cerebras.ai/v1",
-    metadata: "priv/models_dev/cerebras.json",
-    default_env_key: "CEREBRAS_API_KEY",
-    provider_schema: []
+    default_base_url: "https://api.cerebras.ai/v1",
+    default_env_key: "CEREBRAS_API_KEY"
 
-  use ReqLLM.Provider.Defaults
+  @provider_schema []
 
   @impl ReqLLM.Provider
   def encode_body(request) do
     request = ReqLLM.Provider.Defaults.default_encode_body(request)
     body = Jason.decode!(request.body)
+    model = request.private[:req_llm_model]
 
     enhanced_body =
       body
       |> translate_tool_choice_format()
-      |> add_strict_to_tools()
+      |> add_strict_to_tools(model)
       |> normalize_tool_choice()
       |> normalize_assistant_content()
 
@@ -81,24 +78,26 @@ defmodule ReqLLM.Providers.Cerebras do
     end
   end
 
-  defp add_strict_to_tools(%{"tools" => tools, "model" => model} = body) when is_list(tools) do
+  defp add_strict_to_tools(%{"tools" => tools} = body, model) when is_list(tools) do
     tools =
-      if is_qwen_model?(model) do
-        Enum.map(tools, &strip_unsupported_schema_constraints/1)
-      else
+      if supports_strict_tools?(model) do
         Enum.map(tools, fn tool ->
           put_in(tool, ["function", "strict"], true)
         end)
+      else
+        Enum.map(tools, &strip_unsupported_schema_constraints/1)
       end
 
     Map.put(body, "tools", tools)
   end
 
-  defp add_strict_to_tools(body), do: body
+  defp add_strict_to_tools(body, _model), do: body
 
-  defp is_qwen_model?(model) do
-    String.contains?(model, "qwen")
+  defp supports_strict_tools?(%LLMDB.Model{} = model) do
+    ReqLLM.ModelHelpers.tools_strict?(model)
   end
+
+  defp supports_strict_tools?(_), do: false
 
   defp strip_unsupported_schema_constraints(tool) do
     update_in(tool, ["function", "parameters"], fn params ->

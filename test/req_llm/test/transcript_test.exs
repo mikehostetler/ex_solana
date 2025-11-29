@@ -142,7 +142,7 @@ defmodule ReqLLM.Test.TranscriptTest do
 
     test "write! and read! round-trip via filesystem" do
       original = valid_transcript()
-      path = Path.join(System.tmp_dir!(), "test-transcript-#{:rand.uniform(10000)}.json")
+      path = Path.join(System.tmp_dir!(), "test-transcript-#{:rand.uniform(10_000)}.json")
 
       try do
         Transcript.write!(original, path)

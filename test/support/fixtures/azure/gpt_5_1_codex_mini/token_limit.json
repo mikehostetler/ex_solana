@@ -1,0 +1,156 @@
+{
+  "model_spec": "azure:gpt-5.1-codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJ0eXBlIjoiaW5wdXRfdGV4dCJ9XSwicm9sZSI6InVzZXIifV0sIm1heF9vdXRwdXRfdG9rZW5zIjozMDAwLCJtb2RlbCI6ImdwdC01LjEtY29kZXgtbWluaSIsInN0cmVhbSI6ZmFsc2V9"
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Write a very long story about dragons and adventures",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 3000,
+      "model": "gpt-5.1-codex-mini",
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764375026,
+      "error": null,
+      "id": "resp_0e119c93732dc21e00692a39f297548193a3dee9a55f7f275b",
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": 3000,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "gpt-5.1-codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_0e119c93732dc21e00692a39f38ec48193b91b7eab2f71cca1",
+          "summary": [],
+          "type": "reasoning"
+        },
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "In the wild, liminal stretches where the mountains pierced the sky and the forests whispered age-old tales, there lived dragons—creatures of flame and mist, who soared between stars and slept atop treasures of starlight glass. This is the story of Eirwyn, a dragon with scales that shimmered across the spectrum as she flew, and the world that awaited both flame and peace beneath her wings.\n\nThe tale begins in the valley of Emberfall, a place sheltered by walls of basalt cliffs and glassy meadows shimmering with dew. Emberfall had long been a nexus where dragons, humans, and other creatures, though wary of one another, kept a fragile truce. For centuries, dragons guarded the Crystalar—a sacred crystalline heart pulsing with warm bright light that balanced the seasons. In exchange, humans offered tribute of knowledge, songs, and the rare craft of windforging, a discipline mastering the currents with silver threads attuned to dragonflight.\n\nBut the peace was fragile. On the northern peaks of the Frostveils, another dragon rose to prominence—Vraethor, the Ashen Lament. His scales were ashen-black and shimmering with embers that never died. He harbored a dream not of hoard and war but of reshaping the world. He believed dragons were meant to rule, not to guard. He saw the Crystalar not as a symbol of balance, but as a key—a conduit through which he could rewrite the tides of power, bending air, fire, ice, and stone into his iron will. He began to gather followers, not with threats, but by promising them an end to the quiet, restrained existence they had been living.\n\nWord of Vraethor’s ambitions reached Emberfall one early autumn morning, when the sky reddened with flames in the distance, and the northern winds carried a cold, metallic scent. Eirwyn, known for her bright scales and even brighter mind, felt the tremors before the fires consumed the horizon. She flew north, her wings cutting through frost-laced clouds as she sought to reason with Vraethor.\n\nBut Vraethor would not be swayed. He spoke to her from atop a glacier of black ice, his voice echoing like volcanic thunder across the waste. “The world is stagnant,” he said. “The Crystalar keeps it shallow. With me, there will be a surge. The seasons will shift, the rivers will boil, and the weak will crumble. Only then will the true song of the Lamenters fill the skies.”\n\nEirwyn tried to remind him of the balance they maintained. But Vraethor’s heart had already turned to stone. He unleashed a breath of obsidian flame that carved a canyon before her, and she retreated, wounded but not broken. She could see the path he was carving—one of dominance—and it frightened her even more than the flames.\n\nShe returned to Emberfall, carrying the news of the war that approached. The council, comprised of druids, windforgers, and elder dragons, gathered. “We will send an envoy,” Eirwyn declared, “a venture into the heart of the world, to seek allies among the ancient beings of earth and time. Without friends, we will fall.”\n\nSo began the Quest of the Seven Currents.\n\nThe first to join were the Aerions—sky spirits who dwelt within the Stormspire. Eirwyn, with her silver mane unfurling like a banner, flew through storm-riven caverns, her wings slicing thunderheads. She entered the eye of a storm where the Aerion queen, Liora, spun lightning with her fingertips. “We shall not be bound to any dragon,” the queen hissed. “But we sense the fire within you. Show us that you desire harmony, and we will follow.”\n\nEirwyn bowed her head and breathed a plume of sapphire flame, manifesting an image of Emberfall’s vibrant meadow, where dragons and humans danced in harmony beneath the Aurora of Dawn. The Aerions remembered the long-forgotten songs of times when the skies soared with peace. They joined Eirwyn—not blood-bound, but bound by purpose.\n\nNext came the Terrafawns of the Verdant Deep—massive earth-dwelling serpents whose bodies wove around tree roots and river stone. They had been hidden for centuries, singing lullabies to the soil. In the caves of Greenroot, Pathway, the eldest Terrafawn, sensed the tremor and spoke through the ground itself. “We have slept for ages. But the bruised root aches beneath Vraethor’s ambition. We shall rise.”\n\nEirwyn, aided by the Aerions, travelled beneath the surface, following the roots of the World Tree. The Terrafawns emerged, spirals of moss and stone, and with gentle voices they pledged their strength to protect balance. Yet they also warned Eirwyn of the obstacles ahead: “There are trials still. The Crystalar is more than a relic; it is trapped within the Cavern of the Seventh Flame, a place of mist and mirage. Only through all seven currents shall the path be revealed.”\n\nThus, Eirwyn’s quest continued. They visited the Crystal Wastes to speak with the Gilded Mirrors—glass beings who reflected possible futures. They waded through the Saffron Reeds to heed the Song of the River Witch, who could bend water into melodies. They climbed the Haloed Spires to consult the Veiled Archivists, those librarians of wind who preserved the history of comets and stars. Each ally joined, each gifting Eirwyn something—wisdom, artifacts, songs, or simply their trust.\n\nThrough the journey, Eirwyn learned that unity did not mean losing individuality. The Aerions’s lightning could become healing light when combined with Terrafawn earth. The River Witch’s ripples could cradle Terrafawn roots with nurturing dance. Every addition revealed that the currents weren’t separate—they were a weaving of threads, each needing the other to hold the tapestry of the world.\n\nWhen the Seven Currents joined, the path to the Cavern of the Seventh Flame opened. The cavern lay beneath the Crystalar Mountain, where molten rivers flowed upwards and the floor pulsed like living magma. The cavern was guarded by a being called the Ember-Heart—a dragon that had once burned with incomparable heat but had been rendered stone by an ancient pact. He warned them, “To reach the Crystalar, you must pass through the Mirror of Sighs, and only truth will be your companion.”\n\nEirwyn stepped before the Mirror. It shimmered with her own reflection and began to speak, not in words but in warmth. “Do you fear Vraethor?” it whispered. “Do you fear betrayal? Do you doubt the voices you have summoned?”\n\nShe admitted every fear—fear of losing her friends, fear of failing Emberfall, fear that by pouring her soul into peace she became vulnerable. The Mirror absorbed her fear and transformed it into luminescent scales that clung to her wings, making them heavier than ever. But then, Eirwyn remembered the Seven Currents’ pledge. She shared her truth—the desire to dance with every wind, to sing with every river, to remain open to the very beings who feared her. The mirror understood and melted away the weight.\n\nEmerging from the cavern, Eirwyn and her allies finally reached the Crystalar chamber—a vast hollow at the mountain’s heart, where crystalline light pulsed like a living heartbeat. Vraethor awaited, his body surrounded by flames that twisted with thunder and frost. He had amassed other dragons who had joined him in the belief that restraint was weakness. He had also formed an alliance with the Shadewraiths, creatures of shadow who whispered secrets into dragon ears.\n\n“You come with sirens,” Vraethor roared. “I offered liberation. You insist on a cage.”\n\n“We ask only for balance,” Eirwyn answered. “Balance that will ensure the Crystalar’s light never fades into tyranny.”\n\nVraethor unleashed a torrent of ash that scorched the chamber, bending light like a storm. The other dragons attacked simultaneously—Vraethor’s allies, jealous of Emberfall’s peace, perceived Eirwyn’s ideals as betrayal of dragon might. Behind them, the Shadewraiths spun illusions. Yet Eirwyn was not alone. The Aerions’ lightning danced overhead, cutting through shadow. The Terrafawns shifted the ground, creating loops of roots that blinked like living shields. The River Witch wove water around Eirwyn, cooling the flames. The Gilded Mirrors twisted Vraethor’s rage into reflections of his own fear, revealing to him the void he would create if he won. The Veiled Archivists spun stories into reality, keeping the war anchored to memory—not to forget the peace that had been.\n\nEirwyn and Vraethor engaged near the Crystalar, their breaths colliding. Flame met frost, purpose met ambition. Vraethor’s ash sought to suffocate the light within the crystal heart. Eirwyn channeled the Seven Currents into her breath—wind, earth, water, light, song, memory, and finally, her own dragonfire. The currents circled her, forming a vortex of blazing colors. The Crystalar hum pulsed louder, resonating with the song. Eirwyn soared upward, spiraling. At the height of her ascent, she let her fire gently touch the Crystalar. It didn’t burn; it blossomed. The crystal glowed with a new light—one that carried echoes of every ally, forging them into a single chord.\n\nVraethor, enraged, intended to strike her down. But the Crystalar’s light enveloped him. He caught glimpses of his own past—the times he, too, had watched dawn and yearned for something more. He realized that the path he had taken had not freed him; it had caged him. He had sought to extinguish fear, but in doing so he had lost empathy.\n\nThe light did not defeat him with force; it offered understanding. He stepped back, his flames dimming. “What is this?” he murmured.\n\n“This is balance,” Eirwyn said softly. “You wanted to reshape the world. Let us reshape it together—not by ruling, but by co-creating.”\n\nThe Crystalar’s pulse slowed, transforming from a heartbeat of feared power into a living masterpiece. Vraethor’s scales shimmered, no longer ashen, now laden with iridescent hues. The other dragons looked on, stunned. The Shadewraiths retreated, their darkness dissolving in the light.\n\nWith the war ended, Eirwyn did not claim victory. Instead, she ﬁnished her tale by inviting Vraethor to join the council. “Let us prove,” she said, “that dragons and allies can nurture worlds without threats.”\n\nAnd so, in the valley of Emberfall, peace slowly took root again. The Crystalar—now singing with seven currents—shone brighter than before, a harmonizing core of air, fire, water, earth, memory, song, and dream. Dragons no longer hovered in isolation, but descended to fields and temples, trading stories with travelers, teaching children how to breathe without burning themselves.\n\nThe Quest of the Seven Currents became a legend—a reminder that even the greatest flames could forge both brilliance and solace, as long as they were guided by purpose, truth, and compassion. Eirwyn spent her days soaring above mountains and valleys, always seeking new notes within the tapestry of the world. Her story was not one of endless battle, but of endless adventure—a perpetual journey to find and share the wonders that lived beyond every horizon.\n\nAnd when, on quiet nights, Emberfall’s children looked up at the Dancing Aurora, they believed, with every fiber within them, that dragons were not just myths of fire; they were reminders of the promise that courage and kindness could burn brightest when they illuminated the sky together.",
+              "type": "output_text"
+            }
+          ],
+          "id": "msg_0e119c93732dc21e00692a39f3ab088193aad72b21462ccacc",
+          "role": "assistant",
+          "status": "completed",
+          "type": "message"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "completed",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 15,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 2498,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 2513
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "ad901185-27f1-4bcf-b196-c4459569553c"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:10:50 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "c6bea8f2-d9f4-4755-aeeb-f2b25079604b"
+      ]
+    },
+    "status": 200
+  }
+}

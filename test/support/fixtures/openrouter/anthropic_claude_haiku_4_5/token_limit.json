@@ -1,0 +1,108 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJhbnRocm9waWMvY2xhdWRlLWhhaWt1LTQuNSIsIm4iOjEsInJlYXNvbmluZ19lZmZvcnQiOiJsb3ciLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MC41fQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "anthropic/claude-haiku-4.5",
+      "n": 1,
+      "reasoning_effort": "low",
+      "stream": false,
+      "temperature": 0.5
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "length",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "# The Dragonborn's Quest\n\n## Part One: The Prophecy\n\nThe ancient library of Thornhaven smelled of dust and forgotten dreams. Kael Stormwind, a lanky scholar with copper-red hair and perpetually ink-stained fingers, sat hunched over a crumbling manuscript, barely aware of the storm raging outside the stone walls. At twenty-three, he had spent most of his adult life in these halls, searching for something he could never quite name—a truth hidden in the words of the ancients, a secret waiting to be discovered.\n\nThe thunder rattled the stained glass windows as Kael carefully turned another page. His candle flickered, casting dancing shadows across the vaulted ceiling. This manuscript was different from the others. Unlike the dusty tomes on draconic history and meteorology that filled Thornhaven's endless shelves, this book seemed to hum with energy. The leather binding was warm to the touch, and the pages glowed faintly gold when he held them to the light.\n\nHe was so engrossed that he didn't notice Master Aldrich enter until the old librarian cleared his throat behind him.\n\nKael jumped, nearly knocking over his candle. \"Master! I didn't hear you.\"\n\nAldrich was ancient, as much a part of the library as the stones that built it. His beard reached his waist, and his robes were perpetually covered in bookmark threads and loose pages. He peered over his spectacles at the manuscript with an expression Kael had never seen before—something between fear and recognition.\n\n\"Where did you find that?\" Aldrich asked quietly.\n\n\"In the restricted section, on the shelf behind the alchemical texts. I was searching for information about the First Age and—\"\n\n\"Close it,\" Aldrich interrupted. \"Close it at once.\"\n\nKael had never heard his mentor speak in such a tone. He slowly closed the book, and immediately, the glow faded. \"Master, what is it? What's special about this manuscript?\"\n\nAldrich sat down heavily in the chair opposite Kael. The storm outside continued to rage, and between thunder rolls, the old man spoke in a voice that seemed to carry the weight of centuries.\n\n\"That,\" said Aldrich, \"is the Codex Draconis—the Book of Dragons. It should have been destroyed centuries ago. That it still exists is... troubling.\"\n\n\"Why should it be destroyed?\" Kael asked, his scholar's curiosity overwhelming his caution. \"If it contains knowledge—\"\n\n\"It contains more than knowledge, boy. It contains prophecy. Dangerous prophecy.\" Aldrich leaned forward. \"Have you read any of it?\"\n\n\"Only a few pages. I was reading about the Age of Dragons, before the great wars. It mentions something about a ritual, a binding of—\"\n\nLightning split the sky outside, blindingly bright. In that instant, the library seemed to hold its breath. When darkness returned, Aldrich stood abruptly.\n\n\"It's beginning,\" he whispered. \"I had hoped we would have more time.\"\n\n\"What's beginning?\" Kael demanded. \"Master, you're frightening me.\"\n\nAldrich turned to face him, and tears lined the old man's weathered cheeks. \"Read the prophecy, Kael. The one marked with the silver seal. Then come find me in my study. Pack what you value. We must leave Thornhaven tonight.\"\n\nBefore Kael could ask another question, Aldrich left, his footsteps echoing through the library like a funeral march.\n\nWith trembling hands, Kael opened the Codex Draconis again. The pages fell open as if of their own accord, revealing yellowed parchment covered in flowing script. A silver seal marked the top of the page—an intricate symbol combining a dragon's head with a human figure. Kael read the words aloud, his voice barely above a whisper:\n\n*\"When the binding frays and chains grow weak,*\n*When starlight fades and shadows speak,*\n*There shall arise from mortal line*\n*One marked with power both red and pine.*\n*Dragon-born of ancient right,*\n*Wielder of the sacred light,*\n*Must choose before the final bell*\n*To save the world or doom it well.*\n*Three trials wait, three truths to learn,*\n*A kingdom built and left to burn,*\n*The fate of dragons long thought dead*\n*Rests in the hands that bear the tread.*\n*The crimson crown shall fall to dust,*\n*New bonds of silver, forged in trust,*\n*But none shall see the dawning day*\n*Until the price of blood is paid.\"*\n\nKael read it twice more, his heart accelerating with each word. He touched his left shoulder unconsciously—he had a birthmark there, had his whole life. He'd never paid it much attention, but now, something stirred in his memory. A dream he'd had as a child, recurring throughout his youth: a massive red dragon with eyes like molten gold, calling to him across an endless sky.\n\nHe grabbed the Codex and his favorite volumes, shoving them into a leather satchel. As he ran from the library, the storm outside intensified. Rain hammered against the stones as Kael sprinted through the winding corridors of Thornhaven toward Aldrich's private study.\n\nHe found his mentor packing with urgent efficiency, gathering scrolls and small magical artifacts.\n\n\"You read it,\" Aldrich said. It wasn't a question.\n\n\"The prophecy. But it's cryptic. I don't understand—\"\n\n\"The binding referenced is the Great Spell,\" Aldrich explained. \"Centuries ago, the dragons nearly destroyed civilization. The ancient kingdoms united under King Aldric the First and performed a magical ritual that bound the dragons into slumber. It was meant to last ten thousand years. But magic degrades, locks weaken. And if the dragons wake...\" He didn't finish, but he didn't need to.\n\n\"What does it have to do with me?\" Kael asked, though part of him already knew.\n\nAldrich handed him a mirror. \"Look at yourself. Really look.\"\n\nKael stared at his reflection in the silvered glass. As he watched, a faint shimmer passed across his skin—patterns like scales, golden and luminous, appearing for just a moment before fading. He gasped and dropped the mirror.\n\n\"That's impossible.\"\n\n\"Your mother came to me when you were an infant,\" Aldrich said softly, sitting down on a wooden chest. \"She told me your father was not human, that he was one of the last dragons, freed from the binding by forbidden magic before he died. She made me promise to protect you, to train you in secret, to prepare you for this day.\"\n\n\"My father was a dragon,\" Kael repeated slowly, as if saying the words would make them more real. They didn't.\n\n\"Half-dragon,\" Aldrich corrected. \"Which makes you the first of your kind in over a thousand years. And according to that prophecy you just read, you may be the only one who can prevent a catastrophe.\"\n\nOutside, the storm raged on. But in Thornhaven, a far greater tempest was stirring—one that would sweep across the known world.\n\n## Part Two: The Journey Begins\n\nBy dawn, Kael and Aldrich had fled Thornhaven on horseback, heading north toward the mountains of Draxen'mir. The capital city Silverspire lay behind them, already lost in mist. Every league they traveled, Kael half-expected to hear hoofbeats of pursuit, but none came. Instead, the sense of wrongness that had plagued him since reading the prophecy only grew stronger.\n\nOn the third night of their journey, camped in a forest of ancient oaks, Aldrich taught Kael the history he'd been denied.\n\n\"Your father was named Drax,\" the old man said, warming his hands over a meager fire. \"He was one of the Red Dragons, the most powerful of the dragon race. During the Age of Dragons, before the binding, they ruled the skies and dominated the lands below. Kings bowed to them. Cities burned at their command.\"\n\n\"But if they were so powerful,\" Kael asked, \"how did the binding spell work?\"\n\n\"Sacrifice,\" Aldrich replied grimly. \"King Aldric united six kingdoms and gathered the greatest mages of the age. But the spell required a terrible price. It demanded the lives of all the mages who cast it, and it required a dragon's willing consent.\"\n\n\"A dragon gave up their freedom willingly?\"\n\n\"Not freedom, exactly. See, the spell was more sophisticated than most people understand. It didn't kill the dragons or imprison them entirely. It put them into a deep sleep within the earth itself, all across the world, in locked vaults beneath mountains and caves. But it also distributed their power across the land—that's how magic itself came to exist in our world. The dragons' own life force became the foundation of all magical arts.\"\n\nKael poked at the fire with a stick. \"And my father broke out of this binding?\"\n\n\"Somehow, yes. It's a mystery to me how he managed it. Dragons are incredibly intelligent and powerful, and if one found a way to escape, others might be able to follow. That's what frightens me most—one awakened dragon might disturb the others. The binding magic could fail entirely.\"\n\nA sound in the darkness made both men freeze. It was distant, but unmistakable: the cry of some vast creature, echoing through the mountains far to the north. It was unlike anything Kael had heard before—a sound of raw power and ancient awareness.\n\n\"What was that?\" he whispered.\n\nAldrich's face had gone pale. \"I don't know. But I fear we may have run out of time.\"\n\nThey pressed on through the night, arriving at the mountains as dawn broke over the horizon. The peaks of Draxen'mir rose before them like the teeth of a sleeping giant, capped with eternal snow. Aldrich led them toward a hidden path that climbed into the high passes.\n\nIt was there, on the third day of climbing, that they encountered the bandits.\n\nThere were eight of them, emerging from both sides of the narrow mountain path. They were rough-looking men, clad in leather armor and bearing weapons that had seen much use. Their leader was a tall woman with a scarred face and cold gray eyes. She raised a crossbow, pointing it at Aldrich.\n\n\"Coin or life,\" she said simply. \"Choose quickly.\"\n\nAldrich raised his hands in a gesture of peace. \"We carry little of value. If you'll let us pass—\"\n\n\"Let you pass?\" The woman laughed. \"Old man, we're the only law on these mountains. You don't pass without paying toll.\"\n\nKael felt a strange heat building in his chest. The birthmark on his shoulder burned like fire. Without conscious thought, he stepped forward, and as he did, the golden scales flickered across his skin again—but this time, they didn't fade. They spiraled outward from his shoulder, creating patterns that seemed to dance in the morning light.\n\nThe bandits gasped. Several took a step back.\n\n\"What sorcery is this?\" the bandit leader demanded, her crossbow wavering.\n\nKael didn't know what he was doing, but his voice when he spoke was not entirely his own—it carried harmonics that resonated through the mountain pass with a power that made rocks shift and loosen from the cliff face.\n\n\"Leave,\" he said, and it was almost as if another voice spoke with him, deeper and older.\n\nThe bandits didn't wait to be told twice. They scrambled down the mountain path, disappearing from sight in moments. Only the female leader held her ground for a moment longer, her eyes locked with Kael's. In that gaze, some understanding seemed to pass between them—a recognition of something primal and dangerous.\n\nThen she too turned and fled.\n\nAldrich released a breath he'd been holding. \"Well. That was both impressive and troubling. Can you understand what just happened?\"\n\n\"I... no,\" Kael said. The scales faded from his skin, and he felt suddenly exhausted. \"I felt something, like power waiting to be used, but I didn't know how to use it. And that voice—was that my father?\"\n\n\"Perhaps,\" Aldrich said thoughtfully. \"The blood of dragons runs in your veins, Kael. Instincts, abilities, maybe even fragments of consciousness from your father—these may all be awakening in you now.\"\n\nThey continued climbing.\n\nThe journey through the high passes took another week. The weather grew colder, and the air thinner. Snow fell nearly constantly, and it was a struggle to maintain the horses on the narrow, icy paths. More than once, Kael thought they might tumble into the abyss below. But Aldrich seemed to know the route intim",
+            "reasoning": "The user wants me to write a very long story about dragons and adventures. I should create an engaging, detailed narrative with interesting characters, exciting plot points, and a well-developed world. I'll aim for a substantial length with good pacing and multiple plot developments.",
+            "reasoning_details": [
+              {
+                "format": "anthropic-claude-v1",
+                "index": 0,
+                "signature": "EsgDCkgICRACGAIqQI+CrqOHZ9xXxaQLjY8ClkbCyUfDlbo4y6dpdkt0bv0qtjbr+8Ns4gyiHqa8AT7kXlYXNeFVXBsMWlhZXMQCUfgSDJGE+fiJ1Nl7z35JABoMebLodRl3QJLf/OzTIjAVl1PlTppaN4QhA3mPs2rV/PUUQtQsueRvteUd0aJ+3RiHZxDMHjUeomsmj1kpXTkqrQLrPOfgZIZM1tP2r4AZ2eY7jWD5jCOfL/9Z3jMBwNiG8bS1f2ZKlKqV7CwbKFpilXSazeO7N0jAvH3/FpUabQXZeyxcURZo8f9WBpi+PoL33Sb5ILEJ32Qs/cen/uIDkBM/PB4F/JqYpb5YGPxDMVwyuBaUAzbVcqxInCv8bOZezH1f/hbVXz70/Qg1clxq23/viyeLx0EsuqnFY8/2/mPzucSD9Dr1G5/Y0OpcB+PieMUCyF6kc+nM/AXZ8pM0KyUGBl+GTAOFzBr046XdiatUt4BpB/LxX5osOAuuC7Z5dwZ5cNO+OpCaoosUx/aqlUyJlXvQcw9jXKqsRqBrdMANHAfgP3cfqy9IzKkZWlt2wJB88lavL6w+Zm1FlxWF30SnQ5/YBcqxuxes9wQJGAE=",
+                "text": "The user wants me to write a very long story about dragons and adventures. I should create an engaging, detailed narrative with interesting characters, exciting plot points, and a well-developed world. I'll aim for a substantial length with good pacing and multiple plot developments.",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "length"
+        }
+      ],
+      "created": 1762104942,
+      "id": "gen-1762104942-xOqdKEieDP4qIvqmOs8F",
+      "model": "anthropic/claude-haiku-4.5",
+      "object": "chat.completion",
+      "provider": "Google",
+      "usage": {
+        "completion_tokens": 3000,
+        "prompt_tokens": 44,
+        "total_tokens": 3044
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998563d4ef44eac7-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:35:43 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

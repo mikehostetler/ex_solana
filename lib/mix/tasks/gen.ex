@@ -29,10 +29,8 @@ defmodule Mix.Tasks.ReqLlm.Gen do
       --temperature, -t TEMP  Sampling temperature for randomness (0.0-2.0)
                              Lower values = more focused, higher = more creative
 
-      --reasoning-effort EFFORT Reasoning effort for GPT-5 models
-                              (minimal, low, medium, high)
-
-      --stream                Stream output in real-time (default: false)
+      --stream                Stream output in real-time (default: true)
+      --no-stream             Disable streaming (non-streaming mode)
       --json                  Generate structured JSON object (default: text)
 
       --log-level, -l LEVEL   Output verbosity level:
@@ -43,33 +41,35 @@ defmodule Mix.Tasks.ReqLlm.Gen do
 
   ## Examples
 
-      # Basic text generation with default model
+      # Basic text generation (streams by default)
       mix req_llm.gen "Explain how neural networks work"
 
-      # Streaming text from specific provider
+      # Text generation with specific provider and system prompt
       mix req_llm.gen "Write a story about space" \\
         --model openai:gpt-4o \\
-        --system "You are a creative science fiction writer" \\
-        --stream
+        --system "You are a creative science fiction writer"
 
       # Generate with GPT-5 and high reasoning effort
       mix req_llm.gen "Solve this complex math problem step by step" \\
         --model openai:gpt-5-mini \\
         --reasoning-effort high
 
-      # Generate structured JSON object
+      # Generate structured JSON object (streams by default)
       mix req_llm.gen "Create a user profile for John Smith, age 30, engineer in Seattle" \\
         --model openai:gpt-4o-mini \\
         --json
 
-      # Streaming JSON generation with metrics
+      # JSON generation with metrics (streams by default)
       mix req_llm.gen "Extract person info from this text" \\
         --model anthropic:claude-3-sonnet \\
-        --json --stream \\
+        --json \\
         --temperature 0.1 \\
         --log-level debug
 
-      # Quick generation without extra output
+      # Non-streaming mode (waits for complete response)
+      mix req_llm.gen "What is 2+2?" --no-stream
+
+      # Quick generation without extra output (streams by default)
       mix req_llm.gen "What is 2+2?" --log-level warning
 
   ## JSON Schema
@@ -149,6 +149,7 @@ defmodule Mix.Tasks.ReqLlm.Gen do
   def run(args) do
     extra_switches = [
       stream: :boolean,
+      no_stream: :boolean,
       json: :boolean,
       reasoning_effort: :string,
       schema: :string
@@ -167,7 +168,13 @@ defmodule Mix.Tasks.ReqLlm.Gen do
 
         case validate_model_spec(model_spec) do
           {:ok, _model} ->
-            streaming = Keyword.get(opts, :stream, false)
+            streaming =
+              cond do
+                Keyword.get(opts, :no_stream, false) -> false
+                Keyword.has_key?(opts, :stream) -> Keyword.get(opts, :stream, true)
+                true -> true
+              end
+
             json_mode = Keyword.get(opts, :json, false)
 
             mode =
@@ -537,8 +544,8 @@ defmodule Mix.Tasks.ReqLlm.Gen do
 
   # Cost calculation using model metadata system
   defp calculate_estimated_cost(model_spec, input_tokens, output_tokens) do
-    case ReqLLM.Model.from(model_spec) do
-      {:ok, %ReqLLM.Model{cost: cost_map}} when is_map(cost_map) ->
+    case ReqLLM.model(model_spec) do
+      {:ok, %LLMDB.Model{cost: cost_map}} when is_map(cost_map) ->
         input_rate = cost_map[:input] || cost_map["input"] || 0.0
         output_rate = cost_map[:output] || cost_map["output"] || 0.0
 
@@ -619,7 +626,7 @@ defmodule Mix.Tasks.ReqLlm.Gen do
   defp parse_log_level(_), do: :info
 
   defp validate_model_spec(model_spec) do
-    case ReqLLM.Model.from(model_spec) do
+    case ReqLLM.model(model_spec) do
       {:ok, model} ->
         {:ok, model}
 
@@ -639,7 +646,7 @@ defmodule Mix.Tasks.ReqLlm.Gen do
     IO.puts("Available providers:")
 
     try do
-      providers = ReqLLM.Provider.Registry.list_implemented_providers()
+      providers = ReqLLM.Providers.list()
 
       Enum.each(providers, fn provider_atom ->
         IO.puts("  • #{provider_atom}")
@@ -687,9 +694,9 @@ defmodule Mix.Tasks.ReqLlm.Gen do
   defp handle_missing_api_key_error(error_message, model_spec, log_level) do
     case parse_provider_from_spec(model_spec) do
       {:ok, provider_id} ->
-        case ReqLLM.Provider.Registry.get_provider(provider_id) do
+        case ReqLLM.provider(provider_id) do
           {:ok, provider_module} ->
-            env_var = apply(provider_module, :default_env_key, [])
+            env_var = provider_module.default_env_key([])
             log_puts("Error: API key not found for #{provider_id}", :warning, log_level)
             log_puts("\nPlease set your API key using one of these methods:", :warning, log_level)
 
@@ -740,7 +747,7 @@ defmodule Mix.Tasks.ReqLlm.Gen do
   defp parse_provider_from_spec(model_spec) when is_binary(model_spec) do
     case String.split(model_spec, ":", parts: 2) do
       [provider_str, _model] when provider_str != "" ->
-        ReqLLM.Metadata.parse_provider(provider_str)
+        LLMDB.Spec.parse_provider(provider_str)
 
       _ ->
         {:error, :invalid_spec}
@@ -750,19 +757,16 @@ defmodule Mix.Tasks.ReqLlm.Gen do
   defp parse_provider_from_spec(_), do: {:error, :invalid_spec}
 
   defp list_provider_models(provider) do
-    case ReqLLM.Provider.Registry.list_models(provider) do
-      {:ok, models} when models != [] ->
+    case LLMDB.models(provider) do
+      models when models != [] ->
         IO.puts("\nAvailable #{provider} models:")
 
         Enum.each(models, fn model ->
-          IO.puts("  • #{provider}:#{model}")
+          IO.puts("  • #{LLMDB.Model.spec(model)}")
         end)
 
-      {:ok, []} ->
+      [] ->
         IO.puts("\n(No models found for provider #{provider})")
-
-      {:error, _} ->
-        :ok
     end
   end
 

@@ -1,0 +1,163 @@
+{
+  "model_spec": "azure:gpt-5-chat",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjMwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJuIjoxLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/gpt-5-chat/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "low"
+            }
+          },
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "Sure! Here’s a long, original fantasy adventure about dragons, courage, and discovery:  \n\n---\n\n### The Emberkeep Chronicles: Whispers of the Skyfire  \n\n#### Prologue  \n\nIn the high ranges of the Crescent Mountains, where clouds trailed like silver silk across razor peaks, the dragons of old once ruled. Their scales gleamed with the memory of creation's first light, their breath carried the power to unmake or to heal. But as centuries passed, they faded into tales shared only by wandering minstrels and weathered storytellers.  \n\nYet stories—like embers—can smolder for ages under ash. And one cold dawn, those embers stirred again.  \n\n---\n\n#### Chapter One: The Boy Who Listened to the Wind  \n\nKael was the shepherd’s son, which meant his days were filled with the slow rhythm of bells and bleats, the scent of wool, the press of grass under his feet. He had never seen a dragon. He had only heard the valley folk whisper about the Skyfire—the last storm that had swept from the north a hundred years ago, blazing with wings of light.  \n\nBut Kael had something rare: he could hear the wind speak. It was not a language of words but of feelings—fear before a coming storm, urgency when danger stirred. And lately, that whisper had turned restless, heavy with warning.  \n\n“Something’s waking,” said the wind through the pines. “Something ancient.”  \n\n---\n\n#### Chapter Two: The Forgotten Stone  \n\nWhile tending his flock near the ridge one evening, Kael found a stone unlike any other. Smooth as glass, but glowing faintly crimson when touched. On instinct, he drew it close. The air shimmered, and a voice—deep, resonant, tired—echoed inside him.  \n\n**“Keeper… awaken me.”**  \n\nKael dropped the stone, heart hammering. He wanted to run, but something in the voice wasn’t terrifying—it was lonely. When he dared to speak back, his words came out trembling: “Who are you?”  \n\nA heartbeat’s pause. Then: **“I am Vaerion. Bound flame of the First Flight.”**  \n\nThat night, everything changed.  \n\n---\n\n#### Chapter Three: The Hunt Begins  \n\nNews spread the next day—a strange sky had opened above the northern peaks, glowing red even at noon. Travelers spoke of black-winged shadows. In the nearest town, the Lord of Emberkeep, a stern man named Arcten, announced rewards for anyone who would bring proof of a dragon’s return.  \n\nThat news brought more than curiosity. It brought hunters.  \n\nAmong them was Nira Thorne, a sword-for-hire who had seen too much of war and coin. She heard rumors of a shepherd lad carrying a jewel that “breathed light.” Nira was skeptical until she saw the boy herself—pale-eyed, frightened, and clearly out of his depth. She expected a simple theft. She didn’t expect the world to tremble when she tried to steal from him.  \n\n---\n\n#### Chapter Four: Flame and Bond  \n\nThe crystal flared as her hand struck Kael’s pack. A rush of heat filled the air—not burning, but alive. Then a dragon’s vision poured through them both: endless skies, flight above storms, memories of a time before mankind’s towers.  \n\nWhen the vision ended, the stone floated between them, splitting like a shell. Fire coiled outward and took shape—vast wings, eyes that mirrored the sun. Vaerion had awakened.  \n\nThe dragon’s voice rumbled not with anger but with sorrow. “The bonds are broken. The old order is gone. You—little one—have my heartstone. Until death or loyalty sunders it, we are one.”  \n\nAnd Kael, shaking, nodded.  \n\nFrom the ridge, the world looked smaller, and the horizon no longer safe.  \n\n---\n\n#### Chapter Five: Flight  \n\nFlying was both terror and ecstasy. Kael clung to Vaerion’s scaled neck while Nira—against her better judgment—rode behind. Wind screamed in their ears, yet the air itself bowed before the dragon’s strength.  \n\nThey flew north, to where the fires on the horizon pulsed like heartbeats. Below them lay forests smoking with strange frost, villages silent under ash.  \n\nVaerion spoke as they traveled.  \n\n“The dragons were not slain. We were betrayed by our kind. The Skyfire was not a storm—it was rebellion.”  \n\nEach night they made camp, Kael listened. He learned of the Dragon Lords who sought to tear realms apart, of Vaerion’s choice to side with humanity, and of the punishment that sealed him in stone.  \n\nMeanwhile, something hunted them. Shadows that smelled of iron and rot.  \n\n---\n\n#### Chapter Six: The Witch of Glassmere  \n\nAs they neared the frozen lakes, they met the Witch of Glassmere—a gaunt woman dwelling in a ruined observatory filled with mirrors that reflected stars no longer in the sky. She knew too much about Vaerion’s bond with Kael.  \n\n“The heartstone binds will to flame,” she said. “But such power draws envy. If the others of the First Flight rise, they will seek to claim him—or destroy you.”  \n\nShe offered counsel only if they would retrieve her lost mirror from the Ruins of Shale—a place where the ground bled light and whispered curses.  \n\nNira wanted no part of it. Kael insisted otherwise.  \n\nThey went.  \n\n---\n\n#### Chapter Seven: The Ruins  \n\nDeep beneath the cracked earth, they found the mirror—shattered, yet alive, pulsing like a slow heartbeat. When Kael touched it, the shards rearranged themselves, showing him a vision: a silver dragon chained to a blackened mountain, bleeding light into a cage of runes.  \n\nVaerion roared so loudly the cavern shook. “That is Serastra,” he thundered. “Sister of flame. If she still lives, the world lies nearer doom than hope.”  \n\nThey took the mirror, unaware that something had followed them out—a creature of smoke and bone with eyes like dying stars.  \n\n---\n\n#### Chapter Eight: Betrayal  \n\nBack in Glassmere, revelations twisted like knives. The Witch was no ally. She served the remnants of the Dragon Lords, seeking to use Kael’s bond to free Serastra.  \n\nA battle tore the observatory apart. Nira fought the Witch with steel. Kael fought with courage. Vaerion fought with flame. When the mirrors shattered, their reflections broke—the Witch vanished into shards of light, and the heartstone dimmed.  \n\nVaerion fell silent for three days.  \n\n---\n\n#### Chapter Nine: Emberkeep  \n\nWhen the dragon finally spoke again, it was with a heavy truth. “The bond burns me. Her curse seeps through. Unless the Skyfire is rekindled, I will fade.”  \n\nTheir only hope lay at Emberkeep—the fortress-city built from dragonbone, now ruled by Lord Arcten. But Arcten’s scholars sought not to heal dragons but to bind them in iron magic.  \n\nKael and Nira entered the city in disguise. The people whispered of “a storm at midnight” and “the rise of a red star.” Deep in the vaults, they found other stone hearts—hundreds of them—each holding a dragon’s imprisoned soul.  \n\nRage flared in Kael’s chest. “They’ve been killing them,” he said bitterly.  \n\n“No,\" Nira said, tracing an ancient sigil carved into one. “They’ve been keeping them alive… for war.”  \n\n---\n\n#### Chapter Ten: The Skyfire Returns  \n\nBefore dawn, the vault convulsed. The heartstones awakened all at once—hundreds of dragons crying out in pain and fury through the weave of magic that held them. The fortress cracked. The sky split.  \n\nKael pressed Vaerion’s heartstone to the central glyph and shouted through the flame: “If you must burn something—burn the chains!”  \n\nLight erupted, brighter than daylight, as Vaerion and the others burst free. Arcten fell, screaming, while Emberkeep melted into the earth.  \n\nWhen the fire cleared, Kael saw Vaerion standing among the ruins, vast and scarlet, the air humming with power.  \n\n“We are free,” the dragon said softly. “But freedom demands flight.”  \n\n---\n\n#### Epilogue: The New Sky  \n\nYears later, travelers spoke of a shepherd who rode a red dragon across the dawn, never staying long, always heading toward new horizons. Some said he was a prince of fire; others thought him myth.  \n\nYet when storms thundered across the north, they sounded—not of rage—but of laughter.  \n\nAnd sometimes, if you stood among the mountains and listened closely, you could still hear the wind whisper:  \n\n**“Something ancient still watches… and remembers kindness.”**  \n\n---\n\nWould you like me to continue this story into a second book, perhaps focusing on Nira’s past and the fate of the silver dragon, Serastra?",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373376,
+      "id": "chatcmpl-Ch2P2tgm43sm80zg1joBPg7OO1d2S",
+      "model": "gpt-5-chat-2025-10-03",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": "fp_88bf7c189b",
+      "usage": {
+        "completion_tokens": 1879,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 16,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 1895
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "a52a1701-cdc9-4b71-813d-394be450fd4e"
+      ],
+      "azureml-model-session": [
+        "d011-20251112013944"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:43:18 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "gpt-5-chat"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "5000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "5000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "4999"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "4999986"
+      ],
+      "x-request-id": [
+        "510f0e59-693a-4e83-bfa8-8e0ef3baa153"
+      ]
+    },
+    "status": 200
+  }
+}

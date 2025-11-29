@@ -1,0 +1,158 @@
+{
+  "model_spec": "azure:codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJ0eXBlIjoiaW5wdXRfdGV4dCJ9XSwicm9sZSI6InVzZXIifV0sIm1heF9vdXRwdXRfdG9rZW5zIjozMDAwLCJtb2RlbCI6ImNvZGV4LW1pbmkiLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Write a very long story about dragons and adventures",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 3000,
+      "model": "codex-mini",
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764374960,
+      "error": null,
+      "id": "resp_094d3cb9717fefe800692a39b022048195bb9b976f875d94e5",
+      "incomplete_details": {
+        "reason": "max_output_tokens"
+      },
+      "instructions": null,
+      "max_output_tokens": 3000,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_094d3cb9717fefe800692a39b0cfd88195a8c7da87797792a9",
+          "summary": [],
+          "type": "reasoning"
+        },
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "**“Embers of the Sky”**  \n*A Saga of Dragons and Destiny*  \n\n---\n\n## Chapter I – The Whisper of Wings\n\nIn the twilight hush before dawn, the Vale of Aurum lay swathed in silver mist. From her cottage window, young Arin Sablewood watched the fog drift across the golden wheatfields. For as long as she could remember, tales of dragons had stirred her heart—ancient, winged titans said to hold the very breath of creation. Yet in her world, dragons were little more than bedtime stories, echoes of a bygone age.\n\nThat morning, however, something changed. A low, resonant rumble shook the earth. Birds took flight in panicked flocks. Arin’s heart thundered in her chest as she sprinted outside. Far on the eastern horizon, an obsidian silhouette carved the sky: a dragon in flight, its vast wings beating with primordial power.  \n\nAs if beckoned by fate, Arin felt her pulse sync with the creature’s heartbeat. The dragon’s eyes glowed like molten gold. Then, with a roar that split the sunrise, it vanished beyond the distant peaks of the Dragonspine Mountains, leaving behind a trembling world—and a promise of adventure Arin could not ignore.\n\n---\n\n## Chapter II – The Call to Journey\n\nWord of the dragon’s return spread through Aurum like wildfire. King Ragnar Goldmantle convened his council in the Hall of Echoes, debating whether to send knights to slay the beast or offer parley. Meanwhile, Arin knew her own path: she would follow the dragon’s trail, for in its wake lay the fate of her home.\n\nPacking only essentials—a leather-bound journal, a dagger blessed by her grandmother, and a simple cloak—Arin set out at dawn’s first light. She carried nothing of a knight’s pride, but in her heart burned unquenchable curiosity. The road to the Dragonspine Mountains would test her in ways she could not yet imagine.\n\n---\n\n## Chapter III – Allies in the Mist\n\nCrossing the Shiverwood Forest, Arin encountered her first companion: Sylas Thorn, a roguish archer with a rakish grin and secrets in his shadowed eyes. He tracked beasts and bandits alike, guided by arrows dipped in rare green resin. Though she balked at his cynicism, Arin needed his knowledge of wild paths if she was to navigate the forest’s treacherous marshes.\n\nDeep in Shiverwood’s heart, the pair faced their first peril: a skeletal wyvern resurrected by foul necromancy. In the moonlit clearing, bones clattered as the undead creature lunged. Sylas loosed arrow after arrow, each tipped with Sylvanbane, while Arin dodged talons and thrust her dagger into the wyvern’s skull. When the beast collapsed, its bones crumbled to ash.\n\n“Not bad for a farm girl,” Sylas teased, offering a crooked bow by way of truce. “Perhaps you’re more dragon-blooded than you know.”\n\n---\n\n## Chapter IV – The Scholar of Stormrest\n\nAt the forest’s edge lay Stormrest Keep, a tower of curling spires where scholars studied arcane lore. Here Arin and Sylas sought Mistress Elaria, an aging mage rumored to commune with dragons. In her candlelit library, she unveiled a prophecy:  \n\n> *“When wings of night return to flame,  \n> The shattered world shall call the same.  \n> Only by ember’s heart reclaimed  \n> May ancient tyrants sleep unnamed.”*\n\nElaria spoke of the Emberheart—a fabled gemstone that once soothed dragons’ fury, forging bonds between humankind and wyrm-kind. But the Emberheart was lost, its fragments scattered across the realm in the Era of Sundering. Without it, no one could tame the dragon stirring in the mountains.\n\nReluctantly, Arin accepted her quest: to find the Emberheart’s shards and rekindle the ancient covenant.\n\n---\n\n## Chapter V – Through the Glimmering Marsh\n\nTheir next destination was the Glimmering Marsh, where one shard lay hidden beneath phosphorescent waters. Evading carnivorous marsh wyrms and bottomless quagmires, Arin and Sylas pressed on, guided by Elaria’s arcane compass.\n\nAt twilight, they found a ruined ziggurat half-sunken in emerald reeds. A single chamber remained intact, carved with the sigil of the First Dragonlords. There, on a pedestal of black stone, glowed a shard like liquid sunrise—the first piece of the Emberheart.\n\nBut as Arin reached for it, the ground quaked. From the depths rose the Marsh Leviathan, a thousand-legged horror with jaws of coral. In the ensuing struggle, Sylas bought Arin time by loosing his final arrow, felling the beast’s core. When the leviathan slackened, Arin grabbed the shard and murmured a prayer of gratitude.\n\n---\n\n## Chapter VI – The Siege of Frosthold\n\nCarrying the Ember shard, the companions marched north to Frosthold, a fortress besieged by dragonspawn from the icy wastes. One such spawn, Cindrax the Frostfire Drake, froze ramparts with a breath that mingled flame and ice.\n\nArin, Sylas, and Mistress Elaria arrived as Frosthold’s defenders faced certain defeat. Sylas led the archers along the parapets, while Elaria wove runes of warding. Arin climbed a battered tower, challenge in her gaze. At the drake’s approach, she held the Ember shard aloft. A beam of warm light lanced the sky, meeting Cindrax’s icy flame. In that meeting of forces, a new dragon-bond flickered.\n\nCindrax recoiled, wings shimmering, then let loose a mournful roar before retreating into the polar night. The people of Frosthold cheered, and the shard throbbed with renewed promise.\n\n---\n\n## Chapter VII – Bonds of Fire and Ice\n\nIn the days that followed, Cindrax began appearing at night, circling the keep with calculated grace. Arin approached him atop the highest tower. Heart pounding, she offered the Ember shard. The drake lowered his head, nostrils flaring, and touched the crystal with his snout. Flames danced in his eyes as a fragile harmony formed between dragon and human.\n\nNews of Arin’s bond spread like wildfire. Some hailed her as the Dragon Maiden; others whispered of old curses. Still, united by purpose, Arin, Sylas, and Elaria pressed on to claim the remaining shards before darker forces could intervene.\n\n---\n\n## Chapter VIII – Trials of the Sunken Citadel\n\nThe second shard slumbered beneath the Sunken Citadel, submerged by tides and time. To reach it, the trio enlisted Lucea Wavecaller, a merfolk emissary adept at sea magic. With her guidance, they dove into coral halls and tunneled through flooded chambers, evading barnacled guardians and hidden traps.\n\nAt the citadel’s cathedral, Lucea summoned a whirlpool of living water to part the ocean, exposing a dais upon which sat a flaming shard. As Arin placed her hand on it, visions swirled—memory-fragments of dragons soaring over crystal towers, of humans and wyrms in alliance.\n\nBut as the shard merged with Arin’s other fragment, a distant crack of thunder shook the seabed—an ominous herald that someone, or something, watched their every move.\n\n---\n\n## Chapter IX – The Shadow over Brightfall\n\nReturning to dry land, the fellowship rode south to the town of Brightfall. There, they discovered soldiers corrupted by a malignant power, their eyes black as obsidian. Townsfolk whispered of the Shadow Wyrm—a dark dragon bound by a necromancer’s malediction, spreading plague and despair.\n\nAs dusk fell, the Shadow Wyrm descended upon Brightfall. In the streets choked by ash, Arin drew the Ember shards, now three. A pillar of golden flame erupted skyward, meeting the Wyrm’s noxious breath. The dragon recoiled, revealing scales of night torn by agony.\n\nSeizing the moment, Elaria unleashed a binding spell while Sylas’s arrows found mortal gaps in the Wyrm’s draconic armor. Arin stepped forward, impassioned, and spoke words of ancient peace. Light poured forth from the ember shards into the dragon’s chest. With a final, shuddering sigh, the Shadow Wyrm collapsed, freed at last from its torment—but lost to eternity.\n\n---\n\n## Chapter X – Across the Ashen Wastes\n\nOnly one shard remained. Legends placed it within the heart of the Ashen Wastes—an expanse where volcanoes belched smoke and the sky glowed red like spilled blood. Undeterred, the companions pressed on, their numbers bolstered by Frosthold knights and merfolk guardians.\n\nSurvival required all their strengths. Sylas scouted ahead, neutralizing ash drakes; Elaria’s wards shielded them from molten geysers; Lucea conjured rainstorms to stanch rivers of lava. Arin, her spirit tempered by trials, carried hope like a beacon.\n\n---\n\n## Chapter XI – The Forge of Embers\n\nThey found the shard within a volcano’s caldera, resting upon the Blackforge—a massive anvil hewn by dragonfire. But as Arin approached, the earth roared. From the molten abyss ascended Asharth, the primal Firewyrm, scales brighter than sunrise, eyes ancient as the world’s first dawn.\n\n“You seek to rekindle what was sundered,” Asharth’s voice rumbled. “Yet know that fools and heroes alike have courted ruin by prying open dragon-wards.”\n\nArin told him of the prophecy and the world’s need for dragons’ aid. She spoke of bonds, not bonds of slavery, but of kinship. The Firewyrm’s great jaws curved in what might have been a smile.\n\n“Then prove your heart’s ember is pure,” Asharth challenged, breathing a torrent of fire that coalesced into a gauntlet of flame.\n\nIn that trial by fire, Arin stepped into Asharth’s trial. The heat pressed upon her like judgment, yet she stood unflinching, her resolve undimmed. From her palm, the three shards flared, uniting with the volcanic fires into a new Emberheart—brighter than ever imagined.  \n\nAsharth bowed his head. “Rise, bearer of embers. Let the covenant be reborn.”\n\n---\n\n## Chapter XII – Dawn of the Dragonlords\n\nWith the final Emberheart in hand, Arin and her allies returned to Aurum. Under a dawn sky painted in rose and gold, dragons soared once more over fields, forests, and mountains. Peasants wept at the sight; scholars hurried to record the miracle; kings and nobles knelt in awe.\n\nArin stood atop the Hall of Echoes, the Emberheart glowing upon her breast. Around her gathered the first Dragonlords in a millennium—humans and wyrms bound in alliance: Cindrax the Frostfire, Asharth the Firewyrm, and dozens more dragons of ice, flame, storm, and stone.\n\nIn that moment, the world exhaled centuries of fear. From the embers of old myths, a new era dawned—an age where humankind and dragons would stand as guardians of the realm together.\n\n---\n\n## Epilogue – Wings of Tomorrow\n\nYears passed, and Arin Sablewood’s name became legend. Under her guidance, the Dragonlords rebuilt shattered kingdoms, healed scarred lands, and charted new frontiers in sky and sea. Peace reigned where once only terror had flown.  \n\nYet sometimes, when the sun set low and the air trembled with",
+              "type": "output_text"
+            }
+          ],
+          "id": "msg_094d3cb9717fefe800692a39b4d6c08195ace93794690dd65f",
+          "role": "assistant",
+          "status": "incomplete",
+          "type": "message"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "incomplete",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 15,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 2968,
+        "output_tokens_details": {
+          "reasoning_tokens": 512
+        },
+        "total_tokens": 2983
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "278ab6d1-df66-471b-954a-a050143ebfc6"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:09:43 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "62aea975-611d-4072-9373-ca493afdad87"
+      ]
+    },
+    "status": 200
+  }
+}

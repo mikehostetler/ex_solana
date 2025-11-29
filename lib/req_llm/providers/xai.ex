@@ -96,45 +96,10 @@ defmodule ReqLLM.Providers.XAI do
         )
   """
 
-  @behaviour ReqLLM.Provider
-
-  use ReqLLM.Provider.DSL,
+  use ReqLLM.Provider,
     id: :xai,
-    base_url: "https://api.x.ai/v1",
-    metadata: "priv/models_dev/xai.json",
-    default_env_key: "XAI_API_KEY",
-    provider_schema: [
-      max_completion_tokens: [
-        type: :integer,
-        doc: "Maximum completion tokens (preferred over max_tokens for Grok-4)"
-      ],
-      search_parameters: [
-        type: :map,
-        doc: "Live Search configuration with mode, sources, dates, and citations"
-      ],
-      parallel_tool_calls: [
-        type: :boolean,
-        doc: "Allow parallel function calls (default: true)"
-      ],
-      stream_options: [
-        type: :map,
-        doc: "Streaming options including usage reporting"
-      ],
-      xai_structured_output_mode: [
-        type: {:in, [:auto, :json_schema, :tool_strict]},
-        default: :auto,
-        doc: """
-        Structured output mode for xAI models:
-        - `:auto` - Automatic selection based on model capabilities and context
-        - `:json_schema` - Use native response_format with json_schema (requires support)
-        - `:tool_strict` - Use strict tool calling with synthetic structured_output tool
-        """
-      ],
-      response_format: [
-        type: :map,
-        doc: "Response format configuration (e.g., json_schema for structured output)"
-      ]
-    ]
+    default_base_url: "https://api.x.ai/v1",
+    default_env_key: "XAI_API_KEY"
 
   use ReqLLM.Provider.Defaults
 
@@ -142,6 +107,39 @@ defmodule ReqLLM.Providers.XAI do
     only: [maybe_put: 3, maybe_put_skip: 4, ensure_parsed_body: 1]
 
   require Logger
+
+  @provider_schema [
+    max_completion_tokens: [
+      type: :integer,
+      doc: "Maximum completion tokens (preferred over max_tokens for Grok-4)"
+    ],
+    search_parameters: [
+      type: :map,
+      doc: "Live Search configuration with mode, sources, dates, and citations"
+    ],
+    parallel_tool_calls: [
+      type: :boolean,
+      doc: "Allow parallel function calls (default: true)"
+    ],
+    stream_options: [
+      type: :map,
+      doc: "Streaming options including usage reporting"
+    ],
+    xai_structured_output_mode: [
+      type: {:in, [:auto, :json_schema, :tool_strict]},
+      default: :auto,
+      doc: """
+      Structured output mode for xAI models:
+      - `:auto` - Automatic selection based on model capabilities and context
+      - `:json_schema` - Use native response_format with json_schema (requires support)
+      - `:tool_strict` - Use strict tool calling with synthetic structured_output tool
+      """
+    ],
+    response_format: [
+      type: :map,
+      doc: "Response format configuration (e.g., json_schema for structured output)"
+    ]
+  ]
 
   @doc """
   Custom prepare_request for :object operations using xAI native structured outputs.
@@ -152,7 +150,7 @@ defmodule ReqLLM.Providers.XAI do
   @impl ReqLLM.Provider
   def prepare_request(:object, model_spec, prompt, opts) do
     compiled_schema = Keyword.fetch!(opts, :compiled_schema)
-    {:ok, model} = ReqLLM.Model.from(model_spec)
+    {:ok, model} = ReqLLM.model(model_spec)
 
     opts_with_tokens = ensure_min_tokens(opts)
     mode = determine_output_mode(model, opts_with_tokens)
@@ -301,19 +299,19 @@ defmodule ReqLLM.Providers.XAI do
 
   ## Examples
 
-      iex> supports_native_structured_outputs?(%ReqLLM.Model{model: "grok-2"})
+      iex> supports_native_structured_outputs?(%LLMDB.Model{model: "grok-2"})
       false
 
-      iex> supports_native_structured_outputs?(%ReqLLM.Model{model: "grok-2-1212"})
+      iex> supports_native_structured_outputs?(%LLMDB.Model{model: "grok-2-1212"})
       true
 
       iex> supports_native_structured_outputs?("grok-3")
       true
   """
-  @spec supports_native_structured_outputs?(ReqLLM.Model.t() | binary()) :: boolean()
-  def supports_native_structured_outputs?(%ReqLLM.Model{} = model) do
+  @spec supports_native_structured_outputs?(LLMDB.Model.t() | binary()) :: boolean()
+  def supports_native_structured_outputs?(%LLMDB.Model{} = model) do
     case get_in(model, [Access.key(:capabilities, %{}), :native_json_schema]) do
-      nil -> supports_native_structured_outputs?(model.model)
+      nil -> supports_native_structured_outputs?(model.id)
       value -> value
     end
   end
@@ -349,7 +347,7 @@ defmodule ReqLLM.Providers.XAI do
 
   All xAI models support strict tools.
   """
-  @spec supports_strict_tools?(ReqLLM.Model.t() | binary()) :: boolean()
+  @spec supports_strict_tools?(LLMDB.Model.t() | binary()) :: boolean()
   def supports_strict_tools?(_model), do: true
 
   @doc """
@@ -364,16 +362,16 @@ defmodule ReqLLM.Providers.XAI do
 
   ## Examples
 
-      iex> determine_output_mode(%ReqLLM.Model{model: "grok-3"}, [])
+      iex> determine_output_mode(%LLMDB.Model{model: "grok-3"}, [])
       :json_schema
 
-      iex> determine_output_mode(%ReqLLM.Model{model: "grok-2"}, [])
+      iex> determine_output_mode(%LLMDB.Model{model: "grok-2"}, [])
       :tool_strict
 
-      iex> determine_output_mode(%ReqLLM.Model{model: "grok-3"}, tools: [%{name: "other"}])
+      iex> determine_output_mode(%LLMDB.Model{model: "grok-3"}, tools: [%{name: "other"}])
       :tool_strict
   """
-  @spec determine_output_mode(ReqLLM.Model.t(), keyword()) :: :json_schema | :tool_strict
+  @spec determine_output_mode(LLMDB.Model.t(), keyword()) :: :json_schema | :tool_strict
   def determine_output_mode(model, opts) do
     explicit_mode =
       opts
@@ -431,7 +429,7 @@ defmodule ReqLLM.Providers.XAI do
       :json_schema ->
         if !supports_native_structured_outputs?(model) do
           raise ArgumentError,
-                "Model #{model.model} does not support :json_schema mode. Use :tool_strict or :auto instead."
+                "Model #{model.id} does not support :json_schema mode. Use :tool_strict or :auto instead."
         end
 
       :tool_strict ->
@@ -453,7 +451,8 @@ defmodule ReqLLM.Providers.XAI do
   @impl ReqLLM.Provider
   def attach_stream(model, context, opts, finch_name) do
     {translated_opts, _warnings} = translate_options(:chat, model, opts)
-    opts_with_base_url = Keyword.put_new(translated_opts, :base_url, default_base_url())
+    base_url = ReqLLM.Provider.Options.effective_base_url(__MODULE__, model, translated_opts)
+    opts_with_base_url = Keyword.put(translated_opts, :base_url, base_url)
 
     ReqLLM.Provider.Defaults.default_attach_stream(
       __MODULE__,
@@ -533,7 +532,7 @@ defmodule ReqLLM.Providers.XAI do
 
     {opts, warnings} =
       if reasoning_effort do
-        model_name = model.model
+        model_name = model.id
 
         if String.contains?(model_name, "grok-4") do
           warning = "reasoning_effort is not supported for Grok-4 models and will be ignored"
@@ -621,7 +620,7 @@ defmodule ReqLLM.Providers.XAI do
 
   defp decode_chat_response(req, resp, operation) do
     model_name = req.options[:model]
-    model = %ReqLLM.Model{provider: :xai, model: model_name}
+    model = %LLMDB.Model{id: model_name, provider: :xai}
     is_streaming = req.options[:stream] == true
 
     if is_streaming do
@@ -689,20 +688,16 @@ defmodule ReqLLM.Providers.XAI do
   end
 
   defp extract_from_content(response) do
-    case response.message do
-      %ReqLLM.Message{content: content_parts} when is_list(content_parts) ->
-        content_parts
-        |> Enum.find_value(fn
-          %ReqLLM.Message.ContentPart{type: :text, text: text} when is_binary(text) ->
-            parse_json_defensively(text)
+    %ReqLLM.Message{content: content_parts} = response.message
 
-          _ ->
-            nil
-        end)
+    content_parts
+    |> Enum.find_value(fn
+      %ReqLLM.Message.ContentPart{type: :text, text: text} when is_binary(text) ->
+        parse_json_defensively(text)
 
       _ ->
         nil
-    end
+    end)
   end
 
   @dialyzer {:nowarn_function, parse_json_defensively: 1}

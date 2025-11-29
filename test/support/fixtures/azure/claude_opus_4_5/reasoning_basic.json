@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-opus-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjo1MDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImNsYXVkZS1vcHVzLTQtNSIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjoxLjAsInRoaW5raW5nIjp7ImJ1ZGdldF90b2tlbnMiOjEwMjQsInR5cGUiOiJlbmFibGVkIn19"
+    },
+    "canonical_json": {
+      "max_tokens": 5000,
+      "messages": [
+        {
+          "content": "Solve 12*7 and show your internal thinking (brief).",
+          "role": "user"
+        }
+      ],
+      "model": "claude-opus-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EpACCkYIChgCKkDBbt4PmU+OAJX6zKlTgXFfndPig5AgEuNiu21kEs5MgkwUFe30mrNeJ3dP1hxCKQJr2PJE7tGV1pKSRlBPFbdBEgwal014eEX/OcxodSkaDEJLqWIqZHBhCghJ5yIwGh8lrW1heM8NME6Bj6pqNpUyjZmtPKWxjvZU7Um0mJ1ZrbTcJz5m4zQW1E/LD+XIKnj/+WVdXuziU4emjYyImmlkzejhOwE8EJ0m5H25fEz9cqGwjGtuMsw35dZ3qeIBq3gpdjFFpqfGc8vOsr4ZlHNS9nGpkoscd1B4AQ4tOYp/Z2kEY/uaYbz3dFh1nXK/8x4wqZCOU8Z/7Dm24vYwYqtsmhYH8xl+KeEYAQ==",
+          "thinking": "12 * 7\n\nI can break this down:\n12 * 7 = (10 + 2) * 7 = 10*7 + 2*7 = 70 + 14 = 84\n\nOr simply: 12 * 7 = 84",
+          "type": "thinking"
+        },
+        {
+          "text": "**Solving 12 × 7**\n\nMy quick mental process:\n- Break it down: (10 × 7) + (2 × 7)\n- 10 × 7 = 70\n- 2 × 7 = 14\n- 70 + 14 = **84**",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01CTsEhwQU3VTMtF2goBpYXc",
+      "model": "claude-opus-4-5-20251101",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 51,
+        "output_tokens": 153,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "20d55cd2-731c-458e-a4c6-da5508c6054b"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-02"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:24 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

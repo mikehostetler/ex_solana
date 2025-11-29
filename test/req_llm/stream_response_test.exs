@@ -2,7 +2,7 @@
 defmodule ReqLLM.StreamResponseTest.Helpers do
   import ExUnit.Assertions
 
-  alias ReqLLM.{Context, Model, StreamChunk, StreamResponse}
+  alias ReqLLM.{Context, StreamChunk, StreamResponse, StreamResponse.MetadataHandle}
 
   @doc """
   Assert multiple struct fields at once for cleaner tests.
@@ -19,20 +19,29 @@ defmodule ReqLLM.StreamResponseTest.Helpers do
   def create_stream_response(opts \\ []) do
     defaults = %{
       stream: Stream.cycle([StreamChunk.text("hello")]) |> Stream.take(1),
-      metadata_task:
-        Task.async(fn ->
-          %{usage: %{input_tokens: 5, output_tokens: 10}, finish_reason: :stop}
-        end),
+      metadata_handle:
+        create_metadata_handle(%{
+          usage: %{input_tokens: 5, output_tokens: 10},
+          finish_reason: :stop
+        }),
       cancel: fn -> :ok end,
-      model: %Model{provider: :test, model: "test-model"},
+      model: %LLMDB.Model{provider: :test, id: "test-model"},
       context: Context.new([Context.system("Test")])
     }
 
     struct!(StreamResponse, Map.merge(defaults, Map.new(opts)))
   end
 
-  def create_metadata_task(data) do
-    Task.async(fn -> data end)
+  def create_metadata_handle(data_or_fun) do
+    fetch_fun =
+      if is_function(data_or_fun, 0) do
+        data_or_fun
+      else
+        fn -> data_or_fun end
+      end
+
+    {:ok, handle} = MetadataHandle.start_link(fetch_fun)
+    handle
   end
 
   def create_cancel_function(ref \\ make_ref()) do
@@ -59,13 +68,13 @@ defmodule ReqLLM.StreamResponseTest do
 
   import ReqLLM.StreamResponseTest.Helpers
 
-  alias ReqLLM.{Context, Model, Response, StreamChunk, StreamResponse}
+  alias ReqLLM.{Context, Response, StreamChunk, StreamResponse}
 
   describe "struct validation and defaults" do
     test "creates stream response with required fields" do
       context = Context.new([Context.system("Test")])
-      model = %Model{provider: :test, model: "test-model"}
-      metadata_task = create_metadata_task(%{usage: %{tokens: 10}, finish_reason: :stop})
+      model = %LLMDB.Model{provider: :test, id: "test-model"}
+      metadata_handle = create_metadata_handle(%{usage: %{tokens: 10}, finish_reason: :stop})
       cancel_fn = create_cancel_function()
       stream = [StreamChunk.text("hello")]
 
@@ -73,7 +82,7 @@ defmodule ReqLLM.StreamResponseTest do
         create_stream_response(
           context: context,
           model: model,
-          metadata_task: metadata_task,
+          metadata_handle: metadata_handle,
           cancel: cancel_fn,
           stream: stream
         )
@@ -85,7 +94,7 @@ defmodule ReqLLM.StreamResponseTest do
       )
 
       assert is_function(stream_response.cancel, 0)
-      assert %Task{} = stream_response.metadata_task
+      assert is_pid(stream_response.metadata_handle)
     end
 
     test "struct enforces required fields" do
@@ -207,23 +216,23 @@ defmodule ReqLLM.StreamResponseTest do
   describe "usage/1 metadata extraction" do
     test "awaits task and extracts usage map" do
       usage = %{input_tokens: 15, output_tokens: 25, total_cost: 0.045}
-      metadata_task = create_metadata_task(%{usage: usage, finish_reason: :stop})
+      metadata_handle = create_metadata_handle(%{usage: usage, finish_reason: :stop})
 
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
       assert StreamResponse.usage(stream_response) == usage
     end
 
     test "returns nil when usage not available" do
-      metadata_task = create_metadata_task(%{finish_reason: :stop})
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      metadata_handle = create_metadata_handle(%{finish_reason: :stop})
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
       assert StreamResponse.usage(stream_response) == nil
     end
 
     test "returns nil when task returns non-map" do
-      metadata_task = create_metadata_task("invalid")
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      metadata_handle = create_metadata_handle("invalid")
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
       assert StreamResponse.usage(stream_response) == nil
     end
@@ -240,9 +249,18 @@ defmodule ReqLLM.StreamResponseTest do
         total_cost: 0.03
       }
 
-      metadata_task = create_metadata_task(%{usage: usage})
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      metadata_handle = create_metadata_handle(%{usage: usage})
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
+      assert StreamResponse.usage(stream_response) == usage
+    end
+
+    test "can be called multiple times safely" do
+      usage = %{input_tokens: 5, output_tokens: 10}
+      metadata_handle = create_metadata_handle(%{usage: usage})
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
+
+      assert StreamResponse.usage(stream_response) == usage
       assert StreamResponse.usage(stream_response) == usage
     end
   end
@@ -260,25 +278,33 @@ defmodule ReqLLM.StreamResponseTest do
 
     for {input, expected} <- finish_reason_tests do
       test "extracts finish_reason: #{inspect(input)} -> #{inspect(expected)}" do
-        metadata_task = create_metadata_task(%{finish_reason: unquote(input)})
-        stream_response = create_stream_response(metadata_task: metadata_task)
+        metadata_handle = create_metadata_handle(%{finish_reason: unquote(input)})
+        stream_response = create_stream_response(metadata_handle: metadata_handle)
 
         assert StreamResponse.finish_reason(stream_response) == unquote(expected)
       end
     end
 
     test "returns nil when finish_reason not available" do
-      metadata_task = create_metadata_task(%{usage: %{tokens: 10}})
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      metadata_handle = create_metadata_handle(%{usage: %{tokens: 10}})
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
       assert StreamResponse.finish_reason(stream_response) == nil
     end
 
     test "returns nil when task returns non-map" do
-      metadata_task = create_metadata_task(nil)
-      stream_response = create_stream_response(metadata_task: metadata_task)
+      metadata_handle = create_metadata_handle(nil)
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
 
       assert StreamResponse.finish_reason(stream_response) == nil
+    end
+
+    test "can be called multiple times safely" do
+      metadata_handle = create_metadata_handle(%{finish_reason: :stop})
+      stream_response = create_stream_response(metadata_handle: metadata_handle)
+
+      assert StreamResponse.finish_reason(stream_response) == :stop
+      assert StreamResponse.finish_reason(stream_response) == :stop
     end
   end
 
@@ -286,12 +312,12 @@ defmodule ReqLLM.StreamResponseTest do
     test "converts simple streaming response to legacy Response" do
       chunks = text_chunks(["Hello", " world!"])
       usage = %{input_tokens: 8, output_tokens: 12, total_cost: 0.024}
-      metadata_task = create_metadata_task(%{usage: usage, finish_reason: :stop})
+      metadata_handle = create_metadata_handle(%{usage: usage, finish_reason: :stop})
 
       stream_response =
         create_stream_response(
           stream: chunks,
-          metadata_task: metadata_task
+          metadata_handle: metadata_handle
         )
 
       {:ok, response} = StreamResponse.to_response(stream_response)
@@ -300,7 +326,11 @@ defmodule ReqLLM.StreamResponseTest do
       assert %Response{} = response
       assert response.stream? == false
       assert response.stream == nil
-      assert response.usage == usage
+
+      # Usage may have normalized fields added (reasoning_tokens, cached_tokens)
+      assert response.usage.input_tokens == 8
+      assert response.usage.output_tokens == 12
+      assert response.usage.total_cost == 0.024
       assert response.finish_reason == :stop
       assert response.model == "test-model"
       assert response.error == nil
@@ -318,12 +348,12 @@ defmodule ReqLLM.StreamResponseTest do
         StreamChunk.tool_call("calculate", %{expr: "2+2"}, %{tool_call_id: "call-456"})
       ]
 
-      metadata_task = create_metadata_task(%{finish_reason: :tool_use})
+      metadata_handle = create_metadata_handle(%{finish_reason: :tool_use})
 
       stream_response =
         create_stream_response(
           stream: chunks,
-          metadata_task: metadata_task
+          metadata_handle: metadata_handle
         )
 
       {:ok, response} = StreamResponse.to_response(stream_response)
@@ -341,7 +371,7 @@ defmodule ReqLLM.StreamResponseTest do
       stream_response =
         create_stream_response(
           stream: [],
-          metadata_task: create_metadata_task(%{finish_reason: :stop})
+          metadata_handle: create_metadata_handle(%{finish_reason: :stop})
         )
 
       {:ok, response} = StreamResponse.to_response(stream_response)
@@ -359,7 +389,7 @@ defmodule ReqLLM.StreamResponseTest do
       stream_response =
         create_stream_response(
           stream: chunks,
-          metadata_task: create_metadata_task(%{finish_reason: :tool_use})
+          metadata_handle: create_metadata_handle(%{finish_reason: :tool_use})
         )
 
       {:ok, response} = StreamResponse.to_response(stream_response)
@@ -368,14 +398,14 @@ defmodule ReqLLM.StreamResponseTest do
       assert length(Response.tool_calls(response)) == 1
     end
 
-    test "preserves context and model information" do
+    test "preserves context advancement and model information" do
       original_context =
         Context.new([
           Context.system("You are helpful"),
           Context.user("Hello!")
         ])
 
-      original_model = %Model{provider: :anthropic, model: "claude-3-sonnet"}
+      {:ok, original_model} = ReqLLM.model("anthropic:claude-sonnet-4-5-20250929")
 
       stream_response =
         create_stream_response(
@@ -386,8 +416,8 @@ defmodule ReqLLM.StreamResponseTest do
 
       {:ok, response} = StreamResponse.to_response(stream_response)
 
-      assert response.context == original_context
-      assert response.model == "claude-3-sonnet"
+      assert response.context == Context.append(original_context, response.message)
+      assert response.model == "claude-sonnet-4-5-20250929"
     end
 
     test "handles stream enumeration errors" do
@@ -404,7 +434,7 @@ defmodule ReqLLM.StreamResponseTest do
       stream_response =
         create_stream_response(
           stream: error_stream,
-          metadata_task: create_metadata_task(%{finish_reason: :stop})
+          metadata_handle: create_metadata_handle(%{finish_reason: :stop})
         )
 
       # Enum.to_list will raise, which to_response should catch
@@ -456,14 +486,365 @@ defmodule ReqLLM.StreamResponseTest do
     end
   end
 
+  describe "process_stream/2 real-time callbacks" do
+    test "calls on_result callback immediately for content chunks" do
+      chunks = text_chunks(["Hello", " ", "world"])
+      stream_response = create_stream_response(stream: chunks)
+
+      # Collect results via message passing
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Verify callbacks were called in order
+      assert_received {:content, "Hello"}
+      assert_received {:content, " "}
+      assert_received {:content, "world"}
+
+      # Verify response contains accumulated text
+      assert Response.text(response) == "Hello world"
+      assert %Response{} = response
+    end
+
+    test "calls on_thinking callback immediately for thinking chunks" do
+      chunks = [
+        StreamChunk.thinking("Let me think..."),
+        StreamChunk.thinking(" about this"),
+        StreamChunk.text("The answer is 42")
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_thinking: fn text -> send(parent, {:thinking, text}) end,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Verify thinking callbacks fired
+      assert_received {:thinking, "Let me think..."}
+      assert_received {:thinking, " about this"}
+      assert_received {:content, "The answer is 42"}
+
+      # Verify response contains both thinking and text
+      assert Response.text(response) == "The answer is 42"
+      # Check that thinking content is in message
+      thinking_parts = Enum.filter(response.message.content, &(&1[:type] == :thinking))
+      assert length(thinking_parts) == 1
+      assert hd(thinking_parts)[:text] == "Let me think... about this"
+    end
+
+    test "reconstructs tool calls with fragmented arguments in response" do
+      chunks = [
+        StreamChunk.text("I'll help with that."),
+        StreamChunk.tool_call("get_weather", %{city: "NYC"}, %{
+          id: "call-123",
+          index: 0
+        }),
+        StreamChunk.tool_call("calculator", %{}, %{
+          id: "call-456",
+          index: 1
+        }),
+        # Simulate fragmented arguments
+        StreamChunk.meta(%{
+          tool_call_args: %{index: 1, fragment: ~s({"operation":"add",)}
+        }),
+        StreamChunk.meta(%{
+          tool_call_args: %{index: 1, fragment: ~s("operands":[2,2]})}
+        })
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Content callback fires immediately
+      assert_received {:content, "I'll help with that."}
+
+      # Verify response contains reconstructed tool calls
+      assert Response.text(response) == "I'll help with that."
+      assert length(Response.tool_calls(response)) == 2
+
+      weather_tool = Enum.find(Response.tool_calls(response), &(&1.name == "get_weather"))
+      assert weather_tool.id == "call-123"
+      assert weather_tool.arguments == %{city: "NYC"}
+
+      calc_tool = Enum.find(Response.tool_calls(response), &(&1.name == "calculator"))
+      assert calc_tool.id == "call-456"
+      assert calc_tool.arguments == %{"operation" => "add", "operands" => [2, 2]}
+    end
+
+    test "handles mixed content, thinking, and tool calls" do
+      chunks = [
+        StreamChunk.text("Let me help. "),
+        StreamChunk.thinking("I need to fetch the weather"),
+        StreamChunk.tool_call("get_weather", %{city: "SF"}, %{id: "call-1", index: 0}),
+        StreamChunk.text(" The result is ready!")
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end,
+          on_thinking: fn text -> send(parent, {:thinking, text}) end
+        )
+
+      # Callbacks fire for content and thinking
+      assert_received {:content, "Let me help. "}
+      assert_received {:thinking, "I need to fetch the weather"}
+      assert_received {:content, " The result is ready!"}
+
+      # Verify response has everything including tool calls
+      assert Response.text(response) == "Let me help.  The result is ready!"
+      assert length(Response.tool_calls(response)) == 1
+      assert hd(Response.tool_calls(response)).name == "get_weather"
+      assert hd(Response.tool_calls(response)).arguments == %{city: "SF"}
+    end
+
+    test "handles empty stream gracefully" do
+      stream_response = create_stream_response(stream: [])
+      parent = self()
+
+      # Should complete without errors and no callbacks
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end,
+          on_thinking: fn text -> send(parent, {:thinking, text}) end
+        )
+
+      refute_received _
+      assert Response.text(response) == ""
+      assert response.message.tool_calls == nil
+    end
+
+    test "works with no callbacks provided" do
+      chunks = text_chunks(["Hello", " world"])
+      stream_response = create_stream_response(stream: chunks)
+
+      # Should complete without errors even with no callbacks
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      assert Response.text(response) == "Hello world"
+    end
+
+    test "works with only some callbacks provided" do
+      chunks = [
+        StreamChunk.text("Hello"),
+        StreamChunk.thinking("Processing..."),
+        StreamChunk.tool_call("test", %{}, %{id: "call-1", index: 0})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      # Only provide on_result callback
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Only content callback should fire
+      assert_received {:content, "Hello"}
+      refute_received {:thinking, _}
+
+      # But response should still have everything
+      assert Response.text(response) == "Hello"
+      assert length(Response.tool_calls(response)) == 1
+    end
+
+    test "handles tool calls with no argument fragments" do
+      chunks = [
+        StreamChunk.tool_call("simple_tool", %{arg: "value"}, %{id: "call-1", index: 0})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      # Response should have the tool call with original arguments
+      assert length(Response.tool_calls(response)) == 1
+      assert hd(Response.tool_calls(response)).id == "call-1"
+      assert hd(Response.tool_calls(response)).name == "simple_tool"
+      assert hd(Response.tool_calls(response)).arguments == %{arg: "value"}
+    end
+
+    test "handles invalid JSON in argument fragments gracefully" do
+      chunks = [
+        StreamChunk.tool_call("broken_tool", %{}, %{id: "call-1", index: 0}),
+        StreamChunk.meta(%{tool_call_args: %{index: 0, fragment: "{invalid json}"}}),
+        StreamChunk.meta(%{tool_call_args: %{index: 0, fragment: " more invalid}"}})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      # Should fall back to empty arguments on invalid JSON
+      assert length(Response.tool_calls(response)) == 1
+      tool_call = hd(Response.tool_calls(response))
+      assert tool_call.id == "call-1"
+      assert tool_call.name == "broken_tool"
+      assert tool_call.arguments == %{}
+    end
+
+    test "handles multiple tool calls with different fragments" do
+      chunks = [
+        StreamChunk.tool_call("tool1", %{}, %{id: "call-1", index: 0}),
+        StreamChunk.tool_call("tool2", %{}, %{id: "call-2", index: 1}),
+        StreamChunk.meta(%{tool_call_args: %{index: 0, fragment: "{\"key\":"}}),
+        StreamChunk.meta(%{tool_call_args: %{index: 0, fragment: "\"value1\"}"}}),
+        StreamChunk.meta(%{tool_call_args: %{index: 1, fragment: "{\"key\":"}}),
+        StreamChunk.meta(%{tool_call_args: %{index: 1, fragment: "\"value2\"}"}})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      # Response should have both tool calls with correct arguments
+      assert length(Response.tool_calls(response)) == 2
+
+      tool1 = Enum.find(Response.tool_calls(response), &(&1.name == "tool1"))
+      assert tool1.id == "call-1"
+      assert tool1.arguments == %{"key" => "value1"}
+
+      tool2 = Enum.find(Response.tool_calls(response), &(&1.name == "tool2"))
+      assert tool2.id == "call-2"
+      assert tool2.arguments == %{"key" => "value2"}
+    end
+
+    test "processes stream only once (no double consumption)" do
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      chunks =
+        Stream.map(text_chunks(["a", "b", "c"]), fn chunk ->
+          Agent.update(counter, &(&1 + 1))
+          chunk
+        end)
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Stream should be consumed exactly once (3 chunks)
+      assert Agent.get(counter, & &1) == 3
+      assert_received {:content, "a"}
+      assert_received {:content, "b"}
+      assert_received {:content, "c"}
+
+      # Response should have accumulated text
+      assert Response.text(response) == "abc"
+    end
+
+    test "returns {:ok, response} after completing all processing" do
+      chunks = [
+        StreamChunk.text("Hello"),
+        StreamChunk.thinking("thinking"),
+        StreamChunk.tool_call("test", %{}, %{id: "call-1", index: 0})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn _ -> :ok end,
+          on_thinking: fn _ -> :ok end
+        )
+
+      assert %Response{} = response
+      assert Response.text(response) == "Hello"
+      assert length(Response.tool_calls(response)) == 1
+    end
+
+    test "handles nil text in chunks gracefully" do
+      # Create chunks with nil text (though this shouldn't happen in practice)
+      chunks = [
+        %StreamChunk{type: :content, text: nil, metadata: %{}},
+        StreamChunk.text("actual text")
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+      parent = self()
+
+      {:ok, response} =
+        StreamResponse.process_stream(stream_response,
+          on_result: fn text -> send(parent, {:content, text}) end
+        )
+
+      # Should only receive callback for non-nil text
+      assert_received {:content, "actual text"}
+      refute_received {:content, nil}
+
+      # Response should have the actual text
+      assert Response.text(response) == "actual text"
+    end
+
+    test "response context includes assistant message" do
+      user_context = Context.new([Context.user("Hello, how are you?")])
+
+      stream_response =
+        create_stream_response(
+          stream: text_chunks(["Doing well!"]),
+          context: user_context
+        )
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      assert response.context == Context.append(user_context, response.message)
+    end
+
+    test "preserves tool call order" do
+      chunks = [
+        StreamChunk.tool_call("first", %{}, %{id: "call-1", index: 0}),
+        StreamChunk.tool_call("second", %{}, %{id: "call-2", index: 1}),
+        StreamChunk.tool_call("third", %{}, %{id: "call-3", index: 2})
+      ]
+
+      stream_response = create_stream_response(stream: chunks)
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      # Response should preserve tool call order
+      tool_names = Enum.map(Response.tool_calls(response), & &1.name)
+      assert tool_names == ["first", "second", "third"]
+    end
+
+    test "response contains metadata from metadata_handle" do
+      chunks = text_chunks(["test"])
+      usage = %{input_tokens: 10, output_tokens: 20, total_cost: 0.03}
+      metadata_handle = create_metadata_handle(%{usage: usage, finish_reason: :stop})
+
+      stream_response = create_stream_response(stream: chunks, metadata_handle: metadata_handle)
+
+      {:ok, response} = StreamResponse.process_stream(stream_response)
+
+      assert response.usage.input_tokens == 10
+      assert response.usage.output_tokens == 20
+      assert response.finish_reason == :stop
+    end
+  end
+
   describe "integration and edge cases" do
     test "handles concurrent stream consumption and metadata collection" do
       chunks = text_chunks(Enum.map(1..100, &"chunk #{&1} "))
 
       # Simulate slow metadata collection
-      metadata_task =
-        Task.async(fn ->
-          # Small delay to ensure concurrency
+      metadata_handle =
+        create_metadata_handle(fn ->
           Process.sleep(10)
           %{usage: %{tokens: 100}, finish_reason: :stop}
         end)
@@ -471,15 +852,15 @@ defmodule ReqLLM.StreamResponseTest do
       stream_response =
         create_stream_response(
           stream: chunks,
-          metadata_task: metadata_task
+          metadata_handle: metadata_handle
         )
 
       # Test text collection and usage from same process
       text = StreamResponse.text(stream_response)
 
       # Create fresh stream_response for usage test
-      metadata_task2 = Task.async(fn -> %{usage: %{tokens: 100}, finish_reason: :stop} end)
-      stream_response2 = create_stream_response(metadata_task: metadata_task2)
+      metadata_handle2 = create_metadata_handle(%{usage: %{tokens: 100}, finish_reason: :stop})
+      stream_response2 = create_stream_response(metadata_handle: metadata_handle2)
       usage = StreamResponse.usage(stream_response2)
 
       assert String.starts_with?(text, "chunk 1 chunk 2")

@@ -1,0 +1,163 @@
+{
+  "model_spec": "azure:gpt-5.1-chat",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjMwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJuIjoxLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "low"
+            }
+          },
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "Here is a very long story about dragons and adventures, told in a continuous narrative with no special formatting:\n\nIn the far reaches of the world, beyond the silver deserts and the roaring emerald seas, lay the kingdom of Varethune, a place where dragons once soared freely across the skies. Their shadows passed over forests that hummed with ancient magic and over villages where children grew up hearing legends of scales that glittered like starlight. For centuries the dragons and humans lived together in peace, but as time flowed forward, the dragons grew fewer and the world grew quieter. Some whispered that the great dragons had simply gone to sleep beneath the mountains, while others believed they had left the realm entirely. Yet there were still a few who held on to the old ways.\n\nOne of those few was a young girl named Aeralynn. She lived in a small village at the edge of the Sapphire Marsh and was known for wandering beyond safe borders, following strange tracks or fallen feathers as though they were clues in some unseen map. Aeralynn believed, more deeply than she believed in anything else, that the dragons were not gone at all. She felt their presence in the changing winds and in the flicker of fireflies at night.\n\nHer adventure began on a storm-soaked evening. The sky boiled with dark clouds as she carried water from the well. Lightning flashed, but instead of the usual rumble of thunder, she heard something else—a deep, resonant cry that vibrated in her bones. It came from the northern cliffs, where no one dared to go. Against her better judgment and the warnings of her grandmother, she set down her water pail and followed the sound.\n\nThe cliffs were drenched in rain, and the wind nearly pushed her back, but she pressed on, guided by instinct. She found a cleft in the rock she had never seen before, hidden behind a curtain of vines. Inside, the air was warm, despite the storm. Drops of water slid down her clothes as she stepped deeper, and then she saw it—a dragon, but unlike any she had ever imagined. It was small, no larger than a calf, and its scales glowed faintly azure. It was injured, and one wing lay twisted beneath it. Its eyes, bright with intelligence and fear, met hers.\n\nAeralynn moved slowly, whispering soft words she hoped were comforting. To her shock, the dragon seemed to understand. It did not flinch when she approached. Instead, it released a soft breath of warm air, as though accepting her presence. With trembling hands, she inspected the wing, realizing that she might be able to splint it, though she had no idea how to treat a dragon. She tore strips from her cloak and used sticks from her bag, all while speaking gently. When she was finished, the dragon rested its head beside her knee, exhausted.\n\nShe returned every day to bring food and water. She named the dragon Serynth, and over the weeks, the two developed a bond unlike anything she had ever known. Serynth learned to trust her completely, and as his strength returned, he began to show her glimpses of the world through shared dreams—visions of ancient dragon flights, battles fought long ago, and a shimmering mountain far beyond the horizon. Aeralynn realized that Serynth was not merely a young dragon but one of the last of the Starborn, a rare lineage said to be descendants of the celestial dragons that shaped the world.\n\nBut peace never lasts. One morning, the village awoke to the thunder of armored hooves. The Iron Legion had arrived, led by the feared hunter Lord Kaelor, who sought dragon scales to forge weapons of supreme power. Rumors had reached him of a glowing creature seen near the cliffs. Aeralynn’s heart froze. She knew he was hunting Serynth.\n\nThat night she warned the young dragon, and the two fled into the Sapphire Marsh. The marsh was treacherous, filled with illusions and shifting ground, but Serynth used his magic to guide them. As they traveled, Aeralynn discovered abilities she never knew she possessed. Her dreams became clearer, and sometimes she caught glimpses of the path ahead before they walked it. Serynth explained through shared images that she carried a spark of the ancient bond between dragons and humans—a gift that had been dormant for centuries.\n\nTheir journey took them through forgotten ruins, over whispering plains, and into forests where the trees themselves seemed alive. Along the way, they were joined by two unlikely companions: Rowan, a wandering bard with a magical flute that could calm beasts, and Thalen, a reluctant young warrior exiled from the Legion who sought redemption. Together, they faced trials that tested their will—monsters awakened by ancient magic, storms conjured by old enchantments, and riddles left by dragon sages long vanished.\n\nAt last they reached the mountain from Aeralynn’s visions. It rose higher than the clouds, its peak shimmering with starlight even in the brightness of day. At the summit lay the Starforge, a place where dragons were reborn from pure celestial flame. Serynth knew that if he reached it, he would awaken his true power and call the dragons of the world back from their long slumber.\n\nBut Kaelor had followed them. A great battle erupted on the mountainside. Rowan played his flute to confuse the Legion’s beasts, Thalen fought against his former comrades, and Aeralynn stood beside Serynth, refusing to abandon him. Kaelor, wielding a spear made from the horn of a fallen elder dragon, struck with merciless fury. The mountain shook with each blow.\n\nIn the end, it was Aeralynn who saved them. Drawing on the ancient bond, she reached out to the dormant dragons of the world and called to them. Her voice echoed through the mountains like a living force, and for the first time in centuries, the sky split open as dragons awakened from beneath the earth and within the clouds. They came roaring in brilliance and flame.\n\nKaelor and his Legion fled in terror, unable to stand before the reborn majesty of the dragons. Serynth stepped into the Starforge, and when he emerged, he was transformed—taller, more radiant, crowned with starlight. He thanked Aeralynn not with words, but with a deep, heartfelt rumble that filled her with warmth.\n\nThe dragons returned to the world, no longer hidden, but as guardians and allies. Aeralynn, Rowan, and Thalen became legends in their own right. And Serynth became the first of the new Starborn Flight, soaring above Varethune as a symbol of hope.\n\nYet the adventure did not truly end there. For in the shadows of distant lands, ancient forces stirred, watching the dragons’ return with interest. And Aeralynn knew, deep in her heart, that her story, and the world’s, had only just begun.\n\nIf you want, I can continue the story, write a sequel, or focus on specific characters or events.",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373502,
+      "id": "chatcmpl-Ch2R4zVXAJCvm8daD6PW4AG97u7t0",
+      "model": "gpt-5.1-chat-2025-11-13",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": null,
+      "usage": {
+        "completion_tokens": 1449,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 15,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 1464
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "f88fcbb9-ff44-41c2-a636-e7b73f304ffe"
+      ],
+      "azureml-model-session": [
+        "d008-20251122004253"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:45:14 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "gpt-5.1-chat"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "50000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "5000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "49993"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "4999510"
+      ],
+      "x-request-id": [
+        "638486d7-ea02-4ed2-be21-6b73b0c04331"
+      ]
+    },
+    "status": 200
+  }
+}

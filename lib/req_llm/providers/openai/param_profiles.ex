@@ -6,6 +6,8 @@ defmodule ReqLLM.Providers.OpenAI.ParamProfiles do
   Rules are resolved from model metadata first, then inferred from capabilities.
   """
 
+  alias ReqLLM.Providers.OpenAI.AdapterHelpers
+
   @type profile_name :: atom
 
   @profiles %{
@@ -33,12 +35,12 @@ defmodule ReqLLM.Providers.OpenAI.ParamProfiles do
 
   ## Examples
 
-      iex> model = ReqLLM.Model.from!("openai:o3-mini")
+      iex> {:ok, model} = ReqLLM.model("openai:o3-mini")
       iex> steps = ReqLLM.Providers.OpenAI.ParamProfiles.steps_for(:chat, model)
       iex> length(steps) > 0
       true
   """
-  def steps_for(operation, %ReqLLM.Model{} = model) do
+  def steps_for(operation, %LLMDB.Model{} = model) do
     profiles = profiles_for(operation, model)
 
     canonical_steps = [
@@ -55,9 +57,9 @@ defmodule ReqLLM.Providers.OpenAI.ParamProfiles do
   defp translate_reasoning_effort(:default), do: nil
   defp translate_reasoning_effort(other), do: other
 
-  defp profiles_for(:chat, %ReqLLM.Model{} = model) do
+  defp profiles_for(:chat, %LLMDB.Model{} = model) do
     []
-    |> add_if(is_reasoning_model?(model), :reasoning)
+    |> add_if(reasoning_model?(model), :reasoning)
     |> add_if(no_sampling_params?(model), :no_sampling_params)
     |> add_if(temperature_unsupported?(model), :no_temperature)
     |> add_if(temperature_fixed_one?(model), :temperature_fixed_1)
@@ -66,39 +68,32 @@ defmodule ReqLLM.Providers.OpenAI.ParamProfiles do
 
   defp profiles_for(_op, _model), do: []
 
-  defp is_reasoning_model?(%ReqLLM.Model{capabilities: caps, model: model_name})
-       when is_map(caps) do
-    Map.get(caps, :reasoning) == true || Map.get(caps, "reasoning") == true ||
-      is_o_series_model?(model_name) || is_gpt5_model?(model_name) ||
-      is_reasoning_codex_model?(model_name)
+  defp reasoning_model?(%LLMDB.Model{capabilities: caps, id: model_name}) when is_map(caps) do
+    has_reasoning_capability?(caps) || AdapterHelpers.reasoning_model?(model_name)
   end
 
-  defp is_reasoning_model?(%ReqLLM.Model{model: model_name}) do
-    is_o_series_model?(model_name) || is_gpt5_model?(model_name) ||
-      is_reasoning_codex_model?(model_name)
+  defp reasoning_model?(%LLMDB.Model{id: model_name}) do
+    AdapterHelpers.reasoning_model?(model_name)
   end
 
-  defp no_sampling_params?(%ReqLLM.Model{model: model_name}), do: is_gpt5_model?(model_name)
-
-  defp temperature_unsupported?(%ReqLLM.Model{model: model_name}) do
-    is_o_series_model?(model_name)
+  defp has_reasoning_capability?(caps) do
+    case caps[:reasoning] || caps["reasoning"] do
+      true -> true
+      %{enabled: true} -> true
+      %{"enabled" => true} -> true
+      _ -> false
+    end
   end
 
-  defp temperature_fixed_one?(%ReqLLM.Model{model: _model_name}), do: false
+  defp no_sampling_params?(%LLMDB.Model{id: model_name}) do
+    AdapterHelpers.gpt5_model?(model_name) || AdapterHelpers.o_series_model?(model_name)
+  end
 
-  defp is_o_series_model?(<<"o1", _::binary>>), do: true
-  defp is_o_series_model?(<<"o3", _::binary>>), do: true
-  defp is_o_series_model?(<<"o4", _::binary>>), do: true
-  defp is_o_series_model?(_), do: false
+  defp temperature_unsupported?(%LLMDB.Model{id: model_name}) do
+    AdapterHelpers.o_series_model?(model_name)
+  end
 
-  defp is_gpt5_model?("gpt-5-chat-latest"), do: false
-  defp is_gpt5_model?(<<"gpt-5", _::binary>>), do: true
-  defp is_gpt5_model?(_), do: false
-
-  defp is_reasoning_codex_model?(<<"codex", rest::binary>>),
-    do: String.contains?(rest, "mini-latest")
-
-  defp is_reasoning_codex_model?(_), do: false
+  defp temperature_fixed_one?(%LLMDB.Model{id: _model_name}), do: false
 
   defp add_if(list, true, item), do: [item | list]
   defp add_if(list, false, _item), do: list

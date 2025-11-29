@@ -17,22 +17,20 @@ defmodule ReqLLM.Provider do
 
   ## Implementation Pattern
 
-  Providers use `ReqLLM.Provider.DSL` to define their configuration and implement
+  Providers use `use ReqLLM.Provider` to define their configuration and implement
   the required callbacks as Req pipeline steps.
 
   ## Examples
 
       defmodule MyProvider do
-        @behaviour ReqLLM.Provider
-
-        use ReqLLM.Provider.DSL,
+        use ReqLLM.Provider,
           id: :myprovider,
-          base_url: "https://api.example.com/v1",
-          metadata: "priv/models_dev/myprovider.json"
+          default_base_url: "https://api.example.com/v1",
+          default_env_key: "MYPROVIDER_API_KEY"
 
         @impl ReqLLM.Provider
         def prepare_request(operation, model, messages, opts) do
-          with {:ok, request} <- Req.new(base_url: "https://api.example.com/v1"),
+          with {:ok, request} <- Req.new(base_url: base_url()),
                request <- add_auth_headers(request),
                request <- add_operation_specific_config(request, operation) do
             {:ok, request}
@@ -127,7 +125,7 @@ defmodule ReqLLM.Provider do
   """
   @callback prepare_request(
               operation(),
-              ReqLLM.Model.t() | term(),
+              LLMDB.Model.t() | term(),
               term(),
               keyword()
             ) :: {:ok, Req.Request.t()} | {:error, Exception.t()}
@@ -149,7 +147,7 @@ defmodule ReqLLM.Provider do
     * `Req.Request.t()` - The configured request with pipeline steps attached
 
   """
-  @callback attach(Req.Request.t(), ReqLLM.Model.t(), keyword()) :: Req.Request.t()
+  @callback attach(Req.Request.t(), LLMDB.Model.t(), keyword()) :: Req.Request.t()
 
   @doc """
   Encodes request body for provider API.
@@ -204,7 +202,7 @@ defmodule ReqLLM.Provider do
     * `{:error, term()}` - Extraction error
 
   """
-  @callback extract_usage(term(), ReqLLM.Model.t() | nil) ::
+  @callback extract_usage(term(), LLMDB.Model.t() | nil) ::
               {:ok, map()} | {:error, term()}
 
   @doc """
@@ -232,6 +230,7 @@ defmodule ReqLLM.Provider do
   If this callback is not implemented, the model ID is used as-is for metadata lookup.
   """
   @callback normalize_model_id(String.t()) :: String.t()
+
   @doc """
   Translates canonical options to provider-specific parameters (optional).
 
@@ -267,7 +266,7 @@ defmodule ReqLLM.Provider do
       end
 
   """
-  @callback translate_options(operation(), ReqLLM.Model.t(), keyword()) ::
+  @callback translate_options(operation(), LLMDB.Model.t(), keyword()) ::
               {keyword(), [String.t()]}
 
   @doc """
@@ -285,16 +284,20 @@ defmodule ReqLLM.Provider do
   @callback default_env_key() :: String.t()
 
   @doc """
-  Decode provider SSE event to list of StreamChunk structs for streaming responses.
+  Decode provider streaming event to list of StreamChunk structs for streaming responses.
 
   This is called by ReqLLM.StreamServer during real-time streaming to convert
-  provider-specific SSE events into canonical StreamChunk structures. For terminal
+  provider-specific streaming events into canonical StreamChunk structures. For terminal
   events (like "[DONE]"), providers should return metadata chunks with usage
   information and finish reasons.
 
+  Different providers use different streaming protocols:
+  - **OpenAI, Anthropic, Google**: Server-Sent Events (SSE) - `event` is typically `%{data: ...}`
+  - **AWS Bedrock**: AWS EventStream (binary) - `event` is the decoded JSON payload
+
   ## Parameters
 
-    * `event` - The SSE event data (typically a map)
+    * `event` - The streaming event data (typically a map)
     * `model` - The ReqLLM.Model struct
 
   ## Returns
@@ -303,7 +306,7 @@ defmodule ReqLLM.Provider do
 
   ## Terminal Metadata
 
-  For terminal SSE events, providers should return metadata chunks:
+  For terminal streaming events, providers should return metadata chunks:
 
       # Final usage and completion metadata
       ReqLLM.StreamChunk.meta(%{
@@ -314,7 +317,7 @@ defmodule ReqLLM.Provider do
 
   ## Examples
 
-      def decode_sse_event(%{data: %{"choices" => [%{"delta" => delta}]}}, _model) do
+      def decode_stream_event(%{data: %{"choices" => [%{"delta" => delta}]}}, _model) do
         case delta do
           %{"content" => content} when content != "" ->
             [ReqLLM.StreamChunk.text(content)]
@@ -324,19 +327,19 @@ defmodule ReqLLM.Provider do
       end
 
       # Handle terminal [DONE] event
-      def decode_sse_event(%{data: "[DONE]"}, _model) do
+      def decode_stream_event(%{data: "[DONE]"}, _model) do
         # Provider should have accumulated usage data
         [ReqLLM.StreamChunk.meta(%{terminal?: true})]
       end
 
   """
-  @callback decode_sse_event(map(), ReqLLM.Model.t()) :: [ReqLLM.StreamChunk.t()]
+  @callback decode_stream_event(map(), LLMDB.Model.t()) :: [ReqLLM.StreamChunk.t()]
 
   @doc """
   Initialize provider-specific streaming state (optional).
 
   This callback allows providers to set up stateful transformations for streaming
-  responses. The returned state will be threaded through `decode_sse_event/3` calls
+  responses. The returned state will be threaded through `decode_stream_event/3` calls
   and passed to `flush_stream_state/2` when the stream ends.
 
   ## Parameters
@@ -355,21 +358,21 @@ defmodule ReqLLM.Provider do
       end
 
   """
-  @callback init_stream_state(ReqLLM.Model.t()) :: any()
+  @callback init_stream_state(LLMDB.Model.t()) :: any()
 
   @doc """
-  Decode SSE event with provider-specific state (optional, alternative to decode_sse_event/2).
+  Decode streaming event with provider-specific state (optional, alternative to decode_stream_event/2).
 
-  This stateful variant of `decode_sse_event/2` allows providers to maintain state
+  This stateful variant of `decode_stream_event/2` allows providers to maintain state
   across streaming chunks. Use this when your provider needs to accumulate data or
-  track parsing state across multiple SSE events.
+  track parsing state across multiple streaming events.
 
-  If both `decode_sse_event/3` and `decode_sse_event/2` are defined, the 3-arity
+  If both `decode_stream_event/3` and `decode_stream_event/2` are defined, the 3-arity
   version takes precedence during streaming.
 
   ## Parameters
 
-    * `event` - Parsed SSE event map with `:event`, `:data`, etc.
+    * `event` - Parsed streaming event map (SSE events have `:event`, `:data`, etc.)
     * `model` - The ReqLLM.Model struct
     * `provider_state` - Current provider state from `init_stream_state/1`
 
@@ -381,8 +384,8 @@ defmodule ReqLLM.Provider do
 
   ## Examples
 
-      def decode_sse_event(event, model, state) do
-        chunks = ReqLLM.Provider.Defaults.default_decode_sse_event(event, model)
+      def decode_stream_event(event, model, state) do
+        chunks = ReqLLM.Provider.Defaults.default_decode_stream_event(event, model)
         
         Enum.reduce(chunks, {[], state}, fn chunk, {acc, st} ->
           case chunk.type do
@@ -396,7 +399,7 @@ defmodule ReqLLM.Provider do
       end
 
   """
-  @callback decode_sse_event(map(), ReqLLM.Model.t(), any()) ::
+  @callback decode_stream_event(map(), LLMDB.Model.t(), any()) ::
               {[ReqLLM.StreamChunk.t()], any()}
 
   @doc """
@@ -409,7 +412,7 @@ defmodule ReqLLM.Provider do
   ## Parameters
 
     * `model` - The ReqLLM.Model struct
-    * `provider_state` - Final provider state from last `decode_sse_event/3`
+    * `provider_state` - Final provider state from last `decode_stream_event/3`
 
   ## Returns
 
@@ -428,7 +431,7 @@ defmodule ReqLLM.Provider do
       end
 
   """
-  @callback flush_stream_state(ReqLLM.Model.t(), any()) ::
+  @callback flush_stream_state(LLMDB.Model.t(), any()) ::
               {[ReqLLM.StreamChunk.t()], any()}
 
   @doc """
@@ -501,7 +504,7 @@ defmodule ReqLLM.Provider do
         ]
         
         body = Jason.encode!(%{
-          model: model.model,
+          model: model.id,
           messages: encode_messages(context.messages),
           stream: true
         })
@@ -521,7 +524,7 @@ defmodule ReqLLM.Provider do
         ]
         
         body = Jason.encode!(%{
-          model: model.model,
+          model: model.id,
           messages: encode_anthropic_messages(context),
           stream: true
         })
@@ -532,24 +535,148 @@ defmodule ReqLLM.Provider do
 
   """
   @callback attach_stream(
-              ReqLLM.Model.t(),
+              LLMDB.Model.t(),
               ReqLLM.Context.t(),
               keyword(),
               atom()
             ) :: {:ok, Finch.Request.t()} | {:error, Exception.t()}
+
+  @doc """
+  Returns thinking/reasoning constraints for models with extended thinking capability.
+
+  Some providers (e.g., AWS Bedrock, Google Vertex AI) have platform-specific requirements
+  when extended thinking is enabled:
+  - Fixed temperature value (typically 1.0)
+  - Minimum max_tokens to accommodate thinking budget
+
+  Returns a map with:
+  - `:required_temperature` - Temperature that must be used (float)
+  - `:min_max_tokens` - Minimum max_tokens value (integer)
+
+  Returns `:none` if no special constraints apply.
+
+  ## Examples
+
+      # Provider with thinking constraints
+      def thinking_constraints do
+        %{required_temperature: 1.0, min_max_tokens: 4001}
+      end
+
+      # Provider without thinking constraints
+      def thinking_constraints, do: :none
+
+  """
+  @callback thinking_constraints() ::
+              %{required_temperature: float(), min_max_tokens: pos_integer()} | :none
+
+  @doc """
+  Checks if an exception indicates missing credentials for this provider.
+
+  This optional callback allows providers to identify credential-related errors
+  so the fixture system can fall back to existing fixtures during recording when
+  credentials are unavailable.
+
+  ## Parameters
+
+    * `exception` - The exception to check
+
+  ## Returns
+
+    * `true` - Exception indicates missing credentials
+    * `false` - Exception is not credential-related
+
+  ## Examples
+
+      # Google provider checking for missing API key
+      def credential_missing?(%ReqLLM.Error.Invalid.Parameter{parameter: param}) do
+        String.contains?(param, "api_key") and
+          String.contains?(param, "GOOGLE_API_KEY")
+      end
+      def credential_missing?(_), do: false
+  """
+  @callback credential_missing?(Exception.t()) :: boolean()
 
   @optional_callbacks [
     normalize_model_id: 1,
     extract_usage: 2,
     default_env_key: 0,
     translate_options: 3,
-    decode_sse_event: 2,
-    decode_sse_event: 3,
+    decode_stream_event: 2,
+    decode_stream_event: 3,
     init_stream_state: 1,
     flush_stream_state: 2,
     parse_stream_protocol: 2,
-    attach_stream: 4
+    attach_stream: 4,
+    thinking_constraints: 0,
+    credential_missing?: 1
   ]
+
+  defmacro __before_compile__(_env) do
+    quote do
+      def provider_schema do
+        schema = @provider_schema
+        NimbleOptions.new!(schema)
+      end
+
+      def supported_provider_options do
+        schema = @provider_schema
+        Keyword.keys(schema)
+      end
+
+      def provider_extended_generation_schema do
+        base_schema = ReqLLM.Provider.Options.generation_schema().schema
+        provider_specific = @provider_schema
+
+        merged_schema = Keyword.merge(base_schema, provider_specific)
+        NimbleOptions.new!(merged_schema)
+      end
+    end
+  end
+
+  defmacro __using__(opts) do
+    provider_id = Keyword.fetch!(opts, :id)
+    default_base_url = Keyword.fetch!(opts, :default_base_url)
+    default_env_key = Keyword.get(opts, :default_env_key)
+
+    if !is_atom(provider_id) do
+      raise ArgumentError, "Provider :id must be an atom, got: #{inspect(provider_id)}"
+    end
+
+    if !is_binary(default_base_url) do
+      raise ArgumentError,
+            "Provider :default_base_url must be a string, got: #{inspect(default_base_url)}"
+    end
+
+    if default_env_key && !is_binary(default_env_key) do
+      raise ArgumentError,
+            "Provider :default_env_key must be a string, got: #{inspect(default_env_key)}"
+    end
+
+    quote do
+      @behaviour ReqLLM.Provider
+
+      use ReqLLM.Provider.Defaults
+
+      Module.register_attribute(__MODULE__, :provider_schema, accumulate: false)
+      @provider_schema []
+
+      def provider_id, do: unquote(provider_id)
+      def default_base_url, do: unquote(default_base_url)
+      def base_url, do: default_base_url()
+
+      unquote(
+        if default_env_key do
+          quote do
+            def default_env_key, do: unquote(default_env_key)
+          end
+        end
+      )
+
+      defoverridable default_base_url: 0
+
+      @before_compile ReqLLM.Provider
+    end
+  end
 
   @doc """
   Default implementation of parse_stream_protocol using SSE parsing.
@@ -567,7 +694,7 @@ defmodule ReqLLM.Provider do
   """
   @spec get!(atom()) :: module()
   def get!(provider_id) do
-    case ReqLLM.Provider.Registry.get_provider(provider_id) do
+    case ReqLLM.provider(provider_id) do
       {:ok, module} ->
         module
 

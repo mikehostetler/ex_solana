@@ -22,9 +22,9 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
   describe "provider contract" do
     test "provider identity and configuration" do
       assert AmazonBedrock.provider_id() == :amazon_bedrock
-      assert is_binary(AmazonBedrock.default_base_url())
-      assert AmazonBedrock.default_base_url() =~ "bedrock-runtime"
-      assert AmazonBedrock.default_base_url() =~ "amazonaws.com"
+      assert is_binary(AmazonBedrock.base_url())
+      assert AmazonBedrock.base_url() =~ "bedrock-runtime"
+      assert AmazonBedrock.base_url() =~ "amazonaws.com"
     end
 
     test "provider schema separation from core options" do
@@ -41,31 +41,38 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
     test "supported options include AWS-specific keys" do
       supported = AmazonBedrock.supported_provider_options()
 
-      # Should support AWS credential options
+      # Should support AWS credential options (provider-specific)
+      assert :api_key in supported
       assert :access_key_id in supported
       assert :secret_access_key in supported
       assert :session_token in supported
       assert :region in supported
 
-      # Should support standard generation options
-      assert :temperature in supported
-      assert :max_tokens in supported
+      # Standard generation options should NOT be in provider-specific options
+      refute :temperature in supported
+      refute :max_tokens in supported
+
+      # But they should be in the extended schema
+      extended_schema = AmazonBedrock.provider_extended_generation_schema()
+      extended_keys = Keyword.keys(extended_schema.schema)
+      assert :temperature in extended_keys
+      assert :max_tokens in extended_keys
     end
 
-    test "supported options include core generation keys" do
-      supported = AmazonBedrock.supported_provider_options()
+    test "provider schema combined with generation schema includes all core keys" do
+      full_schema = AmazonBedrock.provider_extended_generation_schema()
+      full_keys = Keyword.keys(full_schema.schema)
       core_keys = Options.all_generation_keys()
 
-      # All core keys should be supported (except meta-keys like :provider_options)
       core_without_meta = Enum.reject(core_keys, &(&1 == :provider_options))
-      missing = core_without_meta -- supported
-      assert missing == [], "Missing core generation keys: #{inspect(missing)}"
+      missing = core_without_meta -- full_keys
+      assert missing == [], "Missing core generation keys in extended schema: #{inspect(missing)}"
     end
   end
 
   describe "request preparation & pipeline wiring" do
     test "prepare_request creates configured request for Anthropic models" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
       context = context_fixture()
 
       opts = [
@@ -89,7 +96,7 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
     end
 
     test "attach configures authentication and pipeline" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
 
       opts = [
         temperature: 0.5,
@@ -107,11 +114,11 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
       assert :put_aws_sigv4 in request_steps
 
       response_steps = Keyword.keys(request.response_steps)
-      assert :bedrock_decode_response in response_steps
+      assert :llm_decode_response in response_steps
     end
 
     test "attach with streaming option configures SSE" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
 
       opts = [
         stream: true,
@@ -126,8 +133,8 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
       assert request.url.path =~ "invoke-with-response-stream"
     end
 
-    test "error handling for unsupported model families" do
-      model = ReqLLM.Model.from!("amazon-bedrock:cohere.command-text-v14")
+    test "uses Converse API as fallback for models without dedicated formatters" do
+      {:ok, model} = ReqLLM.model("amazon-bedrock:cohere.command-text-v14")
       context = context_fixture()
 
       opts = [
@@ -135,18 +142,20 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
         secret_access_key: "secretTEST"
       ]
 
-      # Should error for unsupported model family
-      assert_raise ArgumentError, ~r/Unsupported model family/, fn ->
-        AmazonBedrock.prepare_request(:chat, model, context, opts)
-      end
+      # Models without dedicated formatters should use Converse API
+      {:ok, request} = AmazonBedrock.prepare_request(:chat, model, context, opts)
+
+      # Converse API uses /converse endpoint
+      assert request.url.path =~ "/converse"
     end
 
     test "error handling for missing credentials" do
       # Clear environment variables
       System.delete_env("AWS_ACCESS_KEY_ID")
       System.delete_env("AWS_SECRET_ACCESS_KEY")
+      System.delete_env("AWS_BEARER_TOKEN_BEDROCK")
 
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
       context = context_fixture()
       opts = []
 
@@ -155,8 +164,67 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
       end
     end
 
+    test "API key authentication via environment variable" do
+      System.put_env("AWS_BEARER_TOKEN_BEDROCK", "test-api-key-123")
+
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      context = context_fixture()
+
+      opts = [region: "us-east-1"]
+
+      {:ok, request} = AmazonBedrock.prepare_request(:chat, model, context, opts)
+
+      # Should create valid request with Bearer token
+      assert %Req.Request{} = request
+      assert request.url.host == "bedrock-runtime.us-east-1.amazonaws.com"
+
+      # Check Authorization header is set to Bearer token
+      headers = Req.Request.get_header(request, "authorization")
+      assert headers == ["Bearer test-api-key-123"]
+    end
+
+    test "API key authentication via provider options" do
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      context = context_fixture()
+
+      opts = [
+        api_key: "test-api-key-456",
+        region: "us-west-2"
+      ]
+
+      {:ok, request} = AmazonBedrock.prepare_request(:chat, model, context, opts)
+
+      # Should create valid request with Bearer token
+      assert %Req.Request{} = request
+      assert request.url.host == "bedrock-runtime.us-west-2.amazonaws.com"
+
+      # Check Authorization header is set to Bearer token
+      headers = Req.Request.get_header(request, "authorization")
+      assert headers == ["Bearer test-api-key-456"]
+    end
+
+    test "API key takes precedence over IAM credentials" do
+      # Set both IAM and API key
+      System.put_env("AWS_ACCESS_KEY_ID", "AKIATEST")
+      System.put_env("AWS_SECRET_ACCESS_KEY", "secretTEST")
+
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      context = context_fixture()
+
+      opts = [
+        api_key: "test-api-key-789",
+        region: "us-east-1"
+      ]
+
+      {:ok, request} = AmazonBedrock.prepare_request(:chat, model, context, opts)
+
+      # Should use Bearer token, not AWS SigV4
+      headers = Req.Request.get_header(request, "authorization")
+      assert headers == ["Bearer test-api-key-789"]
+    end
+
     test "uses region from options" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
       context = context_fixture()
 
       opts = [
@@ -170,7 +238,7 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
     end
 
     test "includes session token when provided via streaming" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
       context = context_fixture()
 
       opts = [
@@ -192,7 +260,7 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
 
   describe "streaming support" do
     test "attach_stream builds proper Finch request" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
       context = context_fixture()
 
       opts = [
@@ -213,6 +281,29 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
       assert headers_map["accept"] == "application/vnd.amazon.eventstream"
       assert headers_map["content-type"] == "application/json"
       assert headers_map["authorization"] =~ "AWS4-HMAC-SHA256"
+    end
+
+    test "attach_stream with API key authentication" do
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      context = context_fixture()
+
+      opts = [
+        api_key: "test-api-key-streaming-123",
+        region: "us-west-2"
+      ]
+
+      assert {:ok, finch_request} =
+               AmazonBedrock.attach_stream(model, context, opts, __MODULE__.TestFinch)
+
+      assert finch_request.scheme == :https
+      assert finch_request.host == "bedrock-runtime.us-west-2.amazonaws.com"
+      assert finch_request.path =~ "invoke-with-response-stream"
+      assert finch_request.method == "POST"
+
+      headers_map = Map.new(finch_request.headers)
+      assert headers_map["accept"] == "application/vnd.amazon.eventstream"
+      assert headers_map["content-type"] == "application/json"
+      assert headers_map["authorization"] == "Bearer test-api-key-streaming-123"
     end
 
     test "parse_stream_protocol handles AWS Event Stream" do
@@ -250,7 +341,7 @@ defmodule ReqLLM.Providers.AmazonBedrockProviderTest do
 
   describe "response handling" do
     test "extract_usage delegates to formatter" do
-      model = ReqLLM.Model.from!("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
+      {:ok, model} = ReqLLM.model("amazon-bedrock:anthropic.claude-3-haiku-20240307-v1:0")
 
       body = %{
         "usage" => %{

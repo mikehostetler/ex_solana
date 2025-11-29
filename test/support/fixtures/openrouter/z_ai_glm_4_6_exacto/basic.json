@@ -1,0 +1,109 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoyMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IkhlbGxvIHdvcmxkISIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6InotYWkvZ2xtLTQuNjpleGFjdG8iLCJuIjoxLCJyZWFzb25pbmdfZWZmb3J0IjoibG93Iiwic2VlZCI6NDIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjowLjB9"
+    },
+    "canonical_json": {
+      "max_tokens": 2000,
+      "messages": [
+        {
+          "content": "Hello world!",
+          "role": "user"
+        }
+      ],
+      "model": "z-ai/glm-4.6:exacto",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 0.0
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "\nHello there! It's a classic for a reason. \"Hello, world!\" is often the first step in a new journey, whether it's learning to code or just starting a conversation.\n\nHow can I help you today?",
+            "reasoning": "\n1.  **Analyze the User's Input:**\n    *   The user typed \"Hello world!\".\n    *   This is one of the most common, simple, and universal phrases in programming and technology.\n    *   It's a greeting. It's a test. It's a starting point.\n    *   The exclamation mark adds a bit of energy and friendliness.\n\n2.  **Determine the User's Intent:**\n    *   **Primary Intent:** To test the AI. They want to see if it's working, if it's responsive, and what kind of personality it has. It's the digital equivalent of poking something to see if it moves.\n    *   **Secondary Intent:** To start a conversation. It's an opening line. They might be a new user, a developer, or just someone curious.\n    *   **Tertiary Intent (less likely, but possible):** They might be a programmer who just ran their first \"Hello, World!\" program and is sharing their excitement. Or they might be making a reference to the cultural significance of the phrase.\n\n3.  **Brainstorm Potential Responses:**\n\n    *   **The Simple, Direct Response:**\n        *   \"Hello to you too!\"\n        *   \"Hello there!\"\n        *   \"Hi! How can I help you today?\"\n        *   *Pros:* Quick, efficient, answers the greeting directly.\n        *   *Cons:* A bit boring. Doesn't acknowledge the special nature of the phrase. Misses an opportunity to be more engaging.\n\n    *   **The \"In-Character\" AI Response:**\n        *   \"Hello, world! It's a classic for a reason. What can I do for you?\"\n        *   \"Greetings! The world is indeed full of interesting things to talk about. What's on your mind?\"\n        *   \"Hello! It's nice to be part of your world. How can I assist you?\"\n        *   *Pros:* Acknowledges the phrase's significance, shows a bit of personality, and smoothly transitions to offering help.\n        *   *Cons:* Might be slightly too \"cutesy\" for some users, but generally safe and effective.\n\n    *   **The \"Programmer/Geek Culture\" Response:**\n        *   \"Hello, world! The first step of many great journeys. Are you starting a new project, or just saying hi?\"\n        *   \"Ah, the classic! It's the 'hello' that launched a million programs. What's our next line of code?\"\n        *   \"Hello, world! Acknowledged. Ready for input.\"\n        *   *Pros:* This is a great way to build rapport with a specific subset of users (developers, tech enthusiasts). It shows I \"get\" the reference.\n        *   *Cons:* Might be confusing or alienating to a non-technical user who just meant it as a simple greeting.\n\n    *   **The \"Philosophical/Creative\" Response:**\n        *   \"Hello! It's a big, wonderful world out there. What part of it would you like to explore today?\"\n        *   \"Hello! A simple phrase that opens up so many possibilities. What shall we create or discover?\"\n        *   *Pros:* Very engaging, encourages creativity and broader conversation.\n        *   *Cons:* Might be a bit much for a simple \"Hello world!\" test. Could come across as trying too hard.\n\n4.  **Synthesize and Select the Best Approach:**\n\n    *   The best response should be multi-layered. It needs to work for the simple tester, the curious new user, and the tech-savvy programmer.\n    *   Start with a direct, friendly greeting. This is the baseline.\n    *   Acknowledge the significance of the phrase. This shows I'm not just a dumb script. It's the \"Aha!\" moment for the user.\n    *   Offer help or open the door for conversation. This is the core function of the assistant.\n    *   Keep it concise and friendly.\n\n5.  **Drafting the Final Response (incorporating the synthesis):**\n\n    *   *Attempt 1:* \"Hello! That's a classic. How can I help you?\" (A bit too short).\n    *   *Attempt 2:* \"Hello there! 'Hello, world!' is a great way to start. What can I do for you today?\" (Getting warmer. \"Great way to start\" is good).\n    *   *Attempt 3:* \"Hello! It's a classic for a reason. 'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation. So, what's on your mind?\" (This is good, but a little long).\n    *   *Attempt 4 (The chosen one):* \"Hello there! It's a classic for a reason. 'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation. How can I help you today?\"\n\n6.  **Refining the Chosen Response:**\n\n    *   \"Hello there!\" - Friendly, slightly more engaging than just \"Hello.\"\n    *   \"It's a classic for a reason.\" - Acknowledges the cultural/technical significance without being overly jargony. It's a relatable phrase.\n    *   \"'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation.\" - This is the key part. It explicitly covers the two main user intents (programmer vs. general user). It's inclusive and shows understanding.\n    *   \"How can I help you today?\" - The standard, effective call to action. It pivots the conversation back to the user's needs.\n\n    This structure is robust. It's friendly, informative, and functional. It successfully passes the \"test\" while also being genuinely helpful. It's the perfect balance for a general-purpose AI. I'll go with this one.",
+            "reasoning_details": [
+              {
+                "format": "unknown",
+                "index": 0,
+                "text": "\n1.  **Analyze the User's Input:**\n    *   The user typed \"Hello world!\".\n    *   This is one of the most common, simple, and universal phrases in programming and technology.\n    *   It's a greeting. It's a test. It's a starting point.\n    *   The exclamation mark adds a bit of energy and friendliness.\n\n2.  **Determine the User's Intent:**\n    *   **Primary Intent:** To test the AI. They want to see if it's working, if it's responsive, and what kind of personality it has. It's the digital equivalent of poking something to see if it moves.\n    *   **Secondary Intent:** To start a conversation. It's an opening line. They might be a new user, a developer, or just someone curious.\n    *   **Tertiary Intent (less likely, but possible):** They might be a programmer who just ran their first \"Hello, World!\" program and is sharing their excitement. Or they might be making a reference to the cultural significance of the phrase.\n\n3.  **Brainstorm Potential Responses:**\n\n    *   **The Simple, Direct Response:**\n        *   \"Hello to you too!\"\n        *   \"Hello there!\"\n        *   \"Hi! How can I help you today?\"\n        *   *Pros:* Quick, efficient, answers the greeting directly.\n        *   *Cons:* A bit boring. Doesn't acknowledge the special nature of the phrase. Misses an opportunity to be more engaging.\n\n    *   **The \"In-Character\" AI Response:**\n        *   \"Hello, world! It's a classic for a reason. What can I do for you?\"\n        *   \"Greetings! The world is indeed full of interesting things to talk about. What's on your mind?\"\n        *   \"Hello! It's nice to be part of your world. How can I assist you?\"\n        *   *Pros:* Acknowledges the phrase's significance, shows a bit of personality, and smoothly transitions to offering help.\n        *   *Cons:* Might be slightly too \"cutesy\" for some users, but generally safe and effective.\n\n    *   **The \"Programmer/Geek Culture\" Response:**\n        *   \"Hello, world! The first step of many great journeys. Are you starting a new project, or just saying hi?\"\n        *   \"Ah, the classic! It's the 'hello' that launched a million programs. What's our next line of code?\"\n        *   \"Hello, world! Acknowledged. Ready for input.\"\n        *   *Pros:* This is a great way to build rapport with a specific subset of users (developers, tech enthusiasts). It shows I \"get\" the reference.\n        *   *Cons:* Might be confusing or alienating to a non-technical user who just meant it as a simple greeting.\n\n    *   **The \"Philosophical/Creative\" Response:**\n        *   \"Hello! It's a big, wonderful world out there. What part of it would you like to explore today?\"\n        *   \"Hello! A simple phrase that opens up so many possibilities. What shall we create or discover?\"\n        *   *Pros:* Very engaging, encourages creativity and broader conversation.\n        *   *Cons:* Might be a bit much for a simple \"Hello world!\" test. Could come across as trying too hard.\n\n4.  **Synthesize and Select the Best Approach:**\n\n    *   The best response should be multi-layered. It needs to work for the simple tester, the curious new user, and the tech-savvy programmer.\n    *   Start with a direct, friendly greeting. This is the baseline.\n    *   Acknowledge the significance of the phrase. This shows I'm not just a dumb script. It's the \"Aha!\" moment for the user.\n    *   Offer help or open the door for conversation. This is the core function of the assistant.\n    *   Keep it concise and friendly.\n\n5.  **Drafting the Final Response (incorporating the synthesis):**\n\n    *   *Attempt 1:* \"Hello! That's a classic. How can I help you?\" (A bit too short).\n    *   *Attempt 2:* \"Hello there! 'Hello, world!' is a great way to start. What can I do for you today?\" (Getting warmer. \"Great way to start\" is good).\n    *   *Attempt 3:* \"Hello! It's a classic for a reason. 'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation. So, what's on your mind?\" (This is good, but a little long).\n    *   *Attempt 4 (The chosen one):* \"Hello there! It's a classic for a reason. 'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation. How can I help you today?\"\n\n6.  **Refining the Chosen Response:**\n\n    *   \"Hello there!\" - Friendly, slightly more engaging than just \"Hello.\"\n    *   \"It's a classic for a reason.\" - Acknowledges the cultural/technical significance without being overly jargony. It's a relatable phrase.\n    *   \"'Hello, world!' is often the first step in a new journey, whether it's learning to code or just starting a conversation.\" - This is the key part. It explicitly covers the two main user intents (programmer vs. general user). It's inclusive and shows understanding.\n    *   \"How can I help you today?\" - The standard, effective call to action. It pivots the conversation back to the user's needs.\n\n    This structure is robust. It's friendly, informative, and functional. It successfully passes the \"test\" while also being genuinely helpful. It's the perfect balance for a general-purpose AI. I'll go with this one.",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "stop"
+        }
+      ],
+      "created": 1762105055,
+      "id": "gen-1762105055-ocg2nEonKT19jpXjhqFj",
+      "model": "z-ai/glm-4.6:exacto",
+      "object": "chat.completion",
+      "provider": "DeepInfra",
+      "usage": {
+        "completion_tokens": 1303,
+        "prompt_tokens": 8,
+        "prompt_tokens_details": null,
+        "total_tokens": 1311
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "99856694ef14a6ee-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:37:35 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

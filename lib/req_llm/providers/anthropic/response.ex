@@ -10,7 +10,7 @@ defmodule ReqLLM.Providers.Anthropic.Response do
         "id" => "msg_01XFDUDYJgAACzvnptvVoYEL",
         "type" => "message",
         "role" => "assistant",
-        "model" => "claude-3-5-sonnet-20241022",
+        "model" => "claude-sonnet-4-5-20250929",
         "content" => [
           %{"type" => "text", "text" => "Hello! How can I help you today?"}
         ],
@@ -37,10 +37,10 @@ defmodule ReqLLM.Providers.Anthropic.Response do
   @doc """
   Decode Anthropic response data to ReqLLM.Response.
   """
-  @spec decode_response(map(), ReqLLM.Model.t()) :: {:ok, ReqLLM.Response.t()} | {:error, term()}
+  @spec decode_response(map(), LLMDB.Model.t()) :: {:ok, ReqLLM.Response.t()} | {:error, term()}
   def decode_response(data, model) when is_map(data) do
     id = Map.get(data, "id", "unknown")
-    model_name = Map.get(data, "model", model.model || "unknown")
+    model_name = Map.get(data, "model", model.id || "unknown")
     usage = parse_usage(Map.get(data, "usage"))
 
     finish_reason = parse_finish_reason(Map.get(data, "stop_reason"))
@@ -74,9 +74,19 @@ defmodule ReqLLM.Providers.Anthropic.Response do
   @doc """
   Decode Anthropic SSE event data into StreamChunks.
   """
-  @spec decode_sse_event(map(), ReqLLM.Model.t()) :: [ReqLLM.StreamChunk.t()]
-  def decode_sse_event(%{data: data}, _model) when is_map(data) do
+  @spec decode_stream_event(map(), LLMDB.Model.t()) :: [ReqLLM.StreamChunk.t()]
+  def decode_stream_event(%{data: data}, _model) when is_map(data) do
     case data do
+      %{"type" => "message_start", "message" => message} ->
+        usage_data = Map.get(message, "usage", %{})
+
+        if usage_data == %{} do
+          []
+        else
+          usage = parse_usage(usage_data)
+          [ReqLLM.StreamChunk.meta(%{usage: usage})]
+        end
+
       %{"type" => "content_block_delta", "index" => index, "delta" => delta} ->
         decode_content_block_delta(delta, index)
 
@@ -118,7 +128,7 @@ defmodule ReqLLM.Providers.Anthropic.Response do
     end
   end
 
-  def decode_sse_event(_, _model), do: []
+  def decode_stream_event(_, _model), do: []
 
   # Private helper functions
 
@@ -247,14 +257,17 @@ defmodule ReqLLM.Providers.Anthropic.Response do
   defp chunk_to_tool_call(_), do: nil
 
   defp parse_usage(%{"input_tokens" => input, "output_tokens" => output} = usage) do
-    cached_tokens = Map.get(usage, "cache_read_input_tokens", 0)
+    cache_read = Map.get(usage, "cache_read_input_tokens", 0)
+    cache_creation = Map.get(usage, "cache_creation_input_tokens", 0)
     reasoning_tokens = Map.get(usage, "reasoning_output_tokens", 0)
 
     %{
       input_tokens: input,
       output_tokens: output,
       total_tokens: input + output,
-      cached_tokens: cached_tokens,
+      cached_tokens: cache_read,
+      cache_read_input_tokens: cache_read,
+      cache_creation_input_tokens: cache_creation,
       reasoning_tokens: reasoning_tokens
     }
   end

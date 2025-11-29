@@ -1,9 +1,9 @@
 defmodule ReqLLM.Streaming.FinchClientTest do
   use ExUnit.Case, async: true
 
+  alias ReqLLM.Context
   alias ReqLLM.Streaming.FinchClient
   alias ReqLLM.Streaming.Fixtures.HTTPContext
-  alias ReqLLM.{Model, Context}
 
   describe "HTTPContext" do
     test "creates new context with basic info" do
@@ -111,7 +111,7 @@ defmodule ReqLLM.Streaming.FinchClientTest do
       result =
         FinchClient.start_stream(
           NonExistentProvider,
-          %Model{provider: :invalid, model: "test"},
+          %LLMDB.Model{provider: :invalid, id: "test"},
           context,
           [],
           stream_server
@@ -122,7 +122,7 @@ defmodule ReqLLM.Streaming.FinchClientTest do
 
     test "successfully creates HTTPContext with proper structure" do
       {:ok, stream_server} = MockStreamServer.start_link()
-      {:ok, model} = Model.from("openai:gpt-4")
+      {:ok, model} = ReqLLM.model("openai:gpt-4")
       {:ok, context} = Context.normalize("Test")
 
       result =
@@ -134,7 +134,7 @@ defmodule ReqLLM.Streaming.FinchClientTest do
           stream_server
         )
 
-      # Should succeed and return proper HTTPContext structure  
+      # Should succeed and return proper HTTPContext structure
       assert {:ok, task_pid, http_context, canonical_json} = result
       assert is_pid(task_pid)
       assert %HTTPContext{} = http_context
@@ -154,7 +154,7 @@ defmodule ReqLLM.Streaming.FinchClientTest do
       providers_and_expected_urls = [
         {ReqLLM.Providers.OpenAI, "https://api.openai.com/v1", "/chat/completions"},
         {ReqLLM.Providers.Anthropic, "https://api.anthropic.com", "/v1/messages"},
-        {ReqLLM.Providers.Google, "https://generativelanguage.googleapis.com/v1",
+        {ReqLLM.Providers.Google, "https://generativelanguage.googleapis.com/v1beta",
          "/chat/completions"},
         {ReqLLM.Providers.Groq, "https://api.groq.com/openai/v1", "/chat/completions"},
         {ReqLLM.Providers.OpenRouter, "https://openrouter.ai/api/v1", "/chat/completions"},

@@ -1,0 +1,104 @@
+{
+  "captured_at": "2025-11-01T00:56:13.170470Z",
+  "chunks": [
+    {
+      "b64": "AAABzwAAAEskNeveCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJleUprWld4MFlTSTZleUpqYjI1MFpXNTBJam9pSWl3aWNtOXNaU0k2SW1GemMybHpkR0Z1ZENKOUxDSm1hVzVwYzJoZmNtVmhjMjl1SWpwdWRXeHNMQ0pwYm1SbGVDSTZNSDFkTENKamNtVmhkR1ZrSWpveE56WXhPVFU0TlRjekxDSnBaQ0k2SW1Ob1lYUmpiWEJzTFRNek1UbGhOelZtTFRBd1lqY3ROR1kwT0MxaU1UYzBMVFEzTkRoa00yUTBaRGc1TlNJc0ltMXZaR1ZzSWpvaWIzQmxibUZwTG1kd2RDMXZjM010TWpCaUxURTZNQ0lzSW05aWFtVmpkQ0k2SW1Ob1lYUXVZMjl0Y0d4bGRHbHZiaTVqYUhWdWF5SXNJbk5sY25acFkyVmZkR2xsY2lJNkltRjFkRzhpZlE9PSIsInAiOiJhYmNkZWZnaGlqa2xtbm9wcSJ9SsHybQ=="
+    },
+    {
+      "b64": "AAACbQAAAEuoRlWGCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJleUprWld4MFlTSTZleUpqYjI1MFpXNTBJam9pUEhKbFlYTnZibWx1Wno1WFpTQnVaV1ZrSUhSdklIQnliMlIxWTJVZ2MzUnlkV04wZFhKbFpDQnZkWFJ3ZFhRZ2JXRjBZMmhwYm1jZ2MyTm9aVzFoT2lCaFoyVXNJRzVoYldVc0lHOWpZM1Z3WVhScGIyNGdiM0IwYVc5dVlXd3VJRlZ6WlNCbWRXNWpkR2x2Ymk0OEwzSmxZWE52Ym1sdVp6NGlmU3dpWm1sdWFYTm9YM0psWVhOdmJpSTZiblZzYkN3aWFXNWtaWGdpT2pCOVhTd2lZM0psWVhSbFpDSTZNVGMyTVRrMU9EVTNNeXdpYVdRaU9pSmphR0YwWTIxd2JDMHpNekU1WVRjMVppMHdNR0kzTFRSbU5EZ3RZakUzTkMwME56UTRaRE5rTkdRNE9UVWlMQ0p0YjJSbGJDSTZJbTl3Wlc1aGFTNW5jSFF0YjNOekxUSXdZaTB4T2pBaUxDSnZZbXBsWTNRaU9pSmphR0YwTG1OdmJYQnNaWFJwYjI0dVkyaDFibXNpTENKelpYSjJhV05sWDNScFpYSWlPaUpoZFhSdkluMD0iLCJwIjoiYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXpBQkNERUZHSElKS0xNIn3Cc1GS"
+    },
+    {
+      "b64": "AAACxQAAAEvoEYHRCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJleUprWld4MFlTSTZleUowYjI5c1gyTmhiR3h6SWpwYmV5Sm1kVzVqZEdsdmJpSTZleUpoY21kMWJXVnVkSE1pT2lKN1hDSmhaMlZjSWpvZ016SXNJRndpYm1GdFpWd2lPaUJjSWtGc1pYaGhibVJ5WVNCTllYSjBhVzVsZWx3aUxDQmNJbTlqWTNWd1lYUnBiMjVjSWpvZ1hDSWlMQ0p1WVcxbElqb2ljM1J5ZFdOMGRYSmxaRjl2ZFhSd2RYUWlmU3dpYVdRaU9pSmphR0YwWTIxd2JDMTBiMjlzTFRka09UZzJPV1JsWVRoalpEUmtOR0ppWVRJd1pEVTJOemxpTkdVMFpXRXpJaXdpYVc1a1pYZ2lPakFzSW5SNWNHVWlPaUptZFc1amRHbHZiaUo5WFgwc0ltWnBibWx6YUY5eVpXRnpiMjRpT201MWJHd3NJbWx1WkdWNElqb3dmVjBzSW1OeVpXRjBaV1FpT2pFM05qRTVOVGcxTnpNc0ltbGtJam9pWTJoaGRHTnRjR3d0TXpNeE9XRTNOV1l0TURCaU55MDBaalE0TFdJeE56UXRORGMwT0dRelpEUmtPRGsxSWl3aWJXOWtaV3dpT2lKdmNHVnVZV2t1WjNCMExXOXpjeTB5TUdJdE1Ub3dJaXdpYjJKcVpXTjBJam9pWTJoaGRDNWpiMjF3YkdWMGFXOXVMbU5vZFc1cklpd2ljMlZ5ZG1salpWOTBhV1Z5SWpvaVlYVjBieUo5IiwicCI6ImFiY2RlZmdoaWprbG1ubyJ9nFAkUA=="
+    },
+    {
+      "b64": "AAACIwAAAEtPhbOuCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJleUprWld4MFlTSTZleUowYjI5c1gyTmhiR3h6SWpwYmV5Sm1kVzVqZEdsdmJpSTZleUpoY21kMWJXVnVkSE1pT2lKVFpXNXBiM0lnVTI5bWRIZGhjbVVnUlc1bmFXNWxaWEpjSW4waWZTd2lhVzVrWlhnaU9qQXNJblI1Y0dVaU9pSm1kVzVqZEdsdmJpSjlYWDBzSW1acGJtbHphRjl5WldGemIyNGlPbTUxYkd3c0ltbHVaR1Y0SWpvd2ZWMHNJbU55WldGMFpXUWlPakUzTmpFNU5UZzFOek1zSW1sa0lqb2lZMmhoZEdOdGNHd3RNek14T1dFM05XWXRNREJpTnkwMFpqUTRMV0l4TnpRdE5EYzBPR1F6WkRSa09EazFJaXdpYlc5a1pXd2lPaUp2Y0dWdVlXa3VaM0IwTFc5emN5MHlNR0l0TVRvd0lpd2liMkpxWldOMElqb2lZMmhoZEM1amIyMXdiR1YwYVc5dUxtTm9kVzVySWl3aWMyVnlkbWxqWlY5MGFXVnlJam9pWVhWMGJ5SjkiLCJwIjoiYWJjZGVmZ2hpamtsbSJ9YV57hA=="
+    },
+    {
+      "b64": "AAAB0wAAAEuBJZFdCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJleUprWld4MFlTSTZlMzBzSW1acGJtbHphRjl5WldGemIyNGlPaUowYjI5c1gyTmhiR3h6SWl3aWFXNWtaWGdpT2pCOVhTd2lZM0psWVhSbFpDSTZNVGMyTVRrMU9EVTNNeXdpYVdRaU9pSmphR0YwWTIxd2JDMHpNekU1WVRjMVppMHdNR0kzTFRSbU5EZ3RZakUzTkMwME56UTRaRE5rTkdRNE9UVWlMQ0p0YjJSbGJDSTZJbTl3Wlc1aGFTNW5jSFF0YjNOekxUSXdZaTB4T2pBaUxDSnZZbXBsWTNRaU9pSmphR0YwTG1OdmJYQnNaWFJwYjI0dVkyaDFibXNpTENKelpYSjJhV05sWDNScFpYSWlPaUpoZFhSdkluMD0iLCJwIjoiYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXpBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWjAiffUGwAo="
+    },
+    {
+      "b64": "AAACegAAAEt6hh4UCzpldmVudC10eXBlBwAFY2h1bmsNOmNvbnRlbnQtdHlwZQcAEGFwcGxpY2F0aW9uL2pzb24NOm1lc3NhZ2UtdHlwZQcABWV2ZW50eyJieXRlcyI6ImV5SmphRzlwWTJWeklqcGJYU3dpWTNKbFlYUmxaQ0k2TVRjMk1UazFPRFUzTXl3aWFXUWlPaUpqYUdGMFkyMXdiQzB6TXpFNVlUYzFaaTB3TUdJM0xUUm1ORGd0WWpFM05DMDBOelE0WkROa05HUTRPVFVpTENKdGIyUmxiQ0k2SW05d1pXNWhhUzVuY0hRdGIzTnpMVEl3WWkweE9qQWlMQ0p2WW1wbFkzUWlPaUpqYUdGMExtTnZiWEJzWlhScGIyNHVZMmgxYm1zaUxDSnpaWEoyYVdObFgzUnBaWElpT2lKaGRYUnZJaXdpZFhOaFoyVWlPbnNpWTI5dGNHeGxkR2x2Ymw5MGIydGxibk1pT2pZeExDSndjbTl0Y0hSZmRHOXJaVzV6SWpveE5URXNJblJ2ZEdGc1gzUnZhMlZ1Y3lJNk1qRXlmU3dpWVcxaGVtOXVMV0psWkhKdlkyc3RhVzUyYjJOaGRHbHZiazFsZEhKcFkzTWlPbnNpYVc1d2RYUlViMnRsYmtOdmRXNTBJam94TlRFc0ltOTFkSEIxZEZSdmEyVnVRMjkxYm5RaU9qWXhMQ0pwYm5adlkyRjBhVzl1VEdGMFpXNWplU0k2TkRBeUxDSm1hWEp6ZEVKNWRHVk1ZWFJsYm1ONUlqb3pOVEI5ZlE9PSIsInAiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdCJ9bOxRWw=="
+    }
+  ],
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjo1MDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiR2VuZXJhdGUgYSBzb2Z0d2FyZSBlbmdpbmVlciBwcm9maWxlIiwicm9sZSI6InVzZXIifV0sIm1vZGVsIjoib3BlbmFpLmdwdC1vc3MtMjBiLTE6MCIsInNlZWQiOjQyLCJzdHJlYW0iOnRydWUsInN0cmVhbV9vcHRpb25zIjp7ImluY2x1ZGVfdXNhZ2UiOnRydWV9LCJ0ZW1wZXJhdHVyZSI6MC4wLCJ0b29sX2Nob2ljZSI6eyJmdW5jdGlvbiI6eyJuYW1lIjoic3RydWN0dXJlZF9vdXRwdXQifSwidHlwZSI6ImZ1bmN0aW9uIn0sInRvb2xzIjpbeyJmdW5jdGlvbiI6eyJkZXNjcmlwdGlvbiI6IkdlbmVyYXRlIHN0cnVjdHVyZWQgb3V0cHV0IG1hdGNoaW5nIHRoZSBwcm92aWRlZCBzY2hlbWEiLCJuYW1lIjoic3RydWN0dXJlZF9vdXRwdXQiLCJwYXJhbWV0ZXJzIjp7ImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJhZ2UiOnsiZGVzY3JpcHRpb24iOiJQZXJzb24ncyBhZ2UgaW4geWVhcnMiLCJtaW5pbXVtIjoxLCJ0eXBlIjoiaW50ZWdlciJ9LCJuYW1lIjp7ImRlc2NyaXB0aW9uIjoiUGVyc29uJ3MgZnVsbCBuYW1lIiwidHlwZSI6InN0cmluZyJ9LCJvY2N1cGF0aW9uIjp7ImRlc2NyaXB0aW9uIjoiUGVyc29uJ3Mgam9iIG9yIHByb2Zlc3Npb24iLCJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJuYW1lIiwiYWdlIl0sInR5cGUiOiJvYmplY3QifX0sInR5cGUiOiJmdW5jdGlvbiJ9XX0="
+    },
+    "canonical_json": {
+      "max_tokens": 500,
+      "messages": [
+        {
+          "content": "Generate a software engineer profile",
+          "role": "user"
+        }
+      ],
+      "model": "openai.gpt-oss-20b-1:0",
+      "seed": 42,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.0,
+      "tool_choice": {
+        "function": {
+          "name": "structured_output"
+        },
+        "type": "function"
+      },
+      "tools": [
+        {
+          "function": {
+            "description": "Generate structured output matching the provided schema",
+            "name": "structured_output",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "age": {
+                  "description": "Person's age in years",
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "description": "Person's full name",
+                  "type": "string"
+                },
+                "occupation": {
+                  "description": "Person's job or profession",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "age"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept": "application/vnd.amazon.eventstream",
+      "authorization": "[REDACTED:authorization]",
+      "content-type": "application/json",
+      "host": "bedrock-runtime.us-east-1.amazonaws.com",
+      "x-amz-content-sha256": "713714cc0bbd754f73b8b583e01fb3c065afc32d7a10edca59d7fe006908c908",
+      "x-amz-date": "20251101T005612Z"
+    },
+    "method": "POST",
+    "url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/openai.gpt-oss-20b-1:0/invoke-with-response-stream"
+  },
+  "response": {
+    "body": null,
+    "headers": {
+      "connection": "keep-alive",
+      "content-type": "application/vnd.amazon.eventstream",
+      "date": "Sat, 01 Nov 2025 00:56:13 GMT",
+      "transfer-encoding": "chunked",
+      "x-amzn-bedrock-content-type": "application/json",
+      "x-amzn-requestid": "a745e0e9-f7b6-4e96-bab4-b53e8a1bd77d"
+    },
+    "status": 200
+  }
+}

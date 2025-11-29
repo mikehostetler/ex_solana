@@ -1,7 +1,9 @@
 defmodule ReqLLM.Test.VCRTest do
   use ExUnit.Case, async: true
 
-  alias ReqLLM.Test.{VCR, ChunkCollector, Transcript}
+  alias ReqLLM.Test.ChunkCollector
+  alias ReqLLM.Test.Transcript
+  alias ReqLLM.Test.VCR
 
   @fixture_dir "tmp/vcr_test"
 

@@ -55,7 +55,7 @@ defmodule ReqLLM.Streaming.FinchClient do
   """
   @spec start_stream(
           module(),
-          ReqLLM.Model.t(),
+          LLMDB.Model.t(),
           ReqLLM.Context.t(),
           keyword(),
           pid(),
@@ -74,7 +74,7 @@ defmodule ReqLLM.Streaming.FinchClient do
         Debug.dbug(
           fn ->
             test_name = Keyword.get(opts, :fixture, Path.basename(fixture_path, ".json"))
-            "step: model=#{model.provider}:#{model.model}, name=#{test_name}"
+            "step: model=#{LLMDB.Model.spec(model)}, name=#{test_name}"
           end,
           component: :streaming
         )
@@ -102,13 +102,13 @@ defmodule ReqLLM.Streaming.FinchClient do
   defp build_stream_request(provider_mod, model, context, opts, finch_name) do
     alias ReqLLM.Streaming.Fixtures
 
-    case provider_mod.attach_stream(model, context, opts, finch_name) do
-      {:ok, finch_request} ->
-        http_context = Fixtures.HTTPContext.from_finch_request(finch_request)
-        canonical_json = Fixtures.canonical_json_from_finch_request(finch_request)
+    with {:ok, finch_request} <- provider_mod.attach_stream(model, context, opts, finch_name),
+         :ok <- validate_http2_body_size(finch_request, finch_name) do
+      http_context = Fixtures.HTTPContext.from_finch_request(finch_request)
+      canonical_json = Fixtures.canonical_json_from_finch_request(finch_request)
 
-        {:ok, finch_request, http_context, canonical_json}
-
+      {:ok, finch_request, http_context, canonical_json}
+    else
       {:error, reason} ->
         Logger.error("Provider failed to build streaming request: #{inspect(reason)}")
         {:error, {:provider_build_failed, reason}}
@@ -121,13 +121,14 @@ defmodule ReqLLM.Streaming.FinchClient do
 
   # Start fixture replay task
   defp start_fixture_replay(fixture_path, stream_server_pid, _model) do
-    # Use VCR to replay fixture into stream server
     case Code.ensure_loaded(ReqLLM.Test.VCR) do
       {:module, ReqLLM.Test.VCR} ->
-        {:ok, task_pid} =
-          apply(ReqLLM.Test.VCR, :replay_into_stream_server, [fixture_path, stream_server_pid])
+        args = [fixture_path, stream_server_pid]
+        # credo:disable-for-next-line Credo.Check.Refactor.Apply
+        {:ok, task_pid} = apply(ReqLLM.Test.VCR, :replay_into_stream_server, args)
 
-        # Create minimal http_context for compatibility
+        Process.link(task_pid)
+
         http_context = %HTTPContext{
           url: "fixture://#{fixture_path}",
           method: :post,
@@ -136,7 +137,7 @@ defmodule ReqLLM.Streaming.FinchClient do
           resp_headers: %{}
         }
 
-        # Extract canonical_json from fixture for compatibility
+        # credo:disable-for-next-line Credo.Check.Refactor.Apply
         transcript = apply(ReqLLM.Test.VCR, :load!, [fixture_path])
         canonical_json = Map.get(transcript.request, :canonical_json, %{})
 
@@ -157,7 +158,7 @@ defmodule ReqLLM.Streaming.FinchClient do
          opts
        ) do
     task_pid =
-      Task.Supervisor.async_nolink(ReqLLM.TaskSupervisor, fn ->
+      Task.Supervisor.async(ReqLLM.TaskSupervisor, fn ->
         finch_stream_callback = fn
           {:status, status}, acc ->
             StreamServer.http_event(stream_server_pid, {:status, status})
@@ -226,14 +227,14 @@ defmodule ReqLLM.Streaming.FinchClient do
 
   defp maybe_replay_fixture(model, opts) do
     case Code.ensure_loaded(ReqLLM.Test.Fixtures) do
-      {:module, mod} -> apply(mod, :replay_path, [model, opts])
+      {:module, mod} -> mod.replay_path(model, opts)
       {:error, _} -> :no_fixture
     end
   end
 
   defp maybe_capture_fixture(model, opts) do
     case Code.ensure_loaded(ReqLLM.Test.Fixtures) do
-      {:module, mod} -> apply(mod, :capture_path, [model, opts])
+      {:module, mod} -> mod.capture_path(model, opts)
       {:error, _} -> nil
     end
   end
@@ -244,5 +245,44 @@ defmodule ReqLLM.Streaming.FinchClient do
       %{"generationConfig" => %{"thinkingConfig" => _}} -> true
       _ -> false
     end
+  end
+
+  # Validate that HTTP/2 pools won't fail with large request bodies
+  # See: https://github.com/sneako/finch/issues/265
+  defp validate_http2_body_size(finch_request, finch_name) do
+    body_size = byte_size(finch_request.body || "")
+
+    # Only check if body is potentially problematic (>64KB threshold from Finch #265)
+    if body_size > 65_535 do
+      case get_pool_protocols(finch_name) do
+        {:ok, protocols} ->
+          if :http2 in protocols do
+            {:error, {:http2_body_too_large, body_size, protocols}}
+          else
+            :ok
+          end
+
+        {:error, _} ->
+          # Can't determine pool config, assume it's safe
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  # Get the protocols configured for the Finch pool
+  defp get_pool_protocols(_finch_name) do
+    # Get Finch configuration from application env
+    finch_config = Application.get_env(:req_llm, :finch, [])
+    pools = Keyword.get(finch_config, :pools, %{})
+
+    # Get default pool config
+    case Map.get(pools, :default) do
+      nil -> {:error, :no_pool_config}
+      pool_config -> {:ok, Keyword.get(pool_config, :protocols, [:http1])}
+    end
+  rescue
+    _ -> {:error, :config_error}
   end
 end

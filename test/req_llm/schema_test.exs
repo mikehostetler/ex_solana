@@ -7,18 +7,19 @@ defmodule ReqLLM.SchemaTest do
   describe "compile/1" do
     test "compiles valid keyword schemas" do
       schema = [name: [type: :string, required: true], age: [type: :pos_integer, default: 0]]
-      assert {:ok, compiled} = Schema.compile(schema)
-      assert %NimbleOptions{} = compiled
+      assert {:ok, result} = Schema.compile(schema)
+      assert result.schema == schema
+      assert %NimbleOptions{} = result.compiled
     end
 
     test "compiles empty schema" do
-      assert {:ok, compiled} = Schema.compile([])
-      assert %NimbleOptions{} = compiled
+      assert {:ok, result} = Schema.compile([])
+      assert result.schema == []
+      assert %NimbleOptions{} = result.compiled
     end
 
     test "returns error for invalid input types" do
       assert {:error, %ReqLLM.Error.Invalid.Parameter{}} = Schema.compile("invalid")
-      assert {:error, %ReqLLM.Error.Invalid.Parameter{}} = Schema.compile(%{})
       assert {:error, %ReqLLM.Error.Invalid.Parameter{}} = Schema.compile(123)
     end
 
@@ -61,6 +62,22 @@ defmodule ReqLLM.SchemaTest do
       assert result["properties"]["tags"]["items"]["type"] == "string"
       assert result["properties"]["active"]["type"] == "boolean"
       assert Enum.sort(result["required"]) == ["active", "name"]
+    end
+
+    test "handles lists with a map subtype" do
+      tag_schema = {:map, [title: [type: :string, required: true], id: [type: :integer]]}
+
+      schema = [
+        tags: [type: {:list, tag_schema}]
+      ]
+
+      result = Schema.to_json(schema)
+
+      assert result["properties"]["tags"]["type"] == "array"
+      assert result["properties"]["tags"]["items"]["type"] == "object"
+      assert result["properties"]["tags"]["items"]["properties"]["title"]["type"] == "string"
+      assert result["properties"]["tags"]["items"]["properties"]["id"]["type"] == "integer"
+      assert result["properties"]["tags"]["items"]["required"] == ["title"]
     end
 
     test "handles schema without required fields" do
@@ -635,6 +652,352 @@ defmodule ReqLLM.SchemaTest do
 
       assert {:error, %ReqLLM.Error.Validation.Error{tag: :invalid_schema}} =
                Schema.validate(data, schema)
+    end
+  end
+
+  describe "validate/2 with JSON Schema (JSV)" do
+    test "validates simple object with valid data" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "name" => %{"type" => "string"},
+          "age" => %{"type" => "integer", "minimum" => 1}
+        },
+        "required" => ["name"],
+        "additionalProperties" => false
+      }
+
+      data = %{"name" => "Alice", "age" => 30}
+
+      assert {:ok, validated} = Schema.validate(data, schema)
+      assert validated == data
+    end
+
+    test "validates non-object root (array)" do
+      schema = %{"type" => "array", "items" => %{"type" => "string"}}
+      data = ["a", "b"]
+
+      assert {:ok, validated} = Schema.validate(data, schema)
+      assert validated == ["a", "b"]
+    end
+
+    test "catches embedded JSON string instead of parsed map for property" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{"name" => ~s({"type":"string"})}
+      }
+
+      result = Schema.validate(%{}, schema)
+
+      assert match?(
+               {:error, %ReqLLM.Error.Validation.Error{tag: :invalid_json_schema}},
+               result
+             )
+    end
+
+    test "returns error for entire schema given as JSON string" do
+      schema = ~s({"type":"object"})
+
+      assert {:error, %ReqLLM.Error.Invalid.Parameter{}} = Schema.validate(%{}, schema)
+    end
+
+    test "validation error for missing required field" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{"name" => %{"type" => "string"}},
+        "required" => ["name"]
+      }
+
+      data = %{"age" => 10}
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "required"
+    end
+
+    test "validation error for additionalProperties violation" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{"name" => %{"type" => "string"}},
+        "additionalProperties" => false
+      }
+
+      data = %{"name" => "Alice", "extra" => 1}
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "extra"
+    end
+
+    test "validation error for type mismatch in array items" do
+      schema = %{"type" => "array", "items" => %{"type" => "string"}}
+      data = ["ok", 1]
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "/1"
+    end
+
+    test "validation error for enum violation" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{"color" => %{"type" => "string", "enum" => ["red", "green"]}},
+        "required" => ["color"]
+      }
+
+      data = %{"color" => "blue"}
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "enum" or reason =~ "blue"
+    end
+
+    test "validation error for nested object with multiple errors" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "user" => %{
+            "type" => "object",
+            "properties" => %{"id" => %{"type" => "integer"}, "name" => %{"type" => "string"}},
+            "required" => ["id", "name"],
+            "additionalProperties" => false
+          }
+        },
+        "required" => ["user"],
+        "additionalProperties" => false
+      }
+
+      data = %{"user" => %{"id" => "bad", "extra" => 1}}
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "/user"
+      assert reason =~ ", "
+    end
+
+    test "validation error for type mismatch at root (non-object root)" do
+      schema = %{"type" => "array", "items" => %{"type" => "string"}}
+      data = %{"not" => "an array"}
+
+      assert {:error,
+              %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed, reason: reason}} =
+               Schema.validate(data, schema)
+
+      assert reason =~ "array" or reason =~ "type"
+    end
+
+    test "validates complex nested structures" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "users" => %{
+            "type" => "array",
+            "items" => %{
+              "type" => "object",
+              "properties" => %{
+                "id" => %{"type" => "integer"},
+                "name" => %{"type" => "string"}
+              },
+              "required" => ["id", "name"]
+            }
+          }
+        },
+        "required" => ["users"]
+      }
+
+      data = %{
+        "users" => [
+          %{"id" => 1, "name" => "Alice"},
+          %{"id" => 2, "name" => "Bob"}
+        ]
+      }
+
+      assert {:ok, validated} = Schema.validate(data, schema)
+      assert validated == data
+    end
+
+    test "validates data with minimum and maximum constraints" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "age" => %{"type" => "integer", "minimum" => 0, "maximum" => 120}
+        }
+      }
+
+      assert {:ok, _} = Schema.validate(%{"age" => 25}, schema)
+
+      assert {:error, %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed}} =
+               Schema.validate(%{"age" => 150}, schema)
+
+      assert {:error, %ReqLLM.Error.Validation.Error{tag: :json_schema_validation_failed}} =
+               Schema.validate(%{"age" => -5}, schema)
+    end
+
+    test "preserves original data types without JSV casting (float to integer)" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "temperature" => %{"type" => "integer"}
+        }
+      }
+
+      data = %{"temperature" => 1.0}
+
+      assert {:ok, validated} = Schema.validate(data, schema)
+      assert validated == %{"temperature" => 1.0}
+      assert validated["temperature"] === 1.0
+    end
+
+    test "preserves original data structure without JSV casting (nested)" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "metrics" => %{
+            "type" => "object",
+            "properties" => %{
+              "count" => %{"type" => "integer"},
+              "value" => %{"type" => "number"}
+            }
+          }
+        }
+      }
+
+      data = %{"metrics" => %{"count" => 5.0, "value" => 3.14}}
+
+      assert {:ok, validated} = Schema.validate(data, schema)
+      assert validated == data
+      assert validated["metrics"]["count"] === 5.0
+      assert validated["metrics"]["value"] === 3.14
+    end
+  end
+
+  describe "map pass-through support" do
+    test "compile/1 with map returns wrapped schema with nil compiled" do
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "location" => %{"type" => "string"},
+          "units" => %{"type" => "string", "enum" => ["celsius", "fahrenheit"]}
+        },
+        "required" => ["location"]
+      }
+
+      assert {:ok, result} = Schema.compile(json_schema)
+      assert result.schema == json_schema
+      assert result.compiled == nil
+    end
+
+    test "to_json/1 with map returns map unchanged" do
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "location" => %{"type" => "string"},
+          "units" => %{"type" => "string", "enum" => ["celsius", "fahrenheit"]}
+        },
+        "required" => ["location"],
+        "additionalProperties" => false
+      }
+
+      assert Schema.to_json(json_schema) == json_schema
+    end
+
+    test "equivalent keyword list and map produce compatible output" do
+      keyword_schema = [
+        location: [type: :string, required: true, doc: "City name"],
+        units: [type: :string, doc: "Temperature units"]
+      ]
+
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "location" => %{"type" => "string", "description" => "City name"},
+          "units" => %{"type" => "string", "description" => "Temperature units"}
+        },
+        "required" => ["location"],
+        "additionalProperties" => false
+      }
+
+      keyword_result = Schema.to_json(keyword_schema)
+      map_result = Schema.to_json(json_schema)
+
+      assert keyword_result == json_schema
+      assert map_result == json_schema
+    end
+
+    test "provider format functions work with map parameter schemas" do
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "query" => %{"type" => "string", "description" => "Search query"}
+        },
+        "required" => ["query"],
+        "additionalProperties" => false
+      }
+
+      tool = %Tool{
+        name: "search",
+        description: "Search for items",
+        parameter_schema: json_schema,
+        callback: fn _ -> {:ok, %{}} end
+      }
+
+      # Test Anthropic format
+      anthropic = Schema.to_anthropic_format(tool)
+      assert anthropic["input_schema"] == json_schema
+
+      # Test OpenAI format
+      openai = Schema.to_openai_format(tool)
+      assert openai["function"]["parameters"] == json_schema
+
+      # Test Google format (strips additionalProperties)
+      google = Schema.to_google_format(tool)
+      assert google["parameters"] == Map.delete(json_schema, "additionalProperties")
+
+      # Test Bedrock Converse format
+      bedrock = Schema.to_bedrock_converse_format(tool)
+      assert bedrock["toolSpec"]["inputSchema"]["json"] == json_schema
+    end
+
+    test "map with complex JSON Schema features" do
+      complex_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "filter" => %{
+            "oneOf" => [
+              %{"type" => "string"},
+              %{
+                "type" => "object",
+                "properties" => %{
+                  "field" => %{"type" => "string"},
+                  "operator" => %{"type" => "string", "enum" => ["eq", "ne", "gt", "lt"]},
+                  "value" => %{"type" => "string"}
+                },
+                "required" => ["field", "operator", "value"]
+              }
+            ]
+          },
+          "timestamp" => %{
+            "type" => "string",
+            "format" => "date-time"
+          }
+        }
+      }
+
+      # Should pass through unchanged
+      assert Schema.to_json(complex_schema) == complex_schema
+      assert {:ok, result} = Schema.compile(complex_schema)
+      assert result.schema == complex_schema
+      assert result.compiled == nil
     end
   end
 end

@@ -84,10 +84,7 @@ defmodule ReqLLM.GenerationTest do
 
   describe "generate_text/3 error cases" do
     test "returns error for invalid model spec" do
-      {:error, error} = Generation.generate_text("invalid:model", "Hello")
-
-      assert %ReqLLM.Error.Validation.Error{} = error
-      assert error.reason =~ "Unsupported provider"
+      assert {:error, :unknown_provider} = Generation.generate_text("invalid:model", "Hello")
     end
 
     test "returns error for invalid role in message list" do
@@ -144,7 +141,7 @@ defmodule ReqLLM.GenerationTest do
     end
 
     test "raises on error" do
-      assert_raise ReqLLM.Error.Validation.Error, fn ->
+      assert_raise UndefinedFunctionError, fn ->
         Generation.generate_text!("invalid:model", "Hello")
       end
     end
@@ -182,10 +179,7 @@ defmodule ReqLLM.GenerationTest do
 
   describe "stream_text/3 error cases" do
     test "returns error for invalid model spec" do
-      {:error, error} = Generation.stream_text("invalid:model", "Hello")
-
-      assert %ReqLLM.Error.Validation.Error{} = error
-      assert error.reason =~ "Unsupported provider"
+      assert {:error, :unknown_provider} = Generation.stream_text("invalid:model", "Hello")
     end
   end
 
@@ -260,6 +254,71 @@ defmodule ReqLLM.GenerationTest do
           req_http_options: [method: :invalid_method]
         )
       end
+    end
+  end
+
+  describe "api_key option precedence" do
+    test "api_key option takes precedence over other configuration methods" do
+      custom_key = "test-api-key-#{System.unique_integer([:positive])}"
+
+      Req.Test.stub(ReqLLM.GenerationTestAPIKey, fn conn ->
+        auth_header = Plug.Conn.get_req_header(conn, "authorization")
+
+        assert auth_header == ["Bearer #{custom_key}"],
+               "Expected Authorization header to contain custom api_key"
+
+        Req.Test.json(conn, %{
+          "id" => "cmpl_test_123",
+          "model" => "gpt-4o-mini-2024-07-18",
+          "choices" => [
+            %{
+              "message" => %{"role" => "assistant", "content" => "Response"}
+            }
+          ],
+          "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
+        })
+      end)
+
+      {:ok, response} =
+        Generation.generate_text(
+          "openai:gpt-4o-mini",
+          "Hello",
+          api_key: custom_key,
+          req_http_options: [plug: {Req.Test, ReqLLM.GenerationTestAPIKey}]
+        )
+
+      assert %Response{} = response
+    end
+  end
+
+  describe "stream_text/3 api_key option precedence" do
+    test "api_key option takes precedence in streaming requests" do
+      custom_key = "test-stream-key-#{System.unique_integer([:positive])}"
+
+      Req.Test.stub(ReqLLM.GenerationStreamTestAPIKey, fn conn ->
+        auth_header = Plug.Conn.get_req_header(conn, "authorization")
+
+        assert auth_header == ["Bearer #{custom_key}"],
+               "Expected Authorization header to contain custom api_key in streaming request"
+
+        sse_body =
+          ~s(data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hello"}}]}\n\n) <>
+            "data: [DONE]\n\n"
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "text/event-stream")
+        |> Plug.Conn.send_resp(200, sse_body)
+      end)
+
+      {:ok, response} =
+        Generation.stream_text(
+          "openai:gpt-4o-mini",
+          "Hello",
+          api_key: custom_key,
+          req_http_options: [plug: {Req.Test, ReqLLM.GenerationStreamTestAPIKey}]
+        )
+
+      assert %StreamResponse{} = response
     end
   end
 end

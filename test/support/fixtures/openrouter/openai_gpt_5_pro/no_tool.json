@@ -1,0 +1,139 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjo1NDQwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJUZWxsIG1lIGEgam9rZSBhYm91dCBjYXRzIiwicm9sZSI6InVzZXIifV0sIm1vZGVsIjoib3BlbmFpL2dwdC01LXBybyIsIm4iOjEsInJlYXNvbmluZ19lZmZvcnQiOiJsb3ciLCJzZWVkIjo0Miwic3RyZWFtIjpmYWxzZSwidGVtcGVyYXR1cmUiOjAuMCwidG9vbHMiOlt7ImZ1bmN0aW9uIjp7ImRlc2NyaXB0aW9uIjoiR2V0IGN1cnJlbnQgd2VhdGhlciBpbmZvcm1hdGlvbiBmb3IgYSBsb2NhdGlvbiIsIm5hbWUiOiJnZXRfd2VhdGhlciIsInBhcmFtZXRlcnMiOnsiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlLCJwcm9wZXJ0aWVzIjp7ImxvY2F0aW9uIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbImxvY2F0aW9uIl0sInR5cGUiOiJvYmplY3QifX0sInR5cGUiOiJmdW5jdGlvbiJ9XX0="
+    },
+    "canonical_json": {
+      "max_tokens": 54400,
+      "messages": [
+        {
+          "content": "Tell me a joke about cats",
+          "role": "user"
+        }
+      ],
+      "model": "openai/gpt-5-pro",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 0.0,
+      "tools": [
+        {
+          "function": {
+            "description": "Get current weather information for a location",
+            "name": "get_weather",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "location": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "Why was the cat sitting on the computer? It wanted to keep an eye on the mouse.",
+            "reasoning": "**Telling a cat joke**\n\nI need to keep it concise and friendly for the user's request for a cat joke. I won't overthink it; just one quick, witty joke should do. Something like, \"Why was the cat sitting on the computer? It wanted to keep an eye on the mouse!\" That fits well within the guidelines, and it’s playful without needing heavy formatting. I think that's a perfect pick!**Crafting a cat joke**\n\nI’m thinking about delivering a cat joke for the user. I want it to be clever but simple! One option is, \"Why was the cat sitting on the computer? It wanted to keep an eye on the mouse!\" Another fun option could be, \"I asked my cat why it naps so much. It said, 'Because I'm paw-sitively exhausted!'\" I’ll stick with just one joke that's lighthearted and easy to enjoy!",
+            "reasoning_details": [
+              {
+                "format": "openai-responses-v1",
+                "index": 0,
+                "summary": "**Telling a cat joke**\n\nI need to keep it concise and friendly for the user's request for a cat joke. I won't overthink it; just one quick, witty joke should do. Something like, \"Why was the cat sitting on the computer? It wanted to keep an eye on the mouse!\" That fits well within the guidelines, and it’s playful without needing heavy formatting. I think that's a perfect pick!**Crafting a cat joke**\n\nI’m thinking about delivering a cat joke for the user. I want it to be clever but simple! One option is, \"Why was the cat sitting on the computer? It wanted to keep an eye on the mouse!\" Another fun option could be, \"I asked my cat why it naps so much. It said, 'Because I'm paw-sitively exhausted!'\" I’ll stick with just one joke that's lighthearted and easy to enjoy!",
+                "type": "reasoning.summary"
+              },
+              {
+                "data": "gAAAAABpB5gyWtg7q7oOZVa_680dSlhKFUWWjCdtbFekmHbV3Pydw6t-PD7Uu-9T3CMOmfvspenoJjUysrQmtCqBB2wjVKx6TVPlO54jg7ieKMnHbPxo8PHWTCCsBQ1ZH3EXeMJpSs5vryMUOhriG8nlWmpjvUUsIs8JUs5SUNDALpS-oNrYEkRhgCODybaWz_y-6-FbDk0FENNAd1aHnbvl4yH9tm3ExuGckTUEAtU0tZScTqEVC8LKUKf7j68b2QZN7jluj_DTmiBfEz4XTOybBGSov-J4KfaspW1K-uWPyz0bV20HnojNfecQL8MI5or5XaX_VZNdoHYFXeHzRUaIviY0JGCa482xhitZ7JYXmYsY-eAJFJ0Biuqx2ERATbdKWndstuiqzSQB55T7gdzkTLgkmzjhTIewjwQCxZ1eCLj4_T493WYV4Z4DT98RW6-vMlSGeakQxw5zVxjn2zZrw5YpYa03_7NLi6ylsJK6ugbn8RwGXzMQ299629th5vXkMcacy0B_kdLswQOS3FoP_2mAcUe7aNt2I0A0VN2R_iLZriiAJN2OAdpzPzyzqD3RP9a8h8pxmBpJD1v0m0qaq7R-KQcUnVlwDUpIQ9sFU409DNjqcj0PTyS-CTfijKqOuAvGVaHMWUI6mEeZCMCG5T6U1qF5t6bqFmMDFZ2a5AHkcOwWpuCznkjThilGWL2HOZ9asljj02g_pRmYMGN4EQWh502OOd4cnNyQ43YCZm4hTe0dIdvkF86NN5VYDPgvwaKUqU_-IOL5DGLluve7P4ICGYHyVZ7OI0g-6Tb3KqJEGgMk4s2RuRE57Qx7EZ3HpQvbWEZfF0uLJi6kDEPL--tTpzleh9mID-FB529dpIbRwrOvrXOyaXVYlXE2Jb4XLInGpmiKGq5Su2K5dIRU4eNLxzcdRVJ1FVQYooeVo2zx0I4qE838Yi_IWtMfGuBDAlEPmXU0rWV5Li8N1qTxRMURcTprNmubrA0CGTV-WJ4XhDsYqPSwWL1yJHChuvzaw-tKoLM8DH6x2TcF0dZR0E62IXWDLEagT09iWm1a3Nkuq2h_7Msbc653QTiVFSKk08GJpt6ItkCqor2Lb_jJNne5KG8vKgEgtEIlOr4ixxVBUpR9i5xn5Mm3sgBkCT4scCg5nxSLvdz7TdZkTRgiJ9JbX8PExr1-5PdDynPyMr8gJoRwgvFGLStI-SO0ML2_D_T05xcgBYrGY684MTkDwwpwlR9AqrKio9YHkk4TXlYphclWRSEgeYI9Q6rmQ9yk1KZz92U4MZBCuBrIrL5k8X3SF2QjBIzsnSeTpeV5TE8QGH_bd-xsG3BHCyKuVcvk_M3U05dw2Bo4UUXp5hlCBqnvX4Q70sMC3C50u41yk-FE8L0B7zTJCvq_KoN7IMjw31Aupi6JFsyiW_Ha5KT_sOA1rCy1FCOjDKnnhzIHMtYuv50NPXW6ttuWwez4jFmg-1fZPd5jFcrubmQLQ_J55RS1-8wIX7fSY0FM3EKlNemJS5o3c9AoZhf-41yH_xhwioIt8NGhr99pfCJraBkPBvnkDZofDue54Bi04dNgk_SxkgnvEckUMj8cseqz7hXqHSQWVq_m8EiJw2P1aMar-dxyvT-HfqbZLHMlW2GxCsM7Rlfenr0R4XlEpok13m76KAXcvhsVYqTsoTuRhMGL4NT0eIPsUWfXN0H2H-uquZ1vIqgsCykJqfDq6OOwXr2OFZK_D-CMz0oCLVgjxC5eAlaaSIYG6_1Iis8Dvy20v_aUg84DIEANY3o-uzNVT2SIdMOBihMibVxKUNB5kNLJDgpt3RTUOCWd67A6S-vX-U6M_kDlZgZtMfnynLFKmf1JMwjyGPQF8vllnH7HLNqjytaGOHTDhVvBXv0Bf19QfCp7tneCELMfmmyEigyJh0GVzB48GZq7GovybOZjrFvcWw0Jt7v4TyUJMzs2mK8prbzkOC3E3U0ZX6R6URzLdOVGYJIUF195Ln1NshAUHfvOvx7SIrrDH7R2o0RnhCHNC-5O-cSmvWWJgoVtA3zjTh5C_4Prz3WMZiAuw8EGt80npiwI8ouyswqDqYj1QY7ZCqmPKX2PYS76nYdqkdn1S-0ZvLX-5Mu7smEFWSQqw5M8me6fHGuYzT0BWAre7DSI774y1gN5EU9uQTZTHraQCT77g6mUqZwcukIaTpBmgZSBQ3-Ohh5Mc7CUQl5EcnEADsSPjhWwLrfJqUaXRmS68igiqTP0swH1G5Wvb5WBavLfZS1_8LLfFd_7-gLog16Fb34S7xPBm55eqmPMOjMFMdt_garv-Rult77cvrH5nZswg_xYFvSQFol8RzdDAnRiw0jrdR2MbmEffEVpmqT1BG9N3IWwqpH9b3il9xLCcTRaAyNEak8D6Yy-v6NaLpq6b5v686B2m2pr4bHoC4YQHrMvhdQzwx3A4mRYH5BhYVPRh0H_vkC6NVxl1tfZ-ilsC4TMgBqiigi-rdIsn240ev4bKrJi-xEJwy0qjZ5QwZJROXy_Vtf_I3ra2gVaufur9eDDZNrKg7aoIAavo6xAMnOsYh8_Aoq8wiDEX8epVQRQ-RbaT4a_uf4S9aoTUQvxbgzWeEL5jPrnflpjzklz9y7Hal3CCe2-twQvn-4vStQ3T4ifUpATLQCYR1J98bQSRtB_ebwL0GW__zTrKd7d7p3qKjO2n0VF1-SWVCN0UtqwU-TSWn-Nf9WxobnH5jNse0xoeyQYl0Z86KyhbeC734ks6TlGPAnFzPESTDDx0anEJbyXcmGKoXsEMJ-Gc_nk3xOx343Wb6SOPspoh0EiRzesixu_L9KPjWD-mQCf2s5pi1vEz0nGYocjUF5jOPbqUowNstMJ1jsx9rPby5GsjMbdnVkpHifq8esxROkWheObeaKdT_EpJI6tRo3tlmOtgnc09RQ-Brzm-f04sO7neqG0shsj41_tRrYYAbLTLyYPRyio0pmhi9FtXNHNLgd4C8LldmOel2tAloD00ZP6G3StTdIYsLYR0MW5AhQf9DKPfl65StODruz0tvH9ScH3lVuVHIoPLyYWy2GcYZ_M7m7CMxWadD6RyHKhL3evtq4403HVtOfdlcRdWaEoPHCmkGwRD8XA4MH1B0o0I4pVwxKMIUzqov2UvOCzQJUuE8YlsWBfx0kCh6ghlxqz-vJwALcz6hgfImPmTqIw94rKUQHsWmmWbpz1Aozasl-RbiwE4u20uUJBn1hiTv7lm8YV8SThyuEaX9va886d5JL5dCKkxTiNUAdD0PT-CCZaWUNiSkZvZ6EgMYbc1ATY9sNfK14Xg_58DMr3OZ1Xf9QatBXujhWINajWzpjCDErkK8GU51qCAKzOquYIBFm4VL-1-_BP3eG2IyHFdt2V0ArCV-hAACBI6uUOTWJZDmX6sjcW8I0mW7vQQvGPyHk556pBnuHDbHmuA8z-B6M48S-k_YUhjbdElz4rJJGdlqLB-oQHUE45uDpNc6c3TGdC5HRlzzP8MXVHCZgiCn-Zvrd4S9_6qqyd4_wBsecXnsazmkdWD8uEvyoq5nric8d7vd61RjGE9nMp_v4=",
+                "format": "openai-responses-v1",
+                "id": "rs_0b566d93b78405d0016907982cac5881908e216c3f1bcaf90e",
+                "index": 0,
+                "type": "reasoning.encrypted"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "completed"
+        }
+      ],
+      "created": 1762105353,
+      "id": "gen-1762105353-GAJxaQ38OBoEkRSSpznn",
+      "model": "openai/gpt-5-pro",
+      "object": "chat.completion",
+      "provider": "OpenAI",
+      "usage": {
+        "completion_tokens": 473,
+        "completion_tokens_details": {
+          "reasoning_tokens": 448
+        },
+        "prompt_tokens": 50,
+        "total_tokens": 523
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "99856dd8ff7113f3-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:42:35 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

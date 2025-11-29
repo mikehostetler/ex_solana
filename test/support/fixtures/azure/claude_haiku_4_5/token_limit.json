@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-haiku-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJjbGF1ZGUtaGFpa3UtNC01Iiwic3RyZWFtIjpmYWxzZSwidGVtcGVyYXR1cmUiOjEuMCwidGhpbmtpbmciOnsiYnVkZ2V0X3Rva2VucyI6MTAyNCwidHlwZSI6ImVuYWJsZWQifX0="
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "claude-haiku-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "Es8ECkYIChgCKkCzlujz+jFFR9J9T+AnFa/5US0lhsUXmQUF1gXKic9CgSafxzBW83FaHHEUdZbcyZkn5kuzLLTAZH/BG5hr1B8eEgzG61/YsFYb4OJ+Oj8aDD2V7iKJI32tAP0hdCIwucckflktgwEZRW9cHXqMc653IsiIQZlVLwQhHfUdvpSlEM6QLR0619iwsYtzMgUqKrYD1l/NW5PkyHrFxeStazgGm2wN6NBXRzObT0jmKBxBCj1vT8RALCrq2mnGSHPzNbXpPbFXvEmUlhE4LJlS7o8H7hi8f96cqbvEZCfr9A/rSMsAWZ5io0ffvy2yh5Xv1iJTbKU8DVNhjkP2aWbJwojohXddo1cE+rDCVDIxIgN0zjnx6b3RdzKoeSA3rZ2UaFffsR9O4DSvh+LdmQ/Mu0iNyrjIFhyvteCxBx15Iq3V0aLxkgVcpLoDaLReO6AMeavhkI5qiOsCAlz3MQbAQa8QZl5dgMO1+90ROHmSq7wuFmZZhXRi69WV+v0f6wyNYKbJvb32Zl0jlIJpJaD7dlbTSjVB3+6bTBrOUT9I9whz2RU8Yti8SKf0O9N5KXkx6qml236sKoXh2MwCsxS2Hoe02SXfFrV9U2uc/4ToRnpIC7Tq8+NQDts9UKvK+6Cv58+wjQkfer3dVxbFlB6OUlsmFRmmOU8watVrqLcvY/SX9gwYKm6YtN/yFuXDgOSE1ZinQMQ8ziCc/2cfMtoYbdK0H26XYWQ0YIqEPiZuU18D6C4cz+kzwtmy403gy/Sh4Zu5vedt9NYoGAE=",
+          "thinking": "The user wants a very long story about dragons and adventures. I'll create an engaging fantasy adventure story with:\n- Multiple dragon characters with different personalities\n- An adventurer protagonist\n- Various quests and challenges\n- Fantasy worldbuilding\n- Action sequences\n- Character development\n- Multiple plot points and conflicts\n\nLet me write a comprehensive, engaging long story that would be enjoyable to read.",
+          "type": "thinking"
+        },
+        {
+          "text": "# The Last Dragon's Quest\n\n## Part One: The Stranger in the Mountain Pass\n\nThe wind howled through the Crescent Mountains like a living thing, sharp and bitter as it cut through the worn cloak of Kael Stormborn. He was a man of thirty winters, with eyes the color of storm clouds and hands calloused from years of sword work. His dark hair, streaked prematurely with silver, whipped around his face as he trudged deeper into the mountain pass—a foolish journey, many had said, but foolishness had become Kael's companion long ago.\n\nHe had come to the mountains searching for something that most believed to be myth: the dragon Pyrathor the Undying.\n\nFor three months, Kael had traveled from the coastal city of Meridian, where he'd spent the last decade as a soldier for hire, taking contracts that paid well enough to keep him in ale and supplies. But six months ago, everything had changed. A dying man had stumbled into the tavern where Kael played cards with fellow mercenaries, and that man had whispered a tale that would not leave Kael's mind.\n\nThe man had been a scholar, cursed with a plague that turned his skin black and caused him terrible, slow agony. He told Kael that somewhere in these mountains lived a dragon who possessed the power to heal any wound, cure any illness, and grant one gift to those who could reach him. But the dragon did not grant his gifts easily—the supplicant had to prove themselves worthy through trials of courage, wisdom, and sacrifice.\n\n\"Why tell me?\" Kael had asked, suspicious of the convenient tale. He'd heard many stories in taverns, most of them lies designed to separate fools from their coin.\n\n\"Because you're not like the others,\" the dying man had wheezed, gripping Kael's wrist with surprising strength. \"I can see it in your eyes. You've lost something precious. Something you'd give anything to regain. That makes you either worthy or foolish enough to actually try.\"\n\nThe scholar had been right on both counts. Kael had lost his sister, Elena, twelve years ago. She'd been taken by a wasting sickness when she was only sixteen, and Kael, just eighteen at the time, had been powerless to save her. For twelve years, he'd buried that grief under layers of cynicism and detachment, but it never truly went away. It was the reason he became a mercenary—because a soldier's life offered no time for feeling.\n\nBut now, standing in this forsaken mountain pass with snow beginning to fall, Kael had to ask himself: what was he doing? Why had he believed the ravings of a dying man? Why had he packed his belongings and set out on a quest that seemed increasingly impossible?\n\nA rumble from above made him freeze.\n\nIt wasn't thunder. Kael had heard enough of that in his life to know the difference. This sound came from something else—something vast and ancient. The ground beneath his feet trembled, and loose stones began to cascade down the mountainside.\n\nKael drew his sword, a blade of good Meridian steel, though he knew how useless it would be against a dragon if one actually appeared. What would he do? Stab a creature the size of a fortress? The absurdity of it almost made him laugh, until he heard the sound again—closer now, and accompanied by the distinctive smell of sulfur and smoke.\n\nThrough the swirling snow emerged a shadow, massive and terrible. For a moment, Kael thought he was about to meet his end, burned to cinders by dragon fire. He'd heard stories of dragons in his childhood—the old tales that mothers told their children to frighten them into obedience. Dragons were instruments of divine wrath, monsters that devoured armies, creatures of nightmare and flame.\n\nBut what emerged from the snow was not quite what he expected.\n\nThe dragon was indeed vast, with wings that could stretch across a fortress wall and scales that glinted like molten gold, but there was something wrong with him. His movements were slow and careful, almost pained. As he descended lower, Kael could see that the dragon's left wing was torn and tattered, and deep gashes ran across his scales, revealing what looked like fresh blood.\n\nThe dragon landed with a force that knocked Kael to the ground, but the creature made no move to attack. Instead, it collapsed onto its side with a groan that sounded almost human in its despair.\n\n\"Water,\" the dragon gasped, his voice like boulders grinding together. \"Please... water.\"\n\nKael lay frozen in the snow, staring at the wounded dragon before him. His years of soldiering had taught him to act in crisis, and survival instinct kicked in faster than thought. He climbed to his feet and rushed toward the nearest outcropping of rock, where a thin stream ran down the mountainside, kept liquid by geothermal heat from below. He filled his water skin—a large one designed for extended journeys—and hurried back to the dragon.\n\n\"Where?\" he asked.\n\nThe dragon's massive head turned toward him, and Kael saw eyes the color of amber, old and wise and filled with pain. \"The mouth,\" the dragon said. \"Please.\"\n\nKael approached cautiously, half-expecting this to be some kind of trap, but the dragon didn't move. He simply lay there, breathing heavily, blood seeping from his wounds. Kael unstopped his water skin and held it up near the dragon's mouth. The creature tilted his great head, and Kael poured the water slowly.\n\nThe dragon drank deeply, the water disappearing into the vast cavern of his mouth. When the skin was empty, Kael ran back to the stream and filled it again, and again, until the dragon signaled him to stop by slowly closing his eyes.\n\n\"Why?\" the dragon asked, his voice weaker now, but tinged with curiosity rather than pain. \"Why did you help me?\"\n\n\"I don't know,\" Kael admitted. It was the truth. He'd acted on instinct, without thought to his own safety. \"Perhaps I'm a fool.\"\n\nA sound emerged from the dragon—it took Kael a moment to realize it was laughter. \"Perhaps you are,\" the dragon agreed. \"But perhaps you are also something rarer: a human with compassion. That has become... very rare in this world.\"\n\n\"Are you Pyrathor?\" Kael asked hesitantly. \"The dragon they say is undying?\"\n\nThe great dragon's eyes opened again, studying Kael with an intensity that made him feel exposed and small. \"I am Pyrathor,\" the creature confirmed. \"Though whether I am truly undying remains to be seen. My name suggests such resilience, but I am beginning to doubt the legend. I have been alive for four hundred years, and in all that time, I have learned that everything dies eventually. Even dragons.\"\n\n\"What happened to you?\" Kael asked. \"Who did this to you?\"\n\nPyrathor's tail moved slowly, kicking up snow. \"My brother,\" the dragon said, his voice heavy with betrayal and sorrow. \"Malachor. We were raised together by our mother, learned to hunt together, conquered territories side by side. For three hundred years, we were inseparable. But power... power corrupts everything, Kael Stormborn. Even the bonds of blood.\"\n\nKael started. \"How did you know my name?\"\n\n\"I can read the traces of a man's life in his thoughts,\" Pyrathor said. \"Old magic, learned long ago. Your name is written in your bearing, your choice to help a stranger, your grief. Now sit. I am still weak, but I think I have enough strength to speak, and I think you have questions. Yes?\"\n\nKael had many questions, but he sat in the snow beside the wounded dragon, and that was when his true journey began.\n\n## Part Two: The Dragon's Tale\n\nAs the snow continued to fall around them, Pyrathor told Kael his story. The dragon's breathing grew steadier as he spoke, as though the act of sharing his burden lightened it somehow.\n\n\"I was born in an age when dragons ruled the world,\" Pyrathor began. \"There were hundreds of us then, scattered across continents, each dragon guarding their own territory and treasure. The humans of that time were primitives, building small settlements and crude fortifications, and they lived in fear of us. As it was meant to be.\n\n\"My mother was Vorathor the Magnificent, a dragon of legendary power. She raised my brother and me to be hunters, to be warriors, to be superior to all other creatures. And for a long time, we believed her. We were stronger, faster, more intelligent than any human or beast that walked the earth. We had power beyond measure.\n\n\"But power, Kael, is a terrible burden. With it comes responsibility, and we were not wise enough to bear that weight. We were young and arrogant. We thought ourselves gods, and we began to act accordingly.\"\n\nPyrathor paused, his breathing heavy as though the memories themselves were physical blows.\n\n\"Tell me,\" Kael prompted gently.\n\n\"We conquered a kingdom,\" Pyrathor continued. \"The Kingdom of Aldor, it was called. A place of great beauty, with cities of white stone and fields of golden grain. Malachor wanted it. He said that a dragon's hoard should not merely be gold and jewels, but territory, dominion, power over other beings. I went with him because... because I was young, and what young warrior can refuse when his brother calls to adventure?\n\n\"We burned their armies. We destroyed their cities. We demanded tribute and worship. For fifty years, we ruled Aldor with an iron claw, and the humans bent before us, and we thought we had achieved something great.\n\n\"But then came a man. A wizard named Castellan, ancient and wise. He came to Malachor alone, unarmed, and demanded parley. Malachor nearly killed him immediately—he was not known for his patience—but something about the old wizard intrigued him. So Malachor listened.\n\n\"Castellan told my brother that there were greater powers in the world than dragons, that dominion through fear was temporary and hollow, that true power lay in wisdom and the willing allegiance of free peoples. Malachor laughed at him and burned him to ash.\n\n\"But Castellan's words planted a seed. Malachor became obsessed with the idea of becoming something more than a dragon, something beyond the natural order. He began to study dark magic, seeking ways to become immortal, to transcend the limits of his own nature.\n\n\"He succeeded, Kael. It took him fifty years, but he performed a ritual so terrible, so dark, that I could not bear to witness it fully. I tried to stop him, and we fought—the only time dragon had fought dragon in our shared bloodline. I nearly won, but at the last moment, Malachor completed his ritual. The magic consumed him, transformed him, and when he emerged, he was no longer quite a dragon.\"\n\n\"What was he?\" Kael asked.\n\n\"An abomination,\" Pyrathor said simply. \"A creature of malice and hunger wearing a dragon's scales. The ritual had stripped away his humanity—yes, even dragons have some capacity for it, though we rarely acknowledge it—and replaced it with endless hunger for power.\n\n\"I fled. I was wounded, I was horrified, and I was afraid. For three hundred years, I have hidden in these mountains, in my tower that lies beyond this pass. And for three hundred years, I have watched what Malachor became.\n\n\"He did not remain in Aldor. He traveled the world, seeking to spread his darkness, gathering followers and disciples who worshipped his power. He became something worse than a tyrant—he became a plague upon the land. His followers, empowered by his dark magic, conquered kingdoms and enslaved peoples. They built a great empire of shadow and suffering.\n\n\"And I hid in my tower and did nothing.\"\n\nThe dragon's voice cracked with emotion, and Kael found himself feeling unexpected sympathy for the ancient creature.\n\n\"Why? If you're as powerful as the legends suggest, why didn't you stop him?\" Kael asked.\n\n\"Cowardice,\" Pyrathor said simply. \"I tell myself it was wisdom, prudence, the choice not to throw away my life in a futile battle. But in my heart, I know the truth. I was afraid. I had seen what Malachor had become, and I feared that facing him again would destroy us both, or worse—that he would win.\n\n\"But a month ago, everything changed. Malachor found my tower. He broke through the enchantments that have protected it for centuries, and he came to me with an army of his shadow-servants. We fought—the last great battle between two dragons—and though I",
+          "type": "text"
+        }
+      ],
+      "id": "msg_011rK8efqL5Y5bhjXXLsKooG",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "assistant",
+      "stop_reason": "max_tokens",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 45,
+        "output_tokens": 3000,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "93e2f5f5-cfa7-4859-9fc5-d46ac15c8748"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-02"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:39:46 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

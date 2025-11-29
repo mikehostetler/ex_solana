@@ -80,8 +80,10 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
 
       assert [encoded_tool] = body["tools"]
       assert encoded_tool["type"] == "function"
-      assert encoded_tool["function"]["name"] == "get_weather"
-      assert encoded_tool["function"]["description"] == "Get weather"
+      assert encoded_tool["name"] == "get_weather"
+      assert encoded_tool["description"] == "Get weather"
+      assert encoded_tool["strict"] == true
+      assert encoded_tool["parameters"]["properties"]["location"]["type"] == "string"
     end
 
     test "omits tools when empty list" do
@@ -141,7 +143,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     end
 
     test "encodes reasoning effort with atom" do
-      request = build_request(provider_options: [reasoning_effort: :medium])
+      request = build_request(reasoning_effort: :medium)
 
       encoded = ResponsesAPI.encode_body(request)
       body = Jason.decode!(encoded.body)
@@ -150,7 +152,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     end
 
     test "encodes reasoning effort with string" do
-      request = build_request(provider_options: [reasoning_effort: "high"])
+      request = build_request(reasoning_effort: "high")
 
       encoded = ResponsesAPI.encode_body(request)
       body = Jason.decode!(encoded.body)
@@ -188,7 +190,96 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
       assert input1["role"] == "user"
       assert input1["content"] == [%{"type" => "input_text", "text" => "Hello"}]
       assert input2["role"] == "assistant"
-      assert input2["content"] == [%{"type" => "input_text", "text" => "Hi there"}]
+      assert input2["content"] == [%{"type" => "output_text", "text" => "Hi there"}]
+    end
+
+    test "encodes response_format with keyword list schema (converts to JSON schema)" do
+      keyword_schema = [
+        name: [type: :string, required: true, doc: "Person name"],
+        age: [type: :pos_integer, doc: "Person age"]
+      ]
+
+      response_format = %{
+        type: "json_schema",
+        json_schema: %{
+          name: "person_schema",
+          strict: true,
+          schema: keyword_schema
+        }
+      }
+
+      request = build_request(provider_options: [response_format: response_format])
+
+      encoded = ResponsesAPI.encode_body(request)
+      body = Jason.decode!(encoded.body)
+
+      assert body["text"]["format"]["type"] == "json_schema"
+      assert body["text"]["format"]["name"] == "person_schema"
+      assert body["text"]["format"]["strict"] == true
+      assert body["text"]["format"]["schema"]["type"] == "object"
+      assert body["text"]["format"]["schema"]["properties"]["name"]["type"] == "string"
+      assert body["text"]["format"]["schema"]["properties"]["age"]["type"] == "integer"
+      assert body["text"]["format"]["schema"]["properties"]["age"]["minimum"] == 1
+      assert body["text"]["format"]["schema"]["required"] == ["name"]
+    end
+
+    test "encodes response_format with direct JSON schema (pass-through)" do
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{
+          "location" => %{"type" => "string", "description" => "City name"},
+          "units" => %{"type" => "string", "enum" => ["celsius", "fahrenheit"]}
+        },
+        "required" => ["location"],
+        "additionalProperties" => false
+      }
+
+      response_format = %{
+        type: "json_schema",
+        json_schema: %{
+          name: "weather_schema",
+          strict: true,
+          schema: json_schema
+        }
+      }
+
+      request = build_request(provider_options: [response_format: response_format])
+
+      encoded = ResponsesAPI.encode_body(request)
+      body = Jason.decode!(encoded.body)
+
+      assert body["text"]["format"]["type"] == "json_schema"
+      assert body["text"]["format"]["name"] == "weather_schema"
+      assert body["text"]["format"]["strict"] == true
+      # Schema should pass through unchanged
+      assert body["text"]["format"]["schema"] == json_schema
+    end
+
+    test "encodes response_format with string keys" do
+      json_schema = %{
+        "type" => "object",
+        "properties" => %{"query" => %{"type" => "string"}},
+        "required" => ["query"]
+      }
+
+      response_format = %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "search_schema",
+          "strict" => true,
+          "schema" => json_schema
+        }
+      }
+
+      request = build_request(provider_options: [response_format: response_format])
+
+      encoded = ResponsesAPI.encode_body(request)
+      body = Jason.decode!(encoded.body)
+
+      assert body["text"]["format"]["type"] == "json_schema"
+      assert body["text"]["format"]["name"] == "search_schema"
+      assert body["text"]["format"]["strict"] == true
+      assert body["text"]["format"]["schema"] == json_schema
     end
   end
 
@@ -454,16 +545,16 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     end
   end
 
-  describe "decode_sse_event/2" do
+  describe "decode_stream_event/2" do
     setup do
-      model = %ReqLLM.Model{provider: :openai, model: "gpt-5"}
+      {:ok, model} = ReqLLM.model("openai:gpt-5")
       {:ok, model: model}
     end
 
     test "decodes output_text delta", %{model: model} do
       event = %{data: %{"event" => "response.output_text.delta", "delta" => "Hello"}}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :content
       assert chunk.text == "Hello"
     end
@@ -471,13 +562,13 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "ignores empty output_text delta", %{model: model} do
       event = %{data: %{"event" => "response.output_text.delta", "delta" => ""}}
 
-      assert [] = ResponsesAPI.decode_sse_event(event, model)
+      assert [] = ResponsesAPI.decode_stream_event(event, model)
     end
 
     test "decodes reasoning delta", %{model: model} do
       event = %{data: %{"event" => "response.reasoning.delta", "delta" => "Thinking..."}}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :thinking
       assert chunk.text == "Thinking..."
     end
@@ -485,7 +576,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "ignores empty reasoning delta", %{model: model} do
       event = %{data: %{"event" => "response.reasoning.delta", "delta" => ""}}
 
-      assert [] = ResponsesAPI.decode_sse_event(event, model)
+      assert [] = ResponsesAPI.decode_stream_event(event, model)
     end
 
     test "decodes usage event", %{model: model} do
@@ -499,7 +590,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
         }
       }
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :meta
       assert chunk.metadata.usage.input_tokens == 10
       assert chunk.metadata.usage.output_tokens == 20
@@ -521,7 +612,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
         }
       }
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.metadata.usage.input_tokens == 10
       assert chunk.metadata.usage.output_tokens == 20
       assert chunk.metadata.usage.total_tokens == 30
@@ -532,13 +623,13 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "ignores output_text done event", %{model: model} do
       event = %{data: %{"event" => "response.output_text.done"}}
 
-      assert [] = ResponsesAPI.decode_sse_event(event, model)
+      assert [] = ResponsesAPI.decode_stream_event(event, model)
     end
 
     test "decodes completed event", %{model: model} do
       event = %{data: %{"event" => "response.completed"}}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :meta
       assert chunk.metadata.terminal? == true
       assert chunk.metadata.finish_reason == :stop
@@ -547,7 +638,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "decodes incomplete event", %{model: model} do
       event = %{data: %{"event" => "response.incomplete", "reason" => "length"}}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :meta
       assert chunk.metadata.terminal? == true
       assert chunk.metadata.finish_reason == :length
@@ -556,7 +647,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "handles [DONE] event", %{model: model} do
       event = %{data: "[DONE]"}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :meta
       assert chunk.metadata.terminal? == true
     end
@@ -564,7 +655,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "uses type field when event field missing", %{model: model} do
       event = %{data: %{"type" => "response.output_text.delta", "delta" => "Text"}}
 
-      assert [chunk] = ResponsesAPI.decode_sse_event(event, model)
+      assert [chunk] = ResponsesAPI.decode_stream_event(event, model)
       assert chunk.type == :content
       assert chunk.text == "Text"
     end
@@ -572,13 +663,13 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     test "ignores unknown event types", %{model: model} do
       event = %{data: %{"event" => "response.unknown.type"}}
 
-      assert [] = ResponsesAPI.decode_sse_event(event, model)
+      assert [] = ResponsesAPI.decode_stream_event(event, model)
     end
 
     test "ignores events with missing event type", %{model: model} do
       event = %{data: %{"delta" => "text"}}
 
-      assert [] = ResponsesAPI.decode_sse_event(event, model)
+      assert [] = ResponsesAPI.decode_stream_event(event, model)
     end
   end
 
@@ -587,7 +678,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
     provider_opts = Keyword.get(opts, :provider_options, [])
 
     req_opts = %{
-      model: "gpt-5",
+      id: "gpt-5",
       context: context,
       stream: Keyword.get(opts, :stream),
       max_output_tokens: Keyword.get(opts, :max_output_tokens),
@@ -595,6 +686,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
       max_tokens: Keyword.get(opts, :max_tokens),
       tools: Keyword.get(opts, :tools),
       tool_choice: Keyword.get(opts, :tool_choice),
+      reasoning_effort: Keyword.get(opts, :reasoning_effort),
       provider_options: provider_opts
     }
 
@@ -615,7 +707,7 @@ defmodule Provider.OpenAI.ResponsesAPIUnitTest do
       url: URI.parse("https://api.openai.com/v1/responses"),
       headers: %{},
       body: {:json, %{}},
-      options: %{model: "gpt-5", context: context}
+      options: %{id: "gpt-5", context: context}
     }
 
     resp = %Req.Response{

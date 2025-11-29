@@ -125,6 +125,52 @@ defmodule ReqLLM.Providers.AmazonBedrock.AnthropicTest do
       assert is_map(tool[:input_schema])
       assert tool[:input_schema]["type"] == "object"
     end
+
+    test "merges consecutive tool results into single user message" do
+      context =
+        Context.new([
+          Context.system("You are helpful."),
+          Context.user("What's the weather in Paris and London?"),
+          Context.assistant("",
+            tool_calls: [
+              %ReqLLM.ToolCall{
+                id: "tool_1",
+                type: "function",
+                function: %{name: "get_weather", arguments: ~s({"location":"Paris"})}
+              },
+              %ReqLLM.ToolCall{
+                id: "tool_2",
+                type: "function",
+                function: %{name: "get_weather", arguments: ~s({"location":"London"})}
+              }
+            ]
+          ),
+          Context.tool_result("tool_1", "22°C and sunny"),
+          Context.tool_result("tool_2", "18°C and cloudy")
+        ])
+
+      formatted =
+        Anthropic.format_request(
+          "anthropic.claude-3-haiku-20240307-v1:0",
+          context,
+          []
+        )
+
+      messages = formatted[:messages]
+
+      user_messages = Enum.filter(messages, &(&1[:role] == "user"))
+      assert length(user_messages) == 2
+
+      tool_result_msg = List.last(user_messages)
+      assert is_list(tool_result_msg[:content])
+      assert length(tool_result_msg[:content]) == 2
+
+      [result1, result2] = tool_result_msg[:content]
+      assert result1[:type] == "tool_result"
+      assert result1[:tool_use_id] == "tool_1"
+      assert result2[:type] == "tool_result"
+      assert result2[:tool_use_id] == "tool_2"
+    end
   end
 
   describe "parse_response/2" do
@@ -348,6 +394,115 @@ defmodule ReqLLM.Providers.AmazonBedrock.AnthropicTest do
       chunk = %{"chunk" => %{"bytes" => "not-valid-base64!!!"}}
 
       assert {:error, {:unwrap_failed, _}} = Anthropic.parse_stream_chunk(chunk, [])
+    end
+  end
+
+  describe "structured output (:object operation)" do
+    test "format_request creates structured_output tool for :object operation" do
+      schema = [
+        name: [type: :string, required: true, doc: "Person's full name"],
+        age: [type: :pos_integer, required: true, doc: "Person's age in years"],
+        occupation: [type: :string, doc: "Person's job or profession"]
+      ]
+
+      {:ok, compiled_schema} = ReqLLM.Schema.compile(schema)
+
+      context = Context.new([Context.user("Generate a software engineer profile")])
+
+      formatted =
+        Anthropic.format_request(
+          "anthropic.claude-3-5-sonnet-20240620-v2:0",
+          context,
+          operation: :object,
+          compiled_schema: compiled_schema,
+          max_tokens: 500
+        )
+
+      # Should include tools array with structured_output tool
+      assert is_list(formatted[:tools])
+      assert length(formatted[:tools]) == 1
+
+      tool = List.first(formatted[:tools])
+      assert tool[:name] == "structured_output"
+      assert tool[:description] == "Generate structured output matching the provided schema"
+
+      # Should have input_schema with the user's schema
+      assert is_map(tool[:input_schema])
+      assert tool[:input_schema]["type"] == "object"
+      assert tool[:input_schema]["properties"]["name"]["type"] == "string"
+      assert tool[:input_schema]["properties"]["age"]["type"] == "integer"
+      assert tool[:input_schema]["properties"]["age"]["minimum"] == 1
+      assert tool[:input_schema]["required"] == ["name", "age"]
+
+      # Should force tool choice
+      # Note: tool_choice is added to opts but not directly to the body in our implementation
+      # It's passed through opts and will be in the request when encode_request is called
+    end
+
+    test "parse_response extracts object from tool call for :object operation" do
+      response_body = %{
+        "id" => "msg_obj123",
+        "type" => "message",
+        "role" => "assistant",
+        "model" => "claude-3-5-sonnet-20240620",
+        "content" => [
+          %{
+            "type" => "tool_use",
+            "id" => "toolu_abc",
+            "name" => "structured_output",
+            "input" => %{
+              "name" => "Jane Doe",
+              "age" => 32,
+              "occupation" => "Software Engineer"
+            }
+          }
+        ],
+        "stop_reason" => "tool_use",
+        "usage" => %{
+          "input_tokens" => 451,
+          "output_tokens" => 69
+        }
+      }
+
+      assert {:ok, parsed} =
+               Anthropic.parse_response(response_body, operation: :object)
+
+      assert %ReqLLM.Response{} = parsed
+      assert parsed.id == "msg_obj123"
+      assert parsed.model == "claude-3-5-sonnet-20240620"
+      assert parsed.finish_reason == :tool_calls
+
+      # For :object operation, should extract and set the object field
+      assert parsed.object == %{
+               "name" => "Jane Doe",
+               "age" => 32,
+               "occupation" => "Software Engineer"
+             }
+    end
+
+    test "parse_response returns response without object extraction for :chat operation" do
+      response_body = %{
+        "id" => "msg_chat123",
+        "type" => "message",
+        "role" => "assistant",
+        "model" => "claude-3-haiku",
+        "content" => [
+          %{"type" => "text", "text" => "Hello!"}
+        ],
+        "stop_reason" => "end_turn",
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 5
+        }
+      }
+
+      assert {:ok, parsed} =
+               Anthropic.parse_response(response_body, operation: :chat)
+
+      assert %ReqLLM.Response{} = parsed
+      assert parsed.finish_reason == :stop
+      # Should not have object field for :chat operation
+      assert is_nil(parsed.object)
     end
   end
 end

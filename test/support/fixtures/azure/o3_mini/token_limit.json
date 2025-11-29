@@ -1,0 +1,166 @@
+{
+  "model_spec": "azure:o3-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjMwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJuIjoxLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/o3-mini/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "low"
+            }
+          },
+          "finish_reason": "length",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "Title: The Song of Emberwing\n\nPrologue\n\nIn an age long past, when the realms of men and the domains of magic intermingled beneath starlit skies, there existed a land of lush emerald forests, soaring mountain peaks, and deep, mysterious valleys. It was a land where dragons—majestic, ancient, and wise—were as common as the whispering winds. Among these legendary creatures was an extraordinary dragon known as Emberwing, whose scales shimmered like molten gold and whose eyes burned with the light of a thousand dawns. Her story—and the adventures she inspired—would forever change the fate of every living soul in the realm of Arathyn.\n\nChapter 1: The Years of Tranquility\n\nFor generations, the people of Arathyn had enjoyed a fragile harmony with the dragons. Villages sprawled at the edge of ancient groves, their streets and courtyards often graced by the gentle presence of dragon kin. Families would gather in twilight around crackling fires, recounting epic tales of dragons who had once united warring clans or saved entire cities from devastating blights. In these days of peace, legends were born, and the realms of magic flourished alongside human civilization.\n\nYet, not all was perfect beneath this façade of tranquility. In the shadows of a towering basalt cliff known as the Blackspire, a darkness had been coiling for centuries—a forgotten force of malice nurtured by envy of the dragons’ freedom and the might of the ancient magics they commanded. Whispers spoke of a malevolent sorcerer known only as Morvath, whose ambition was to control the great dragons and subjugate humanity beneath a reign of terror. Unbeknownst to the joyful residents of the villages, Morvath’s dark ambition was gathering strength in secret.\n\nChapter 2: The Call of Destiny\n\nIn a modest village nestled near the edge of the sprawling Evermist Forest lived a young adventurer named Caelan. With eyes the color of stormy skies and hair that cascaded like waves of midnight, Caelan was known for his insatiable curiosity and a heart that yearned for the extraordinary. Tales of dragons and arcane wonders had filled his childhood, igniting a spark of courage and determination that burned within him day and night. As the leaves turned from vibrant green to hues of amber and crimson, an eerie disturbance rippled through the forest, and Caelan felt in his very soul that this was the moment destiny had been waiting for.\n\nOne crisp evening, beneath a luminous full moon, Caelan ventured into the heart of Evermist Forest. The woods, ordinarily alive with the sweet symphony of nature, were unusually silent, as if all creatures held their breath in anticipation. Deep within a clearing stood an ancient stone circle, its weathered runes pulsing with a mysterious luminescence. It was there that Caelan first encountered Alyria, a lithe and enigmatic druid with emerald eyes and a knowledge of magic that rivaled the oldest trees in the forest.\n\n“A call has come from the very roots of this world,” Alyria whispered, her voice both gentle and urgent. “Darkness stirs in Blackspire, and the ancient bond with our dragon kin is in peril. Together, we must seek Emberwing, the guardian of lore and flame. Only with her aid can we hope to stand against the coming shadow.”\n\nWithout hesitation, Caelan pledged himself to this quest, and the two newfound companions set forth under the starlit vault, their hearts alight with hope and determination.\n\nChapter 3: Through Trials and Tempests\n\nThe road that led from the tranquil hamlets to the forbidding peaks of Blackspire was fraught with perils. Caelan and Alyria traversed dense, enchanted forests where trees murmured hidden prophecies and mischievous fae led unwary travelers astray. They crossed roaring rivers whose waters were said to be blessed by ancient deities, and climbed steep, craggy slopes that tested even the strongest resolve.\n\nOn one mist-shrouded morning, as the duo negotiated a treacherous mountain pass, they encountered Roderic, a rugged warrior with a scarred face and a broadsword that gleamed like a beacon of justice. Roderic—with his deep, resonant voice and unwavering honor—had long been a guardian of the oppressed. Upon hearing of Morvath’s insidious designs, he resolved to join their quest. His seasoned experience in battle and his own fierce loyalty became invaluable as the tides of fate surged ever forward.\n\nDuring a harrowing night beneath tempestuous skies, the trio was ambushed by a horde of shadowy creatures—spawned from the sorcerer’s dark magic—that resembled monstrous amalgams of twisted branches and living shadow. Bathed in silver moonlight, Caelan, Alyria, and Roderic fought valiantly. Alyria chanted ancient incantations that stirred the very air, weaving protective shields of shimmering energy. In unison, Roderic’s sword flashed bright as he cleaved through the darkness, while Caelan’s agile leaps and courageous determination carved paths of hope amid despair. In that crucible of combat, their bonds forged a power that shone brighter than the tempest above.\n\nAfter the fierce battle, as the weary trio nursed their wounds, the spectral winds carried a familiar, resounding roar. It was the call of Emberwing. The majestic queen of dragons had heard the plea of the land and descended from the heavens on mighty wings that stirred the clouds. In a clearing illuminated by the soft glow of dawn, Emberwing alighted with a grace that belied her formidable might. Her eyes, like molten sapphires, held the wisdom of ages, and her voice, deep and melodious, spoke of both sorrow and hope.\n\nChapter 4: Emberwing’s Tale\n\nPerched regally atop a craggy outcrop, Emberwing recounted the ancient history of the dragons to her mortal allies. She spoke of a time when dragons were the custodians of the earth’s elemental forces and the guardians against forces of chaos. But as mortal ambition grew, an imbalance crept into the world. The dragons withdrew from the affairs of men, retreating to the celestial skies and hidden coves of magic. Now, with Morvath’s dark designs threatening to reignite that long-dormant chaos, both dragons and men stood to lose all they cherished.\n\nEmberwing confessed that her kin had long felt the sting of betrayal, for many dragons had guarded secret relics of unimaginable power—artifacts that could restore balance or plunge the world into eternal darkness. Morvath sought one such relic: the Heart of the World, a radiant gem infused with the very essence of creation. Legend held that whosoever possessed the Heart could command the forces of fire, water, earth, and air. With such might, Morvath planned to subjugate both man and dragon alike.\n\nRealizing the enormity of the challenge, Emberwing decreed that the only hope lay in uniting the scattered guardians of light. Thus began the journey to seek not only the Heart of the World but also to awaken the latent power of alliance—a force built on trust, courage, and the shared conviction that light must always triumph over darkness.\n\nChapter 5: The Forbidden Isles and the Trials of Spirit\n\nThe quest led Caelan, Alyria, Roderic, and Emberwing to the forgotten shores of the Forbidden Isles. These mystical islands, draped in perpetual twilight and guarded by enigmatic beings, were believed to be the resting place of forgotten lore and ancient relics. Here, the alliance faced trials that tested not only their physical abilities but also the strength of their hearts and the purity of their resolve.\n\nIn the shadow of towering stone monoliths and crystalline caverns, they confronted the Test of Shadows—a trial in which they were forced to face their deepest fears. Caelan found himself reliving memories of loss and isolation, while Alyria was beset by visions of nature’s wrath unbound by magic. Even the stalwart Roderic was haunted by specters of regret from battles past. But as each faced the darkest corners of their soul, Emberwing’s soft, warming flame and the unwavering support of their newfound fellowship helped them reclaim their inner light.\n\nIn the heart of the Isles, beneath a shimmering waterfall that cascaded like silver threads, lay the Sepulcher of Whispers—a hidden sanctuary said to contain the essence of life itself. Within that sanctum, inscribed upon ancient stone tablets, were clues to the Heart of the World. The voices of long-departed guardians resonated in melodic cadence, urging the adventurers to perform acts of selflessness and sacrifice, for only the pure of heart could claim the relic’s power.\n\nWith each trial overcome, their spirits grew stronger, and the bonds among them deepened. They realized that it was not individual strength that would defeat the looming darkness, but the unity and sacrifice shared by many souls.\n\nChapter 6: The March to Blackspire\n\nRejuvenated by their trials on the Forbidden Isles and armed with newfound wisdom, the fellowship prepared for the final leg of their perilous journey: the ascent of Blackspire. This towering formation of obsidian rock loomed ominously at the edge of the known world, a monument to the dark sorcery that had festered in its depths for aeons. Within its labyrinthine corridors, Morvath and his minions awaited, clutching the promise of power with malevolent glee.\n\nThe march to Blackspire was arduous. Every step was a battle against bitter winds and a swirling vortex of malefic enchantments. The very mountains seemed to cry out in mournful echoes, echoing the sorrow of ages past. As they climbed higher, the companions encountered riddles etched in stone and arcane symbols that guarded secret passageways. Each riddle was a test of intellect and intuition, and only by harmonizing the flames of dragon magic with the wisdom of earthly mystics could they unlock these ancient doors.\n\nDuring one fateful night beneath a hail of enchanted meteors, the group found themselves besieged by spectral warriors—phantoms from previous ages, bound to Morvath’s malefic will. The clash of steel and sorcery filled the cavernous depths, and in this epic confrontation, Caelan’s resolve shone brightest. Channeling the lessons of the Forbidden Isles and the radiant hope instilled by Emberwing’s presence, he rallied his companions. With renewed vigor, the band of heroes pressed forward, each sacrifice and victory further sealing the bonds of their shared destiny.\n\nChapter 7: The Heart of the World\n\nDeep within the winding corridors of Blackspire, obscured by layers of ancient curses and the stench of dark magic, the fellowship finally reached the inner sanctum. There, upon a pedestal wrought of twisted iron and black marble, rested the Heart of the World. The relic pulsed with an inner light that defied the oppressive darkness—a beacon of life and hope in the midst of despair.\n\nBefore they could claim the gem, Morvath emerged from the shadows—a withered figure clad in obsidian robes, his eyes burning with unholy fervor. With incantations dripping with cruelty, he commanded the very darkness to assault them. A cataclysmic battle ignited the chamber. Emberwing spread her colossal wings, releasing torrents of scorching flame that danced with the fury of the sun.",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373642,
+      "id": "chatcmpl-Ch2TKe9QJBIiYICUlTOZk9EuZMk0c",
+      "model": "o3-mini-2025-01-31",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": "fp_52e4403cb8",
+      "usage": {
+        "completion_tokens": 2997,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 640,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 15,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 3012
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "591ef166-f8de-40a8-97a1-145bcbe70000"
+      ],
+      "azureai-model-sessionid": [
+        "NTIuMjI1LjkyLjEwMDo0NDM=;;;d20251106080719-b3e21d87c6344f93;DR:westus;o3mev3-usw-a1-oai-oe-kzvyzw;aoai-balanced"
+      ],
+      "azureml-model-session": [
+        "d20251106080719-b3e21d87c6344f93"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:47:39 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "o3-mini"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "5000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "50000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "4993"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "49999492"
+      ],
+      "x-request-id": [
+        "e842446c-2e14-40f2-a9df-329c236ce4a9"
+      ]
+    },
+    "status": 200
+  }
+}
