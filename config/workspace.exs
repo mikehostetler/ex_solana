@@ -128,6 +128,13 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/req_llm"
+    },
+    %{
+      name: "kaizen",
+      upstream_url: "git@github.com:agentjido/kaizen.git",
+      branch: "main",
+      type: :library,
+      path: "projects/kaizen"
     }
   ],
   hex_packages: [
