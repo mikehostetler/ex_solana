@@ -25,25 +25,39 @@ defmodule ReqLLM do
   Multiple formats supported for maximum flexibility:
 
       # String format: "provider:model"
-      ReqLLM.generate_text("anthropic:claude-3-5-sonnet-20241022", messages)
+      ReqLLM.generate_text("anthropic:claude-sonnet-4-5-20250929", messages)
 
       # Tuple format: {provider, options}
       ReqLLM.generate_text({:anthropic, "claude-3-5-sonnet", temperature: 0.7}, messages)
 
       # Model struct format
-      model = %ReqLLM.Model{provider: :anthropic, model: "claude-3-5-sonnet", temperature: 0.5}
+      {:ok, model} = ReqLLM.model("anthropic:claude-3-5-sonnet", temperature: 0.5)
       ReqLLM.generate_text(model, messages)
 
   ## Configuration
 
-  ReqLLM uses the JidoKeys keyring for API key storage:
+  ReqLLM loads API keys from standard sources in order of precedence:
 
-      # Store API keys in session keyring
+  1. Per-request `:api_key` option
+  2. Application config: `config :req_llm, :anthropic_api_key, "..."`
+  3. System environment: `ANTHROPIC_API_KEY` (loaded from .env via dotenvy)
+
+  The recommended approach is to use a .env file:
+
+      # .env
+      ANTHROPIC_API_KEY=sk-ant-...
+      OPENAI_API_KEY=sk-...
+
+  Keys are automatically loaded at startup via dotenvy.
+
+  For programmatic key management:
+
+      # Store keys (uses Application config)
       ReqLLM.put_key(:anthropic_api_key, "sk-ant-...")
-      ReqLLM.put_key(:openai_api_key, "sk-...")
 
-      # Retrieve API keys
+      # Retrieve keys
       ReqLLM.get_key(:anthropic_api_key)
+      ReqLLM.get_key("ANTHROPIC_API_KEY")
 
   ## Providers
 
@@ -59,39 +73,43 @@ defmodule ReqLLM do
   alias ReqLLM.{Embedding, Generation, Schema, Tool}
 
   # ===========================================================================
-  # Configuration API - Direct JidoKeys integration
+  # Configuration API
   # ===========================================================================
 
   @doc """
-  Stores an API key in the session keyring.
+  Stores an API key in application configuration.
 
-  Keys from .env files are automatically loaded via JidoKeys+Dotenvy integration,
-  so you typically don't need to call this manually. Just add keys to your .env file.
+  Keys from .env files are automatically loaded via dotenvy at startup.
+  This function is useful for programmatic key management in tests or at runtime.
 
   ## Parameters
 
-    * `key` - The configuration key (atom or string)
+    * `key` - The configuration key (atom)
     * `value` - The value to store
 
   ## Examples
 
-      # Manual key setting (optional - .env keys are auto-loaded)
       ReqLLM.put_key(:anthropic_api_key, "sk-ant-...")
 
   """
-  @spec put_key(atom() | String.t(), term()) :: :ok
-  def put_key(key, value) do
-    JidoKeys.put(key, value)
+  @spec put_key(atom(), term()) :: :ok
+  def put_key(key, value) when is_atom(key) do
+    Application.put_env(:req_llm, key, value)
+    :ok
+  end
+
+  def put_key(_key, _value) do
+    raise ArgumentError, "put_key/2 expects an atom key like :anthropic_api_key"
   end
 
   @doc """
-  Gets an API key from the keyring.
+  Gets an API key from application config or system environment.
 
-  Keys from .env files are automatically loaded via JidoKeys+Dotenvy integration.
+  Keys from .env files are automatically loaded via dotenvy at startup.
 
   ## Parameters
 
-    * `key` - The configuration key (atom or string, case-insensitive)
+    * `key` - The configuration key (atom or string)
 
   ## Examples
 
@@ -100,9 +118,8 @@ defmodule ReqLLM do
 
   """
   @spec get_key(atom() | String.t()) :: String.t() | nil
-  def get_key(key) do
-    JidoKeys.get(key, nil)
-  end
+  def get_key(key) when is_atom(key), do: Application.get_env(:req_llm, key)
+  def get_key(key) when is_binary(key), do: System.get_env(key)
 
   @doc """
   Creates a context from a list of messages, a single message struct, or a string.
@@ -162,7 +179,7 @@ defmodule ReqLLM do
           | {:error,
              ReqLLM.Error.Invalid.Provider.t() | ReqLLM.Error.Invalid.Provider.NotImplemented.t()}
   def provider(provider) when is_atom(provider) do
-    ReqLLM.Provider.Registry.fetch(provider)
+    ReqLLM.Providers.get(provider)
   end
 
   @doc """
@@ -173,41 +190,38 @@ defmodule ReqLLM do
     * `model_spec` - Model specification in various formats:
       - String format: `"anthropic:claude-3-sonnet"`
       - Tuple format: `{:anthropic, "claude-3-sonnet", temperature: 0.7}`
-      - Model struct: `%ReqLLM.Model{}`
+      - Model struct: `%LLMDB.Model{}`
 
   ## Examples
 
       ReqLLM.model("anthropic:claude-3-sonnet")
-      #=> {:ok, %ReqLLM.Model{provider: :anthropic, model: "claude-3-sonnet"}}
+      #=> {:ok, %LLMDB.Model{provider: :anthropic, model: "claude-3-sonnet"}}
 
       ReqLLM.model({:anthropic, "claude-3-sonnet", temperature: 0.5})
-      #=> {:ok, %ReqLLM.Model{provider: :anthropic, model: "claude-3-sonnet", temperature: 0.5}}
+      #=> {:ok, %LLMDB.Model{provider: :anthropic, model: "claude-3-sonnet", temperature: 0.5}}
 
   """
-  @spec model(String.t() | {atom(), keyword()} | struct()) :: {:ok, struct()} | {:error, term()}
-  def model(model_spec) do
-    ReqLLM.Model.from(model_spec)
+  @spec model(String.t() | {atom(), String.t(), keyword()} | {atom(), keyword()} | struct()) ::
+          {:ok, struct()} | {:error, term()}
+  def model(%LLMDB.Model{} = model), do: {:ok, model}
+
+  def model({provider, model_id, _opts}) when is_atom(provider) and is_binary(model_id) do
+    LLMDB.model(provider, model_id)
   end
 
-  @doc """
-  Get all supported capabilities for a model.
+  def model({provider, kw}) when is_atom(provider) and is_list(kw) do
+    case kw[:id] || kw[:model] do
+      id when is_binary(id) -> LLMDB.model(provider, id)
+      _ -> {:error, ReqLLM.Error.Invalid.Parameter.exception(parameter: :model, value: kw)}
+    end
+  end
 
-  Returns a list of capability atoms that the model supports based on provider metadata.
+  def model(spec) when is_binary(spec), do: LLMDB.model(spec)
 
-  ## Parameters
-
-    * `model_spec` - Model specification in various formats
-
-  ## Examples
-
-      ReqLLM.capabilities("anthropic:claude-3-haiku")
-      #=> [:max_tokens, :system_prompt, :temperature, :tools, :streaming]
-
-      model = %ReqLLM.Model{provider: :anthropic, model: "claude-3-sonnet"}
-      ReqLLM.capabilities(model)
-      #=> [:max_tokens, :system_prompt, :temperature, :tools, :streaming, :reasoning]
-  """
-  defdelegate capabilities(model_spec), to: ReqLLM.Capability
+  def model(other) do
+    {:error,
+     ReqLLM.Error.Validation.Error.exception(message: "Invalid model spec: #{inspect(other)}")}
+  end
 
   # ===========================================================================
   # Text Generation API - Delegated to ReqLLM.Generation
@@ -310,7 +324,7 @@ defmodule ReqLLM do
   ## StreamResponse Fields
 
     * `stream` - Lazy enumerable of `StreamChunk` structs for real-time consumption
-    * `metadata_task` - Concurrent Task collecting usage and finish_reason
+    * `metadata_handle` - Concurrent handle collecting usage and finish_reason
     * `cancel` - Function to terminate streaming and cleanup resources
     * `model` - Model specification that generated this response
     * `context` - Updated conversation context including assistant's response
@@ -374,16 +388,11 @@ defmodule ReqLLM do
 
     * `model_spec` - Model specification in various formats
     * `messages` - Text prompt or list of messages
-    * `schema` - Schema definition for structured output
+    * `schema` - Schema definition for structured output (NimbleOptions schema or JSON Schema map)
     * `opts` - Additional options (keyword list)
 
   ## Options
 
-    * `:output` - Output type: `:object`, `:array`, `:enum`, or `:no_schema`
-    * `:mode` - Generation mode: `:auto`, `:json`, or `:tool`
-    * `:schema_name` - Optional name for the schema
-    * `:schema_description` - Optional description for the schema
-    * `:enum` - List of possible values (for enum output)
     * `:temperature` - Control randomness in responses (0.0 to 2.0)
     * `:max_tokens` - Limit the length of the response
     * `:provider_options` - Provider-specific options
@@ -398,13 +407,39 @@ defmodule ReqLLM do
       {:ok, object} = ReqLLM.generate_object("anthropic:claude-3-sonnet", "Generate a person", schema)
       #=> {:ok, %{name: "John Doe", age: 30}}
 
-      # Generate an array of objects
-      {:ok, objects} = ReqLLM.generate_object(
-        "anthropic:claude-3-sonnet",
+      # Generate an array of objects (requires JSON Schema-capable provider like OpenAI)
+      person_schema = ReqLLM.Schema.to_json([
+        name: [type: :string, required: true],
+        age: [type: :pos_integer, required: true]
+      ])
+
+      array_schema = %{"type" => "array", "items" => person_schema}
+
+      {:ok, response} = ReqLLM.generate_object(
+        "openai:gpt-4o",
         "Generate 3 heroes",
-        schema,
-        output: :array
+        array_schema
       )
+      # Note: Array outputs currently require manual extraction from the response
+
+      # Recommended: Use Zoi for cleaner array schema definition
+      person = Zoi.object(%{
+        name: Zoi.string(),
+        age: Zoi.number()
+      })
+
+      array_schema = Zoi.array(person) |> ReqLLM.Schema.to_json()
+
+      {:ok, response} = ReqLLM.generate_object(
+        "openai:gpt-4o",
+        "Generate 3 heroes",
+        array_schema
+      )
+
+  > **Note**: Top-level non-object outputs (arrays, enums) require raw JSON Schema
+  > and are only supported by providers with native JSON Schema capabilities (e.g., OpenAI).
+  > Most providers only support object-type schemas. For cleaner array schema definitions,
+  > consider using the Zoi library as shown above.
 
   """
   defdelegate generate_object(model_spec, messages, schema, opts \\ []), to: Generation

@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-sonnet-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjo1MDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNC01Iiwic3RyZWFtIjpmYWxzZSwidGVtcGVyYXR1cmUiOjEuMCwidGhpbmtpbmciOnsiYnVkZ2V0X3Rva2VucyI6MTAyNCwidHlwZSI6ImVuYWJsZWQifX0="
+    },
+    "canonical_json": {
+      "max_tokens": 5000,
+      "messages": [
+        {
+          "content": "Solve 12*7 and show your internal thinking (brief).",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EroCCkYIChgCKkAWQF7ChNkYzMzxKPFHpdxGJo7HBNGmiNV9aWm7AHSGibeCsPO7iFllXl/m7DE7R4zqwGd9BYsONR101RJ+aEx8Egw+DZTrAvpMqAHBUC4aDKAcIUUj3zlylTxWJiIw+gOxPoIisRljyfgIdJPmPzELzs2ekx2dMoKGzOK3eBlzuY6fCJlgjM3Ca2hJgjaSKqEBj+PDpAoYJPcF+knDduo3WW9dAXygVV7beO12QP5xVzp8zsRzkdYqZRAdhih98hcpzwZm3s9oPK7mu/R0Cz+MqRAyZ1j87KDBevF66nYPJa00j5W80TSNqsF66KkTCX1ZnWdxKp6xBNgQrqofNgonnZj4qHKryK067mhzNbMeTQ9eQuAfc5Mx4biKzMNz0Mcn+q7+Ly8pGXY7st2QCIyFZWMYAQ==",
+          "thinking": "I need to calculate 12 * 7.\n\n12 * 7 = (10 + 2) * 7 = 10*7 + 2*7 = 70 + 14 = 84\n\nOr I can just recall that 12 * 7 = 84 from multiplication tables.",
+          "type": "thinking"
+        },
+        {
+          "text": "12 × 7 = **84**\n\n**Thinking:** I can break this down as (10 + 2) × 7 = 70 + 14 = 84, or simply recall it from the multiplication table.",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01RBcLsg5TDHg4vWjudDYPDk",
+      "model": "claude-sonnet-4-5-20250929",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 51,
+        "output_tokens": 139,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "11e62096-0b36-4f3c-b3ef-9402bb36d633"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:53 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

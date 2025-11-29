@@ -1,0 +1,166 @@
+{
+  "model_spec": "azure:o1",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjMwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJuIjoxLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/o1/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "low"
+            }
+          },
+          "finish_reason": "length",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "In the kingdom of Oranthia, every sunrise brought the promise of new wonders, for it was a land shaped by magic and myth alike. Verdant forests stretched far into misty mountains, and azure rivers wound through villages where storytellers sang of legendary beasts. And at the heart of these tales were the dragons—colossal, fire-breathing creatures who once soared across the skies, proud and untamed. \n\nCenturies had passed since dragons last roamed openly among mortals. Their once-frequent visits had dwindled to legends carved into ancient monuments and spoken of in hushed tones at candlelit taverns. In these stories, dragons were harbingers of both doom and deliverance. Some had laid waste to entire cities with their searing flames, but others had guided lost travelers through treacherous mountain passes. One thing was certain: any mortal to gaze upon a dragon’s radiant eyes could never forget it.\n\nOn the outskirts of Oranthia’s bustling capital city of Korandor lived Dara, a skilled ranger who preferred the whispering tranquility of the forest to the clamor of the city. Although she worked primarily as a hunter and guide, Dara’s heart burned with curiosity about the realm’s hidden wonders. She was known to wander deeper and farther into the untamed wilderness than anyone else dared. Having grown up listening to travelers’ tales of dragons, Dara harbored a secret longing to see one with her own eyes.\n\nOne night, as she gazed at the shimmering stars from her modest cottage near the forest edge, a peculiar glow appeared in the sky. It was faint—almost like a flicker of a dying lantern—but unmistakably suspended far above the tallest treetops. Her instincts screamed of something remarkable, and almost against her will, she rose, grabbed her bow, and set out to investigate.\n\nFollowing the indistinct glow, Dara trekked through the forest, stepping carefully over gnarled roots and rustling foliage. Along the way, she found tracks in the damp earth—massive claw prints that dwarfed any creature she knew. It was a mesmerizing sight, both frightening and fascinating. The further she trailed the prints, the more she sensed something extraordinary was near.\n\nWhen she finally reached a starlit clearing, Dara felt her breath catch. There, sprawled across a patch of moonlit grass, lay a wounded dragon. Its scales were the color of midnight, shimmering faintly with every labored breath. Smoke twirled from its nostrils, and sparks danced along its flanks—signs that it was still capable of tremendous power, despite its injuries. A jagged set of spears, broken and splintered, jutted from its hindleg.\n\nRather than fleeing, Dara felt a surprising wave of sympathy. She approached slowly, keeping her bow lowered, her steps cautious. The dragon opened one glowing golden eye, sharp and watchful, and snarled. Smoke hissed, and a low rumble resonated in its throat. But Dara did not waver. She softly told the beast, “I mean no harm,” over and over, almost as if she were speaking to a frightened horse. She reached out with trembling hands and began to remove the remnants of the spears—an act that made the dragon writhe in pain, but it did not lash out. When the last shard of wood was pulled free, the creature emitted a low growl that seemed to hold relief.\n\nOver the coming days, Dara tended to the dragon’s wounds. She crafted herbal poultices from forest plants, as she had learned many healing remedies during her travels. She hunted game to feed the creature, though it needed surprisingly little or perhaps was too exhausted by its injury to eat much. At first, the dragon merely tolerated her presence, suspicious and guarded. Eventually—particularly after a few nights of quiet vigilance on Dara’s part—something changed in its demeanor. The golden eyes lost some of their hostility, and one evening, Dara felt a gentle swirl of warm air cascade around her, almost like a faint sign of gratitude.\n\nWhen the dragon finally rose to its feet again, Dara realized how truly immense it was. Towering as high as the treetops, its obsidian scales glinted under the sunlight, and its broad wings—still battered—unfurled with regal elegance. Each movement invoked a muscular grace, brimming with hidden might. With a flap of its wings, the dragon tested its ability to fly. Although still weak, it managed to lift a few inches off the ground before collapsing back onto all fours. Dara stepped closer to steady the creature, her own heart hammering.\n\nThose luminous eyes lingered on her. The next morning, as the sun streaked the horizon with pink and gold, the dragon lowered its head, gesturing for Dara to climb atop its ridge. Stunned, she stood there for a moment, uncertain if she was dreaming. With a mix of awe and trepidation, Dara placed one cautious foot on a fold of the dragon’s neck scales and hoisted herself up. As her fingers clutched the ridges, the dragon lifted off—and suddenly, they were airborne.\n\nThat first flight was chaotic and exhilarating. The dragon’s injuries still limited its endurance, sending them lurching through the clouds in short spurts. Yet Dara had never felt so alive. The wind whipped through her hair, the world below shrank, and her heart soared as she experienced a sense of liberation unlike any other. They landed near a canyon miles away, where mineral-rich springs bubbled up from beneath the earth. Here, the dragon immersed itself in the hot pools. Steam rose around its body, slowly knitting the deeper wounds. While the beast soaked, Dara gathered more healing herbs, grateful—and astonished—at the bond they had formed in so short a time.\n\nThough formed by chance, this alliance soon set them on a course that would shake all of Oranthia. Word had spread that a dragon was spotted in the forests beyond Korandor. Many who heard the rumors were not kind or curious. The King of Oranthia, Torvald II, twenty-fifth of his line, feared the presence of dragons. His ancestors had defended the kingdom generations ago from dragon raids, forging an uneasy truce that eventually led dragons to retreat. But hearing that one had returned, Torvald saw a menace, not a miracle.\n\nHe called upon the Knights of the Golden Helm—his elite warriors, famed for their lethal skill and unwavering loyalty. They were tasked not only with slaying the rogue dragon but capturing whoever dared harbor it. Meanwhile, rumors that a ranger named Dara was consorting with a fearsome drake spread like wildfire. Some whispered Dara was a fool to befriend the beast; others, enthralled by romantic notions of dragonriders from ancient lore, saw her as a hero in the making.\n\nDara and the dragon were unaware of the mounting threat until the knights converged upon them one evening in the Mineral Springs Canyon. Emerging from behind towering boulders, the knights cast nets and shouted commands. The dragon roared, spitting embers that lit up the night. Dara drew her bow, firing warning shots, her breath ragged with anxiety. She called out for the knights to stand down, to let them prove the dragon meant no harm. But they did not listen.\n\nBattle erupted. Flaming arrows whirled like fireflies, metal clashed against scaled hide, and the air crackled with the sound of magic-laced spears. Though still recovering from its injuries, the dragon fought valiantly, unleashing a vortex of flames that scattered the knights. Dara navigated the chaos, keeping the knights at bay with arrows that disarmed rather than killed, demonstrating her desire to avoid needless bloodshed. Despite their best efforts, the outnumbered pair faced a grim outlook.\n\nJust as the knights closed in on them, the dragon uttered a thunderous roar. Its entire body glowed dark crimson, the intensity of an ancient, forbidden power erupting from its core. A pulsating wave of energy rippled across the landscape, forcing even the knights to stagger back. This unleashed strength was an instinctive reaction—a final, desperate measure to survive. But drawing so heavily on its primal magic drained the dragon, and it collapsed to the ground the moment the surge ended.\n\nIn that instant, Dara realized the only hope was to flee. Knocking aside a knight’s lance, she scrambled onto the dragon’s back, urging it to fly. Although weakened, the dragon mustered just enough energy to launch into the night sky, carrying Dara away from the stunned warriors. Below them, the knights regrouped, vowing to track them relentlessly. \n\nNow fugitives, Dara and the dragon traveled to distant parts of Oranthia, evading those who sought to slaughter the magnificent creature. Along the way, they encountered villagers who would cower in fear—or stare in astonished wonder—upon witnessing the pair’s arrival. Some towns welcomed them, recalling the old legends about how dragons could choose mortal champions to protect the land. Others drove them off with arrows and torches, refusing to believe that a dragon could be anything but a threat.\n\nIn the labyrinthine caves beneath the Silverpeak Mountains, Dara discovered a series of intricate murals. They depicted ancient alliances between Oranthia’s first kings and majestic dragons. Side by side, mankind and dragons had carved out a thriving realm. This was the lost history, the story overshadowed by centuries of conflict and panic. Realizing the significance of this forgotten past, Dara resolved that if she and her dragon could somehow replicate the ancient bond, they might heal the fear that throttled the kingdom.\n\nYet the knights were not their only worry. News had reached the malevolent sorceress Talratha, who had long dwelled in secrecy beyond Oranthia’s borders. She hungered for dragon magic to power her own dark rituals. The moment Talratha sensed a dragon’s whereabouts, she dispatched her cunning agents and conjured illusions that warped the minds of unsuspecting villagers. Soon, a tidal wave of tension rippled across the land—knights advancing from one side, dark magic intruding from another, all converging upon Dara and her wounded companion.\n\nAs danger mounted, Dara found allies among hidden enclaves of druids, rangers, and scholars who believed in the ancient traditions. They guided her to mystical altars, taught her lost incantations, and provided shelter when king’s soldiers came too close. All the while, the dragon slowly regained its strength, reclaiming the majestic might it once possessed.\n\nWhen at last Dara and the dragon were cornered near the Great Lake of Saphes, a final confrontation became inevitable. King Torvald came in person, leading a division of the Knights of the Golden Helm. Across the lake, Talratha and her robed minions prepared to unleash a spell that would syphon the dragon’s lifeforce. With tension so thick it was nearly tactile, Dara stepped forward, standing protectively before the midnight-scaled dragon.\n\nShe pleaded with the king to recall the earliest stanzas from their own kingdom’s lore—that dragons were not always adversaries, but esteemed partners who worked with their human counterparts to nurture the fertile land. She displayed the ancient murals as proof, showing how Oranthia owed much of its prosperity to these once-shared efforts. King Torvald, torn between the inherited hatred for dragons and the kingdom’s old, nearly forgotten values, faltered. The swirling darkness of Talratha’s sorcery, however, offered no moment of reflection. She unleashed a crippling wave of malevolence aimed at the dragon, intending to break its will.\n\nThe king hesitated only briefly. Seeing Talratha’s dark intent, he realized the greater threat looming on the horizon was not this one dragon, but the sorceress’s desire to harness destructive power. With a resolute cry, he commanded his knights to protect Dara and the dragon instead of slaying them. The abrupt shift in loyalty stunned Talratha, who found herself battling several fronts. Meanwhile, Dara chanted the newly learned incantations, weaving a protective aura around her draconic friend. \n\nThe dragon, newly emboldened by the king’s change of heart, rose into the air with a mighty roar. With a single, incandescent burst of dragonfire, it obliterated Talratha’s illusions, forcing the sorceress to reveal her true form—twisted and monstrous. A furious struggle ensued. The lake’s waters churned beneath fierce magical blasts, and the sky crackled with vibrant energies of both light and darkness. In the end, the dragon pinned Talratha beneath its claws, and a final incandescent flame sealed the sorceress’s fate, scattering her dark aura to the winds.\n\nCautiously, the king approached the victorious pair. He inclined his head in a gesture of respect meant for both Dara and the dragon. The knights, albeit warily, followed suit. An unspoken agreement formed then and there. For the first time in generations, the king recognized dragons’ place in Oranthia’s grand tapestry, and Dara understood that communication and trust could serve as a bridge between two vastly different worlds.\n\nIn the months that followed, Dara assumed a role unlike any in recorded history.",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373582,
+      "id": "chatcmpl-Ch2SM1jF6tDdXOqx2Pj5PERSlLSBx",
+      "model": "o1-2024-12-17",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": "fp_a2dc940e6b",
+      "usage": {
+        "completion_tokens": 2997,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 265,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 15,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 3012
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "2ab7cf9f-68d0-438d-91ff-e0260511db8c"
+      ],
+      "azureai-model-sessionid": [
+        "NTIuMTM4LjQ1LjU2OjQ0Mw==;MTAwLjY0LjE3Mi4xNDY6MTAwMDE=;MTI3LjAuMC4xOjQ5OTk=;d079-20251118092207;DR:canadacentral;aoai-sp-o1-2024-12-17-lm-cac-p;aoai-balanced"
+      ],
+      "azureml-model-session": [
+        "d079-20251118092207"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:46:49 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "o1"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "5000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "30000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "4996"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "29999840"
+      ],
+      "x-request-id": [
+        "55db4906-7b46-4f2d-9caf-7fa4f9460ab1"
+      ]
+    },
+    "status": 200
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoyMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IkhlbGxvIHdvcmxkISIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImRlZXBzZWVrL2RlZXBzZWVrLXYzLjEtdGVybWludXM6ZXhhY3RvIiwibiI6MSwicmVhc29uaW5nX2VmZm9ydCI6ImxvdyIsInNlZWQiOjQyLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MC4wfQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 2000,
+      "messages": [
+        {
+          "content": "Hello world!",
+          "role": "user"
+        }
+      ],
+      "model": "deepseek/deepseek-v3.1-terminus:exacto",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 0.0
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "Hello! It's great to see you here. 😊  \nIf you have any questions or need help with something, feel free to ask!",
+            "reasoning": "Hmm, the user just said \"Hello world!\" This is a very simple and common greeting, often used in programming tutorials. Since there's no specific question or complex request, a straightforward friendly response would be appropriate. \n\nI can mirror the cheerful tone and add a bit of warmth to make the interaction more engaging. Maybe offer assistance in case they need help with something. \n\nKeeping it concise and positive seems best here—no need for overthinking. Just acknowledge the greeting and leave the door open for further conversation.",
+            "reasoning_details": [
+              {
+                "format": null,
+                "index": 0,
+                "text": "Hmm, the user just said \"Hello world!\" This is a very simple and common greeting, often used in programming tutorials. Since there's no specific question or complex request, a straightforward friendly response would be appropriate. \n\nI can mirror the cheerful tone and add a bit of warmth to make the interaction more engaging. Maybe offer assistance in case they need help with something. \n\nKeeping it concise and positive seems best here—no need for overthinking. Just acknowledge the greeting and leave the door open for further conversation.",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "stop"
+        }
+      ],
+      "created": 1762105017,
+      "id": "gen-1762105017-zZd7qkEcS4EGt4Ep7tgY",
+      "model": "deepseek/deepseek-v3.1-terminus:exacto",
+      "object": "chat.completion",
+      "provider": "DeepInfra",
+      "usage": {
+        "completion_tokens": 135,
+        "prompt_tokens": 7,
+        "prompt_tokens_details": null,
+        "total_tokens": 142
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998565a82b3d50bb-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:36:57 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

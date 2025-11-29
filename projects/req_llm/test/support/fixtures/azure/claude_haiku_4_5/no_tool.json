@@ -1,0 +1,140 @@
+{
+  "model_spec": "azure:claude-haiku-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoxMjgwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJUZWxsIG1lIGEgam9rZSBhYm91dCBjYXRzIiwicm9sZSI6InVzZXIifV0sIm1vZGVsIjoiY2xhdWRlLWhhaWt1LTQtNSIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjoxLjAsInRoaW5raW5nIjp7ImJ1ZGdldF90b2tlbnMiOjEwMjQsInR5cGUiOiJlbmFibGVkIn0sInRvb2xzIjpbeyJkZXNjcmlwdGlvbiI6IkdldCBjdXJyZW50IHdlYXRoZXIgaW5mb3JtYXRpb24gZm9yIGEgbG9jYXRpb24iLCJpbnB1dF9zY2hlbWEiOnsiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlLCJwcm9wZXJ0aWVzIjp7ImxvY2F0aW9uIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbImxvY2F0aW9uIl0sInR5cGUiOiJvYmplY3QifSwibmFtZSI6ImdldF93ZWF0aGVyIn1dfQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 12800,
+      "messages": [
+        {
+          "content": "Tell me a joke about cats",
+          "role": "user"
+        }
+      ],
+      "model": "claude-haiku-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Get current weather information for a location",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "location": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "name": "get_weather"
+        }
+      ]
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EoMDCkYIChgCKkAf8R7ErwZJf8C5TD/qoV1TOUodjvdW4F+k6VHZtlCUO1LksJHXZIpBgeTfUi8yKNuTxTpb4WnMoJJz7eOsMq8pEgyWt4p4S8yPRm/qYkoaDMFsumDrP6DrQ5ONgCIw8mArvsvNgVHMDSdtGC4yBKr9w3FqCHExcp7apBgaFmP4kLfiSjz+wWmL2dph0PFzKuoB/BoFppGN28xAftdBwwcFgyirDyiKG/2to7GYIT/sZJTD8QCcA5MFQS3SbW2mlJ/gLgmIDyul1cILvEHjzrfWK9NK45M9FMbOlNzogzohdWzwpBUWaW2PdwWxQgGRZPF/f2Nr8d2bVLdQRK0lJDUDevMqgdi9KZgH4giqfaW5XgzLcDlU8gKKhdKu9ANvUFuLqskN48SqYVbQRpNVxCix7lunbSJh6unZoMCvuoHvPGZU1gPTSH9qfEWyHS4Zcvc850Kwp1X2xrQVjBqDXCqxmUaY8Obv7ZWjV4niqi5D3GcD20rkyGE0ZWykGAE=",
+          "thinking": "The user is asking me to tell a joke about cats. This is a simple request for me to provide humor content. I don't need to use any tools for this - I can just tell a joke directly.\n\nLet me come up with a good cat joke:",
+          "type": "thinking"
+        },
+        {
+          "text": "Here's a joke for you:\n\nWhy did the cat sit on the computer?\n\nBecause it wanted to keep an eye on the mouse! 🐱",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01Ma2LkKQik9aT95DBd7a8FZ",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 601,
+        "output_tokens": 98,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "6bee7114-84c6-419a-8071-4aacce14cd22"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-02"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:39:55 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

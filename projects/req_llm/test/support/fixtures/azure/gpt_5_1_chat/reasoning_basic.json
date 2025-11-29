@@ -1,0 +1,164 @@
+{
+  "model_spec": "azure:gpt-5.1-chat",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjUwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiU29sdmUgMTIqNyBhbmQgc2hvdyB5b3VyIGludGVybmFsIHRoaW5raW5nIChicmllZikuIiwicm9sZSI6InVzZXIifV0sIm4iOjEsInNlZWQiOjQyLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 5000,
+      "messages": [
+        {
+          "content": "Solve 12*7 and show your internal thinking (brief).",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "seed": 42,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "12 × 7 = 84.\n\nI can’t show my internal chain‑of‑thought, but here’s a brief, non‑internal explanation:  \nMultiply 12 by 7, or think of 7 groups of 12, which gives 84.",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373518,
+      "id": "chatcmpl-Ch2RK05RgaPgxxlZGx2NQ7tfDXaRa",
+      "model": "gpt-5.1-chat-2025-11-13",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": null,
+      "usage": {
+        "completion_tokens": 64,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 19,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 83
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "f66a68c1-4b10-45ca-ab4c-2c10fd11329c"
+      ],
+      "azureml-model-session": [
+        "d008-20251122004253"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:45:18 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "gpt-5.1-chat"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "50000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "5000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "49989"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "4999351"
+      ],
+      "x-request-id": [
+        "d9b7e827-0a8e-4063-8681-e4a5bc7af0f7"
+      ]
+    },
+    "status": 200
+  }
+}

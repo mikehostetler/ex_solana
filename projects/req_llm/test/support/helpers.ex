@@ -10,7 +10,7 @@ defmodule ReqLLM.Test.Helpers do
 
   import ExUnit.Assertions
 
-  alias ReqLLM.{Context, Message, Model, Response, StreamChunk}
+  alias ReqLLM.{Context, Message, Response, StreamChunk}
 
   @doc """
   Create a basic context fixture for testing.
@@ -32,7 +32,8 @@ defmodule ReqLLM.Test.Helpers do
 
   """
   def model_fixture(model_spec) when is_binary(model_spec) do
-    Model.from!(model_spec)
+    {:ok, model} = ReqLLM.model(model_spec)
+    model
   end
 
   @doc """
@@ -336,11 +337,11 @@ defmodule ReqLLM.Test.Helpers do
       819
   """
   def tool_budget_for(model_spec) do
-    case Model.from(model_spec) do
+    case ReqLLM.model(model_spec) do
       {:ok, model} ->
         cond do
-          is_integer(model.max_tokens) and model.max_tokens > 0 ->
-            max(64, div(model.max_tokens, 10))
+          is_map(model.limits) and is_integer(model.limits[:output]) and model.limits[:output] > 0 ->
+            max(64, div(model.limits[:output], 10))
 
           is_map(model.cost) and is_number(model.cost[:output]) and model.cost[:output] < 0.001 ->
             500
@@ -489,15 +490,50 @@ defmodule ReqLLM.Test.Helpers do
       [temperature: 0.0, max_tokens: 200, reasoning_effort: :low]
   """
   def reasoning_overlay(model_spec, base_opts, min_tokens \\ nil) do
-    case ReqLLM.Model.from(model_spec) do
-      {:ok, %{capabilities: %{reasoning: true}}} ->
+    case ReqLLM.model(model_spec) do
+      {:ok, %{capabilities: %{reasoning: %{enabled: true}}, provider: provider_id}} ->
         cfg = param_bundles()
         opts = Keyword.put(base_opts, :reasoning_effort, cfg.reasoning[:reasoning_effort] || :low)
 
-        if is_integer(min_tokens) and (opts[:max_tokens] || 0) < min_tokens do
-          Keyword.put(opts, :max_tokens, min_tokens)
-        else
-          opts
+        # Check if provider has thinking constraints
+        case ReqLLM.provider(provider_id) do
+          {:ok, provider_module} ->
+            if function_exported?(provider_module, :thinking_constraints, 0) do
+              case provider_module.thinking_constraints() do
+                %{required_temperature: temp, min_max_tokens: min_max_tokens} ->
+                  # Apply provider-specific constraints
+                  effective_min = max(min_tokens || min_max_tokens, min_max_tokens)
+
+                  opts
+                  |> Keyword.put(:temperature, temp)
+                  |> Keyword.update(:max_tokens, effective_min, fn current ->
+                    max(current, effective_min)
+                  end)
+
+                :none ->
+                  # No constraints, just apply min_tokens if specified
+                  if is_integer(min_tokens) and (opts[:max_tokens] || 0) < min_tokens do
+                    Keyword.put(opts, :max_tokens, min_tokens)
+                  else
+                    opts
+                  end
+              end
+            else
+              # Provider doesn't implement thinking_constraints, use default behavior
+              if is_integer(min_tokens) and (opts[:max_tokens] || 0) < min_tokens do
+                Keyword.put(opts, :max_tokens, min_tokens)
+              else
+                opts
+              end
+            end
+
+          _ ->
+            # Provider not found, use default behavior
+            if is_integer(min_tokens) and (opts[:max_tokens] || 0) < min_tokens do
+              Keyword.put(opts, :max_tokens, min_tokens)
+            else
+              opts
+            end
         end
 
       _ ->
@@ -506,6 +542,7 @@ defmodule ReqLLM.Test.Helpers do
   end
 
   def reasoning_overlay(model_spec, _provider, base_opts, min_tokens) do
+    # Delegate to 3-arity version which now handles all provider-specific constraints
     reasoning_overlay(model_spec, base_opts, min_tokens)
   end
 

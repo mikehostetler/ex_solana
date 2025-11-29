@@ -1,0 +1,214 @@
+{
+  "model_spec": "azure:codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IkdlbmVyYXRlIGEgc29mdHdhcmUgZW5naW5lZXIgcHJvZmlsZSIsInR5cGUiOiJpbnB1dF90ZXh0In1dLCJyb2xlIjoidXNlciJ9XSwibWF4X291dHB1dF90b2tlbnMiOjUwMCwibW9kZWwiOiJjb2RleC1taW5pIiwic3RyZWFtIjpmYWxzZSwidG9vbF9jaG9pY2UiOnsibmFtZSI6InN0cnVjdHVyZWRfb3V0cHV0IiwidHlwZSI6ImZ1bmN0aW9uIn0sInRvb2xzIjpbeyJkZXNjcmlwdGlvbiI6IkdlbmVyYXRlIHN0cnVjdHVyZWQgb3V0cHV0IG1hdGNoaW5nIHRoZSBwcm92aWRlZCBzY2hlbWEiLCJuYW1lIjoic3RydWN0dXJlZF9vdXRwdXQiLCJwYXJhbWV0ZXJzIjp7ImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJhZ2UiOnsiZGVzY3JpcHRpb24iOiJQZXJzb24ncyBhZ2UgaW4geWVhcnMiLCJtaW5pbXVtIjoxLCJ0eXBlIjoiaW50ZWdlciJ9LCJuYW1lIjp7ImRlc2NyaXB0aW9uIjoiUGVyc29uJ3MgZnVsbCBuYW1lIiwidHlwZSI6InN0cmluZyJ9LCJvY2N1cGF0aW9uIjp7ImRlc2NyaXB0aW9uIjoiUGVyc29uJ3Mgam9iIG9yIHByb2Zlc3Npb24iLCJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJhZ2UiLCJuYW1lIiwib2NjdXBhdGlvbiJdLCJ0eXBlIjoib2JqZWN0In0sInN0cmljdCI6dHJ1ZSwidHlwZSI6ImZ1bmN0aW9uIn1dfQ=="
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Generate a software engineer profile",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 500,
+      "model": "codex-mini",
+      "stream": false,
+      "tool_choice": {
+        "name": "structured_output",
+        "type": "function"
+      },
+      "tools": [
+        {
+          "description": "Generate structured output matching the provided schema",
+          "name": "structured_output",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "age": {
+                "description": "Person's age in years",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "name": {
+                "description": "Person's full name",
+                "type": "string"
+              },
+              "occupation": {
+                "description": "Person's job or profession",
+                "type": "string"
+              }
+            },
+            "required": [
+              "age",
+              "name",
+              "occupation"
+            ],
+            "type": "object"
+          },
+          "strict": true,
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764374953,
+      "error": null,
+      "id": "resp_0996f71425dbea7d00692a39a9e1dc8194ba20afbd0040788c",
+      "incomplete_details": {
+        "reason": "max_output_tokens"
+      },
+      "instructions": null,
+      "max_output_tokens": 500,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_0996f71425dbea7d00692a39aa889881948bf519031f0284ec",
+          "summary": [],
+          "type": "reasoning"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "incomplete",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": {
+        "name": "structured_output",
+        "type": "function"
+      },
+      "tools": [
+        {
+          "description": "Generate structured output matching the provided schema",
+          "name": "structured_output",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "age": {
+                "description": "Person's age in years",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "name": {
+                "description": "Person's full name",
+                "type": "string"
+              },
+              "occupation": {
+                "description": "Person's job or profession",
+                "type": "string"
+              }
+            },
+            "required": [
+              "age",
+              "name",
+              "occupation"
+            ],
+            "type": "object"
+          },
+          "strict": true,
+          "type": "function"
+        }
+      ],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 80,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 448,
+        "output_tokens_details": {
+          "reasoning_tokens": 448
+        },
+        "total_tokens": 528
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "963ff5f1-5a62-45b7-971f-4276f3179d0a"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:09:17 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "cf0aacac-bcff-4b5c-b5bb-8f0c63d30b89"
+      ]
+    },
+    "status": 200
+  }
+}

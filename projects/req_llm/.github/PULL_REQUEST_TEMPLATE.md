@@ -17,7 +17,6 @@ Brief description of what this PR accomplishes.
 - [ ] Tests pass (`mix test`)
 - [ ] Quality checks pass (`mix quality`)
 - [ ] Documentation updated
-- [ ] CHANGELOG.md updated
 
 ### If Provider Changes
 - [ ] Fixtures generated (`mix mc "provider:*" --record`)

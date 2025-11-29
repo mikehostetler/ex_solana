@@ -4,25 +4,51 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
   Supports AWS Bedrock's unified API for accessing multiple AI models including:
   - Anthropic Claude models (fully implemented)
-  - Meta Llama models (extensible)
+  - Meta Llama models (fully implemented)
+  - Mistral AI models (fully implemented)
   - Amazon Nova models (extensible)
   - Cohere models (extensible)
   - And more as AWS adds them
 
   ## Authentication
 
-  Bedrock uses AWS Signature V4 authentication. Configure credentials via:
+  Bedrock supports two authentication methods:
 
-      # Option 1: Environment variables (recommended)
+  ### API Keys (Simplest - Introduced July 2025)
+
+  AWS Bedrock API keys provide simplified authentication with Bearer tokens:
+
+      # Option 1: Environment variable (recommended)
+      export AWS_BEARER_TOKEN_BEDROCK=your-api-key
+      export AWS_REGION=us-east-1
+
+      # Option 2: Pass directly in options
+      ReqLLM.generate_text(
+        "bedrock:anthropic.claude-3-sonnet-20240229-v1:0",
+        "Hello",
+        api_key: "your-api-key",
+        region: "us-east-1"
+      )
+
+  **Note**: API keys cannot be used with InvokeModelWithBidirectionalStream, Agents, or Data Automation operations.
+  Short-term keys (up to 12 hours) are recommended for production. Long-term keys are for exploration only.
+
+  ### IAM Credentials (AWS Signature V4)
+
+  Traditional AWS authentication using access keys:
+
+      # Option 1: Environment variables
       export AWS_ACCESS_KEY_ID=AKIA...
       export AWS_SECRET_ACCESS_KEY=...
       export AWS_REGION=us-east-1
 
       # Option 2: Pass directly in options
-      model = ReqLLM.Model.from("bedrock:anthropic.claude-3-sonnet-20240229-v1:0",
-        region: "us-east-1",
+      ReqLLM.generate_text(
+        "bedrock:anthropic.claude-3-sonnet-20240229-v1:0",
+        "Hello",
         access_key_id: "AKIA...",
-        secret_access_key: "..."
+        secret_access_key: "...",
+        region: "us-east-1"
       )
 
       # Option 3: Use ReqLLM.Keys (with composite key)
@@ -32,10 +58,30 @@ defmodule ReqLLM.Providers.AmazonBedrock do
         region: "us-east-1"
       })
 
+  ## Known Limitations
+
+  ### AWS Signature V4 Expiry with Long-Running Requests
+
+  AWS Signature V4 (used for all AWS API requests) has a hardcoded 5-minute expiry time.
+  This creates a fundamental limitation for requests that take longer than 5 minutes to complete:
+
+  - AWS validates the signature when **responding**, not when receiving the request
+  - If a request takes >5 minutes to complete, AWS will reject it with a 403 "Signature expired" error
+  - This affects slow models with large outputs (e.g., Claude Opus 4/4.1 with max token limits)
+  - The 5-minute limit cannot be extended or configured - it's part of the AWS SigV4 spec
+  - No workaround exists without implementing request re-signing during long-running requests
+
+  From [AWS IAM documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html):
+  > In most cases, a request must reach AWS within five minutes of the time stamp in the request.
+
+  **Impact:** Tests or production code using slow models with high token limits may intermittently
+  fail with signature expiry errors. Consider using shorter timeouts or faster model variants for
+  time-critical applications.
+
   ## Examples
 
       # Simple text generation with Claude on Bedrock
-      model = ReqLLM.Model.from("bedrock:anthropic.claude-3-sonnet-20240229-v1:0")
+      model = ReqLLM.model("bedrock:anthropic.claude-3-sonnet-20240229-v1:0")
       {:ok, response} = ReqLLM.generate_text(model, "Hello!")
 
       # Streaming
@@ -61,49 +107,69 @@ defmodule ReqLLM.Providers.AmazonBedrock do
      - `parse_stream_chunk/2` - Handle streaming responses
   """
 
-  @behaviour ReqLLM.Provider
-
-  use ReqLLM.Provider.DSL,
+  use ReqLLM.Provider,
     id: :amazon_bedrock,
-    base_url: "https://bedrock-runtime.{region}.amazonaws.com",
-    metadata: "priv/models_dev/amazon_bedrock.json",
-    default_env_key: "AWS_ACCESS_KEY_ID",
-    provider_schema: [
-      region: [
-        type: :string,
-        default: "us-east-1",
-        doc: "AWS region where Bedrock is available"
-      ],
-      access_key_id: [
-        type: :string,
-        doc: "AWS Access Key ID (can also use AWS_ACCESS_KEY_ID env var)"
-      ],
-      secret_access_key: [
-        type: :string,
-        doc: "AWS Secret Access Key (can also use AWS_SECRET_ACCESS_KEY env var)"
-      ],
-      session_token: [
-        type: :string,
-        doc: "AWS Session Token for temporary credentials"
-      ],
-      use_converse: [
-        type: :boolean,
-        doc: "Force use of Bedrock Converse API (default: auto-detect based on tools presence)"
-      ],
-      additional_model_request_fields: [
-        type: :map,
-        doc:
-          "Additional model-specific request fields (e.g., reasoning_config for Claude extended thinking)"
-      ]
-    ]
+    default_base_url: "https://bedrock-runtime.{region}.amazonaws.com",
+    default_env_key: "AWS_ACCESS_KEY_ID"
 
   import ReqLLM.Provider.Utils,
     only: [ensure_parsed_body: 1]
 
   alias ReqLLM.Error
   alias ReqLLM.Error.Invalid.Parameter, as: InvalidParameter
+  alias ReqLLM.ModelHelpers
   alias ReqLLM.Providers.AmazonBedrock.AWSEventStream
+  alias ReqLLM.Providers.Anthropic
+  alias ReqLLM.Providers.Anthropic.PlatformReasoning
   alias ReqLLM.Step
+
+  @provider_schema [
+    api_key: [
+      type: :string,
+      doc:
+        "Bedrock API key for simplified authentication (can also use AWS_BEARER_TOKEN_BEDROCK env var). Alternative to IAM credentials."
+    ],
+    region: [
+      type: :string,
+      default: "us-east-1",
+      doc: "AWS region where Bedrock is available"
+    ],
+    access_key_id: [
+      type: :string,
+      doc: "AWS Access Key ID (can also use AWS_ACCESS_KEY_ID env var)"
+    ],
+    secret_access_key: [
+      type: :string,
+      doc: "AWS Secret Access Key (can also use AWS_SECRET_ACCESS_KEY env var)"
+    ],
+    session_token: [
+      type: :string,
+      doc: "AWS Session Token for temporary credentials"
+    ],
+    use_converse: [
+      type: :boolean,
+      doc: "Force use of Bedrock Converse API (default: auto-detect based on tools presence)"
+    ],
+    additional_model_request_fields: [
+      type: :map,
+      doc:
+        "Additional model-specific request fields (e.g., reasoning_config for Claude extended thinking)"
+    ],
+    anthropic_prompt_cache: [
+      type: :boolean,
+      doc: "Enable Anthropic prompt caching for Claude models on Bedrock"
+    ],
+    anthropic_prompt_cache_ttl: [
+      type: :string,
+      doc: "TTL for cache (\"1h\" for one hour; omit for default ~5m)"
+    ],
+    service_tier: [
+      type: {:in, ["priority", "default", "flex"]},
+      default: "default",
+      doc:
+        "Service tier for request prioritization. Priority provides faster responses at higher cost, Flex is more cost-effective with longer latency."
+    ]
+  ]
 
   @dialyzer :no_match
   # Base URL will be constructed with region
@@ -120,16 +186,54 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
   @impl ReqLLM.Provider
   def prepare_request(:chat, model_input, input, opts) do
-    with {:ok, model} <- ReqLLM.Model.from(model_input),
+    with {:ok, model} <- ReqLLM.model(model_input),
          {:ok, context} <- ReqLLM.Context.normalize(input, opts) do
       http_opts = Keyword.get(opts, :req_http_options, [])
 
       # Bedrock endpoints vary by streaming
       endpoint = if opts[:stream], do: "/invoke-with-response-stream", else: "/invoke"
 
+      # Reasoning models with extended thinking need longer timeouts
+      timeout =
+        if ModelHelpers.reasoning_enabled?(model) do
+          180_000
+        else
+          60_000
+        end
+
       request =
-        Req.new([url: endpoint, method: :post, receive_timeout: 30_000] ++ http_opts)
+        Req.new([url: endpoint, method: :post, receive_timeout: timeout] ++ http_opts)
         |> attach(model, Keyword.put(opts, :context, context))
+
+      {:ok, request}
+    end
+  end
+
+  @impl ReqLLM.Provider
+  def prepare_request(:object, model_input, input, opts) do
+    # Structured output is implemented via tool calling for Claude models
+    # We leverage the existing Anthropic tool-based approach
+    with {:ok, model} <- ReqLLM.model(model_input),
+         {:ok, context} <- ReqLLM.Context.normalize(input, opts) do
+      http_opts = Keyword.get(opts, :req_http_options, [])
+
+      # Bedrock endpoints vary by streaming
+      endpoint = if opts[:stream], do: "/invoke-with-response-stream", else: "/invoke"
+
+      # Reasoning models with extended thinking need longer timeouts
+      timeout =
+        if ModelHelpers.reasoning_enabled?(model) do
+          180_000
+        else
+          60_000
+        end
+
+      # Mark operation as :object so the formatter can handle it appropriately
+      opts_with_operation = Keyword.put(opts, :operation, :object)
+
+      request =
+        Req.new([url: endpoint, method: :post, receive_timeout: timeout] ++ http_opts)
+        |> attach(model, Keyword.put(opts_with_operation, :context, context))
 
       {:ok, request}
     end
@@ -139,13 +243,18 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     {:error,
      InvalidParameter.exception(
        parameter:
-         "operation: #{inspect(operation)} not supported by Bedrock provider. Supported operations: [:chat]"
+         "operation: #{inspect(operation)} not supported by Bedrock provider. Supported operations: [:chat, :object]"
      )}
   end
 
   @impl ReqLLM.Provider
   def attach(%Req.Request{} = request, model_input, user_opts) do
-    %ReqLLM.Model{} = model = ReqLLM.Model.from!(model_input)
+    %LLMDB.Model{} =
+      model =
+      case ReqLLM.model(model_input) do
+        {:ok, m} -> m
+        {:error, err} -> raise err
+      end
 
     if model.provider != provider_id() do
       raise Error.Invalid.Provider.exception(provider: model.provider)
@@ -157,23 +266,43 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     # Validate we have necessary AWS credentials
     validate_aws_credentials!(aws_creds)
 
-    # Use the options directly
-    opts = other_opts
+    # Process options (validates, normalizes, and calls pre_validate_options)
+    operation = other_opts[:operation] || :chat
+
+    opts =
+      case ReqLLM.Provider.Options.process(__MODULE__, operation, model, other_opts) do
+        {:ok, processed_opts} -> processed_opts
+        {:error, error} -> raise error
+      end
+
+    # For Anthropic models: Remove thinking from additional_model_request_fields if it was removed by translate_options
+    # This handles the case where thinking is incompatible with forced tool_choice
+    opts =
+      maybe_clean_thinking_after_translation(
+        opts,
+        get_model_family(model.provider_model_id || model.id),
+        operation
+      )
 
     # Construct the base URL with region
-    region = aws_creds[:region] || "us-east-1"
+    region =
+      case aws_creds do
+        %{region: r} when is_binary(r) -> r
+        %{region: _} -> "us-east-1"
+        %AWSAuth.Credentials{region: r} when is_binary(r) -> r
+        %AWSAuth.Credentials{} -> "us-east-1"
+        _ -> "us-east-1"
+      end
+
     base_url = "https://bedrock-runtime.#{region}.amazonaws.com"
 
-    model_id = model.model
+    # Use provider_model_id if set (for models requiring specific API format like inference profiles),
+    # otherwise fall back to canonical model ID
+    model_id = model.provider_model_id || model.id
 
     # Check if we should use Converse API
-    # Priority: explicit use_converse option > auto-detect from tools presence
-    use_converse =
-      case opts[:use_converse] do
-        true -> true
-        false -> false
-        nil -> opts[:tools] != nil and opts[:tools] != []
-      end
+    # Priority: explicit use_converse option > prompt caching optimization > auto-detect from tools presence
+    use_converse = determine_use_converse(model_id, opts)
 
     {endpoint_base, formatter, model_family} =
       if use_converse do
@@ -183,7 +312,22 @@ defmodule ReqLLM.Providers.AmazonBedrock do
             do: "/model/#{model_id}/converse-stream",
             else: "/model/#{model_id}/converse"
 
-        {endpoint, ReqLLM.Providers.AmazonBedrock.Converse, :converse}
+        # Check if there's a model family formatter that wraps Converse
+        # (e.g., Mistral formatter that pre-processes messages before delegating to Converse)
+        family = get_model_family(model_id)
+        family_formatter = get_formatter_module(family)
+
+        # Only use family formatter if it explicitly requires Converse API (like Mistral)
+        # Otherwise use Converse formatter directly
+        formatter =
+          if function_exported?(family_formatter, :requires_converse_api?, 0) and
+               family_formatter.requires_converse_api?() do
+            family_formatter
+          else
+            ReqLLM.Providers.AmazonBedrock.Converse
+          end
+
+        {endpoint, formatter, :converse}
       else
         # Use native model-specific endpoint
         endpoint =
@@ -198,13 +342,22 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     updated_request =
       request
       |> Map.put(:url, URI.parse(base_url <> endpoint_base))
-      |> Req.Request.register_options([:model, :context, :model_family, :use_converse])
+      |> Req.Request.register_options([
+        :model,
+        :context,
+        :model_family,
+        :use_converse,
+        :operation,
+        :tools
+      ])
       |> Req.Request.merge_options(
         base_url: base_url,
         model: model_id,
         model_family: model_family,
         context: opts[:context],
-        use_converse: use_converse
+        use_converse: use_converse,
+        operation: opts[:operation],
+        tools: opts[:tools]
       )
 
     model_body =
@@ -214,6 +367,14 @@ defmodule ReqLLM.Providers.AmazonBedrock do
         opts
       )
 
+    # Add service_tier if specified (default is already "default")
+    model_body =
+      if opts[:service_tier] && opts[:service_tier] != "default" do
+        Map.put(model_body, "service_tier", opts[:service_tier])
+      else
+        model_body
+      end
+
     request_with_body =
       updated_request
       |> Req.Request.put_header("content-type", "application/json")
@@ -221,10 +382,12 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
     request_with_body
     |> Step.Error.attach()
+    |> ReqLLM.Step.Retry.attach()
     |> put_aws_sigv4(aws_creds)
     # No longer attach streaming here - it's handled by attach_stream
-    |> Req.Request.append_response_steps(bedrock_decode_response: &decode_response/1)
+    |> Req.Request.append_response_steps(llm_decode_response: &decode_response/1)
     |> Step.Usage.attach(model)
+    |> ReqLLM.Step.Fixture.maybe_attach(model, user_opts)
   end
 
   @impl ReqLLM.Provider
@@ -235,29 +398,56 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     # Validate we have necessary AWS credentials
     validate_aws_credentials!(aws_creds)
 
-    # Check if we should use Converse API
-    # Priority: explicit use_converse option > auto-detect from tools presence
-    use_converse =
-      case other_opts[:use_converse] do
-        true -> true
-        false -> false
-        nil -> other_opts[:tools] != nil and other_opts[:tools] != []
-      end
+    # Apply pre-validation (reasoning params, etc.) - streaming bypasses Options.process
+    {pre_validated_opts, _warnings} = pre_validate_options(:chat, model, other_opts)
 
-    # Get model-specific or Converse formatter
-    model_id = model.model
+    # Apply option translation (temperature/top_p conflicts, etc.)
+    # This is critical for streaming requests which bypass the normal Options.process pipeline
+    {translated_opts, _warnings} = translate_options(:chat, model, pre_validated_opts)
+
+    # Get model ID - use provider_model_id if set (for models requiring specific API format),
+    # otherwise fall back to canonical model ID
+    model_id = model.provider_model_id || model.id
+
+    # Check if we should use Converse API
+    # Priority: explicit use_converse option > prompt caching optimization > auto-detect from tools presence
+    use_converse = determine_use_converse(model_id, translated_opts)
 
     {formatter, path} =
       if use_converse do
-        {ReqLLM.Providers.AmazonBedrock.Converse, "/model/#{model_id}/converse-stream"}
+        # Check if there's a model family formatter that wraps Converse
+        # (e.g., Mistral formatter that pre-processes messages before delegating to Converse)
+        model_family = get_model_family(model_id)
+        family_formatter = get_formatter_module(model_family)
+
+        # Only use family formatter if it explicitly requires Converse API (like Mistral)
+        # Otherwise use Converse formatter directly
+        formatter =
+          if function_exported?(family_formatter, :requires_converse_api?, 0) and
+               family_formatter.requires_converse_api?() do
+            family_formatter
+          else
+            ReqLLM.Providers.AmazonBedrock.Converse
+          end
+
+        {formatter, "/model/#{model_id}/converse-stream"}
       else
         model_family = get_model_family(model_id)
         formatter = get_formatter_module(model_family)
         {formatter, "/model/#{model_id}/invoke-with-response-stream"}
       end
 
-    # Build request body
-    body = formatter.format_request(model_id, context, other_opts)
+    # Build request body with translated options
+    body = formatter.format_request(model_id, context, translated_opts)
+
+    # Add service_tier if specified (default is already "default")
+    body =
+      if translated_opts[:service_tier] && translated_opts[:service_tier] != "default" do
+        Map.put(body, "service_tier", translated_opts[:service_tier])
+      else
+        body
+      end
+
     json_body = Jason.encode!(body)
 
     # Ensure json_body is binary
@@ -266,7 +456,7 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     end
 
     # Construct streaming URL
-    region = aws_creds[:region] || "us-east-1"
+    region = aws_creds.region || "us-east-1"
     host = "bedrock-runtime.#{region}.amazonaws.com"
     url = "https://#{host}#{path}"
 
@@ -318,11 +508,25 @@ defmodule ReqLLM.Providers.AmazonBedrock do
   end
 
   @impl ReqLLM.Provider
-  def decode_sse_event(event, model) when is_map(event) do
+  def decode_stream_event(event, model) when is_map(event) do
     # Decode AWS event stream events into StreamChunks
     # This is called after parse_stream_protocol returns events
-    model_family = get_model_family(model.model)
-    formatter = get_formatter_module(model_family)
+    #
+    # IMPORTANT: For inference profiles, we need to route to the Converse formatter
+    # because those models MUST use Converse API, which produces events in Converse format.
+    # The model family alone isn't sufficient - we need to check if this is an inference profile.
+    # Use provider_model_id (the API ID) not the canonical ID to check for inference profile
+    model_id = model.provider_model_id || model.id
+
+    formatter =
+      if is_inference_profile_model?(model_id) do
+        # Inference profiles use Converse API, so use Converse formatter
+        ReqLLM.Providers.AmazonBedrock.Converse
+      else
+        # Non-inference-profile models: use model family formatter
+        model_family = get_model_family(model_id)
+        get_formatter_module(model_family)
+      end
 
     case formatter.parse_stream_chunk(event, %{}) do
       {:ok, nil} -> []
@@ -331,7 +535,7 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     end
   end
 
-  def decode_sse_event(_data, _model) do
+  def decode_stream_event(_data, _model) do
     []
   end
 
@@ -339,7 +543,6 @@ defmodule ReqLLM.Providers.AmazonBedrock do
   # It's called by Options.process/4 if the provider exports it
   def pre_validate_options(_operation, model, opts) do
     # Handle reasoning parameters for Claude models on Bedrock
-    # Claude Sonnet 3.7, 4.x support extended thinking via additionalModelRequestFields
     opts = maybe_translate_reasoning_params(model, opts)
     {opts, []}
   end
@@ -347,28 +550,25 @@ defmodule ReqLLM.Providers.AmazonBedrock do
   # Translate reasoning_effort/reasoning_token_budget to Bedrock additionalModelRequestFields
   # Only for Claude models that support extended thinking
   defp maybe_translate_reasoning_params(model, opts) do
-    model_id = model.model
+    model_id = model.provider_model_id || model.id
 
-    # Check if this is a Claude model with reasoning support
-    is_claude_reasoning =
-      String.contains?(model_id, "anthropic.claude") and
-        (String.contains?(model_id, "sonnet-3-7") or
-           String.contains?(model_id, "sonnet-4") or
-           String.contains?(model_id, "opus-4"))
+    # Check if this is a Claude model with reasoning capability
+    is_claude = String.contains?(model_id, "anthropic.claude")
+    has_reasoning = ModelHelpers.reasoning_enabled?(model)
 
-    if is_claude_reasoning do
+    if is_claude and has_reasoning do
       {reasoning_effort, opts} = Keyword.pop(opts, :reasoning_effort)
       {reasoning_budget, opts} = Keyword.pop(opts, :reasoning_token_budget)
 
       cond do
         reasoning_budget && is_integer(reasoning_budget) ->
           # Explicit budget_tokens provided
-          add_reasoning_to_additional_fields(opts, reasoning_budget)
+          PlatformReasoning.add_reasoning_to_additional_fields(opts, reasoning_budget)
 
         reasoning_effort ->
-          # Map effort to budget
-          budget = map_reasoning_effort_to_budget(reasoning_effort)
-          add_reasoning_to_additional_fields(opts, budget)
+          # Map effort to budget using canonical Anthropic mappings
+          budget = Anthropic.map_reasoning_effort_to_budget(reasoning_effort)
+          PlatformReasoning.add_reasoning_to_additional_fields(opts, budget)
 
         true ->
           opts
@@ -379,26 +579,14 @@ defmodule ReqLLM.Providers.AmazonBedrock do
     end
   end
 
-  defp add_reasoning_to_additional_fields(opts, budget_tokens) do
-    additional_fields =
-      Keyword.get(opts, :additional_model_request_fields, %{})
-      |> Map.put(:reasoning_config, %{type: "enabled", budget_tokens: budget_tokens})
-
-    Keyword.put(opts, :additional_model_request_fields, additional_fields)
+  defp is_inference_profile_model?(model_id) when is_binary(model_id) do
+    String.starts_with?(model_id, ["us.", "eu.", "ap.", "ca.", "global."])
   end
-
-  defp map_reasoning_effort_to_budget(:low), do: 4_000
-  defp map_reasoning_effort_to_budget(:medium), do: 8_000
-  defp map_reasoning_effort_to_budget(:high), do: 16_000
-  defp map_reasoning_effort_to_budget("low"), do: 4_000
-  defp map_reasoning_effort_to_budget("medium"), do: 8_000
-  defp map_reasoning_effort_to_budget("high"), do: 16_000
-  defp map_reasoning_effort_to_budget(_), do: 8_000
 
   @impl ReqLLM.Provider
   def extract_usage(body, model) when is_map(body) do
     # Delegate to model family formatter
-    model_family = get_model_family(model.model)
+    model_family = get_model_family(model.provider_model_id || model.id)
     formatter = get_formatter_module(model_family)
 
     if function_exported?(formatter, :extract_usage, 2) do
@@ -423,118 +611,134 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
   # AWS Authentication
   defp extract_aws_credentials(opts) do
-    aws_keys = [:access_key_id, :secret_access_key, :session_token, :region]
+    aws_keys = [:api_key, :access_key_id, :secret_access_key, :session_token, :region]
 
-    # First check environment variables
-    env_creds = get_aws_env_credentials()
-
-    # Then overlay with any passed options
+    # Split AWS credentials from other options
     {passed_creds, other_opts} = Keyword.split(opts, aws_keys)
 
-    # Merge with passed credentials taking precedence
-    aws_creds = Keyword.merge(env_creds, passed_creds)
+    # Credential precedence:
+    # 1. Passed API key
+    # 2. Passed IAM credentials
+    # 3. Env var API key
+    # 4. Env var IAM credentials
 
-    {aws_creds, other_opts}
+    creds =
+      cond do
+        # 1. Passed API key takes highest priority
+        passed_creds[:api_key] ->
+          %{
+            api_key: passed_creds[:api_key],
+            region: passed_creds[:region] || System.get_env("AWS_REGION") || "us-east-1"
+          }
+
+        # 2. Passed IAM credentials
+        passed_creds[:access_key_id] && passed_creds[:secret_access_key] ->
+          AWSAuth.Credentials.from_map(passed_creds)
+
+        # 3. Env var API key
+        env_api_key = System.get_env("AWS_BEARER_TOKEN_BEDROCK") ->
+          %{
+            api_key: env_api_key,
+            region: passed_creds[:region] || System.get_env("AWS_REGION") || "us-east-1"
+          }
+
+        # 4. Env var IAM credentials
+        true ->
+          AWSAuth.Credentials.from_env()
+      end
+
+    {creds, other_opts}
   end
 
-  defp get_aws_env_credentials do
-    [
-      access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
-      session_token: System.get_env("AWS_SESSION_TOKEN"),
-      region: System.get_env("AWS_REGION") || System.get_env("AWS_DEFAULT_REGION")
-    ]
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+  defp validate_aws_credentials!(nil) do
+    raise ArgumentError, """
+    AWS credentials required for Bedrock. Please provide either:
+
+    1. API Key (simplest):
+       AWS_BEARER_TOKEN_BEDROCK=... (environment variable)
+       or api_key: "..." (option)
+
+    2. IAM Credentials:
+       AWS_ACCESS_KEY_ID=...
+       AWS_SECRET_ACCESS_KEY=...
+       or access_key_id: "...", secret_access_key: "..."
+    """
   end
 
-  defp validate_aws_credentials!(creds) do
-    case {creds[:access_key_id], creds[:secret_access_key]} do
-      {nil, _} ->
-        raise ArgumentError, """
-        AWS credentials required for Bedrock. Please provide either:
+  defp validate_aws_credentials!(%{api_key: api_key}) when is_binary(api_key), do: :ok
 
-        1. Environment variables:
-           AWS_ACCESS_KEY_ID=...
-           AWS_SECRET_ACCESS_KEY=...
-
-        2. Options:
-           access_key_id: "...", secret_access_key: "..."
-        """
-
-      {_, nil} ->
-        raise ArgumentError, """
-        AWS credentials required for Bedrock. Please provide either:
-
-        1. Environment variables:
-           AWS_ACCESS_KEY_ID=...
-           AWS_SECRET_ACCESS_KEY=...
-
-        2. Options:
-           access_key_id: "...", secret_access_key: "..."
-        """
-
-      {_, _} ->
-        :ok
-    end
+  defp validate_aws_credentials!(%{api_key: _}) do
+    raise ArgumentError, "API key must be a non-empty string"
   end
 
-  defp put_aws_sigv4(request, aws_creds) do
-    case Code.ensure_loaded(AWSAuth) do
+  defp validate_aws_credentials!(%AWSAuth.Credentials{access_key_id: nil}) do
+    raise ArgumentError, """
+    AWS credentials required for Bedrock. Please provide either:
+
+    1. API Key (simplest):
+       AWS_BEARER_TOKEN_BEDROCK=... (environment variable)
+       or api_key: "..." (option)
+
+    2. IAM Credentials:
+       AWS_ACCESS_KEY_ID=...
+       AWS_SECRET_ACCESS_KEY=...
+       or access_key_id: "...", secret_access_key: "..."
+    """
+  end
+
+  defp validate_aws_credentials!(%AWSAuth.Credentials{secret_access_key: nil}) do
+    raise ArgumentError, """
+    AWS credentials required for Bedrock. Please provide either:
+
+    1. API Key (simplest):
+       AWS_BEARER_TOKEN_BEDROCK=... (environment variable)
+       or api_key: "..." (option)
+
+    2. IAM Credentials:
+       AWS_ACCESS_KEY_ID=...
+       AWS_SECRET_ACCESS_KEY=...
+       or access_key_id: "...", secret_access_key: "..."
+    """
+  end
+
+  defp validate_aws_credentials!(%AWSAuth.Credentials{}), do: :ok
+
+  # API Key authentication - use Bearer token
+  defp put_aws_sigv4(request, %{api_key: api_key}) when is_binary(api_key) do
+    Req.Request.put_header(request, "authorization", "Bearer #{api_key}")
+  end
+
+  # IAM authentication - use AWS Signature V4
+  defp put_aws_sigv4(request, %AWSAuth.Credentials{} = aws_creds) do
+    case Code.ensure_loaded(AWSAuth.Req) do
       {:module, _} ->
         :ok
 
       {:error, _} ->
         raise """
         AWS Bedrock support requires the ex_aws_auth dependency.
-        Please add {:ex_aws_auth, "~> 1.0", optional: true} to your mix.exs dependencies.
+        Please add {:ex_aws_auth, "~> 1.3", optional: true} to your mix.exs dependencies.
         """
     end
 
-    # Add AWS SigV4 signing step to Req pipeline
-    request
-    |> Req.Request.prepend_request_steps(
-      aws_sigv4: fn req ->
-        # Sign the request using ex_aws_auth
-        method = String.upcase(to_string(req.method))
-        url = URI.to_string(req.url)
-        # Normalize headers - ensure values are strings, not lists
-        headers =
-          Map.new(req.headers, fn {k, v} ->
-            {k, if(is_list(v), do: List.first(v), else: v)}
-          end)
-
-        # Add session token if provided
-        headers =
-          if aws_creds[:session_token] do
-            Map.put(headers, "x-amz-security-token", aws_creds[:session_token])
-          else
-            headers
-          end
-
-        body = req.body || ""
-
-        signed_headers_list =
-          AWSAuth.sign_authorization_header(
-            aws_creds[:access_key_id],
-            aws_creds[:secret_access_key],
-            method,
-            url,
-            aws_creds[:region] || "us-east-1",
-            "bedrock",
-            headers,
-            body
-          )
-
-        # Req normalizes headers to %{key => [value]}, so convert the signed headers
-        signed_headers_map = Map.new(signed_headers_list, fn {k, v} -> {k, [v]} end)
-
-        %{req | headers: signed_headers_map}
-      end
-    )
+    # Use the AWSAuth.Req plugin for automatic signing
+    AWSAuth.Req.attach(request, credentials: aws_creds, service: "bedrock")
   end
 
   # Sign a Finch request with AWS Signature V4 using ex_aws_auth library
-  defp sign_aws_request(finch_request, aws_creds, region, service) do
+  # API Key authentication - just add Bearer token header
+  defp sign_aws_request(finch_request, %{api_key: api_key}, _region, _service)
+       when is_binary(api_key) do
+    # Normalize headers to lowercase (matching IAM path behavior)
+    normalized_headers =
+      Enum.map(finch_request.headers, fn {k, v} -> {String.downcase(k), v} end)
+
+    headers = normalized_headers ++ [{"authorization", "Bearer #{api_key}"}]
+    %{finch_request | headers: headers}
+  end
+
+  # IAM authentication - use AWS Signature V4
+  defp sign_aws_request(finch_request, %AWSAuth.Credentials{} = aws_creds, _region, service) do
     case Code.ensure_loaded(AWSAuth) do
       {:module, _} ->
         :ok
@@ -542,7 +746,7 @@ defmodule ReqLLM.Providers.AmazonBedrock do
       {:error, _} ->
         raise """
         AWS Bedrock streaming requires the ex_aws_auth dependency.
-        Please add {:ex_aws_auth, "~> 1.0", optional: true} to your mix.exs dependencies.
+        Please add {:ex_aws_auth, "~> 1.3", optional: true} to your mix.exs dependencies.
         """
     end
 
@@ -563,32 +767,22 @@ defmodule ReqLLM.Providers.AmazonBedrock do
       end
 
     # Build URL
+    region = aws_creds.region || "us-east-1"
     url = "https://bedrock-runtime.#{region}.amazonaws.com#{path}"
     url = if query && query != "", do: "#{url}?#{query}", else: url
 
-    # Convert headers to map with lowercase keys (AWS SigV4 requirement)
-    # ex_aws_auth expects map with lowercase header names
+    # Convert headers to map for signing
     headers_map = Map.new(headers, fn {k, v} -> {String.downcase(k), v} end)
 
-    # Add session token if provided
-    headers_map =
-      if aws_creds[:session_token] do
-        Map.put(headers_map, "x-amz-security-token", aws_creds[:session_token])
-      else
-        headers_map
-      end
-
-    # Sign using ex_aws_auth - returns list of header tuples
+    # Sign using credential-based API - returns list of header tuples
     signed_headers =
       AWSAuth.sign_authorization_header(
-        aws_creds[:access_key_id],
-        aws_creds[:secret_access_key],
+        aws_creds,
         String.upcase(to_string(method)),
         url,
-        region,
         service,
-        headers_map,
-        body_binary
+        headers: headers_map,
+        payload: body_binary
       )
 
     # Return signed request
@@ -611,11 +805,65 @@ defmodule ReqLLM.Providers.AmazonBedrock do
         if String.starts_with?(normalized_id, prefix <> "."), do: prefix
       end)
 
-    found_family ||
+    # If no family found, extract prefix as family name (e.g., "mistral" from "mistral.model-id")
+    # Models without a dedicated formatter will use Converse API
+    family_from_prefix =
+      case String.split(normalized_id, ".", parts: 2) do
+        [prefix, _rest] when prefix != "" -> prefix
+        _ -> nil
+      end
+
+    found_family || family_from_prefix ||
       raise ArgumentError, """
       Unsupported model family for: #{model_id}
-      Currently supported: #{Map.keys(@model_families) |> Enum.join(", ")}
+      Currently supported: #{Map.keys(@model_families) |> Enum.join(", ")} (and others via Converse API)
       """
+  end
+
+  @impl ReqLLM.Provider
+  def translate_options(operation, model, opts) do
+    # Delegate to native Anthropic option translation for Anthropic models
+    # This ensures we get all Anthropic-specific handling (temperature/top_p conflicts,
+    # reasoning effort, etc.) for free
+    model_family = get_model_family(model.provider_model_id || model.id)
+
+    case model_family do
+      "anthropic" ->
+        # Delegate temperature/top_p translation to Anthropic provider
+        {translated_opts, warnings} =
+          ReqLLM.Providers.Anthropic.translate_options(operation, model, opts)
+
+        # For Bedrock, move :thinking from top-level to additionalModelRequestFields
+        translated_opts = move_thinking_to_additional_fields(translated_opts)
+
+        {translated_opts, warnings}
+
+      _ ->
+        # Other model families: no translation needed yet
+        {opts, []}
+    end
+  end
+
+  # Move :thinking from top-level opts to additionalModelRequestFields for Bedrock
+  defp move_thinking_to_additional_fields(opts) do
+    case Keyword.pop(opts, :thinking) do
+      {nil, opts} ->
+        # No thinking field, return as-is
+        opts
+
+      {thinking_config, opts} ->
+        # Move thinking to provider_options -> additional_model_request_fields
+        provider_opts = Keyword.get(opts, :provider_options, [])
+
+        additional_fields =
+          Keyword.get(provider_opts, :additional_model_request_fields, %{})
+          |> Map.put(:thinking, thinking_config)
+
+        updated_provider_opts =
+          Keyword.put(provider_opts, :additional_model_request_fields, additional_fields)
+
+        Keyword.put(opts, :provider_options, updated_provider_opts)
+    end
   end
 
   @impl ReqLLM.Provider
@@ -625,10 +873,18 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
   @impl ReqLLM.Provider
   def normalize_model_id(model_id) when is_binary(model_id) do
-    # Strip region prefix from inference profile IDs for metadata lookup
-    # e.g., "us.anthropic.claude-3-sonnet" -> "anthropic.claude-3-sonnet"
-    case String.split(model_id, ".", parts: 2) do
-      [possible_region, rest] when possible_region in ["us", "eu", "ap", "ca", "global"] ->
+    # Strip region prefixes from inference profile IDs for metadata lookup
+    # (e.g., "us.anthropic.claude-3-sonnet" -> "anthropic.claude-3-sonnet")
+    # (e.g., "global.anthropic.claude-sonnet-4-5" -> "anthropic.claude-sonnet-4-5")
+    #
+    # Note: This is ONLY for metadata lookup. The preserve_inference_profile? callback
+    # controls whether the prefix is kept in API requests (see prepare_request/4).
+    case String.split(model_id, ".", parts: 3) do
+      # Pattern: region.provider.rest where region is known
+      [possible_region, _provider, _rest]
+      when possible_region in ["us", "eu", "ap", "ca", "global"] ->
+        # Strip region prefix for metadata lookup
+        [_region, rest] = String.split(model_id, ".", parts: 2)
         rest
 
       _ ->
@@ -642,10 +898,8 @@ defmodule ReqLLM.Providers.AmazonBedrock do
         module
 
       :error ->
-        raise ArgumentError, """
-        No formatter module found for model family: #{model_family}
-        This shouldn't happen - please report this as a bug.
-        """
+        # Models without a dedicated formatter use Converse API
+        ReqLLM.Providers.AmazonBedrock.Converse
     end
   end
 
@@ -688,4 +942,100 @@ defmodule ReqLLM.Providers.AmazonBedrock do
 
     {req, err}
   end
+
+  @impl ReqLLM.Provider
+  def thinking_constraints do
+    # AWS Bedrock requires temperature=1.0 when extended thinking is enabled
+    # and max_tokens > thinking.budget_tokens (4000 for :low effort)
+    # See: https://docs.claude.com/en/docs/build-with-claude/extended-thinking
+    %{required_temperature: 1.0, min_max_tokens: 4001}
+  end
+
+  # Remove thinking from additional_model_request_fields after Options.process if needed
+  # This is necessary because translate_options can't modify provider_options (they get restored)
+  defp maybe_clean_thinking_after_translation(opts, model_family, operation) do
+    if model_family == "anthropic" do
+      # Delegate to shared PlatformReasoning module
+      PlatformReasoning.maybe_clean_thinking_after_translation(opts, operation)
+    else
+      opts
+    end
+  end
+
+  # Private helper: Determine whether to use Converse API with caching optimization
+  defp determine_use_converse(model_id, opts) do
+    # Check if this is a cross-region inference profile (us., eu., etc.)
+    # These MUST use Converse API
+    is_inference_profile =
+      is_binary(model_id) and
+        String.starts_with?(model_id, ["us.", "eu.", "ap.", "ca.", "global."])
+
+    # Check if model's formatter requires Converse API
+    model_family = get_model_family(model_id)
+    formatter = get_formatter_module(model_family)
+
+    requires_converse =
+      function_exported?(formatter, :requires_converse_api?, 0) &&
+        formatter.requires_converse_api?()
+
+    # Check if formatter is Converse (fallback for unsupported families)
+    is_fallback_to_converse = formatter == ReqLLM.Providers.AmazonBedrock.Converse
+
+    # After Options.process, use_converse is in :provider_options
+    # But for direct attach_stream calls, it might be at top level
+    use_converse_opt = get_in(opts, [:provider_options, :use_converse]) || opts[:use_converse]
+
+    case use_converse_opt do
+      true ->
+        true
+
+      false ->
+        false
+
+      nil ->
+        has_tools = opts[:tools] != nil and opts[:tools] != []
+        # After Options.process, anthropic_prompt_cache is in :provider_options
+        has_caching = get_in(opts, [:provider_options, :anthropic_prompt_cache]) == true
+
+        cond do
+          # Inference profiles (cross-region) MUST use Converse API
+          is_inference_profile ->
+            true
+
+          # Formatters that require Converse API (like Mistral wrapper)
+          requires_converse ->
+            true
+
+          # Models without dedicated formatters fall back to Converse API
+          is_fallback_to_converse ->
+            true
+
+          # If caching is enabled with tools, force native API for full caching support
+          has_caching and has_tools ->
+            require Logger
+
+            Logger.warning("""
+            Bedrock prompt caching enabled with tools present. Auto-switching to native API
+            (use_converse: false) for full cache control. Converse API only caches system prompts.
+            To silence this warning, explicitly set use_converse: true or use_converse: false.
+            """)
+
+            false
+
+          # Default: use Converse for tools, native otherwise
+          has_tools ->
+            true
+
+          true ->
+            false
+        end
+    end
+  end
+
+  @impl ReqLLM.Provider
+  def credential_missing?(%ArgumentError{message: msg}) when is_binary(msg) do
+    String.contains?(msg, "AWS credentials required for Bedrock")
+  end
+
+  def credential_missing?(_), do: false
 end

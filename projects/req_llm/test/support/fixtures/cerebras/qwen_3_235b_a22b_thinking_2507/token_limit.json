@@ -37,22 +37,22 @@
           "finish_reason": "length",
           "index": 0,
           "message": {
-            "content": "Okay, the user asked for a \"very long story about dragons and adventures.\" Hmm, that's a broad request but exciting! They probably want something epic and immersive—maybe they're a fantasy fan looking to get lost in a world of magic and danger. \n\nFirst, I should consider what makes a dragon story compelling. Dragons aren't just monsters; they're symbols of power, wisdom, or ancient forces. The user likely wants depth, not just action. Maybe they crave world-building—cult",
+            "content": "Okay, the user asked for a \"very long story about dragons and adventures.\" Hmm, that's a broad request but also exciting—they clearly want immersion and epic scale. Let me unpack this.  \n\nFirst, \"very long\" suggests they're craving depth, not just a snippet. Probably a fantasy fan who loves rich worlds—maybe Tolkien or Sanderson-level detail. They didn't specify tone, but \"adventures\" implies action, wonder, and high stakes. No age given, but",
             "role": "assistant"
           }
         }
       ],
-      "created": 1760396435,
-      "id": "chatcmpl-2500b9f2-286b-42b2-b8d5-40fe598e0218",
+      "created": 1762103518,
+      "id": "chatcmpl-7b57ed2d-e02d-4194-831e-f93e4f119c87",
       "model": "qwen-3-235b-a22b-thinking-2507",
       "object": "chat.completion",
-      "system_fingerprint": "fp_2550751e3c405168bfb3",
+      "system_fingerprint": "fp_3182fd252640150dc65b",
       "time_info": {
-        "completion_time": 0.113697703,
-        "created": 1760396435,
-        "prompt_time": 0.002638377,
-        "queue_time": 4.21419e-4,
-        "total_time": 0.11814117431640625
+        "completion_time": 0.112287861,
+        "created": 1762103518.2309256,
+        "prompt_time": 0.002594979,
+        "queue_time": 1.091e-4,
+        "total_time": 0.11648225784301758
       },
       "usage": {
         "completion_tokens": 100,
@@ -71,7 +71,7 @@
         "DYNAMIC"
       ],
       "cf-ray": [
-        "98e2743ade7b1130-ORD"
+        "9985410c4aafe81c-ORD"
       ],
       "connection": [
         "keep-alive"
@@ -80,10 +80,10 @@
         "application/json"
       ],
       "date": [
-        "Mon, 13 Oct 2025 23:00:35 GMT"
+        "Sun, 02 Nov 2025 17:11:58 GMT"
       ],
       "inference-id": [
-        "chatcmpl-2500b9f2-286b-42b2-b8d5-40fe598e0218"
+        "chatcmpl-7b57ed2d-e02d-4194-831e-f93e4f119c87"
       ],
       "referrer-policy": [
         "strict-origin-when-cross-origin"
@@ -91,8 +91,12 @@
       "server": [
         "cloudflare"
       ],
+      "server-timing": [
+        "cfCacheStatus;desc=\"DYNAMIC\"",
+        "cfEdge;dur=6,cfOrigin;dur=275"
+      ],
       "set-cookie": [
-        "__cf_bm=FIRkTiEvyrltS3PX9HjJ1b.wXv9rTgsOq1nWxomr2OU-1760396435-1.0.1.1-hS06V5p8ahNOwrL1l6mxnQ3365wCwVVjm4UL9hfpEdnFuoK7ZnxArOrg9xAX3ZeYjX6sUoCjhjfcIN5z7YWph3qP.wsdbVqDTrZe2KCyVqI; path=/; expires=Mon, 13-Oct-25 23:30:35 GMT; domain=.api.cerebras.ai; HttpOnly; Secure; SameSite=None"
+        "__cf_bm=WHGPjJf11vKxWgPuMZw2N2_XsdG8CHDdiN3iQlQBJfE-1762103518.1214988-1.0.1.1-fZPSYsd8i6tKBYaLVx3y8gpueKyNqJO7BlElPMIwZGuAglIVrwdXu2bt9DN8T09rZGZuyJB2cYEbWAjlwLGKPOpO0uw.CaVm3bMbS9SzODOIUJbLFVsJ2dIMdx8K47NA; HttpOnly; Secure; Path=/; Domain=cerebras-sandbox.net; Expires=Sun, 02 Nov 2025 17:41:58 GMT"
       ],
       "strict-transport-security": [
         "max-age=3600; includeSubDomains"
@@ -110,19 +114,19 @@
         "1000000"
       ],
       "x-ratelimit-remaining-requests-day": [
-        "1439995"
+        "1439998"
       ],
       "x-ratelimit-remaining-tokens-minute": [
-        "999977"
+        "999805"
       ],
       "x-ratelimit-reset-requests-day": [
-        "3564.111257314682"
+        "24481.62512898445"
       ],
       "x-ratelimit-reset-tokens-minute": [
-        "24.111257314682007"
+        "1.625128984451294"
       ],
       "x-request-id": [
-        "98e2743ade7b1130-ORD"
+        "9985410c4aafe81c-ORD"
       ]
     },
     "status": 200

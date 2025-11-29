@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-opus-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJjbGF1ZGUtb3B1cy00LTUiLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MS4wLCJ0aGlua2luZyI6eyJidWRnZXRfdG9rZW5zIjoxMDI0LCJ0eXBlIjoiZW5hYmxlZCJ9fQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "claude-opus-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EroDCkYIChgCKkCEZFf0HMaljLJcCLGE2FqVeZ3TMFjivkH6z0f5eohOCSzP4z00xy0wTz2zmwabs3EMXgXblUaQpyTQPax4zisGEgxw5xkfXzr9BiDL32QaDIBBA1p3tPOdTuJ3VSIw81ctm7Jp+LqoA9xij2oyBI26+2RBJNCujfM5+Xpo3fC75ddxYymLsswYmX9L2v/qKqEC0t1J6O2XsoLuUyveETKOAdn4L4rqcXiPjfbnDbUDUziTGgQysTNMpMeJGrNLlfJfdao8cBokTRHCu1L+Pu+1OGvu8tq+upZhnGB+J+GfggOaq2hPxpQQdajYCuLDgfvP0/g7vwn5gNxneIxHSetAT52i8/TVjC6XzM6x/U3U2AJ1ug6h7UwyySRKlnm5w2UG3Cwldak8SdgmvULGvFLWXfs74+DfMWVAHmH3q5NCrJD6ZmnNN6qojZtZvo3/G3eiRT19PDRA9r0PRlTE30+1eDhqRkteDziKZgIIpPU9Z1W1+L7VTD95/Zo7S04YvnEmwNwD3Ntr+xBtJOwI/VjR3KyhJDC+7uRx+Jw/nTXSSZP5JuZN8YVBb0EVKa72WYNF/RgB",
+          "thinking": "The user wants a very long story about dragons and adventures. I'll create an epic fantasy tale with multiple characters, plot lines, and adventures involving dragons. I'll make it engaging with detailed world-building, character development, and exciting action sequences.",
+          "type": "thinking"
+        },
+        {
+          "text": "# The Last Ember of Valdoria\n\n## A Tale of Dragons and Adventures\n\n---\n\n# Part One: The Awakening\n\n## Chapter 1: The Village of Thornwood\n\nThe morning mist clung to the valley like a pale shroud, weaving between the ancient oaks that gave Thornwood its name. In this remote corner of the kingdom of Valdoria, where the Sentinel Mountains kissed the eastern sky and the Whispering River carved its eternal path through emerald meadows, life moved at the gentle pace it had maintained for three hundred years.\n\nKira Ashford woke before dawn, as she always did, to the sound of her father's hammer ringing against the anvil in the forge below her small bedroom. The rhythmic clanging had been the soundtrack of her eighteen years of life, as constant and reliable as the sunrise itself. She lay still for a moment, watching the first gray light filter through the gaps in the wooden shutters, painting stripes across the rough-hewn ceiling beams.\n\nToday felt different somehow. There was an electricity in the air, a tension she couldn't quite name. Perhaps it was simply the approach of the Harvest Festival, now only three days away. The entire village had been preparing for weeks, and the excitement was palpable. Or perhaps it was something else entirely—that strange dream she'd had, the one she could barely remember now, something about fire and wings and a voice calling her name from very far away.\n\nShe pushed the thought aside and swung her legs out of bed, her feet finding the cold wooden floor with practiced ease. Her room was small but comfortable, decorated with the treasures she'd collected over the years: a shelf of well-worn books borrowed and never returned from the traveling merchants who passed through twice a year, dried flowers pressed between pieces of bark, a collection of unusual stones gathered from the riverbed, and a single dragon scale—midnight blue and iridescent—that she'd found in the forest when she was seven years old.\n\nThat scale had been her most prized possession for over a decade, even though everyone told her it couldn't possibly be real. Dragons hadn't been seen in Valdoria for two hundred years, not since the Great Burning that had devastated the northern territories and driven the magnificent creatures into hiding—or extinction, depending on who you asked. The scale was probably just a piece of colored glass or a fragment of some exotic armor lost by a traveling knight. That's what her father said, anyway.\n\nBut Kira knew better. She had felt something when she'd picked up that scale, a warmth that had nothing to do with the summer sun, a whisper of something ancient and powerful that had resonated in her very bones. She had never told anyone about that feeling, not even her best friend Tam, because she knew they would think her foolish or fanciful. Girls in Thornwood were expected to be practical, to learn their mothers' trades and marry well and raise strong children. They were not expected to dream of dragons.\n\nKira dressed quickly in her simple working clothes—a linen shirt, leather vest, and sturdy trousers that her mother had always disapproved of but her father tolerated because they were practical for helping in the forge. She pulled her dark hair back into a thick braid that fell to the middle of her back and splashed cold water on her face from the basin on her washstand.\n\nBy the time she descended the narrow staircase to the main floor of their cottage, her father had already been working for hours. Brennan Ashford was a bear of a man, broad-shouldered and thick-armed from decades of swinging his hammer, with a beard that had gone from black to gray in the years since Kira's mother had passed. He looked up as she entered the forge, his weathered face creasing into a smile.\n\n\"You're late,\" he said, but there was no real reproach in his voice.\n\n\"The sun isn't even fully up,\" Kira protested, reaching for her leather apron.\n\n\"The sun waits for no smith, and neither do our customers. The Miller boys are coming for their plow blade at midday, and I've got three orders for the festival that won't fill themselves.\" He gestured toward the corner of the forge where several half-finished pieces waited. \"I need you to work the bellows while I finish this horseshoe set for Old Man Garrett's mare.\"\n\nKira took her position at the bellows without complaint. She had been working alongside her father since she was old enough to hold tongs, and while she knew that most people in the village thought it strange—a girl learning the blacksmith's trade—she had never wanted to do anything else. There was something magical about metalwork, the way raw iron could be transformed by fire and skill into something useful and beautiful. It was the closest thing to true magic that existed in their mundane little world.\n\nAs she pumped the bellows, feeding the hungry flames, her thoughts drifted again to that strange sense of anticipation she'd woken with. Outside, she could hear the village coming to life—the lowing of cattle being led to pasture, the creak of cart wheels on the dirt road, the distant shouts of children already at play despite the early hour. Everything was normal, ordinary, exactly as it should be.\n\nSo why did she feel as if everything was about to change?\n\n## Chapter 2: The Stranger\n\nThe stranger arrived at noon, just as the Miller boys were loading their newly repaired plow blade onto their rickety cart. Kira saw him first—a tall figure on a black horse, emerging from the forest road that led north toward the mountain passes. He moved slowly, his dark cloak billowing slightly in the autumn breeze, and even from a distance, there was something about him that made her pause in her work and stare.\n\n\"Who's that, then?\" asked Thomas Miller, the elder of the two brothers, shading his eyes against the sun.\n\n\"Nobody I've ever seen,\" replied his brother James. \"Doesn't look like any merchant I know.\"\n\nTheir father Brennan had stepped out of the forge now, wiping his hands on his apron as he watched the approaching rider. His expression was guarded, the look he always wore when strangers came to Thornwood. In a village this remote, unfamiliar faces were rare and not always welcome.\n\nThe stranger rode directly to the forge and dismounted with fluid grace. He was younger than Kira had expected, perhaps thirty years old, with sharp features and eyes that seemed to hold shadows even in the bright sunlight. His clothing was travel-worn but of fine quality, and at his hip hung a sword with an ornate hilt that spoke of wealth and status.\n\n\"Good day,\" he said, his voice low and cultured. \"I'm looking for lodging and a hot meal. Can you direct me to an inn?\"\n\nBrennan stepped forward, unconsciously positioning himself between the stranger and his daughter. \"We don't have an inn, exactly. The Copper Kettle serves food and has rooms to let above the tavern. Marta Goodwin runs it—she'll see you right.\"\n\n\"Thank you.\" The stranger's eyes swept over the forge, taking in the tools, the fire, the half-finished metalwork with what seemed like genuine interest. Then his gaze landed on Kira, and she felt something like a shock pass through her. Those eyes—they were the color of storm clouds, gray shot through with flecks of silver, and there was knowledge in them, ancient and terrible knowledge that had no place in the eyes of a man so young.\n\n\"Your apprentice?\" the stranger asked, nodding toward her.\n\n\"My daughter,\" Brennan replied, a note of warning in his voice.\n\n\"Unusual,\" the stranger said, \"but admirable. The old traditions are worth preserving.\" He reached into his saddlebag and withdrew a leather pouch that clinked with the sound of coins. \"I find myself in need of a blacksmith's services as well. My horse has thrown a shoe, and I have a long journey ahead of me.\"\n\nBrennan's stance relaxed slightly at the prospect of business. \"I can see to that. Kira, take the gentleman's horse to the stable. I'll have the shoe ready within the hour.\"\n\nKira moved to take the horse's reins, and as she did, the stranger leaned close and spoke in a voice so low that only she could hear: \"The fire in your blood will wake soon, child. When it does, remember: not all dragons are enemies, and not all enemies breathe fire.\"\n\nBefore she could respond, before she could even process the strange words, he had turned away and was walking toward the center of the village, leaving her standing frozen with the horse's reins in her trembling hands.\n\n## Chapter 3: The Ancient Texts\n\nThat night, Kira couldn't sleep. She lay in her bed, staring at the ceiling, the stranger's words echoing in her mind. The fire in your blood. What could that possibly mean? And how had he known—how could he have known—about the warmth she'd felt when she'd first touched the dragon scale all those years ago?\n\nShe turned on her side and looked at the scale where it sat on her shelf, catching the faint moonlight that filtered through her window. For a moment—just a moment—she could have sworn it glowed with an inner light, blue and soft and pulsing like a heartbeat.\n\nFinally, unable to bear the restlessness any longer, she rose and dressed. If she couldn't sleep, she could at least do something productive. There was one person in Thornwood who might have answers to her questions, one person who had devoted his entire life to collecting knowledge and stories and fragments of forgotten lore.\n\nOld Willem lived in a cottage at the edge of the village, surrounded by overgrown gardens and toppling stacks of books. He had been the village's teacher once, before his eyes grew too dim for reading and his mind began to wander down paths that most people couldn't follow. Now he lived alone with his memories and his books, visited occasionally by children who liked his stories and adults who needed advice they couldn't get anywhere else.\n\nThe night was cool and clear, the stars blazing overhead like scattered diamonds. Kira made her way through the sleeping village, past darkened windows and closed doors, until she reached Willem's cottage. A light burned in the window—the old man rarely slept either—and she knocked softly on the weathered door.\n\nIt opened almost immediately, as if he'd been expecting her.\n\n\"Kira Ashford,\" Willem said, his milky eyes somehow finding hers despite his blindness. \"I wondered when you'd come. Enter, child. We have much to discuss.\"\n\nThe interior of the cottage was exactly as she remembered it from her childhood visits: chaotic, dusty, and wonderful. Books were stacked on every surface, scrolls poked out of clay pots, and strange artifacts from distant lands hung from the rafters. The smell was of old paper and dried herbs and something faintly magical that Kira had never been able to identify.\n\n\"You know why I'm here?\" she asked, settling into the chair he indicated.\n\n\"I know that a stranger came to our village today, a stranger with shadow in his eyes and knowledge in his voice. I know that he spoke to you of fire and blood and things that have been sleeping for two hundred years.\" Willem smiled, his wrinkled face creasing into a thousand lines. \"News travels fast in Thornwood, even to an old hermit like me.\"\n\n\"But how did you—\"\n\n\"Know what he said to you? I didn't, not precisely. But I know who he is, or rather, what he represents. He's a Seeker, child. One of the last of an ancient order dedicated to finding and protecting those who carry the dragon-bond.\"\n\nKira felt her heart skip a beat. \"The dragon-bond? I don't understand.\"\n\nWillem moved slowly to one of his many bookshelves, his fingers tracing over the spines with practiced ease until he found what he was looking for. He pulled out a massive tome, its leather cover cracked and faded with age, and laid it on the table between them.\n\n\"Two hundred years ago, before the Great Burning, dragons and humans lived in an uneasy alliance. The dragons were proud and powerful, creatures of elemental magic and ancient wisdom. They had no need of humans, and for the most part, they ignored us. But occasionally, very occasionally, a human would be born with something in their blood—a spark of fire, a touch of the same magic that gave dragons their power. These humans could communicate with dragons, could form bonds with them that transcended language and species. They were called the Dragon-Touched.\"\n\nHe opened the book to a page illuminated with a stunning painting: a young woman standing beside a magnificent golden dragon, their eyes meeting in what could only be described as love and understanding.\n\n\"What happened to them?\" Kira whispered.\n\n\"The same thing that happens to anything beautiful and powerful in a world full of fear and jealousy. The church declared them abominations, heretics who consorted with demons. The kings and queens of the realm saw them as threats to their power. The common people, fed a steady diet of lies an",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01Ej43sYaEuGXb48ERBAREtz",
+      "model": "claude-opus-4-5-20251101",
+      "role": "assistant",
+      "stop_reason": "max_tokens",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 45,
+        "output_tokens": 3000,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "78294a00-f458-434e-8f6d-2f4e14f803bd"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-02"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:11 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

@@ -40,13 +40,13 @@
           "index": 0,
           "logprobs": null,
           "message": {
-            "content": "Hello! 🌍 What's up? If you're diving into programming or just saying hi, I'm here to chat. How can I help?",
+            "content": "Hello! 🌍 What's up? If you're testing the waters or just saying hi, I'm here to chat or help with whatever's on your mind. 😊",
             "reasoning": null,
             "reasoning_details": [
               {
-                "data": "eGN8UThK77b1W5Nfmb6kg0GBRuVtDJy0mIvYR1JIZeVsw5aOkpKeWfVfy74c7Xjjq1Jz0CxXX0FmREJvXBgMBqhcUUA/5GDFPTt78izSL5lEiPtKVa/h4wjnTfUas5+PrCKYvYcTHbKo5qFNgT7eSPD/bSM4FX85z1G+a1WD7Pp/sLzXO6yO0qaAQOLmn6RrWNLgBIUmrzocwPfUKFAFqm3NlGyiArwVcmSzdqejIsoigkCHwTc0lFwqjiS/MDaTL/QANQxGX+Yo+lCsRf2YDkgJqwSRgnK4VQHWA4HIgPG7dS0ow2a34YBJFZl9dTApBRB7TPlS4pR9Az0ZrOLfFK/ngj66xc0iF6oW/pIs6gOAxJNsbF0QXEjkbxF5JjCTuJFamCLGRdZAzVsvS8hq9RCiRt+FBcNDpHfJMcbK3rRY8h2AgCGSW3KLynllio9rmDJLQgwf2I8hpGsXorS8caBhS3tk3GKp3po/ytQgV7crE97+fpqN/0HcCANvCXWu3qEOw7+a+TAEZWRrNuQPK+3q9uPVuAZe518hGCT/oxDWXkIX1yZCEJ34LvakkuiOK0IxXLxjWnqlJdk+zMQfcxHzu9/xlsauVFo5rDv84MRZvMslYXgpUzLZ2HQASGNsw4Evuwq94i1Dd1UFy2NZP7XSU8PZRZJ6fdbdT+y01bAxwTWshf2MmC2yV6ntNnkkLPhOCTZjerLRUapGvjTFit6h50gKXEq4iXFEfklwx2uJJgwY0v53V8Jm7OwxxBsngJyOUcN+kJAwJfN3MfBA9ZYMISBD4b5pQTHhliEfqJMAmsWW2JE5Z3C0qPIbGjkxb/FiDhr2ibOB7RrJjI1fkzgnpB4e2raevst6pnS/XI0zTCEWMbHf/RR1f14C84vgsYyLbOgcC4stLMNceGfRKHtT/GTAMWjZDgcYOA4",
+                "data": "ool3sDlxhAts9WTsW24fDw6MDGDJahkIRkBfHXhhGXEtQoU95fhTQIF6qyhfitkOqt3McdoBgfRdm7fOe1pzZt21DozfLafZYKCeGoaaU6VOq1QYkLxlh6khApkrREFPMy5d5uank9/GSFc5efWRLuMoS1LQ2YYnKkS/4+g4dxM+TgizbE2rX/21XIe9kp78ReqeT4t15HFKpX1bucDWim/9yHSdosJVw7rEN5amrZeyMjA2vFZZ6kSwfdzJTTuKYPQ4MNk9GljpG1d1XZjbSIcCfL5qgj9BEbywGwR/NHyW1lfieVNlVFqJtY7XyonQwK/sikKgnqWvkytCPytPJMLP2lSi5pLhMq28jYRT6nVxBizieq/ZgI4gngZpezxOA6HfOTWPB0ZOWm8ifgR2qJduFhGUkyTUdPiD73fspASjJkv9QMTU9A0g0txAuDGkn3pzhmWCmF61yfhv6lNeiJIFquBHScYmTajmRAKnQkDYt3UsFetxBH/dpI8iVYmTEcnd4+xLas4a2vfFAuarTtEdJF7/B25WFQ2ir76aUpYVgb60hFuNShu4MVvxxjPlcTsmd2Mqmfc94uttpqFbeuB2DlBKaXIYxQSkei28+3hj1KOKuUbPBZUDO6HZm8Bip/tj7xniXVnDXYvkMzvI3BhmyuhWk7DP7youX+S0gRWVs6EVSQxzkR8LxkrKYcEP7XXW/WTKlN4p3yC2oUbo5BLUtu96FzvXjuBL7/kvJ9YSDntd5oW9Q6adEOvTPdYJzD51Yc+6UqRq6MzseCo+HGT+CP9/jOVwzxmrvWpR5lj8+4JOGTk",
                 "format": "xai-responses-v1",
-                "id": "rs_46cf019c-b6b8-ab62-31fc-b830bc456e3e_us-east-1",
+                "id": "rs_5a62d563-e513-efc0-def1-514807537f6e_us-east-1",
                 "index": 0,
                 "type": "reasoning.encrypted"
               }
@@ -57,15 +57,18 @@
           "native_finish_reason": "completed"
         }
       ],
-      "created": 1760533257,
-      "id": "gen-1760533257-2JyjtlyolJFaoaWkDD2U",
+      "created": 1762105063,
+      "id": "gen-1762105063-P6UYubHGP7z93ClS7iKn",
       "model": "x-ai/grok-4",
       "object": "chat.completion",
       "provider": "xAI",
       "usage": {
-        "completion_tokens": 156,
+        "completion_tokens": 147,
+        "completion_tokens_details": {
+          "reasoning_tokens": 115
+        },
         "prompt_tokens": 687,
-        "total_tokens": 843
+        "total_tokens": 834
       }
     },
     "headers": {
@@ -73,7 +76,7 @@
         "*"
       ],
       "cf-ray": [
-        "98ef80981c3ae811-ORD"
+        "998566c81f3c1070-ORD"
       ],
       "connection": [
         "keep-alive"
@@ -82,7 +85,7 @@
         "application/json"
       ],
       "date": [
-        "Wed, 15 Oct 2025 13:00:57 GMT"
+        "Sun, 02 Nov 2025 17:37:43 GMT"
       ],
       "permissions-policy": [
         "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"

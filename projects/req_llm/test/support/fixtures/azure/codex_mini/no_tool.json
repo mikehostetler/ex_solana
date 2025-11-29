@@ -1,0 +1,195 @@
+{
+  "model_spec": "azure:codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IlRlbGwgbWUgYSBqb2tlIGFib3V0IGNhdHMiLCJ0eXBlIjoiaW5wdXRfdGV4dCJ9XSwicm9sZSI6InVzZXIifV0sIm1heF9vdXRwdXRfdG9rZW5zIjoyMDAwMCwibW9kZWwiOiJjb2RleC1taW5pIiwic3RyZWFtIjpmYWxzZSwidG9vbHMiOlt7ImRlc2NyaXB0aW9uIjoiR2V0IGN1cnJlbnQgd2VhdGhlciBpbmZvcm1hdGlvbiBmb3IgYSBsb2NhdGlvbiIsIm5hbWUiOiJnZXRfd2VhdGhlciIsInBhcmFtZXRlcnMiOnsiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlLCJwcm9wZXJ0aWVzIjp7ImxvY2F0aW9uIjp7InR5cGUiOiJzdHJpbmcifX0sInJlcXVpcmVkIjpbImxvY2F0aW9uIl0sInR5cGUiOiJvYmplY3QifSwic3RyaWN0Ijp0cnVlLCJ0eXBlIjoiZnVuY3Rpb24ifV19"
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Tell me a joke about cats",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 20000,
+      "model": "codex-mini",
+      "stream": false,
+      "tools": [
+        {
+          "description": "Get current weather information for a location",
+          "name": "get_weather",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "location": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "strict": true,
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764375004,
+      "error": null,
+      "id": "resp_0f20bf712c51ea5a00692a39dc7d848196a2720aa6b5cec586",
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": 20000,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_0f20bf712c51ea5a00692a39dd35588196b61ee14b1c63ea72",
+          "summary": [],
+          "type": "reasoning"
+        },
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "Why did the cat sit on the computer?\n\nBecause it wanted to keep an eye on the mouse! 😹",
+              "type": "output_text"
+            }
+          ],
+          "id": "msg_0f20bf712c51ea5a00692a39dd9ac48196abccf3a2f4f6072b",
+          "role": "assistant",
+          "status": "completed",
+          "type": "message"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "completed",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "description": "Get current weather information for a location",
+          "name": "get_weather",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "location": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "strict": true,
+          "type": "function"
+        }
+      ],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 48,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 28,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 76
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "f4805036-bc21-4e5b-987a-5e42fb3e9c12"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:10:05 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "784b1fe7-013d-43f8-bdc5-a599b2a9a8b9"
+      ]
+    },
+    "status": 200
+  }
+}

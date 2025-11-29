@@ -1,0 +1,109 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoyMDQ4LCJtZXNzYWdlcyI6W3siY29udGVudCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImRlZXBzZWVrL2RlZXBzZWVrLXYzLjEtdGVybWludXM6ZXhhY3RvIiwibiI6MSwicmVhc29uaW5nX2VmZm9ydCI6ImxvdyIsInNlZWQiOjQyLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MS4wfQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 2048,
+      "messages": [
+        {
+          "content": "Solve 12*7 and show your internal thinking (brief).",
+          "role": "user"
+        }
+      ],
+      "model": "deepseek/deepseek-v3.1-terminus:exacto",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 1.0
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "To solve 12 × 7, I break it down into simpler parts:  \n- 10 × 7 = 70  \n- 2 × 7 = 14  \nThen, add the results: 70 + 14 = 84.  \n\nThus, 12 × 7 = 84.",
+            "reasoning": "First, I need to solve 12 times 7. Multiplication is basically repeated addition. So, 12 times 7 means adding 12 seven times.\n\nI can break it down: 10 times 7 is 70, and 2 times 7 is 14. Then, add them together: 70 plus 14 is 84.\n\nSo, 12 multiplied by 7 equals 84.\n\nI should double-check. I know that 12 times 5 is 60, and 12 times 2 is 24, so 60 plus 24 is also 84. That confirms it.\n\nTherefore, the answer is 84.",
+            "reasoning_details": [
+              {
+                "format": null,
+                "index": 0,
+                "text": "First, I need to solve 12 times 7. Multiplication is basically repeated addition. So, 12 times 7 means adding 12 seven times.\n\nI can break it down: 10 times 7 is 70, and 2 times 7 is 14. Then, add them together: 70 plus 14 is 84.\n\nSo, 12 multiplied by 7 equals 84.\n\nI should double-check. I know that 12 times 5 is 60, and 12 times 2 is 24, so 60 plus 24 is also 84. That confirms it.\n\nTherefore, the answer is 84.",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "stop"
+        }
+      ],
+      "created": 1762105001,
+      "id": "gen-1762105001-1DgO4LVduPzKmBmRVMWs",
+      "model": "deepseek/deepseek-v3.1-terminus:exacto",
+      "object": "chat.completion",
+      "provider": "DeepInfra",
+      "usage": {
+        "completion_tokens": 201,
+        "prompt_tokens": 17,
+        "prompt_tokens_details": null,
+        "total_tokens": 218
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998565428d2f50bb-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:36:41 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

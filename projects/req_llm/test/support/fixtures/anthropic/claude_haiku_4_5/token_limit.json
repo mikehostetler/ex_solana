@@ -1,0 +1,152 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJjbGF1ZGUtaGFpa3UtNC01Iiwic3RyZWFtIjpmYWxzZSwidGhpbmtpbmciOnsiYnVkZ2V0X3Rva2VucyI6MTAyNCwidHlwZSI6ImVuYWJsZWQifX0="
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "claude-haiku-4-5",
+      "stream": false,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-beta": [
+        "interleaved-thinking-2025-05-14"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://api.anthropic.com/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EogFCkYICRgCKkD4e4fm37KKeN62iJbDVu1SIF4gj9+p6YkDn/kP+2LjRbEBVCq/LSvrwfQbx7gnlZ49fXzkHFawh7Q4Z5kI71UUEgxXYRKp+jbBKJGvtEoaDPZ0+JKMzhOIu3QeYCIwklbNz9daGDPnYzjxEBOxaww36kjYBrCogIzY8CNNBqf9X7cozCAyvZ15ZfmGDldJKu8D3d+2YvNaL7oCpG0+rVF5IFQoofzt+jgS5p4I/V1W9qQlXsyRfV8lCvav69lJkh0HPvaF3y/hkZTmKC7yJgY3cMk4Z7IUlEAWJ9ghAk/wEUTZxN0/Le+C51xL0tZsleBDmj+ETGKUrxb6CzxKyHGSAizBjAwg133Hp7KsjGsU2h5Ukuy3oqc2JYHwGcV2yk+kjfY6x4wd4nnx4bLABNhwSzDaqzgqBq8Ja/Y7p1E3TOtIyV9oyMSsHP3YqhRD2NGgzDfRdiEthS/LNhUU6c4A3c/ptvQz4aAir/Li+8njcXLbm+n6Fno4i3QeQKRi4LcfWLRHlWpNEfEKtSf9jKZpiq3b46VZOgVFyi+EyZh8uPxIty9kbXDs6ArG3gjJC3UnTTpI3XFte6eH2QscdlX9KIgjFX6+cOjaS6vxyY2TIw3jDm2xmLRpa0SkL4shmM//buWyom4YetoePXOyKT+auXeg8G+EblGK7USsel8hdEI4Wz9fq6EPFfiAJl6/JrDFkRVRfp5jkrbrPYn2nnX1jt07f0i1Vux1htZctjohfKpfXmAmNVW9s77WsLWWowpz7hxOn/89kByZ1WZQixNMpS5FLAy2nYEZwu5NMuzxohtX+VNT0QfE2LyciZrpPH2wJXRjXRW8DtbGZRUUKmPXGAE=",
+          "thinking": "The user wants me to write a very long story about dragons and adventures. This is a creative writing request. I should write an engaging, detailed fantasy story with:\n- Dragons (at least one or more)\n- Adventures/quests\n- Character development\n- A good plot arc\n- Descriptive language and worldbuilding\n- Multiple scenes and chapters\n\nI'll aim for a substantial story - several thousand words - that has a beginning, middle, and end. Let me create an original fantasy adventure.",
+          "type": "thinking"
+        },
+        {
+          "text": "# The Dragon of Ashenmoor Mountain\n\n## Part One: The Calling\n\nThe sky over the village of Millbrook had darkened with ash.\n\nKael stood at the edge of the marketplace, watching the gray snow fall like a curse upon the thatched roofs and muddy streets. It had been three days since the dragon appeared—a creature so vast that when it circled overhead, the sun itself seemed to flee in fear. Three days since it burned the northern pastures, and three days since the villages began drawing lots to determine who would be sacrificed to the beast.\n\nAt twenty-three years old, Kael had seen much hardship, but nothing compared to the terror that gripped Millbrook now. His sister Mara clung to him in their small cottage, her eyes red from weeping. Their mother had already been drawn once, two years prior, during the famine. By some miracle—or curse—she'd survived the lottery. Kael wouldn't count on luck twice.\n\n\"We should leave,\" Mara whispered, her small fingers pressing into his tunic. \"We could flee into the Whisperwood, hide until the dragon loses interest.\"\n\nKael wanted to believe her, but he'd heard the old stories too. Dragons never lost interest. They were immortal, vengeful, and their memories stretched back centuries. If Millbrook fled, the dragon would simply hunt them down, village by village, until none remained.\n\n\"No,\" he said, running his calloused fingers through her dark hair. \"There must be another way.\"\n\nThat night, unable to sleep, Kael climbed to the thatch-covered roof of their cottage and stared up at the smoke-choked stars. The mountain loomed to the north—Ashenmoor Mountain, where the creature had made its lair. The locals said the dragon was old, older than the kingdom itself, and that it had been sleeping in those volcanic peaks for three hundred years. Something had woken it. The priests said it was divine judgment. The merchants said it was an act of nature. Kael suspected it was something else entirely.\n\nA voice called out to him from below. \"Thought I'd find you here, boy.\"\n\nKael turned to see Orm, the village blacksmith, climbing up the side of the cottage with surprising agility for his thick, scarred frame. The old man pulled himself onto the roof and sat beside Kael, his breath heavy but steady.\n\n\"Can't sleep either?\" Kael asked.\n\n\"Sleep is a privilege I abandoned long ago,\" Orm replied, lighting a pipe he'd produced from his pocket. \"Too many years, too many regrets.\" He took a long pull on the pipe, and the smoke curled upward like a prayer. \"Your name was drawn today, Kael. In the council meeting. You didn't hear?\"\n\nKael's stomach tightened. He'd been in the forest gathering winter wood—he'd deliberately stayed away from the square where the lottery was conducted. \"When?\" he managed to ask.\n\n\"Three days hence. They'll take you to the offering stone at dawn, and—\" Orm paused, studying Kael's face in the dim light. \"You know what happens next.\"\n\n\"Yes,\" Kael whispered.\n\nOrm was silent for a long moment, drawing on his pipe. Then, surprisingly, he smiled—a thin, sad expression that deepened the weathered lines of his face. \"I knew your father,\" he said. \"Did you know that? Before you were born, before the sickness took him. Fine man. Brave. He once told me something I've never forgotten. He said that the world offers us three choices in every moment: to accept what comes, to resist it, or to transform it. Most men choose to accept. Some choose to resist, and they die anyway. But your father—he always chose to transform.\"\n\n\"What does that mean?\" Kael asked.\n\n\"It means,\" Orm said slowly, \"that there might be a fourth option. One the village hasn't considered.\"\n\n\"What option?\"\n\nOrm stood, his joints creaking like old wood. \"One you'll have to choose for yourself, boy. But I'll tell you this: I'm heading to the smithy tonight to forge something special. If you're interested in transformation rather than resignation, you know where to find me.\"\n\nBefore Kael could respond, the old man descended the roof and disappeared into the darkness.\n\n---\n\nKael found himself at the smithy before dawn, his hands shaking. The workshop was a inferno of red and gold light, the forge burning hotter than he'd ever seen it. Orm worked at an anvil, his powerful arms driving a hammer against glowing metal that sparked like captured stars.\n\n\"I wondered if you'd come,\" the old man said without looking up.\n\n\"What are you making?\" Kael asked.\n\n\"Armor,\" Orm said. \"The finest I've ever crafted. Dragon scale patterns, woven steel, reinforced joints.\" He pulled the glowing piece from the forge and plunged it into oil with a violent hiss of steam. \"Your father used to say that destiny isn't something that happens to you—it's something you choose.\"\n\n\"You want me to fight the dragon,\" Kael said flatly.\n\n\"I want you to have a choice,\" Orm corrected. \"The armor will keep you alive longer than most. What you do with that time is up to you.\"\n\n\"No one fights a dragon. No one has ever defeated one.\"\n\nOrm turned to face him, and his eyes burned with something ancient and fierce. \"I have,\" he said quietly.\n\nKael stared at him. The blacksmith looked away first, returning to his work, but the damage—or perhaps the revelation—was done. In that moment, Kael saw past the weathered exterior and scarred features. He saw a man haunted by something tremendous, carrying a weight that had never quite lifted from his shoulders.\n\n\"How?\" Kael whispered.\n\n\"Not with a sword,\" Orm said, pulling out a breastplate he'd been working on and setting it aside. \"And not alone. But that's a story for another time. For now, I need you to try on this armor and see if any adjustments are needed.\"\n\n---\n\nThe armor was magnificent and terrible. It was midnight black, crafted from steel that seemed to drink in the light of the forge. Orm had worked patterns into it that resembled dragon scales, and there were subtle joints that allowed for greater movement than Kael would have thought possible. When Kael first donned it, he felt transformed—no longer a humble woodcutter, but something approaching a warrior.\n\n\"Better,\" Orm said, walking around him and measuring with his eye. \"The shoulders need raising just slightly. The left arm is half an inch too long.\"\n\nFor three days and nights, Orm worked, making tiny adjustments, ensuring perfect fit. During this time, he began to tell Kael stories—fragments of a past the boy had never suspected.\n\nThe blacksmith had indeed once faced a dragon. It was fifty years ago, when he was young and proud and foolish. He'd been part of a company of knights, sent by the old king to slay a beast that was terrorizing the eastern provinces. Orm had been a warrior then, not a blacksmith, and he carried a sword called Ashrender—a blade forged specifically to pierce dragon scales.\n\nThey had found the dragon in a valley of black stone and sulfurous springs. The creature was even more terrible than legend suggested—older than the mountains themselves, with scales that had turned to diamond-hard obsidian through centuries of exposure to the earth's magic. The battle had been catastrophic. Of the twelve knights who rode into that valley, only Orm and three others had ridden out, and even those victories felt like defeats in their pyrrhic nature.\n\nThe dragon they faced—the one called Valorax—had fled, wounded but not dead. It had retreated into the deep earth, and the kingdom had decided to let it sleep.\n\n\"I was branded a coward,\" Orm said, sitting in his smithy with a cup of wine, his eyes distant. \"The king offered me a choice: take my own life, or become a smith and serve the kingdom. He wanted to forget about the dragon, wanted to forget about the battle. I was a symbol of failure, so he made me into a tool instead. I've been forging weapons for fifty years, trying to balance the scales for the warriors I couldn't save.\"\n\n\"Why tell me this?\" Kael asked.\n\n\"Because I'm dying,\" Orm said simply. \"The wounds from that battle never truly healed. I feel it in my bones, especially now. I have perhaps a year left, maybe less. And I've decided that I don't want to spend my last days making weapons for other men's wars.\" He looked at Kael directly. \"I want to see if there's another way.\"\n\n\"Another way to fight the dragon?\"\n\n\"Another way to exist,\" Orm said. \"With a dragon. Not against it.\"\n\n---\n\nThe night before the sacrifice, Orm gave Kael his final piece of advice.\n\n\"The dragon's lair is on the highest peak of Ashenmoor, where the volcanic vents reach toward the sky like the breath of the world itself. Many have tried to reach it—warriors, mages, priests. None have succeeded. The mountain itself seems to resist their passage, as if protected by something more than mere stone.\"\n\n\"But you think I can reach it?\" Kael asked.\n\n\"I think you might listen,\" Orm said, \"where others only hear. The dragon didn't wake for no reason, Kael. Something is wrong in its realm, something that stirred it from centuries of sleep. If you can learn what that is, you might be able to bargain with the creature.\"\n\n\"You're talking about negotiating with a dragon. With a *dragon*.\"\n\nOrm smiled his sad smile. \"Your father would have called it transformation.\"\n\nThe next morning, when the guards came to collect Kael for the sacrifice, they found he'd fled. The village assumed he was a coward running to his death in the wilderness. But Orm knew the truth. The old blacksmith watched from his workshop as word spread, and then he returned to his forge. He had one final task to complete.\n\nHe crafted a sword.\n\nUnlike Ashrender, this blade was not designed to pierce and kill. Instead, it was forged to conduct magic, to speak across the gulf between human and dragon, to translate intent and meaning into the language of ancient power. It took him three days and three nights of constant work, pouring his remaining life-force into the steel itself. When he was finished, he collapsed into his chair, exhausted.\n\nHe died that night, peacefully, in his sleep. The sword remained on the anvil, untouched, waiting.\n\n---\n\n## Part Two: The Mountain's Trial\n\nKael fled into the Whisperwood, the armor hidden beneath heavy cloaks, a pack of supplies on his back. He moved by night, avoiding the roads, following the old paths that he knew from his youth. For two days, he traveled deeper into the forest, watching as the trees grew older, their trunks thickening to the size of houses, their branches reaching so high that the sky became merely a rumor between the leaves.\n\nOn the morning of the third day, he emerged from the Whisperwood at its northern edge.\n\nBefore him stretched a rocky plain, barren and twisted, as if the earth itself had rebelled here. In the distance rose Ashenmoor Mountain, a peak of dark stone crowned with ash clouds and the occasional flash of internal light. The mountain was impossibly high—taller than it should have been, its summit seeming to pierce not just the sky but something beyond the sky, a rent in reality itself.\n\nThere was no path, no trail leading toward it. Kael stood for a long moment, feeling the weight of what he was attempting settle upon him like a winter's mantle. Then he began walking.\n\nThe plain was treacherous. The ground was covered with sharp stones that cut through boot leather, and the air grew progressively hotter as he approached the mountain. By noon, Kael could see his shadow stretched long and thin beneath him, and the sky itself seemed to darken with heat shimmer.\n\nHe was a quarter of the way across the plain when he first heard the voice.\n\nIt wasn't spoken—not exactly. It was more like a pressure against his mind, a vast intelligence touching the edges of his consciousness the way a giant might touch an anthill with the tip of one finger.\n\n*Why do you approach?*\n\nKael stopped dead, his heart hammering. He turned slowly, searching the landscape, but saw nothing except rocks and dust and the approaching mountain.\n\n\"I come to speak with the dragon,\" Kael called out, his voice small in the vast emptiness.\n\nThe pressure increased, and he felt something like amusement",
+          "type": "text"
+        }
+      ],
+      "id": "msg_018L2AggBUJKfAxXvVnUXdx7",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "assistant",
+      "stop_reason": "max_tokens",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 44,
+        "output_tokens": 3000,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "anthropic-organization-id": [
+        "a71659e7-a922-4ff7-99de-f3ba615face1"
+      ],
+      "anthropic-ratelimit-input-tokens-limit": [
+        "450000"
+      ],
+      "anthropic-ratelimit-input-tokens-remaining": [
+        "450000"
+      ],
+      "anthropic-ratelimit-input-tokens-reset": [
+        "2025-11-02T17:04:54Z"
+      ],
+      "anthropic-ratelimit-output-tokens-limit": [
+        "90000"
+      ],
+      "anthropic-ratelimit-output-tokens-remaining": [
+        "87000"
+      ],
+      "anthropic-ratelimit-output-tokens-reset": [
+        "2025-11-02T17:05:35Z"
+      ],
+      "anthropic-ratelimit-requests-limit": [
+        "1000"
+      ],
+      "anthropic-ratelimit-requests-remaining": [
+        "999"
+      ],
+      "anthropic-ratelimit-requests-reset": [
+        "2025-11-02T17:04:52Z"
+      ],
+      "anthropic-ratelimit-tokens-limit": [
+        "540000"
+      ],
+      "anthropic-ratelimit-tokens-remaining": [
+        "537000"
+      ],
+      "anthropic-ratelimit-tokens-reset": [
+        "2025-11-02T17:04:54Z"
+      ],
+      "cf-cache-status": [
+        "DYNAMIC"
+      ],
+      "cf-ray": [
+        "998536a8ef1bf851-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:05:33 GMT"
+      ],
+      "request-id": [
+        "req_011CUjRg6NhHDpXgteKz4xwP"
+      ],
+      "retry-after": [
+        "6"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-envoy-upstream-service-time": [
+        "40843"
+      ],
+      "x-robots-tag": [
+        "none"
+      ]
+    },
+    "status": 200
+  }
+}

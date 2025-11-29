@@ -25,6 +25,14 @@ req_llm-*.tar
 # Conductor
 .conductor/
 
+# Quibbler
+.quibbler/
+
+# Claude Code
+.claude/
+
 # Language Servers
 .elixir_ls
 .expert
+
+.env

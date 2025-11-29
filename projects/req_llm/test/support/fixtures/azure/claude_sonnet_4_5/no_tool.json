@@ -1,0 +1,140 @@
+{
+  "model_spec": "azure:claude-sonnet-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoxMjgwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJUZWxsIG1lIGEgam9rZSBhYm91dCBjYXRzIiwicm9sZSI6InVzZXIifV0sIm1vZGVsIjoiY2xhdWRlLXNvbm5ldC00LTUiLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MS4wLCJ0aGlua2luZyI6eyJidWRnZXRfdG9rZW5zIjoxMDI0LCJ0eXBlIjoiZW5hYmxlZCJ9LCJ0b29scyI6W3siZGVzY3JpcHRpb24iOiJHZXQgY3VycmVudCB3ZWF0aGVyIGluZm9ybWF0aW9uIGZvciBhIGxvY2F0aW9uIiwiaW5wdXRfc2NoZW1hIjp7ImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJsb2NhdGlvbiI6eyJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJsb2NhdGlvbiJdLCJ0eXBlIjoib2JqZWN0In0sIm5hbWUiOiJnZXRfd2VhdGhlciJ9XX0="
+    },
+    "canonical_json": {
+      "max_tokens": 12800,
+      "messages": [
+        {
+          "content": "Tell me a joke about cats",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Get current weather information for a location",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "location": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "name": "get_weather"
+        }
+      ]
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EpsDCkYIChgCKkA1cniIkpqVN5ouSRbjiIz0Rsrh058IPsv5kTwmxn9xZrzu4jzW2AqVVMum4ZNi0Dk6YwtRrxBI+oCcRQmQyQsPEgxUfrxTxBe4y21Cd4waDFFNL+V+Ehok8OiELiIw2FPgW4InvC/TnCnXphojSeGPiObJNUZ06zrdgXlrPJ7M8FaRYpLULcdNQqbiKEcqKoICNLBe4phtTNmHim8HcclDucHnF7+Mc8SqIuQ5z3EUh6W9kEWiQDNTYG/ta2udNzeLmZ3MAQHh8m3CamV1AWpPboOFHj/SGRHkAEyx7ECenNEYby40kKj0f3u4x/kHiWPTg5KMwNEqh2UfNgJEXu3tKNA6DNi4X60nlN9g61ZZPzMcJGUMhoydx6VjWvH+lA6fNJevPLLIsJ+KXf0A2HCCwuMHQ2uJEl8B4OcVtcHqdo5P3YJmaOdCkfFczE5/ccv1wej4q272TGpHLZrlncFrTIt9vrtRCkbdT9x0ymt7Aia/h+9DyiYeRVqVqYrEreww+mIVKZrPhRJdIsK+5phETdgQGAE=",
+          "thinking": "The user is asking me to tell a joke about cats. This is a simple request that doesn't require any function calls - they're not asking about the weather or anything that would need the get_weather function. I should just tell them a cat joke.",
+          "type": "thinking"
+        },
+        {
+          "text": "Here's a cat joke for you:\n\nWhy don't cats play poker in the jungle?\n\nToo many cheetahs! 🐱\n\nWant to hear another one? What do you call a pile of kittens? A meowntain! 😸",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01BDNeNPZquVgHfifBcFqKcp",
+      "model": "claude-sonnet-4-5-20250929",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 601,
+        "output_tokens": 121,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "481a2ece-cad3-4ca1-a9be-2779aff4fd4d"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:49 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

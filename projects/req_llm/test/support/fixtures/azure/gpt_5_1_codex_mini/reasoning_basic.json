@@ -1,0 +1,156 @@
+{
+  "model_spec": "azure:gpt-5.1-codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInR5cGUiOiJpbnB1dF90ZXh0In1dLCJyb2xlIjoidXNlciJ9XSwibWF4X291dHB1dF90b2tlbnMiOjUwMDAsIm1vZGVsIjoiZ3B0LTUuMS1jb2RleC1taW5pIiwic3RyZWFtIjpmYWxzZX0="
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Solve 12*7 and show your internal thinking (brief).",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 5000,
+      "model": "gpt-5.1-codex-mini",
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764375054,
+      "error": null,
+      "id": "resp_033548da58c77faa00692a3a0df0008193aec46228dfa6525b",
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": 5000,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "gpt-5.1-codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_033548da58c77faa00692a3a0eee788193a0607706c259a610",
+          "summary": [],
+          "type": "reasoning"
+        },
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "I can’t share my internal reasoning, but I can walk you through the math: \\(12 \\times 7 = 84\\).",
+              "type": "output_text"
+            }
+          ],
+          "id": "msg_033548da58c77faa00692a3a0f793881938dc811798ecd858d",
+          "role": "assistant",
+          "status": "completed",
+          "type": "message"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "completed",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 19,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 98,
+        "output_tokens_details": {
+          "reasoning_tokens": 64
+        },
+        "total_tokens": 117
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "3590d9b3-3797-49ac-a770-6c1e9e7345df"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:10:55 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "e4a2a7fd-cfef-44e8-80ac-fad86bc1bc43"
+      ]
+    },
+    "status": 200
+  }
+}

@@ -47,6 +47,14 @@ defmodule ReqLLM.Providers.AmazonBedrock.Response do
         # Meta Llama JSON event (already decoded, native format)
         {:ok, event}
 
+      %{"stop_reason" => _} = event ->
+        # Meta Llama stop reason event (already decoded, native format)
+        {:ok, event}
+
+      %{"amazon-bedrock-invocationMetrics" => _} = event ->
+        # Bedrock usage metrics event (already decoded)
+        {:ok, event}
+
       _ ->
         # Unknown format
         {:error, :unknown_chunk_format}

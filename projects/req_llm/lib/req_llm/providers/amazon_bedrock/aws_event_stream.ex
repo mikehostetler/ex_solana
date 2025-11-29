@@ -1,11 +1,46 @@
 defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
   @moduledoc """
-  Parser for AWS Event Stream protocol.
+  Parser for the AWS Event Stream protocol, specialized for Amazon Bedrock.
 
   AWS Event Stream is a binary protocol used by various AWS services for streaming responses.
   It includes CRC checksums and a specific binary format for framing messages.
 
   This module provides functions to parse the binary stream into decoded events.
+
+  ## Design Rationale: Bedrock Specialization
+
+  This parser is **intentionally specialized for Amazon Bedrock** and is **not** a
+  general-purpose AWS Event Stream parser. This design was chosen for **performance
+  and convenience** within ReqLLM.
+
+  A generic parser would be less efficient for this use case. It would have to:
+  1. Parse all 10+ possible header types (e.g., UUIDs, Timestamps, Booleans) that
+     Bedrock never uses, adding unnecessary parsing overhead.
+  2. Return a raw binary payload, forcing ReqLLM to perform a second, multi-step
+     decoding process (JSON decode → extract base64 → base64 decode → JSON decode).
+
+  This implementation avoids that overhead by making two key assumptions:
+
+  1. **Header Parsing:** Only parses header values of type `7` (String), which is all
+     Bedrock uses for metadata like `:event-type` and `:content-type`. All other
+     header value types defined in the AWS Event Stream specification are intentionally
+     ignored, simplifying the parsing logic.
+
+  2. **Integrated Payload Decoding:** Decodes the Bedrock-specific payload format
+     *in a single pass*. It handles both the `InvokeModelWithResponseStream` format
+     (`{\"bytes\": \"base64...\"}`) and the `ConverseStream` direct JSON format,
+     returning ready-to-use Elixir maps.
+
+  ## Non-Goals
+
+  Because of this specialization, this parser is **not suitable** for other AWS services
+  that use the Event Stream protocol, such as:
+  - **S3 Select** (uses different header types and binary payloads)
+  - **Amazon Transcribe** (uses non-JSON binary payloads)
+  - **Amazon Kinesis** (different event structure)
+
+  For a general-purpose parser, consider implementing all header types and returning
+  raw payload bytes instead of decoded JSON.
 
   ## Format
 
@@ -20,8 +55,8 @@ defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
   ## Example
 
       data = <<binary_aws_event_stream_data>>
-      case ReqLLM.AWSEventStream.parse_binary(data) do
-        {:ok, events, rest} -> 
+      case ReqLLM.Providers.AmazonBedrock.AWSEventStream.parse_binary(data) do
+        {:ok, events, rest} ->
           # Process events (list of decoded JSON maps)
           # Keep rest for next chunk
         {:incomplete, data} ->
@@ -116,8 +151,11 @@ defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
           >>
 
           if :erlang.crc32(message_without_crc) == message_crc do
+            # Parse headers to get event metadata
+            parsed_headers = parse_headers(headers)
+
             # Parse the body - typically JSON with base64-encoded content
-            case decode_body(body) do
+            case decode_body(body, parsed_headers) do
               {:ok, decoded} ->
                 {:ok, decoded, remaining}
 
@@ -144,7 +182,45 @@ defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
     {:incomplete, data}
   end
 
-  defp decode_body(body) do
+  defp parse_headers(headers_binary) when byte_size(headers_binary) == 0 do
+    %{}
+  end
+
+  defp parse_headers(headers_binary) do
+    parse_header_pairs(headers_binary, %{})
+  end
+
+  defp parse_header_pairs(<<>>, acc), do: acc
+
+  defp parse_header_pairs(data, acc) do
+    # Each header is: name_len(1) + name + value_type(1) + value_len(2) + value
+    case data do
+      <<name_len::8, rest::binary>> when byte_size(rest) >= name_len ->
+        <<name::binary-size(name_len), value_type::8, rest2::binary>> = rest
+
+        case value_type do
+          # String type (7)
+          7 when byte_size(rest2) >= 2 ->
+            <<value_len::16-big, rest3::binary>> = rest2
+
+            if byte_size(rest3) >= value_len do
+              <<value::binary-size(value_len), remaining::binary>> = rest3
+              parse_header_pairs(remaining, Map.put(acc, name, value))
+            else
+              acc
+            end
+
+          # Other types not implemented yet
+          _ ->
+            acc
+        end
+
+      _ ->
+        acc
+    end
+  end
+
+  defp decode_body(body, headers) do
     # AWS event streams for Bedrock typically have {"bytes": "base64_content"}
     # where the base64 content is the actual JSON payload
     case Jason.decode(body) do
@@ -160,7 +236,15 @@ defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
 
       {:ok, decoded} ->
         # Direct JSON (some AWS services)
-        {:ok, decoded}
+        # For Converse API, wrap in event type from headers if present
+        case Map.get(headers, ":event-type") do
+          nil ->
+            {:ok, decoded}
+
+          event_type ->
+            # Convert "contentBlockDelta" to the wrapper format expected by parse_stream_chunk
+            {:ok, %{event_type => decoded}}
+        end
 
       {:error, error} ->
         {:error, error}
@@ -214,13 +298,13 @@ defmodule ReqLLM.Providers.AmazonBedrock.AWSEventStream do
 
   ## Example
 
-      stream = ReqLLM.AWSEventStream.create_stream(
+      stream = ReqLLM.Providers.AmazonBedrock.AWSEventStream.create_stream(
         process_event: fn event ->
           # Transform the event
           %{data: event}
         end
       )
-      
+
       Enum.each(stream, fn chunk ->
         IO.inspect(chunk)
       end)

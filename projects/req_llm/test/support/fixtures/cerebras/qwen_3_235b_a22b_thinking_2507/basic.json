@@ -38,22 +38,22 @@
           "finish_reason": "length",
           "index": 0,
           "message": {
-            "content": "Okay, the user said \"Hello world!\" which is a classic first program output. They might be testing if I respond to basic greetings or checking how I handle simple inputs.\n\nI should keep it friendly and open-ended. Maybe add a bit of personality",
+            "content": "Okay, the user said \"Hello world!\" which is a classic first program in many coding tutorials. They might be new to programming or just testing if I respond to common phrases.\n\nI should keep it friendly and encouraging. Maybe add a bit of humor",
             "role": "assistant"
           }
         }
       ],
-      "created": 1760396436,
-      "id": "chatcmpl-b194c59f-12e3-4a52-a47c-9b7aa17ebd8e",
+      "created": 1762103516,
+      "id": "chatcmpl-7105a44b-16ba-4010-b075-769b41cd3885",
       "model": "qwen-3-235b-a22b-thinking-2507",
       "object": "chat.completion",
-      "system_fingerprint": "fp_2550751e3c405168bfb3",
+      "system_fingerprint": "fp_3182fd252640150dc65b",
       "time_info": {
-        "completion_time": 0.073481131,
-        "created": 1760396436,
-        "prompt_time": 0.002086202,
-        "queue_time": 4.043e-4,
-        "total_time": 0.07703304290771484
+        "completion_time": 0.08184866,
+        "created": 1762103516.1372995,
+        "prompt_time": 0.001775313,
+        "queue_time": 5.56991e-4,
+        "total_time": 0.08523964881896973
       },
       "usage": {
         "completion_tokens": 50,
@@ -72,7 +72,7 @@
         "DYNAMIC"
       ],
       "cf-ray": [
-        "98e2743f4af01130-ORD"
+        "998540ff2e40e81c-ORD"
       ],
       "connection": [
         "keep-alive"
@@ -81,10 +81,10 @@
         "application/json"
       ],
       "date": [
-        "Mon, 13 Oct 2025 23:00:36 GMT"
+        "Sun, 02 Nov 2025 17:11:56 GMT"
       ],
       "inference-id": [
-        "chatcmpl-b194c59f-12e3-4a52-a47c-9b7aa17ebd8e"
+        "chatcmpl-7105a44b-16ba-4010-b075-769b41cd3885"
       ],
       "referrer-policy": [
         "strict-origin-when-cross-origin"
@@ -92,8 +92,12 @@
       "server": [
         "cloudflare"
       ],
+      "server-timing": [
+        "cfCacheStatus;desc=\"DYNAMIC\"",
+        "cfEdge;dur=6,cfOrigin;dur=244"
+      ],
       "set-cookie": [
-        "__cf_bm=_gG7Q5sPvmWAvNjOQch66J_Rru4rXFoFIHxhD2efWcY-1760396436-1.0.1.1-l0KLYOuHBCEM0BKtKpHnTQ3mL6xhVDv6vM9v58Rqj7Ekm9O1.bE.af_lufZPVUFfQ7CMx99EgDAqHhSZPDfJt9PmNuAcMeGesZZcaUBPuPM; path=/; expires=Mon, 13-Oct-25 23:30:36 GMT; domain=.api.cerebras.ai; HttpOnly; Secure; SameSite=None"
+        "__cf_bm=ep0I6UIRN_Ue.sj2OCi.7m9q7kN_wyelagqDSWYq1sU-1762103516.027189-1.0.1.1-izedhxiYwHfauJPrwFqpsmJKExx7CBlsgjcbux8QwCVG80I9xtxjbqQ8trT3pz29HSeuyx94GYwFQShxW.Grkk4Jg1Zl9F6smtUyCcFdGZNK0ENo.8.O8oFVc95pljT4; HttpOnly; Secure; Path=/; Domain=cerebras-sandbox.net; Expires=Sun, 02 Nov 2025 17:41:56 GMT"
       ],
       "strict-transport-security": [
         "max-age=3600; includeSubDomains"
@@ -111,19 +115,19 @@
         "1000000"
       ],
       "x-ratelimit-remaining-requests-day": [
-        "1439993"
+        "1440000"
       ],
       "x-ratelimit-remaining-tokens-minute": [
-        "999726"
+        "1000000"
       ],
       "x-ratelimit-reset-requests-day": [
-        "3563.4603176116943"
+        "24483.749445676804"
       ],
       "x-ratelimit-reset-tokens-minute": [
-        "23.460317611694336"
+        "3.749445676803589"
       ],
       "x-request-id": [
-        "98e2743f4af01130-ORD"
+        "998540ff2e40e81c-ORD"
       ]
     },
     "status": 200

@@ -29,6 +29,56 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
   Set REQ_LLM_DEBUG=1 to enable verbose fixture output during test runs.
   """
 
+  def supports_object_generation?(model_spec) do
+    case ReqLLM.model(model_spec) do
+      {:ok, model} ->
+        caps = model.capabilities || %{}
+
+        # Object generation is supported if:
+        # 1. Model has native JSON mode (json.native)
+        # 2. Model supports JSON schemas (json.schema)
+        # 3. Model has strict tool calling (tools.strict = true)
+        # 4. Model has regular tool calling (tools.enabled = true) - req_llm has workaround
+        get_in(caps, [:json, :native]) ||
+          get_in(caps, [:json, :schema]) ||
+          get_in(caps, [:tools, :strict]) == true ||
+          get_in(caps, [:tools, :enabled]) == true
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  def supports_streaming_object_generation?(model_spec) do
+    case ReqLLM.model(model_spec) do
+      {:ok, model} ->
+        caps = model.capabilities || %{}
+
+        # Must support object generation AND streaming tool calls
+        supports_object = supports_object_generation?(model_spec)
+        supports_streaming = get_in(caps, [:streaming, :tool_calls]) != false
+
+        supports_object && supports_streaming
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  def supports_tool_calling?(model_spec) do
+    case ReqLLM.model(model_spec) do
+      {:ok, model} -> get_in(model.capabilities, [:tools, :enabled]) == true
+      {:error, _} -> false
+    end
+  end
+
+  def supports_reasoning?(model_spec) do
+    case ReqLLM.model(model_spec) do
+      {:ok, model} -> get_in(model.capabilities, [:reasoning, :enabled]) == true
+      {:error, _} -> false
+    end
+  end
+
   defmacro __using__(opts) do
     provider = Keyword.fetch!(opts, :provider)
 
@@ -44,10 +94,15 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
 
       @moduletag :coverage
       @moduletag provider: to_string(provider)
-      @moduletag timeout: 180_000
+      @moduletag timeout: 300_000
 
       @provider provider
       @models ModelMatrix.models_for_provider(provider, operation: :text)
+
+      setup_all do
+        LLMDB.load(allow: :all, custom: %{})
+        :ok
+      end
 
       for model_spec <- @models do
         @model_spec model_spec
@@ -106,9 +161,11 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
 
             assert %ReqLLM.StreamResponse{} = stream_response
             assert stream_response.stream
-            assert stream_response.metadata_task
+            assert stream_response.metadata_handle
 
             {:ok, response} = ReqLLM.StreamResponse.to_response(stream_response)
+
+            finish_reason = ReqLLM.StreamResponse.finish_reason(stream_response)
 
             # Assert response structure without context advancement check
             # (streaming doesn't auto-append to context)
@@ -123,6 +180,8 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
 
             assert response.message.role == :assistant
 
+            refute is_nil(finish_reason)
+
             usage = response.usage
             assert is_map(usage)
             assert is_number(usage.input_tokens) and usage.input_tokens > 0
@@ -133,6 +192,7 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
           end
 
           @tag scenario: :token_limit
+          @tag timeout: 600_000
           test "token limit constraints" do
             opts =
               param_bundles(@provider).minimal
@@ -176,10 +236,10 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
             )
 
             max_tokens =
-              case ReqLLM.Model.from(@model_spec) do
+              case ReqLLM.model(@model_spec) do
                 {:ok, %{capabilities: %{reasoning: true}}} -> 500
                 {:ok, %{model: "gpt-4.1" <> _}} -> 16
-                {:ok, %{_metadata: %{"api" => "responses"}}} -> 16
+                {:ok, %{extra: %{api: "responses"}}} -> 200
                 _ -> 10
               end
 
@@ -212,8 +272,8 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
             assert is_number(response.usage.reasoning_tokens) and
                      response.usage.reasoning_tokens >= 0
 
-            case ReqLLM.Model.from(@model_spec) do
-              {:ok, %ReqLLM.Model{cost: cost_map}} when is_map(cost_map) ->
+            case ReqLLM.model(@model_spec) do
+              {:ok, %LLMDB.Model{cost: cost_map}} when is_map(cost_map) ->
                 assert is_number(response.usage.input_cost) and response.usage.input_cost >= 0
 
                 assert is_number(response.usage.output_cost) and
@@ -229,7 +289,41 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
             end
           end
 
-          if :tool_call in ReqLLM.capabilities(model_spec) do
+          @tag scenario: :context_append
+          test "context append continues conversation" do
+            ctx = ReqLLM.Context.new([user("Respond with a single word 'Hi'.")])
+
+            opts =
+              param_bundles().deterministic
+              # Required as thinking models like gpt-5-mini or gemini might not fit into the default budget of 50 tokens
+              |> Keyword.put(:max_tokens, 1024)
+
+            {:ok, resp1} =
+              ReqLLM.generate_text(
+                @model_spec,
+                ctx,
+                fixture_opts(@provider, "context_append_1", opts)
+              )
+
+            ctx2 = ReqLLM.Context.append(resp1.context, user("Hi again"))
+
+            {:ok, resp2} =
+              ReqLLM.generate_text(
+                @model_spec,
+                ctx2,
+                fixture_opts(@provider, "context_append_2", opts)
+              )
+
+            text = ReqLLM.Response.text(resp2) || ""
+            reasoning_tokens = Map.get(resp2.usage || %{}, :reasoning_tokens, 0)
+
+            assert text != "" or reasoning_tokens > 0
+            assert length(resp2.context.messages) >= 4
+            assert List.last(resp2.context.messages) == resp2.message
+            assert resp2.message.role == :assistant
+          end
+
+          if ReqLLM.ProviderTest.Comprehensive.supports_tool_calling?(model_spec) do
             @tag scenario: :tool_multi
             test "tool calling - multi-tool selection" do
               tools = [
@@ -377,7 +471,7 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
             end
           end
 
-          if ReqLLM.Capability.supports_object_generation?(model_spec) do
+          if ReqLLM.ProviderTest.Comprehensive.supports_object_generation?(model_spec) do
             @tag scenario: :object_basic
             test "object generation (non-streaming)" do
               schema = [
@@ -425,7 +519,9 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
                   flunk("Expected object or reasoning tokens but got: #{inspect(object)}")
               end
             end
+          end
 
+          if ReqLLM.ProviderTest.Comprehensive.supports_streaming_object_generation?(model_spec) do
             @tag scenario: :object_streaming
             test "object generation (streaming)" do
               schema = [
@@ -482,7 +578,7 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
             end
           end
 
-          if :reasoning in ReqLLM.capabilities(model_spec) do
+          if ReqLLM.ProviderTest.Comprehensive.supports_reasoning?(model_spec) do
             @tag scenario: :reasoning
             test "reasoning/thinking tokens (non-streaming + streaming)" do
               dbug(
@@ -490,15 +586,17 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
                 component: :test
               )
 
-              {:ok, model} = ReqLLM.Model.from(@model_spec)
+              {:ok, model} = ReqLLM.model(@model_spec)
 
               provider_config = param_bundles(@provider)
 
+              # Bedrock requires max_tokens > budget_tokens (4000 for :low)
+              # Use 5000 to be safe for all providers
               base_opts =
                 provider_config.deterministic
                 |> Keyword.delete(:temperature)
                 |> Keyword.merge(
-                  max_tokens: 2048,
+                  max_tokens: 5000,
                   temperature: 1.0,
                   reasoning_effort: provider_config.reasoning[:reasoning_effort]
                 )
@@ -550,7 +648,7 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
                 provider_config.creative
                 |> Keyword.delete(:temperature)
                 |> Keyword.merge(
-                  max_tokens: 2048,
+                  max_tokens: 5000,
                   temperature: 1.0,
                   reasoning_effort: provider_config.reasoning[:reasoning_effort]
                 )
@@ -564,10 +662,13 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
 
               assert %ReqLLM.StreamResponse{} = stream_response
               assert stream_response.stream
-              assert stream_response.metadata_task
+              assert stream_response.metadata_handle
+
+              # Collect stream chunks once (streams are single-use)
+              stream_chunks = Enum.to_list(stream_response.stream)
 
               {thinking_count, reasoning_tokens_stream} =
-                stream_response.stream
+                stream_chunks
                 |> Enum.reduce({0, 0}, fn chunk, {tc, rt} ->
                   case chunk.type do
                     :thinking ->
@@ -583,11 +684,19 @@ defmodule ReqLLM.ProviderTest.Comprehensive do
                   end
                 end)
 
-              {:ok, response} = ReqLLM.StreamResponse.to_response(stream_response)
+              # Build response from collected chunks
+              stream_with_chunks = %{stream_response | stream: stream_chunks}
+              {:ok, response} = ReqLLM.StreamResponse.to_response(stream_with_chunks)
               rt_final = ReqLLM.Response.reasoning_tokens(response)
 
-              assert thinking_count > 0 or reasoning_tokens_stream > 0 or rt_final > 0,
-                     "Expected at least one :thinking chunk or positive reasoning_tokens; got tc=#{thinking_count} rt_stream=#{reasoning_tokens_stream} rt_final=#{rt_final}"
+              # Adaptive reasoning models (like gpt-5-chat) may choose not to reason
+              # for simple prompts, so also accept text output like non-streaming does
+              streaming_text = ReqLLM.Response.text(response) || ""
+              has_streaming_output = streaming_text != ""
+
+              assert thinking_count > 0 or reasoning_tokens_stream > 0 or rt_final > 0 or
+                       has_streaming_output,
+                     "Expected at least one :thinking chunk, positive reasoning_tokens, or text output; got tc=#{thinking_count} rt_stream=#{reasoning_tokens_stream} rt_final=#{rt_final} text_len=#{String.length(streaming_text)}"
 
               assert %ReqLLM.Response{} = response
               assert response.message.role == :assistant

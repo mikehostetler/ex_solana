@@ -1,0 +1,156 @@
+{
+  "model_spec": "azure:codex-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJpbnB1dCI6W3siY29udGVudCI6W3sidGV4dCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInR5cGUiOiJpbnB1dF90ZXh0In1dLCJyb2xlIjoidXNlciJ9XSwibWF4X291dHB1dF90b2tlbnMiOjUwMDAsIm1vZGVsIjoiY29kZXgtbWluaSIsInN0cmVhbSI6ZmFsc2V9"
+    },
+    "canonical_json": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Solve 12*7 and show your internal thinking (brief).",
+              "type": "input_text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "max_output_tokens": 5000,
+      "model": "codex-mini",
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "background": false,
+      "content_filters": null,
+      "created_at": 1764374989,
+      "error": null,
+      "id": "resp_0d0bfaaa7b820af900692a39cd193c8194a7de5d2bc2cc9297",
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": 5000,
+      "max_tool_calls": null,
+      "metadata": {},
+      "model": "codex-mini",
+      "object": "response",
+      "output": [
+        {
+          "id": "rs_0d0bfaaa7b820af900692a39cdb7b0819490470be144658a79",
+          "summary": [],
+          "type": "reasoning"
+        },
+        {
+          "content": [
+            {
+              "annotations": [],
+              "logprobs": [],
+              "text": "**Answer: 84**\n\n**Brief explanation:** Multiplying 12 by 7 gives 84, since you’re adding seven 12’s (or twelve 7’s) together.",
+              "type": "output_text"
+            }
+          ],
+          "id": "msg_0d0bfaaa7b820af900692a39cf63fc81949e4ecc1abad548cf",
+          "role": "assistant",
+          "status": "completed",
+          "type": "message"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "reasoning": {
+        "effort": "medium",
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "status": "completed",
+      "store": true,
+      "temperature": 1.0,
+      "text": {
+        "format": {
+          "type": "text"
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1.0,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 19,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 237,
+        "output_tokens_details": {
+          "reasoning_tokens": 192
+        },
+        "total_tokens": 256
+      },
+      "user": null
+    },
+    "headers": {
+      "apim-request-id": [
+        "762402c5-37ce-45b1-9fe3-420891aece98"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sat, 29 Nov 2025 00:09:51 GMT"
+      ],
+      "skip-error-remapping": [
+        "true"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ],
+      "x-request-id": [
+        "231aff6b-f970-464d-afe9-8939c01f93fc"
+      ]
+    },
+    "status": 200
+  }
+}

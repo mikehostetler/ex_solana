@@ -195,10 +195,25 @@ mix deps.get
 cp .env.example .env
 # Edit .env with your API keys
 
+# Install git hooks (recommended)
+mix git_hooks.install
+
 # Verify setup
 mix test
 mix quality
 ```
+
+### Git Hooks
+
+We use the [`git_hooks`](https://hex.pm/packages/git_hooks) package to manage git hooks in an Elixir-idiomatic way:
+
+```bash
+mix git_hooks.install
+```
+
+This installs a pre-push hook that runs `mix format --check-formatted` before each push.
+
+This is important because Elixir 1.18 and 1.19 format some code differently (particularly guard clauses), and CI tests against multiple Elixir versions. The hook ensures your code is formatted correctly before pushing, preventing CI failures.
 
 ## Testing Requirements
 
@@ -335,11 +350,11 @@ mix quality  # Runs all of the above
 - **Pattern matching over conditionals**: Prefer pattern matching when possible
 - **Explicit module calls**: Minimize imports, prefer `Module.function()` style
 
-See [AGENTS.md](AGENTS.md) for complete style guide and architecture details.
+See the project root AGENTS.md file for complete style guide and architecture details.
 
 ## Questions?
 
-- **Documentation**: Check [guides/](guides/) for detailed implementation guides
+- **Documentation**: Check the guides/ directory for detailed implementation guides
 - **Issues**: Open an issue for questions or bug reports
 - **Discussions**: Use GitHub Discussions for general questions
 - **Examples**: Look at existing providers for implementation patterns

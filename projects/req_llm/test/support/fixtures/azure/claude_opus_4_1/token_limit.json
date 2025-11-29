@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-opus-4-1",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJjbGF1ZGUtb3B1cy00LTEiLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MS4wLCJ0aGlua2luZyI6eyJidWRnZXRfdG9rZW5zIjoxMDI0LCJ0eXBlIjoiZW5hYmxlZCJ9fQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "claude-opus-4-1",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EtIDCkYIChgCKkB1qJ3KYEjZjQO1VQRSYM1gfu+WMhdPCJoLtWppJhPRPBHVp1Dc0QhH4TAV0XceOzESh4+mmhV523CbaPvF6kG8Egwbj2R83vKNhMeYE50aDGnOP4BO1eqvswiFzSIwOgd47vd6A/SwVNXtvB1eKi7JY/enpdDvACUe9dzemgvxpZ+6BoZsIdOqK57c7yiGKrkCKLjNoaNpgMQGEJxI6f3P8byFxDEc3yRfBLM+qPJrKHxGSsuebE0ecxo5VABR5exTfYoks9uMeRPixct4/S+ExitjkcXEtBXegtkfp6RGAQIIY9syOUoCrfdjQRLYTtZIUsQKDqSjtAJDRwO+noHyAr421Xbz+vRelYIAz/N8XZslwwjD9LUmHz4NVdYmwdx7Xo3alO5RatnRQuJ/raOt3P0J+P5/NK38kYivO16G9bj1R9D6QabzjRwGEixYLPlpM04WlHTdcSGIqJ2jyLQ8gv/LYCioTIdn6acyQVuyTnEq1Y4O243RqBx3bSPEKY1q+rkl7XOz3oDPGeLYe1sJiBEus03Ja39YsLVkRKQhJTkq/7bj8Y3QwXjwUOgMowrcUbztv2VLnx1mm91qvxuCPWIqygdvrQ3rnhgB",
+          "thinking": "The user wants a very long story about dragons and adventures. I'll create an epic fantasy tale with multiple chapters, rich world-building, character development, and various adventures involving dragons. I'll aim for a substantial narrative that includes action, mystery, friendship, and growth.",
+          "type": "thinking"
+        },
+        {
+          "text": "# The Chronicles of the Last Dragonkeeper\n\n## Part One: The Awakening\n\n### Chapter 1: The Forgotten Valley\n\nThe morning mist clung to the mountainside like a silk shroud, concealing the ancient valley of Thyraldon from the world beyond. Seventeen-year-old Kira Ashenheart stood at the edge of the cliff, her weathered leather boots gripping the moss-covered stone as she gazed into the swirling gray below. She had lived her entire life in the village of Millhaven, nestled in the foothills of the Dragonspine Mountains, but she had never ventured this far into the peaks before.\n\n\"You shouldn't be here,\" came a gravelly voice from behind her.\n\nKira spun around to find an old man leaning heavily on a gnarled wooden staff. His beard was white as fresh snow, braided with small silver bells that chimed softly with each movement. His eyes, however, were what caught her attention – they were golden, with vertical pupils like those of a cat... or something far more ancient.\n\n\"I'm sorry, I was just exploring,\" Kira stammered, backing away from the cliff's edge. \"My grandmother always told me stories about these mountains, about the old days when—\"\n\n\"When dragons flew through these peaks like sparrows through summer air,\" the old man finished, a wistful smile creasing his weathered face. \"Yes, I know the stories well. Perhaps better than most.\"\n\nHe approached slowly, his staff clicking against the stone with each step. As he drew nearer, Kira noticed strange markings on his exposed arms – not quite tattoos, but something that seemed to shimmer and move beneath his skin like living mercury.\n\n\"My name is Aldric Stormweaver,\" he said, extending a hand adorned with numerous rings, each bearing a different colored gemstone. \"And you, young Kira, are exactly where you're meant to be.\"\n\nKira's eyes widened. \"How do you know my name?\"\n\nAldric chuckled, a sound like distant thunder. \"I've been waiting for you for quite some time. Your grandmother, Elara, was a dear friend of mine. She told me that one day, when the signs were right, her granddaughter would find her way to this very spot.\"\n\n\"My grandmother died when I was seven,\" Kira said suspiciously. \"She never mentioned anyone named Aldric.\"\n\n\"She knew me by a different name then,\" Aldric replied, turning to gaze into the mist-shrouded valley below. \"Tell me, child, what do you know of the Dragonkeepers?\"\n\n\"They're myths,\" Kira said automatically, though even as the words left her mouth, she remembered the conviction in her grandmother's voice when she told those stories. \"Ancient warriors who could speak to dragons, who formed bonds with them and rode them into battle against the Shadow Lords centuries ago.\"\n\n\"Not warriors,\" Aldric corrected gently. \"Guardians. Protectors. Bridge-builders between two worlds that were never meant to be separate.\" He raised his staff and swept it through the air. The mist below them began to part like curtains being drawn aside, revealing the hidden valley beneath.\n\nKira gasped. The valley was vast, filled with towering spires of natural stone that twisted toward the sky like frozen tornados. Waterfalls cascaded from impossible heights, their waters glowing with an ethereal blue light. And there, carved into the valley walls, were enormous caves – dozens of them, each large enough to house a creature of immense proportions.\n\n\"The last sanctuary,\" Aldric whispered. \"Hidden from the world for three hundred years, waiting for the time when it would be needed again.\"\n\n\"But it's empty,\" Kira observed, noting the absence of any life in the magnificent valley.\n\n\"Is it?\" Aldric asked, and he began to hum – a low, thrumming melody that seemed to resonate in Kira's bones. The sound grew, becoming less of a hum and more of a call, ancient and powerful.\n\nThe response came from deep within the largest cave. A rumble that made the ground beneath their feet tremble, followed by the unmistakable sound of something massive stirring from a very long sleep. Two points of light appeared in the darkness of the cave – golden, like Aldric's eyes, but each the size of a wagon wheel.\n\nA dragon emerged from the shadows.\n\nKira had seen drawings in old books, tapestries in the castle of Lord Brennan when her mother had taken her there as a child to sell wool. But nothing had prepared her for the reality of the creature before her. The dragon was magnificent and terrible, its scales the deep blue-black of a midnight sky, with veins of silver running through them like lightning frozen in time. Its wings, as it stretched them for the first time in centuries, blocked out the sun. When it roared, the sound was like the earth itself crying out.\n\n\"Nethysara,\" Aldric called out in a language Kira didn't recognize but somehow understood in her heart. \"The time of sleeping is over. The Shadow stirs in the North.\"\n\nThe dragon's great head swiveled toward them, and its voice, when it spoke, was like the echo of avalanches. \"I have dreamed of this day, old friend. And this must be the youngling you spoke of in the sending dreams.\"\n\nKira realized with a start that the dragon was looking directly at her.\n\n\"I don't understand,\" she said, her voice barely above a whisper. \"What's happening? What shadow in the North?\"\n\nAldric placed a weathered hand on her shoulder. \"Your grandmother was the last of the pure-blood Dragonkeepers, Kira. The gift runs strong in your family's line. For three centuries, we've hidden, waited, and watched as the world forgot about dragons, forgot about the ancient evils that once threatened all life. But forgetting doesn't make something cease to exist. The Shadow Lords were not destroyed in the Great War – they were merely banished, imprisoned. And now, that prison weakens.\"\n\n\"But I'm nobody special,\" Kira protested. \"I help my mother with the sheep. I've never even held a sword!\"\n\n\"Dragonkeepers don't need swords,\" Nethysara rumbled, lowering her enormous head until she was eye level with Kira. \"They need courage, compassion, and the ability to bridge two worlds. Look into my eyes, youngling, and tell me what you see.\"\n\n### Chapter 2: The Bond\n\nKira found herself unable to look away from the dragon's golden gaze. As she stared, the world around her began to fade, replaced by visions that flooded her mind like a raging river.\n\nShe saw the world as it once was – skies filled with dragons of every color imaginable, their riders working in harmony with them to maintain balance in the realm. She saw great cities where humans and dragons lived side by side, sharing knowledge and wisdom. She witnessed the rise of the Shadow Lords, beings of pure darkness who sought to corrupt and control all life, turning dragon against dragon, human against human.\n\nThe Great War played out before her in heartbreaking detail – the betrayals, the sacrifices, the final desperate gambit that saw the Shadow Lords imprisoned in the Void Between Worlds at the cost of nearly every Dragonkeeper's life. She saw her grandmother as a young woman, tears streaming down her face as she said goodbye to her dragon companion, sending him into hiding as the world turned against all things magical.\n\nAnd then she saw the present – dark tendrils seeping through cracks in reality in the frozen Northern Wastes, the prison weakening after centuries of neglect. She saw armies massing in secret, marked with the twisted symbols of the Shadow Lords. She saw a future where darkness consumed everything if nothing was done to stop it.\n\nWhen the visions ended, Kira found herself on her knees, gasping for breath. Tears she didn't remember shedding had left tracks down her cheeks.\n\n\"Now you understand,\" Nethysara said softly, her voice gentle despite its rumbling depth. \"The burden and the gift of the Dragonkeepers.\"\n\n\"But I'm just one person,\" Kira said, struggling to her feet. \"And you're just one dragon. How can we possibly—\"\n\n\"Nethysara is not the only one sleeping in this valley,\" Aldric interrupted. \"There are seven others, waiting for worthy partners to awaken them. And you, my dear, are not as alone as you think.\"\n\nHe struck his staff against the ground three times. The sound echoed through the valley with unnatural volume, and in response, Kira heard something that made her heart race – wingbeats. Not from the valley, but from beyond the mountains.\n\nThree figures on horseback crested the ridge, but as they drew closer, Kira realized they weren't riding horses at all. They were riding creatures she had only heard about in legends – gryphons, with the heads and wings of eagles and the bodies of lions.\n\nThe riders dismounted with practiced ease. The first was a young man perhaps a year or two older than Kira, with sun-darkened skin and intricate tattoos covering his arms. His black hair was tied back in a warrior's knot, and his eyes were the deep green of forest pools. He carried a curved sword at his hip and moved with the fluid grace of a trained fighter.\n\nThe second rider was a girl who looked to be Kira's age, with striking white-blonde hair that seemed to shimmer with its own inner light. Her eyes were an unsettling violet color, and she wore robes of deep purple marked with silver runes. A staff not unlike Aldric's was strapped to her back, though hers was made of what appeared to be crystallized starlight.\n\nThe third rider was the most unusual – a figure whose gender was difficult to determine, with features that seemed to shift subtly when Kira wasn't looking directly at them. They wore leather armor covered in scales that changed color like oil on water, and their eyes held an ancient wisdom that seemed at odds with their youthful appearance.\n\n\"Kira Ashenheart,\" Aldric announced formally, \"meet your companions. Ren Nightblade, from the Desert Kingdoms of the South. Lyra Moonwhisper, from the Floating Sanctuaries of the East. And Zephyr Shadewalker, from... well, Zephyr's origins are their own to share.\"\n\nRen stepped forward first, executing a formal bow that Kira awkwardly attempted to return. \"Aldric's summons reached me in the Scorched Lands. My grandfather was a Dragonkeeper, though he died before my birth. I've trained my whole life for this possibility, though I never truly believed it would come.\"\n\nLyra approached next, her violet eyes studying Kira with intense curiosity. \"The magical currents have been disturbed for months. My teachers in the Sanctuaries felt it but couldn't determine the cause. When Master Aldric's call came, everything became clear.\" She smiled, and it transformed her serious face into something warm and friendly. \"I've read every text about the Dragonkeepers in our libraries. This is literally a dream come true.\"\n\nZephyr simply nodded, their voice carrying an odd harmonic quality when they spoke. \"The between-places have been whispering of change. I go where the currents take me. They brought me here.\"\n\n\"Each of you,\" Aldric explained, \"carries the bloodline of the ancient Dragonkeepers, diluted perhaps, but present nonetheless. Alone, none of you would be strong enough to forge a complete bond with a dragon. Together, supporting each other, you have a chance to revive the old ways.\"\n\n\"And if we refuse?\" Kira asked, though even as she spoke, she knew what her answer would be. The visions Nethysara had shared had shown her the stakes.\n\n\"Then the world falls into shadow,\" Aldric said simply. \"The barriers weaken daily. Within a moon's turn, perhaps two, they will fail entirely. The Shadow Lords have had three centuries to plan their return. They will not make the same mistakes twice.\"\n\n### Chapter 3: The Awakening Ritual\n\nThe sun was setting by the time Aldric had led them all down into the valley proper. The path was treacherous, carved into the cliff face centuries ago and worn smooth by time and weather. Nethysara flew lazy circles overhead, her massive form casting moving shadows that danced across the valley floor.\n\nAt the base of the valley stood a structure that took Kira's breath away – a temple or hall carved directly into the living rock of the mountain. Columns thicker than ancient oaks supported a vaulted ceiling painted with scenes of dragons and riders. Despite centuries of abandonment, the murals remained vivid, as if preserved by magic.\n\n\"The Hall of First Bonds,\" Aldric announced, his voice echoing in the vast space",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01LtVaTNkxCSkF6HukMnZPQz",
+      "model": "claude-opus-4-1-20250805",
+      "role": "assistant",
+      "stop_reason": "max_tokens",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 45,
+        "output_tokens": 3000,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "691f84b8-9ede-46aa-baa2-aa7908892361"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-02"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:46 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

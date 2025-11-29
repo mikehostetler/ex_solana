@@ -23,7 +23,7 @@ defmodule ReqLLM.StreamServer do
       # Start a streaming session
       {:ok, server} = StreamServer.start_link(
         provider_mod: ReqLLM.Providers.OpenAI,
-        model: %ReqLLM.Model{...}
+        model: %LLMDB.Model{...}
       )
 
       # Attach HTTP task for monitoring
@@ -109,7 +109,7 @@ defmodule ReqLLM.StreamServer do
 
       {:ok, server} = ReqLLM.StreamServer.start_link(
         provider_mod: ReqLLM.Providers.OpenAI,
-        model: %ReqLLM.Model{provider: :openai, name: "gpt-4o"}
+        model: %LLMDB.Model{provider: :openai, name: "gpt-4o"}
       )
 
   """
@@ -188,6 +188,49 @@ defmodule ReqLLM.StreamServer do
   @spec cancel(server()) :: :ok
   def cancel(server) do
     GenServer.call(server, :cancel)
+  end
+
+  @doc """
+  Start HTTP streaming from within the StreamServer.
+
+  This method ensures proper lifecycle coupling by having the StreamServer
+  own and link to the HTTP streaming task. When the server exits, the task
+  automatically terminates, preventing orphaned callbacks.
+
+  ## Parameters
+
+    * `server` - StreamServer process
+    * `provider_mod` - Provider module (e.g., ReqLLM.Providers.OpenAI)
+    * `model` - ReqLLM.Model struct
+    * `context` - ReqLLM.Context with messages to stream
+    * `opts` - Additional options for the request
+    * `finch_name` - Finch process name (default: ReqLLM.Finch)
+
+  ## Returns
+
+    * `{:ok, task_pid, http_context, canonical_json}` - Successfully started
+    * `{:error, reason}` - Failed to start
+
+  ## Examples
+
+      {:ok, _task_pid, _http_context, _canonical_json} =
+        StreamServer.start_http(
+          server,
+          ReqLLM.Providers.OpenAI,
+          model,
+          context,
+          opts
+        )
+
+  """
+  @spec start_http(server(), module(), LLMDB.Model.t(), ReqLLM.Context.t(), keyword(), atom()) ::
+          {:ok, pid(), any(), any()} | {:error, term()}
+  def start_http(server, provider_mod, model, context, opts, finch_name \\ ReqLLM.Finch) do
+    GenServer.call(
+      server,
+      {:start_http, provider_mod, model, context, opts, finch_name},
+      :infinity
+    )
   end
 
   @doc """
@@ -290,10 +333,11 @@ defmodule ReqLLM.StreamServer do
 
   @impl GenServer
   def init(state) do
-    # Inject protocol parser function
+    Process.flag(:trap_exit, true)
+
     protocol_parser =
       if function_exported?(state.provider_mod, :parse_stream_protocol, 2) do
-        state.provider_mod.parse_stream_protocol
+        fn chunk, buffer -> state.provider_mod.parse_stream_protocol(chunk, buffer) end
       else
         &ReqLLM.Provider.parse_stream_protocol/2
       end
@@ -302,10 +346,9 @@ defmodule ReqLLM.StreamServer do
   end
 
   @impl GenServer
-  def handle_call({:http_event, event}, from, state) do
+  def handle_call({:http_event, event}, _from, state) do
     {:reply, reply, new_state} = process_http_event(event, state)
-    GenServer.reply(from, reply)
-    {:noreply, new_state}
+    {:reply, reply, new_state}
   end
 
   @impl GenServer
@@ -326,7 +369,7 @@ defmodule ReqLLM.StreamServer do
             # Queue is empty but stream is still active - wait for more data
             new_state = %{
               new_state
-              | waiting_callers: [{from, :next} | new_state.waiting_callers]
+              | waiting_callers: new_state.waiting_callers ++ [{from, :next}]
             }
 
             {:noreply, new_state}
@@ -338,6 +381,43 @@ defmodule ReqLLM.StreamServer do
   def handle_call(:cancel, _from, state) do
     new_state = cleanup_resources(state)
     {:stop, :normal, :ok, new_state}
+  end
+
+  @impl GenServer
+  def handle_call({:start_http, provider_mod, model, context, opts, finch_name}, _from, state) do
+    case ReqLLM.Streaming.FinchClient.start_stream(
+           provider_mod,
+           model,
+           context,
+           opts,
+           self(),
+           finch_name
+         ) do
+      {:ok, task_pid, http_context, canonical_json} ->
+        Process.monitor(task_pid)
+
+        is_google = model.provider == :google
+
+        json_mode? =
+          is_google and
+            get_in(canonical_json, ["generationConfig", "responseMimeType"]) ==
+              "application/json"
+
+        new_state = %{
+          state
+          | http_task: task_pid,
+            status: :streaming,
+            http_context: http_context,
+            canonical_json: canonical_json,
+            object_json_mode?: json_mode?,
+            object_acc: []
+        }
+
+        {:reply, {:ok, task_pid, http_context, canonical_json}, new_state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   @impl GenServer
@@ -377,9 +457,36 @@ defmodule ReqLLM.StreamServer do
 
       _ ->
         # Not done yet, add caller to waiting list
-        new_state = %{state | waiting_callers: [{from, :metadata} | state.waiting_callers]}
+        new_state = %{state | waiting_callers: state.waiting_callers ++ [{from, :metadata}]}
         {:noreply, new_state}
     end
+  end
+
+  @impl GenServer
+  def handle_info({ref, result}, state) when is_reference(ref) do
+    Logger.debug("HTTP task completed with result: #{inspect(result)}")
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info({:EXIT, pid, reason}, %{http_task: pid} = state) do
+    Logger.debug("HTTP task #{inspect(pid)} exited: #{inspect(reason)}")
+
+    new_state =
+      case reason do
+        :normal -> finalize_stream_with_fixture(state)
+        :shutdown -> finalize_stream_with_fixture(state)
+        {:shutdown, _} -> finalize_stream_with_fixture(state)
+        _ -> %{state | status: {:error, {:http_task_failed, reason}}}
+      end
+
+    new_state = reply_to_waiting_callers(new_state)
+    {:noreply, new_state}
+  end
+
+  @impl GenServer
+  def handle_info({:EXIT, _pid, _reason}, state) do
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -398,7 +505,6 @@ defmodule ReqLLM.StreamServer do
 
   @impl GenServer
   def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
-    # Other monitored process died, ignore
     {:noreply, state}
   end
 
@@ -514,15 +620,15 @@ defmodule ReqLLM.StreamServer do
 
   defp decode_provider_event(event, provider_mod, model, provider_state) do
     cond do
-      function_exported?(provider_mod, :decode_sse_event, 3) ->
-        provider_mod.decode_sse_event(event, model, provider_state)
+      function_exported?(provider_mod, :decode_stream_event, 3) ->
+        provider_mod.decode_stream_event(event, model, provider_state)
 
-      function_exported?(provider_mod, :decode_sse_event, 2) ->
-        chunks = provider_mod.decode_sse_event(event, model)
+      function_exported?(provider_mod, :decode_stream_event, 2) ->
+        chunks = provider_mod.decode_stream_event(event, model)
         {chunks, provider_state}
 
       true ->
-        chunks = ReqLLM.Provider.Defaults.default_decode_sse_event(event, model)
+        chunks = ReqLLM.Provider.Defaults.default_decode_stream_event(event, model)
         {chunks, provider_state}
     end
   end
@@ -543,15 +649,21 @@ defmodule ReqLLM.StreamServer do
         updated_metadata =
           case chunk.type do
             :meta ->
-              usage =
-                Map.get(chunk.metadata || %{}, :usage) || Map.get(chunk.metadata || %{}, "usage")
+              chunk_meta = chunk.metadata || %{}
 
-              if usage do
-                normalized_usage = normalize_streaming_usage(usage, state.model)
-                Map.update(metadata, :usage, normalized_usage, &Map.merge(&1, normalized_usage))
-              else
-                metadata
-              end
+              # Extract usage for normalization
+              usage = Map.get(chunk_meta, :usage) || Map.get(chunk_meta, "usage")
+
+              meta_with_usage =
+                if usage do
+                  normalized_usage = normalize_streaming_usage(usage, state.model)
+                  Map.update(metadata, :usage, normalized_usage, &Map.merge(&1, normalized_usage))
+                else
+                  metadata
+                end
+
+              # Merge remaining metadata (like finish_reason)
+              Map.merge(meta_with_usage, Map.drop(chunk_meta, [:usage, "usage"]))
 
             _ ->
               metadata
@@ -651,6 +763,7 @@ defmodule ReqLLM.StreamServer do
             # Pass iodata directly - reversed because we prepended
             iodata = Enum.reverse(state.raw_iodata)
 
+            # credo:disable-for-next-line Credo.Check.Refactor.Apply
             apply(ReqLLM.Step.Fixture.Backend, :save_streaming_fixture, [
               state.http_context,
               state.fixture_path,
@@ -810,8 +923,12 @@ defmodule ReqLLM.StreamServer do
       %{input_tokens: input, output_tokens: output} ->
         cached_input = Map.get(usage, :cached_tokens, 0)
         reasoning = Map.get(usage, :reasoning_tokens, 0)
+        cache_read = Map.get(usage, :cache_read_input_tokens, 0)
+        cache_creation = Map.get(usage, :cache_creation_input_tokens, 0)
 
         %{input: input, output: output, reasoning: reasoning, cached_input: cached_input}
+        |> Map.put(:cache_read_input_tokens, cache_read)
+        |> Map.put(:cache_creation_input_tokens, cache_creation)
         |> add_token_aliases()
         |> add_cost_calculation_if_available(usage)
         |> calculate_cost_if_model_available(model)
@@ -859,7 +976,7 @@ defmodule ReqLLM.StreamServer do
     end
   end
 
-  defp calculate_cost_if_model_available(usage, %ReqLLM.Model{cost: cost_map})
+  defp calculate_cost_if_model_available(usage, %LLMDB.Model{cost: cost_map})
        when is_map(cost_map) do
     # Calculate cost using the model's cost rates (mirrors ReqLLM.Step.Usage logic)
     input_rate = cost_map[:input] || cost_map["input"]

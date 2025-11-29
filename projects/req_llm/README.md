@@ -3,22 +3,30 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/req_llm.svg)](https://hex.pm/packages/req_llm)
 [![Documentation](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/req_llm)
 [![License](https://img.shields.io/hexpm/l/req_llm.svg)](https://github.com/agentjido/req_llm/blob/main/LICENSE)
+[![Discord](https://img.shields.io/discord/1234567890?color=7289da&label=discord&logo=discord&logoColor=white)](https://agentjido.xyz/discord)
 
-A [Req](https://github.com/wojtekmach/req)-based package to call LLM APIs. The purpose is to standardize the API calls and API responses for all supported LLM providers.
+> **Join the community!** Come chat about building AI tools with Elixir and coding Elixir with LLMs in [The Swarm: Elixir AI Collective](https://agentjido.xyz/discord) Discord server.
+
+A [Req](https://github.com/wojtekmach/req)-based package to call LLM APIs that standardizes the API calls and responses for LLM providers.
 
 ## Why Req LLM?
 
-LLM API's are often inconsistent. ReqLLM aims to provide a consistent, data-driven, idiomatic Elixir interface to make requests to these API's and standardize the responses, making it easier to work with LLMs in Elixir.  
+LLM APIs are inconsistent. ReqLLM provides a unified, idiomatic Elixir interface with standardized requests and responses across providers.
 
-This package provides **two-layers** of client interfaces. The top layer is a high-level, provider-agnostic interface that mimic's the Vercel AI SDK and lives in `ReqLLM.ex` using methods like `generate_text/3`. This package seeks to standardize this high-level API across all supported providers, making it easy for Elixir developers to with standard features supported by LLMs. However, any high level abstraction requires trade-offs in terms of flexibility and customization.
+**Two-layer architecture:**
 
-The low-level client interface directly utilizes `Req` plugins to make HTTP requests to the LLM API's.  This layer is more flexible and customizable, but requires more knowledge of the underlying API's.  This package is built around the OpenAI API Baseline standard, making it easier to implement providers that follow this standard. Providers such as _Anthropic_ who do not follow the OpenAI standard are heavily customized through provider callbacks.
+- **High-level API** – Vercel AI SDK-inspired functions (`generate_text/3`, `stream_text/3`, `generate_object/4` and more) that work uniformly across providers. Standard features, minimal configuration.
+- **Low-level API** – Direct Req plugin access for full HTTP control. Built around OpenAI Chat Completions baseline with provider-specific callbacks for non-compatible APIs (e.g., Anthropic).
+
+**Supported Providers:** Anthropic, OpenAI, Google, Groq, OpenRouter, xAI, AWS Bedrock, Cerebras, Meta, Z.AI, and more. See provider guides in [documentation](https://hexdocs.pm/req_llm) for details.
+
+\* _Streaming uses Finch directly due to known Req limitations with SSE responses._
 
 ## Quick Start
 
 ```elixir
 # Keys are picked up from .env files or environment variables - see `ReqLLM.Keys`
-model = "anthropic:claude-3-sonnet-20240229"
+model = "anthropic:claude-haiku-4-5"
 
 ReqLLM.generate_text!(model, "Hello world")
 #=> "Hello! How can I assist you today?"
@@ -55,8 +63,7 @@ person = ReqLLM.generate_object!(model, "Generate a person", schema)
 
 # Streaming text generation
 {:ok, response} = ReqLLM.stream_text(model, "Write a short story")
-response
-|> ReqLLM.StreamResponse.tokens()
+ReqLLM.StreamResponse.tokens(response)
 |> Stream.each(&IO.write/1)
 |> Stream.run()
 
@@ -66,53 +73,53 @@ usage = ReqLLM.StreamResponse.usage(response)
 
 ## Features
 
-- **Provider-agnostic model registry**  
-  - 45 providers / 665+ models auto-synced from [models.dev](https://models.dev) (`mix req_llm.model_sync`)  
+- **Provider-agnostic model registry**
+  - 45 providers / 665+ models auto-synced from [models.dev](https://models.dev) (`mix req_llm.model_sync`)
   - Cost, context length, modality, capability and deprecation metadata included
 
-- **Canonical data model**  
-  - Typed `Context`, `Message`, `ContentPart`, `Tool`, `StreamChunk`, `Response`, `Usage`  
-  - Multi-modal content parts (text, image URL, tool call, binary)  
-  - All structs implement `Jason.Encoder` for simple persistence / inspection  
+- **Canonical data model**
+  - Typed `Context`, `Message`, `ContentPart`, `Tool`, `StreamChunk`, `Response`, `Usage`
+  - Multi-modal content parts (text, image URL, tool call, binary)
+  - All structs implement `Jason.Encoder` for simple persistence / inspection
 
-- **Two client layers**  
-  - Low-level Req plugin with full HTTP control (`Provider.prepare_request/4`, `attach/3`)  
-  - High-level Vercel-AI style helpers (`generate_text/3`, `stream_text/3`, `generate_object/4`, bang variants)  
+- **Two client layers**
+  - Low-level Req plugin with full HTTP control (`Provider.prepare_request/4`, `attach/3`)
+  - High-level Vercel-AI style helpers (`generate_text/3`, `stream_text/3`, `generate_object/4`, bang variants)
 
-- **Structured object generation**  
-  - `generate_object/4` renders JSON-compatible Elixir maps validated by a NimbleOptions-compiled schema  
+- **Structured object generation**
+  - `generate_object/4` renders JSON-compatible Elixir maps validated by a NimbleOptions-compiled schema
   - Zero-copy mapping to provider JSON-schema / function-calling endpoints
-  - OpenAI native structured outputs with three modes (`:auto` (default), `:json_schema`, `:tool_strict`)  
+  - OpenAI native structured outputs with three modes (`:auto` (default), `:json_schema`, `:tool_strict`)
 
-- **Embedding generation**  
+- **Embedding generation**
   - Single or batch embeddings via `Embedding.generate/3` (Not all providers support this)
   - Automatic dimension / encoding validation and usage accounting
 
-- **Production-grade streaming**  
-  - `stream_text/3` returns a `StreamResponse` with both real-time tokens and async metadata  
-  - Finch-based streaming with HTTP/2 multiplexing and automatic connection pooling  
-  - Concurrent metadata collection (usage, finish_reason) without blocking token flow  
-  - Works uniformly across providers with internal SSE / chunked-response adaptation  
+- **Production-grade streaming**
+  - `stream_text/3` returns a `StreamResponse` with both real-time tokens and async metadata
+  - Finch-based streaming with HTTP/2 multiplexing and automatic connection pooling
+  - Concurrent metadata collection (usage, finish_reason) without blocking token flow
+  - Works uniformly across providers with internal SSE / chunked-response adaptation
 
-- **Usage & cost tracking**  
-  - `response.usage` exposes input/output tokens and USD cost, calculated from model metadata or provider invoices  
+- **Usage & cost tracking**
+  - `response.usage` exposes input/output tokens and USD cost, calculated from model metadata or provider invoices
 
-- **Schema-driven option validation**  
-  - All public APIs validate options with NimbleOptions; errors are raised as `ReqLLM.Error.Invalid.*` (Splode)  
+- **Schema-driven option validation**
+  - All public APIs validate options with NimbleOptions; errors are raised as `ReqLLM.Error.Invalid.*` (Splode)
 
-- **Automatic parameter translation & codecs**  
-  - Provider DSL translates canonical options (e.g. `max_tokens` -> `max_completion_tokens` for o1 & o3) to provider-specific names  
-  - Built-in OpenAI-style encoding/decoding with provider callback overrides for custom formats  
+- **Automatic parameter translation & codecs**
+  - Provider DSL translates canonical options (e.g. `max_tokens` -> `max_completion_tokens` for o1 & o3) to provider-specific names
+  - Built-in OpenAI-style encoding/decoding with provider callback overrides for custom formats
 
-- **Flexible model specification**  
-  - Accepts `"provider:model"`, `{:provider, "model", opts}` tuples, or `%ReqLLM.Model{}` structs  
-  - Helper functions for parsing, introspection and default-merging  
+- **Flexible model specification**
+  - Accepts `"provider:model"`, `{:provider, "model", opts}` tuples, or `%ReqLLM.Model{}` structs
+  - Helper functions for parsing, introspection and default-merging
 
 - **Secure, layered key management** (`ReqLLM.Keys`)  
-  - Per-request override → in-memory keyring (JidoKeys) → application config → env vars /.env files  
+  - Per-request override → application config → env vars / .env files  
 
-- **Extensive reliability tooling**  
-  - Fixture-backed test matrix (`LiveFixture`) supports cached, live, or provider-filtered runs  
+- **Extensive reliability tooling**
+  - Fixture-backed test matrix (`LiveFixture`) supports cached, live, or provider-filtered runs
   - Dialyzer, Credo strict rules, and no-comment enforcement keep code quality high
 
 ## API Key Management
@@ -135,8 +142,8 @@ ReqLLM.put_key(:anthropic_api_key, "sk-ant-...")
 All functions accept an `api_key` parameter to override the stored key:
 
 ```elixir
-ReqLLM.generate_text("openai:gpt-4", "Hello", api_key: "sk-...")
-{:ok, response} = ReqLLM.stream_text("anthropic:claude-3-sonnet", "Story", api_key: "sk-ant-...")
+ReqLLM.generate_text("anthropic:claude-haiku-4-5", "Hello", api_key: "sk-ant-...")
+{:ok, response} = ReqLLM.stream_text("anthropic:claude-haiku-4-5", "Story", api_key: "sk-ant-...")
 ```
 
 ## Usage Cost Tracking
@@ -144,7 +151,7 @@ ReqLLM.generate_text("openai:gpt-4", "Hello", api_key: "sk-...")
 Every response includes detailed usage and cost information calculated from model metadata:
 
 ```elixir
-{:ok, response} = ReqLLM.generate_text("openai:gpt-4", "Hello")
+{:ok, response} = ReqLLM.generate_text("anthropic:claude-haiku-4-5", "Hello")
 
 response.usage
 #=> %{
@@ -161,10 +168,27 @@ A telemetry event `[:req_llm, :token_usage]` is published on every request with 
 
 ## Streaming Configuration
 
-ReqLLM uses Finch for streaming connections with automatic connection pooling. The default configuration works efficiently for all providers with HTTP/2 multiplexing and HTTP/1 fallback:
+ReqLLM uses Finch for streaming connections with automatic connection pooling. By default, we use HTTP/1-only pools to work around a known Finch bug with large request bodies:
 
 ```elixir
 # Default configuration (automatic)
+config :req_llm,
+  finch: [
+    name: ReqLLM.Finch,
+    pools: %{
+      :default => [protocols: [:http1], size: 1, count: 8]
+    }
+  ]
+```
+
+### HTTP/2 Configuration (Advanced)
+
+**Important:** Due to [Finch issue #265](https://github.com/sneako/finch/issues/265), HTTP/2 pools may fail when sending request bodies larger than 64KB (large prompts, extensive context windows). This is a bug in Finch's HTTP/2 flow control implementation, not a limitation of HTTP/2 itself.
+
+If you want to use HTTP/2 pools (e.g., for performance testing or if you know your prompts are small), you can configure it:
+
+```elixir
+# HTTP/2 configuration (use with caution)
 config :req_llm,
   finch: [
     name: ReqLLM.Finch,
@@ -174,7 +198,9 @@ config :req_llm,
   ]
 ```
 
-For high-scale deployments, you can customize the connection pool:
+**ReqLLM will error with a helpful message if you try to send a large request body with HTTP/2 pools.** The error will reference this section for configuration guidance.
+
+For high-scale deployments with small prompts, you can increase the connection count:
 
 ```elixir
 # High-scale configuration
@@ -182,7 +208,7 @@ config :req_llm,
   finch: [
     name: ReqLLM.Finch,
     pools: %{
-      :default => [protocols: [:http2], size: 1, count: 32]  # More connections
+      :default => [protocols: [:http1], size: 1, count: 32]  # More connections
     }
   ]
 ```
@@ -201,8 +227,7 @@ The new `StreamResponse` provides flexible access patterns:
 # Real-time streaming for UI
 {:ok, response} = ReqLLM.stream_text(model, "Tell me a story")
 
-response
-|> ReqLLM.StreamResponse.tokens()
+ReqLLM.StreamResponse.tokens(response)
 |> Stream.each(&broadcast_to_liveview/1)
 |> Stream.run()
 
@@ -233,7 +258,7 @@ For advanced use cases, you can use ReqLLM providers directly as Req plugins. Th
 
 ```elixir
 # The canonical pattern from ReqLLM.Generation.generate_text/3
-with {:ok, model} <- ReqLLM.Model.from("anthropic:claude-3-sonnet-20240229"), # Parse model spec
+with {:ok, model} <- ReqLLM.Model.from("anthropic:claude-haiku-4-5"), # Parse model spec
      {:ok, provider_module} <- ReqLLM.provider(model.provider),        # Get provider module
      {:ok, request} <- provider_module.prepare_request(:chat, model, "Hello!", temperature: 0.7), # Build Req request
      {:ok, %Req.Response{body: response}} <- Req.request(request) do   # Execute HTTP request
@@ -241,17 +266,12 @@ with {:ok, model} <- ReqLLM.Model.from("anthropic:claude-3-sonnet-20240229"), # 
 end
 
 # Customize the Req pipeline with additional headers or middleware
-{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet")
+{:ok, model} = ReqLLM.Model.from("anthropic:claude-haiku-4-5")
 {:ok, provider_module} = ReqLLM.provider(model.provider)
 {:ok, request} = provider_module.prepare_request(:chat, model, "Hello!", temperature: 0.7)
 
 # Add custom headers or middleware before sending
-{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet-20240229")
-{:ok, provider_module} = ReqLLM.provider(model.provider)
-{:ok, request} = provider_module.prepare_request(:chat, model, "Hello!", temperature: 0.7)
-
-# Add custom headers or middleware before sending
-custom_request = 
+custom_request =
   request
   |> Req.Request.put_header("x-request-id", "my-custom-id")
   |> Req.Request.put_header("x-source", "my-app")
@@ -265,29 +285,13 @@ This approach gives you full control over the Req pipeline, allowing you to add 
 
 - [Getting Started](guides/getting-started.md) – first call and basic concepts
 - [Core Concepts](guides/core-concepts.md) – architecture & data model
-- [API Reference](guides/api-reference.md) – functions & types
 - [Data Structures](guides/data-structures.md) – detailed type information
-- [Streaming Migration](guides/streaming-migration.md) – migrate from deprecated `stream_text!/3`
-- [Coverage Testing](guides/coverage-testing.md) – testing strategies
+- [Mix Tasks](guides/mix-tasks.md) – model sync, compatibility testing, code generation
+- [Fixture Testing](guides/fixture-testing.md) – model validation and supported models
 - [Adding a Provider](guides/adding_a_provider.md) – extend with new providers
+- Provider Guides: [Anthropic](guides/anthropic.md), [OpenAI](guides/openai.md), [Google](guides/google.md), [xAI](guides/xai.md), [Groq](guides/groq.md), [OpenRouter](guides/openrouter.md), [Amazon Bedrock](guides/amazon_bedrock.md), [Cerebras](guides/cerebras.md), [Meta](guides/meta.md), [Z.AI](guides/zai.md), [Z.AI Coder](guides/zai_coder.md)
 
-## Migration from Deprecated APIs
 
-If you're using the deprecated `stream_text!/3` function, please migrate to the new `StreamResponse` API:
-
-```elixir
-# Old (deprecated)
-ReqLLM.stream_text!(model, messages) |> Enum.each(&IO.write/1)
-
-# New (recommended)
-{:ok, response} = ReqLLM.stream_text(model, messages)
-response
-|> ReqLLM.StreamResponse.tokens()
-|> Stream.each(&IO.write/1)
-|> Stream.run()
-```
-
-See the [Streaming Migration Guide](guides/streaming-migration.md) for complete migration instructions and examples.
 
 ## Roadmap & Status
 
@@ -295,16 +299,11 @@ ReqLLM is currently in **release candidate** status (v1.0.0-rc.6). The core API 
 
 ### Test Coverage & Quality Commitment
 
-**135+ models currently pass our comprehensive fixture-based test suite** across 10 providers. The LLM API landscape is highly dynamic. We guarantee that all supported models pass our fixture tests for basic functionality (text generation, streaming, tool calling, structured output, and embeddings where applicable). 
+**130+ models currently pass our comprehensive fixture-based test suite** across 10 providers. The LLM API landscape is highly dynamic. We guarantee that all supported models pass our fixture tests for basic functionality (text generation, streaming, tool calling, structured output, and embeddings where applicable).
 
 These fixture tests are regularly refreshed against live APIs to ensure accuracy and catch provider-side changes. While we can't guarantee every edge case in production, our fixture-based approach provides a reliable baseline that you can verify with `mix mc "*:*"`.
 
 **We welcome bug reports and feedback!** If you encounter issues with any supported model, please open a GitHub issue with details. The more feedback we receive, the stronger the code will be!
-
-**Planned for 1.x:**
-- Additional open-source providers (Ollama, LocalAI)
-- Performance optimizations
-- Extended model metadata
 
 ## Development
 
@@ -339,6 +338,7 @@ LIVE=true mix test --only "provider:anthropic"
 We welcome contributions! ReqLLM uses a fixture-based testing approach to ensure reliability across all providers.
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
+
 - Core library contributions
 - Adding new providers
 - Extending provider features
@@ -346,8 +346,9 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
 - Code quality standards
 
 Quick start:
+
 1. Fork the repository
-2. Create a feature branch  
+2. Create a feature branch
 3. Add tests with fixtures for your changes
 4. Run `mix test` and `mix quality` to ensure standards
 5. Verify `mix mc "*:*"` passes for affected providers

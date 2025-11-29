@@ -20,7 +20,7 @@ ReqLLM's streaming implementation has been completely redesigned to use Finch di
 
 ```elixir
 ReqLLM.stream_text!(model, "Tell me a story")
-|> Stream.each(&IO.write(&1.text))
+|> Stream.each(&IO.write/1)
 |> Stream.run()
 ```
 
@@ -41,7 +41,7 @@ response
 ```elixir
 try do
   ReqLLM.stream_text!(model, messages)
-  |> Stream.each(&IO.write(&1.text))
+  |> Stream.each(&IO.write/1)
   |> Stream.run()
 rescue
   error -> handle_error(error)
@@ -101,7 +101,6 @@ IO.puts("Finish reason: #{finish_reason}")
 ```elixir
 text =
   ReqLLM.stream_text!(model, messages)
-  |> Stream.map(& &1.text)
   |> Enum.join("")
 ```
 
@@ -266,25 +265,25 @@ end)
 |> Stream.run()
 ```
 
-### Issue: Concurrent access to usage metadata
+### Shared metadata access
 
-**Problem**: Multiple parts of code need usage metadata without blocking.
-
-**Solution**: Share the metadata task:
+Streaming responses now expose a reusable metadata handle. The handle collects metadata once,
+caches the result, and lets every caller await it independently—no more racing or blocking on a
+single task:
 
 ```elixir
 {:ok, response} = ReqLLM.stream_text(model, messages)
 
-# Multiple consumers can await the same task
-usage_task = response.metadata_task
+# Multiple consumers can await the same metadata handle safely
+metadata_handle = response.metadata_handle
 
 Task.start(fn ->
-  usage = Task.await(usage_task)
+  usage = ReqLLM.StreamResponse.MetadataHandle.await(metadata_handle)
   log_usage(usage)
 end)
 
 Task.start(fn ->
-  metadata = Task.await(usage_task)
+  metadata = ReqLLM.StreamResponse.MetadataHandle.await(metadata_handle)
   update_billing(metadata.usage)
 end)
 ```
@@ -298,7 +297,7 @@ Update your tests to expect the new return format:
 ```elixir
 test "streams text" do
   chunks = ReqLLM.stream_text!("anthropic:claude-3-sonnet", "Hello") |> Enum.take(5)
-  assert Enum.all?(chunks, &is_binary(&1.text))
+  assert Enum.all?(chunks, &is_binary/1)
 end
 ```
 

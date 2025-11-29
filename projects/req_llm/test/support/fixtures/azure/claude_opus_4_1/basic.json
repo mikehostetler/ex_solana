@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-opus-4-1",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoyMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IkhlbGxvIHdvcmxkISIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImNsYXVkZS1vcHVzLTQtMSIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjoxLjAsInRoaW5raW5nIjp7ImJ1ZGdldF90b2tlbnMiOjEwMjQsInR5cGUiOiJlbmFibGVkIn19"
+    },
+    "canonical_json": {
+      "max_tokens": 2000,
+      "messages": [
+        {
+          "content": "Hello world!",
+          "role": "user"
+        }
+      ],
+      "model": "claude-opus-4-1",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EukCCkYIChgCKkCNponAucfl5C+R663soecCVs/oEo7VMiKRTvzBHJI2Q8D4+HQ8MtMX8bYLbCADbeu02BVwI3nuVeGRiBQWnrJnEgydS5bezjOAkWfbOGAaDPw8eXRLt0hl0h5ixCIwBOgEhrvfwGWzEEdWborP2JmCTA1v77hoTOVc9mRKTlXwr8BBSF+DvKvTyJUaXusWKtABHbLSwxbnvjWj2hMB13OyS+9m114EkkeKtT7xpqlkYT4wANoos274Q4pByS29gCvT9bt7yCCTccnXPqJBXwgmlL+jSniARGSvErc5C9X9eaOQcr2KNjrgJBCOtOb1yjOKHlNHBBSNsmXjjDA+zHYt0b2Uqyrx2/wwJjSjhTIEWVaLtXR7DzVABV13ub+gNcIJH1Ok0OPs9UX5aig3hPk4DlXwGzLcQ/wxblYxRRywEV8TL1ng4RtoGW9oMiqVMSZJvhVW4C0yBeJfP40koE9emhgB",
+          "thinking": "The user has sent me \"Hello world!\" which is a common greeting, often used in programming as the first output when learning a new language. I should respond in a friendly and welcoming manner.",
+          "type": "thinking"
+        },
+        {
+          "text": "Hello! 👋 Welcome! How can I help you today?",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01L9UvhsLik5PL8QN6QnGnJ5",
+      "model": "claude-opus-4-1-20250805",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 39,
+        "output_tokens": 66,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "22f1bf90-163c-449c-aa7e-19f5726545ee"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:41:04 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

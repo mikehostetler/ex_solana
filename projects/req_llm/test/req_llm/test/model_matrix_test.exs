@@ -1,7 +1,7 @@
 defmodule ReqLLM.Test.ModelMatrixTest do
   use ExUnit.Case, async: true
 
-  alias ReqLLM.Test.{ModelMatrix, FakeRegistry}
+  alias ReqLLM.Test.{FakeRegistry, ModelMatrix}
 
   @opts [registry: FakeRegistry]
 
@@ -9,9 +9,7 @@ defmodule ReqLLM.Test.ModelMatrixTest do
     test "returns default models when no env vars set" do
       specs = ModelMatrix.selected_specs(@opts)
 
-      assert "openai:gpt-4-turbo" in specs
       assert "openai:gpt-4o-mini" in specs
-      assert "anthropic:claude-3-5-sonnet-20241022" in specs
       assert "anthropic:claude-3-5-haiku-20241022" in specs
       assert "google:gemini-2.0-flash" in specs
 
@@ -54,7 +52,7 @@ defmodule ReqLLM.Test.ModelMatrixTest do
       refute Enum.empty?(specs)
       assert Enum.all?(specs, &String.starts_with?(&1, "anthropic:"))
       assert length(specs) == 2
-      assert "anthropic:claude-3-5-sonnet-20241022" in specs
+      assert "anthropic:claude-sonnet-4-5-20250929" in specs
       assert "anthropic:claude-3-5-haiku-20241022" in specs
     end
 

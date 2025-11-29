@@ -11,14 +11,17 @@ defmodule ReqLLM.Application do
 
   @impl true
   def start(_type, _args) do
-    ReqLLM.Provider.Registry.initialize()
+    load_dotenv()
+    initialize_registry()
+    initialize_schema_cache()
 
     finch_config = get_finch_config()
 
     children =
       [
         {Finch, finch_config},
-        {Task.Supervisor, name: ReqLLM.TaskSupervisor}
+        {Task.Supervisor, name: ReqLLM.TaskSupervisor},
+        ReqLLM.Providers.GoogleVertex.TokenCache
       ] ++ dev_children()
 
     opts = [strategy: :one_for_one, name: ReqLLM.Supervisor]
@@ -68,9 +71,10 @@ defmodule ReqLLM.Application do
   defp get_default_pools do
     %{
       # Single default pool that handles all providers efficiently
-      # HTTP/2 first for modern APIs, HTTP/1 fallback for compatibility
+      # HTTP/1 only to avoid Finch issue #265 (HTTP/2 flow control bug with large bodies)
+      # Once https://github.com/sneako/finch/issues/265 is fixed, we can use [:http2, :http1]
       :default => [
-        protocols: [:http2, :http1],
+        protocols: [:http1],
         # Single persistent connection per pool
         size: 1,
         # 8 pools for good concurrency
@@ -95,6 +99,39 @@ defmodule ReqLLM.Application do
     case Application.ensure_all_started(:tidewave) do
       {:ok, _} -> :ok
       {:error, _} -> :ok
+    end
+  end
+
+  defp initialize_registry do
+    ReqLLM.Providers.initialize()
+  end
+
+  defp initialize_schema_cache do
+    :ets.new(:req_llm_schema_cache, [
+      :set,
+      :public,
+      :named_table,
+      read_concurrency: true
+    ])
+  end
+
+  defp load_dotenv do
+    env_file = Path.join(File.cwd!(), ".env")
+
+    if File.exists?(env_file) do
+      case Dotenvy.source(env_file) do
+        {:ok, env_map} ->
+          Enum.each(env_map, fn {key, value} ->
+            if System.get_env(key) == nil do
+              System.put_env(key, value)
+            end
+          end)
+
+        {:error, _reason} ->
+          :ok
+      end
+    else
+      :ok
     end
   end
 end

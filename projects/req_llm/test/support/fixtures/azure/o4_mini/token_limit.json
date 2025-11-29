@@ -1,0 +1,163 @@
+{
+  "model_spec": "azure:o4-mini",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfY29tcGxldGlvbl90b2tlbnMiOjMwMDAsIm1lc3NhZ2VzIjpbeyJjb250ZW50IjoiV3JpdGUgYSB2ZXJ5IGxvbmcgc3RvcnkgYWJvdXQgZHJhZ29ucyBhbmQgYWR2ZW50dXJlcyIsInJvbGUiOiJ1c2VyIn1dLCJuIjoxLCJzdHJlYW0iOmZhbHNlfQ=="
+    },
+    "canonical_json": {
+      "max_completion_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "n": 1,
+      "stream": false
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "api-key": "[REDACTED:api-key]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ]
+    },
+    "method": "post",
+    "url": "https://shelvick-test.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-04-01-preview"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "low"
+            }
+          },
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "annotations": [],
+            "content": "Long ago, in a land of high, rugged mountains and endless emerald forests, stories were told of dragons: creatures of fire and scale, of thunderous wings and ancient wisdom. These legends said that dragons once walked among mortals, guiding kingdoms to glory or raining devastation on those who dared to break oaths. Over centuries, the great wyrms vanished into hidden realms, and humankind learned to live without their power—until the day the sky burned red.\n\nA young stablehand named Keryn was the first to witness it. That dawn, the sky over her village of Stoneford turned from pale gold to molten orange, and a single, immense silhouette soared against the sun. Its wings beat with the force of storms, and each flap carried an echo of distant thunder. Keryn dropped her pitchfork and stared in astonishment as the dragon dipped low, its eyes glowing like twin embers. A single roar split the morning air, shaking stones from rooftops and rousing every sleeping soul.\n\nWithin days, rumors spread: the wyrm was Malachron, the Emberstorm, a fabled dragon said to have forged pacts with the first kings of the North. Some whispered that Malachron’s return heralded a time of reckoning—either salvation or doom. As nobles jockeyed for favor and warlords sharpened their blades, an aged scholar named Marus appeared in Stoneford. He claimed to know the truth of the ancient bonds between dragons and mortals and warned that a terrible darkness was stirring in the hidden realm of Veshara, where dragons slumber in crystal caverns. If that darkness awoke, no fortress wall could hold back its fury.\n\nKeryn, curious beyond reason, sought out Marus. She remembered stories her grandmother had told of her father, a knight who once saved a young dragon’s life in an icy pass. Perhaps Keryn thought, fate had chosen her to stand at the heart of these coming events. Marus agreed to teach her the old runes and dragon-tongue phrases needed to communicate with the wyrms. He also revealed a prophecy:\n\n   When ember meets lightning upon the midnight sky,\n   One mortal shall bind the ancient powers high,\n   And only with courage pure and true,\n   Will dragon and human forge anew.\n\nRealizing she must act, Keryn gathered companions. First was Ealdric, a noble knight with a haunted past—his family’s castle had fallen when he was just a boy, and since then he’d wandered in search of purpose. Then came Lira, an elven archer whose arrows never missed their mark and whose heart beat in tune with the forest’s whispers. A grizzled dwarf named Barund, master of runesmithing, lent his strength and cunning. Finally, at the eleventh hour, a mysterious traveler joined them: Selene, a cloaked figure who hid her face beneath shadow, yet whose voice carried uncanny knowledge of dragon-lore.\n\nTheir quest was clear: journey to the lost keeps of the Skyforged Dragons, gather the three Shards of Heartfire—the remnants of a dragon’s soul cast into the world to anchor their power—and return them before the rising Blood Moon, when the seal between realms would break forever. Only by reforging the Shards into a Dragonheart Crown could they restore balance and halt the coming darkness.\n\nThey set out beneath a pale dawn, leaving Stoneford’s wooden palisades behind. Their first destination was the Whispering Peaks, a range of snow-clad spires where ancient dragon runes lay etched in ice. Snowstorms roared like furious dragons themselves, and icy winds threatened to freeze their breath. At the mountain’s crest, the travelers uncovered a cavern hidden behind a waterfall of frozen mist. Within, walls gleamed with runes that shifted and hummed with power.\n\nBut as Marus had warned, they were not alone. From the darkness emerged a guardian drake named Sylvra, scaled in frost-blue and crowned with ice-shaped horns. She breathed blades of frozen breath and attacked with lightning speed. Keryn recalled the runes’ meaning—“friend to friend, scale to scale”—and whispered the ancient words as taught by Marus. The glowing runes on the cavern walls pulsed in reply, and Sylvra paused. Ealdric lowered his sword, Lira nocked an arrow, Barund silenced his hammer—and the drake, with a final snort that shook the cavern floor, bowed her head and stepped aside. Behind her lay the first Shard of Heartfire, glowing crimson in the frozen gloom.\n\nCarrying the shard, the companions proceeded to the Forest of Murmuring Leaves for the second piece. This wood was older than any living creature, and its trees stretched skyward like pillars of green flame. It was said that the forest itself could think and test intruders. By day, sylvan spirits trailed their steps, guiding them toward hidden paths. By night, the trees whispered riddles and cast illusions to turn would-be thieves in circles. When Selene revealed her secret—she was a dragon-blooded sorceress, born of human mother and dragon sire—the forest granted safe passage. In a glade lit by bioluminescent moss, the second shard lay upon an ancient altar, guarded by luminous, deer-like spirits that bowed as Keryn approached.\n\nWith two shards secured, they turned south to the Dread Wastes, a barren expanse of cracked earth and dancing heat mirages. Legends said this desert once hosted a great dragon city, swallowed by the sands after a cataclysm. Hidden beneath dunes, they uncovered ruined pillars half-buried by wind. At midnight, when the Blood Moon’s tinge first appeared on the horizon, ghosts of dragon-kind rose from the sands—spectral and wailing. Barund used his runesmith’s skill to craft a warding circle from broken stone, forging a protective barrier that held the spirits at bay while Keryn retrieved the third shard from a shattered obsidian chest.\n\nWith all three Shards of Heartfire in their possession, the final challenge loomed: a journey deep into the volcanic heart of Mount Ashkar, the prison of Veshara’s darkness. Rivers of molten rock threaded through cavernous halls, and the air rippled with heat. Geysers of flame hissed from cracks in the rock, and shadows took monstrous shapes in the flickering light. At the innermost chamber stood a great obsidian throne, upon which sat Veshara herself: a colossal, shadowy dragon sculpted of living night, eyes aglow with hungry malice.\n\nShe spoke in a voice that shook the mountain: You dare to steal what is mine? Her roar sent tremors through the cavern. Flames erupted around her, and the chamber turned into a storm of ash and fire. For a moment, hope flickered like a dying ember—until Keryn stepped forward, clutching the three glowing shards. As Veshara lunged, Keryn whispered the Binding Invocation, a song of ancient power taught by Marus and breathed by dragons themselves.\n\n   By scale and spirit, by ember and sky,\n   We bind thee to truth, no more shalt thou lie.\n   Heartfire return, in crown forged anew,\n   Balance reborn, by mortal and drake true.\n\nThe shards lifted into the air, circling each other in a dance of light. Their glow grew so bright that even Veshara recoiled. The shards coalesced into a brilliant crown of living flame and crystal. As it hovered before Keryn, Selene stepped aside, revealing at last her true form: a young dragon in human guise, scaled in silver and violet, her wings folded behind her cloak. She spoke in the old tongue, urging Keryn to take the crown.\n\nWith trembling hands, Keryn reached out and placed the Dragonheart Crown upon her brow. Instantly, power surged through her veins: the warmth of dragons, the heartbeat of continents, the promise of dawn. Veshara screamed as the crown’s light pierced her darkness, unraveling the ancient curse that had bound her heart. In a final, earth-shaking roar, Veshara was driven back into the void between realms, the mountain’s tremors subsiding into calm.\n\nWhen the light faded, Keryn stood alone in the vast chamber. The shards had vanished, and the Dragonheart Crown sat like a diadem of fire upon her head. The cavern walls glowed with gentle warmth, and a single, massive crack opened overhead, revealing a star-dappled sky. From that crack descended Malachron, the Emberstorm, wings spread wide. His voice was deep and resonant as he addressed Keryn and her friends.\n\n   You have done what we dragons could not in centuries. You have proved that the bond between mortal and wyrm endures, that courage and trust can conquer the deepest dark. Wear this crown as a symbol of the promise renewed. Let it be a beacon to all peoples.\n\nThen, with a mighty flap, Malachron soared upward and vanished into the night. Keryn felt the crown’s warmth ebb into her spirit, leaving behind a gentle glow at her temples. She turned to her companions—Ealdric’s eyes shone with admiration, Lira bowed gracefully, Barund’s beard trembled with unshed tears, and Selene laughed softly, her true dragon-form shimmering in the newfound starlight before she melded into a single beam of silver that shot back into the heavens.\n\nThey returned to Stoneford as heroes. Word of their deeds spread like wildfire, and across the land, people dared to hope once more. In the years that followed, treaties were signed with dragons who chose to emerge from hidden realms; trade and wisdom flowed between scales and skin. Keryn became the first mortal crowned as Guardian of the Dragonway, her task to preserve the hard-won peace and to remind all that the greatest magic lies in unity.\n\nAnd so, as the Blood Moon waned and dawn broke on a new age, the land thrived under the watchful eyes of dragons and mortals bound by a shared destiny. Songs were sung of the stablehand who bridged worlds, of the shards that burned with heartfire, and of the crown that shone brighter than any star—even in the darkest night.",
+            "refusal": null,
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1764373688,
+      "id": "chatcmpl-Ch2U4QCd6fcgvnUMwjw9SUsHxghWI",
+      "model": "o4-mini-2025-04-16",
+      "object": "chat.completion",
+      "prompt_filter_results": [
+        {
+          "content_filter_results": {
+            "hate": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "self_harm": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "sexual": {
+              "filtered": false,
+              "severity": "safe"
+            },
+            "violence": {
+              "filtered": false,
+              "severity": "safe"
+            }
+          },
+          "prompt_index": 0
+        }
+      ],
+      "system_fingerprint": null,
+      "usage": {
+        "completion_tokens": 2600,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 448,
+          "rejected_prediction_tokens": 0
+        },
+        "prompt_tokens": 15,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "total_tokens": 2615
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "1b0cac16-0e23-4cba-9933-e684328a828b"
+      ],
+      "azureml-model-session": [
+        "d215-20251107093700"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:48:39 GMT"
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "x-accel-buffering": [
+        "no"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-deployment-name": [
+        "o4-mini"
+      ],
+      "x-ms-rai-invoked": [
+        "true"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-requests": [
+        "10000"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "10000000"
+      ],
+      "x-ratelimit-remaining-requests": [
+        "9993"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "9999623"
+      ],
+      "x-request-id": [
+        "087856ea-755a-4873-be77-f71007efac4d"
+      ]
+    },
+    "status": 200
+  }
+}

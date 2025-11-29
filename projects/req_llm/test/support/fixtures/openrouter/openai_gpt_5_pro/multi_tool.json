@@ -1,0 +1,185 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjo1NDQwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJXaGF0J3MgdGhlIHdlYXRoZXIgbGlrZSBpbiBQYXJpcywgRnJhbmNlPyIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6Im9wZW5haS9ncHQtNS1wcm8iLCJuIjoxLCJyZWFzb25pbmdfZWZmb3J0IjoibG93Iiwic2VlZCI6NDIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjowLjAsInRvb2xzIjpbeyJmdW5jdGlvbiI6eyJkZXNjcmlwdGlvbiI6IkdldCBjdXJyZW50IHdlYXRoZXIgaW5mb3JtYXRpb24gZm9yIGEgbG9jYXRpb24iLCJuYW1lIjoiZ2V0X3dlYXRoZXIiLCJwYXJhbWV0ZXJzIjp7ImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjpmYWxzZSwicHJvcGVydGllcyI6eyJsb2NhdGlvbiI6eyJ0eXBlIjoic3RyaW5nIn0sInVuaXQiOnsiZW51bSI6WyJjZWxzaXVzIiwiZmFocmVuaGVpdCJdLCJ0eXBlIjoic3RyaW5nIn19LCJyZXF1aXJlZCI6WyJsb2NhdGlvbiJdLCJ0eXBlIjoib2JqZWN0In19LCJ0eXBlIjoiZnVuY3Rpb24ifSx7ImZ1bmN0aW9uIjp7ImRlc2NyaXB0aW9uIjoiVGVsbCBhIGZ1bm55IGpva2UiLCJuYW1lIjoidGVsbF9qb2tlIiwicGFyYW1ldGVycyI6eyJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2UsInByb3BlcnRpZXMiOnsidG9waWMiOnsiZGVzY3JpcHRpb24iOiJUb3BpYyBmb3IgdGhlIGpva2UiLCJ0eXBlIjoic3RyaW5nIn19LCJ0eXBlIjoib2JqZWN0In19LCJ0eXBlIjoiZnVuY3Rpb24ifSx7ImZ1bmN0aW9uIjp7ImRlc2NyaXB0aW9uIjoiR2V0IHRoZSBjdXJyZW50IHRpbWUiLCJuYW1lIjoiZ2V0X3RpbWUiLCJwYXJhbWV0ZXJzIjp7InByb3BlcnRpZXMiOnt9LCJ0eXBlIjoib2JqZWN0In19LCJ0eXBlIjoiZnVuY3Rpb24ifV19"
+    },
+    "canonical_json": {
+      "max_tokens": 54400,
+      "messages": [
+        {
+          "content": "What's the weather like in Paris, France?",
+          "role": "user"
+        }
+      ],
+      "model": "openai/gpt-5-pro",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 0.0,
+      "tools": [
+        {
+          "function": {
+            "description": "Get current weather information for a location",
+            "name": "get_weather",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "location": {
+                  "type": "string"
+                },
+                "unit": {
+                  "enum": [
+                    "celsius",
+                    "fahrenheit"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Tell a funny joke",
+            "name": "tell_joke",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "topic": {
+                  "description": "Topic for the joke",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Get the current time",
+            "name": "get_time",
+            "parameters": {
+              "properties": {},
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "",
+            "reasoning": "**Checking weather in Paris**\n\nI need to provide the current weather for Paris, France. I’ll use the get_weather tool and call it with the location \"Paris, France.\" Since the user didn't specify a unit, I'll go with Celsius because that’s typical for this location. It could be a good idea to ask if they prefer Fahrenheit, but for now, I'll just give them Celsius. I'll proceed with the tool call now.**Getting weather details**\n\nI’m planning to provide the current weather details, including conditions, temperature, precipitation, wind, and other relevant information if the tool returns that data. I just need to call the weather tool now and see what information I receive. Once I get the data, I’ll summarize everything clearly for the user. This should give them a good idea of what the weather is like!",
+            "reasoning_details": [
+              {
+                "format": "openai-responses-v1",
+                "index": 0,
+                "summary": "**Checking weather in Paris**\n\nI need to provide the current weather for Paris, France. I’ll use the get_weather tool and call it with the location \"Paris, France.\" Since the user didn't specify a unit, I'll go with Celsius because that’s typical for this location. It could be a good idea to ask if they prefer Fahrenheit, but for now, I'll just give them Celsius. I'll proceed with the tool call now.**Getting weather details**\n\nI’m planning to provide the current weather details, including conditions, temperature, precipitation, wind, and other relevant information if the tool returns that data. I just need to call the weather tool now and see what information I receive. Once I get the data, I’ll summarize everything clearly for the user. This should give them a good idea of what the weather is like!",
+                "type": "reasoning.summary"
+              },
+              {
+                "data": "gAAAAABpB5ktoq4DUGtCFcORk4BIAWKpl0pZVYfefMYEwrMmEH8lmTyijn6diN9KrL-A7BL-kow63cpGQuG2GsRr-85JQw4qbN0N9ga46GwCm19WrYJJSiUaJIIdCd4sro1Y0Ap5MvOhDdUs2jE7EzTTadJY7p_Zc-3Gp15AbLWC75rGUQ-bqPPZ8UcPhHyB4vAmROY8E24UAMzrb0Ds7ZGEy74BuaHUt2AJnkzaRBssguXzAuWTD6_pCkYCXBk3SrlE-exOg_D2Ablo4dKKCUgw8xd2-15kZEG8UF4Gjo09mWfr3T3iHKdryhNa6nD5LomMp3XYh5gaTZImRSBcdbuBNhKewM4kI1taaNN89o4JrfZsFzMTAFOymEDs50QsXXgIA2GQrwvoTUtfwyaxQmiReHG4O8IPz3kyGHRN8MtRrMIBHm-i-kGOhU4GfsNbOLYC3sGJcjTFVkYTSO963_vdakIc44VVJ3USJk9kZHFrVGHLhs93qcoYZEoFQmuosia0PUP_ES6CrgU_ezye1Uyp87TpvCH2jWD6rqPjVJxiQ98PTEidoSJGFu3N2wWRrtrSJMVRt_QcTCbhzx5AGh5pAiOAtirbbxBs7BDFW7w67g2f6A95zFRMfti6UP7djF-zZhZrgeA3ON2dkfzupiW5sMz88QgmYesV0wTjgoG1dUMrdMMeTvSWlWIJ9-loTn3ajxapkuFjpNKg4KNQNiJZuqW1LDtPYYuy3ZeTVPVk-AQJBOw1Pgnz89kkuGeMrrhJvUDmAg2X19y4v4YCmXRB-FiUe8g7Kp4Rpp4Kvcos9vzeKs8PN0_d15PN8Yczxjlb2MMN5s1J0UbiknUr0PB063nPE-rROMUr3kWKfArp0D9Pbi0kw-0gq73r7NcY7OdhEPpEJg_AbjbKJJLQ8YN2DdBNE8JN9DPdtodSJsoZ7afHA9i27ND4LxenY1TAPl9M8SsnFuclDb1yRUFBfze70UibXQNMiBFQawGydKMpV5Mz2Ctox7SjQtwHkyLYAfroNLzUBPnNKAn29Vgn1PBw5Cp6OJj1CNenc-p3200DBWhvM8_HjyWhsXrdvEHJNK1ja14O9kXUX4TwMDpemogyqO2twLiNtCxaZIQddHDwTYLYrjrC6IxpdcX5YnRQGcRzp57zYgvaEaEqFJ_MehINWRGXKq7H5sHFSgpHCptlh0pBV52Tfvau08KMJM4ZmcB9WjI9myJFaQzRBJ1M46QvQW2q9tZBvVI8_QhJFJSYyQhaHJ9zOxOR5NuPcYDk8_TuD8TJMursASdS0Qm8or9qjdX6v9P3U2jkxR0K-4yo6k-XYAda9xAptVqQe5zdaaDfbkVULwGbgg671szfQgdIF-B7eahbsHPvPYjryCHL4vADLMn3CqlTn-7KIT8OqTPUNHCGRELQPA9_8Tsj69-B-Rvuvn4t-glnNrboGP0piL5eoSufQk2KdauXxguOwYev0GB-gGyxE0ix7lKk1MG7h2kPrLT0j92SIc22aDegvtKTz1TlUoWJdTcQ-IPpY8TMd4p61VzF3NLUVhKrJ8FhP96XJ5ttE8D3-wwZcE6fwNbtgo0_TJaewzjE06HOYLpwEGq6voA-nZpr2tMl57EagRSv67wZaA6fqn5fcp-wGaLGSxlZGMBy0uMA2gw4apRGY2i9oCbv9vTiCeMnFbMoWQCV6FkwSmnxw_p7DSdwJY3xHlFc5KShlmshJgGjhoQmjpiOEowH3oCGYAdhBwOH6MEuzrtrlkTN1rhg7u4qk-FpDqRdf09f3UwgOxt24lbhP-dGBnSU8xHptKXpCHec126mrenmfNcBqTYMkYRNqZ98iO3McjuRH9Pk4E9aIJyoS0zCJPeTohY5Nva8Wg3iXUREgkcJI1sSHzkUlLD1KMsI71LSSbHjb4GriBBWqy_5LvvOM3GqLKRPCr4DVHheI58yAzB2h_ZKn_JDHkkHEaECRHdWDMeZpRUoy3JMs7spijIl7pJeAUvVJCvLy7aCUT15JD2LKsIo8zcfw8zGDOxdsa0WBhvm35TAJnD-tBigipsJnUoDOiHWoqV3IA3OgZKNQGnqFiaxj3UaFzLzeNPSbDIeOeTGeJ0GxfkIoxhklqTkdlqrQtpfqXN7gJILNAlZVtoQryTZVoMuF3LcQFsFo8lkt6_KcEMapTTcSY8NNFPHJZQBi06xtbwxowl_RLnM8OLDVrn2rVm5eMcDb75EqhjD_88xmwKrgMpoGwqwUPrghGiA4CwPP4C88SRraq91r8oBDbIPGkuoMn8mniTd9t9NpLAPHclFFBWre-hoFHsWVebLoFUy4xfCLSy_X7P0FJx3f19vtw5sdk8hhiLo7099XVYlSAubkdLr5dnWIVvT_3aGZkJHnoB20uXGiwlDIOTZa3FQMOYHXkT8SsoGRAn0Je8i_IMBHgWYrgPFNd7T0S2MzTZHz8yugsEBLikyZnAkxRgalNWgoQoOLf-r-KqymR3w8v3QInld7C3kGlabvvsxH3ys-RQzPyh-NKv4v-czD8iO0Czh0rbVFbgHAnvYg6HXORehC1zhJIPAma_C9wZD-vY2XtwU8apDf05SHQ1p2OxCPlAA73hYohEtTcxfKPUJiTP3IwwBTaIfUgsZjxRHjRnGmuZUv7LazoEyL2McQ7Sl8eoe3gKUqSZ-WKU48qnMT1Fv29fceGyFNhAZZBF_d4CPbGLqpsjo_UY1xNtWd3LbaVitQZ614SODjFzJwxb-uXwT2o35J8w1QhAORZ97PnJ-l9wkpju2GqlX54Rdg6Y1Pp9-n-B3u8YuNlULWoTeNFx98DAZiL5NQvztwyw0GwblJdG9YH_NWMZEoL2Q1ubQXBZpXxtxEJuSiXvbP0Fjk0CnhGuD88P00_OHQpi7",
+                "format": "openai-responses-v1",
+                "id": "rs_0663cd5c0d3720ed0169079925f8188197919c72789c43af5b",
+                "index": 0,
+                "type": "reasoning.encrypted"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": "{\"location\":\"Paris, France\",\"unit\":\"celsius\"}",
+                  "name": "get_weather"
+                },
+                "id": "call_KE3Yj2t3Jyp4rLCOu8fzM3RU",
+                "index": 0,
+                "type": "function"
+              }
+            ]
+          },
+          "native_finish_reason": "completed"
+        }
+      ],
+      "created": 1762105602,
+      "id": "gen-1762105602-W3nNYYkHOowWy3qETxab",
+      "model": "openai/gpt-5-pro",
+      "object": "chat.completion",
+      "provider": "OpenAI",
+      "usage": {
+        "completion_tokens": 283,
+        "completion_tokens_details": {
+          "reasoning_tokens": 256
+        },
+        "prompt_tokens": 104,
+        "total_tokens": 387
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998573eddcdb13f3-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:46:42 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

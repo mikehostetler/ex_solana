@@ -28,7 +28,7 @@ defmodule ReqLLM.Test.VCR do
       stream = VCR.replay_stream(transcript)
   """
 
-  alias ReqLLM.Test.{Transcript, ChunkCollector}
+  alias ReqLLM.Test.{ChunkCollector, Transcript}
 
   @type provider :: atom()
   @type model_spec :: binary()
@@ -330,7 +330,7 @@ defmodule ReqLLM.Test.VCR do
       {:ok, transcript} = VCR.load("fixtures/stream.json")
       stream = VCR.replay_as_stream(transcript, provider_mod, model)
   """
-  @spec replay_as_stream(Transcript.t(), module(), ReqLLM.Model.t()) :: Enumerable.t()
+  @spec replay_as_stream(Transcript.t(), module(), LLMDB.Model.t()) :: Enumerable.t()
   def replay_as_stream(%Transcript{} = transcript, provider_mod, model) do
     alias ReqLLM.StreamServer
 

@@ -153,12 +153,19 @@ defmodule ReqLLM.Provider.Options do
                                  type: :pos_integer,
                                  doc:
                                    "Timeout for receiving HTTP responses in milliseconds (defaults to global config)"
+                               ],
+                               max_retries: [
+                                 type: :pos_integer,
+                                 default: 3,
+                                 doc:
+                                   "Maximum number of retry attempts for transient network errors"
                                ]
                              )
 
   # Internal keys that bypass validation (framework concerns)
   @internal_keys [
     :api_key,
+    :base_url,
     :on_unsupported,
     :fixture,
     :req_http_options,
@@ -193,7 +200,7 @@ defmodule ReqLLM.Provider.Options do
   `{:ok, processed_opts}` or `{:error, wrapped_error}`
 
   ## Examples
-      model = %ReqLLM.Model{provider: :openai, model: "gpt-4"}
+      {:ok, model} = ReqLLM.model("openai:gpt-4")
 
       opts = [
         temperature: 0.7,
@@ -201,7 +208,7 @@ defmodule ReqLLM.Provider.Options do
       ]
       {:ok, processed} = Options.process(MyProvider, :chat, model, opts)
   """
-  @spec process(module(), atom(), ReqLLM.Model.t(), keyword()) ::
+  @spec process(module(), atom(), LLMDB.Model.t(), keyword()) ::
           {:ok, keyword()} | {:error, term()}
   def process(provider_mod, operation, model, opts) do
     processed_opts = process!(provider_mod, operation, model, opts)
@@ -219,7 +226,7 @@ defmodule ReqLLM.Provider.Options do
   @doc """
   Same as process/4 but raises on error.
   """
-  @spec process!(module(), atom(), ReqLLM.Model.t(), keyword()) :: keyword()
+  @spec process!(module(), atom(), LLMDB.Model.t(), keyword()) :: keyword()
   def process!(provider_mod, operation, model, opts) do
     {internal_opts, user_opts} = Keyword.split(opts, @internal_keys)
     user_opts = handle_stream_alias(user_opts)
@@ -253,9 +260,13 @@ defmodule ReqLLM.Provider.Options do
 
     final_opts = handle_warnings(final_opts, opts)
 
+    final_opts =
+      final_opts
+      |> Keyword.merge(internal_opts)
+      |> validate_context(opts)
+      |> inject_base_url_from_registry(model, provider_mod)
+
     final_opts
-    |> Keyword.merge(internal_opts)
-    |> validate_context(opts)
   end
 
   # Public utility functions
@@ -390,6 +401,43 @@ defmodule ReqLLM.Provider.Options do
     compose_schema_internal(base_schema, provider_mod)
   end
 
+  @doc """
+  Returns the effective base URL for the provider based on precedence rules.
+
+  The base URL is determined by the following precedence order (highest to lowest):
+  1. `opts[:base_url]` - Explicitly passed in options
+  2. Application config - `Application.get_env(:req_llm, model.provider)[:base_url]`
+  3. Provider registry metadata - Loaded from provider's JSON metadata file
+  4. Provider default - `provider_mod.default_base_url()`
+
+  ## Parameters
+
+  - `provider_mod` - Provider module implementing the Provider behavior
+  - `model` - ReqLLM.Model struct containing provider information
+  - `opts` - Options keyword list that may contain :base_url
+
+  ## Examples
+
+      iex> {:ok, model} = ReqLLM.model("openai:gpt-4")
+      iex> ReqLLM.Provider.Options.effective_base_url(ReqLLM.Providers.OpenAI, model, [])
+      "https://api.openai.com/v1"
+
+      iex> opts = [base_url: "https://custom.example.com"]
+      iex> ReqLLM.Provider.Options.effective_base_url(ReqLLM.Providers.OpenAI, model, opts)
+      "https://custom.example.com"
+  """
+  @spec effective_base_url(module(), LLMDB.Model.t(), keyword()) :: String.t()
+  def effective_base_url(provider_mod, %LLMDB.Model{} = model, opts) do
+    from_opts = opts[:base_url]
+    from_config = base_url_from_application_config(model.provider)
+    from_metadata = base_url_from_provider_metadata(model.provider)
+    from_provider_default = provider_mod.default_base_url()
+
+    result = from_opts || from_config || from_metadata || from_provider_default
+
+    result
+  end
+
   # Private helper functions
 
   defp normalize_legacy_options(opts) do
@@ -400,11 +448,16 @@ defmodule ReqLLM.Provider.Options do
     |> normalize_tools()
   end
 
-  defp extract_model_options(%ReqLLM.Model{} = model, opts) do
-    if model.max_tokens && model.max_tokens > 0 do
-      Keyword.put_new(opts, :max_tokens, model.max_tokens)
-    else
-      opts
+  defp extract_model_options(%LLMDB.Model{} = model, opts) do
+    cond do
+      Keyword.has_key?(opts, :max_tokens) ->
+        opts
+
+      is_map(model.limits) and is_integer(model.limits[:output]) and model.limits[:output] > 0 ->
+        Keyword.put(opts, :max_tokens, model.limits.output)
+
+      true ->
+        opts
     end
   end
 
@@ -640,7 +693,23 @@ defmodule ReqLLM.Provider.Options do
     unknown_keys = extract_unknown_keys_from_opts(opts)
     provider_suggestions = get_provider_option_suggestions(provider_mod, unknown_keys)
 
+    output_related_keys = [:output, :mode, :schema_name, :schema_description, :enum]
+    has_output_options = Enum.any?(unknown_keys, &(&1 in output_related_keys))
+
     base_message = message
+
+    base_message =
+      if has_output_options do
+        output_tip =
+          "Tip: The :output option and related options (:mode, :schema_name, :schema_description, :enum) are not yet supported. " <>
+            "For array/enum outputs, use Zoi to define your schema and convert it with ReqLLM.Schema.to_json/1, then pass it to generate_object/4. " <>
+            "This requires a provider that supports JSON Schema (e.g., OpenAI). " <>
+            "Example: array_schema = Zoi.array(Zoi.object(%{name: Zoi.string()})) |> ReqLLM.Schema.to_json()"
+
+        base_message <> "\n\n" <> output_tip
+      else
+        base_message
+      end
 
     if provider_suggestions == "" do
       base_message
@@ -708,5 +777,31 @@ defmodule ReqLLM.Provider.Options do
     str2 = Atom.to_string(key2)
 
     String.jaro_distance(str1, str2) > 0.7
+  end
+
+  defp inject_base_url_from_registry(opts, model, provider_mod) do
+    Keyword.put_new_lazy(opts, :base_url, fn ->
+      base_url_from_application_config(model.provider) ||
+        base_url_from_provider_metadata(model.provider) ||
+        provider_mod.default_base_url()
+    end)
+  end
+
+  defp base_url_from_provider_metadata(provider) do
+    result =
+      case LLMDB.provider(provider) do
+        {:ok, provider_data} ->
+          provider_data.base_url
+
+        {:error, _} ->
+          nil
+      end
+
+    result
+  end
+
+  defp base_url_from_application_config(provider_id) do
+    config = Application.get_env(:req_llm, provider_id, [])
+    Keyword.get(config, :base_url)
   end
 end

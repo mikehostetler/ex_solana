@@ -1,0 +1,122 @@
+{
+  "model_spec": "azure:claude-sonnet-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjozMDAwLCJtZXNzYWdlcyI6W3siY29udGVudCI6IldyaXRlIGEgdmVyeSBsb25nIHN0b3J5IGFib3V0IGRyYWdvbnMgYW5kIGFkdmVudHVyZXMiLCJyb2xlIjoidXNlciJ9XSwibW9kZWwiOiJjbGF1ZGUtc29ubmV0LTQtNSIsInN0cmVhbSI6ZmFsc2UsInRlbXBlcmF0dXJlIjoxLjAsInRoaW5raW5nIjp7ImJ1ZGdldF90b2tlbnMiOjEwMjQsInR5cGUiOiJlbmFibGVkIn19"
+    },
+    "canonical_json": {
+      "max_tokens": 3000,
+      "messages": [
+        {
+          "content": "Write a very long story about dragons and adventures",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      }
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EpQECkYIChgCKkDgP01nhvvSLbGrhWy55RcOafplYHMcvQUtEo7NAij9UNDBSl+VJEnf1+rjC74XfhKBVrbSgc8mUoW1uC81m3bTEgzwpi0zCr6ycUIrNPwaDGgjYs0nSlNe09K1DiIw0aecIMKH2FrbdZLcT+go4Vt52ejMByC/T4BxvFuN1QCfzm2GLHDBSYcvDyoDbIaaKvsCKCB7ouH5xYqrBtsbZaHhFAAS3w28vFR9sbduakjPdg5pCZvJONlmXaHCPZIDjc3/WulkKYLTmL0KO6ooBNTz3Uu239hpQRPEwt7OrMDl94wb2VB51Cemddt3m5LuIOaNf7yxyf0ky+q6ZOW1Fqsk+g80dbCkYYNdE4d8h9RTxgcBH15kEVCstS1hj7LYsjn8VzMwE7Zf95CyvtAFLeWniUQARKzhyQyAdEhBrd6srg9IqsGMGPrFfDtD23KIf7Gr2hk5jV6RGPZn325cBIb43FH7Oz2SP3PzjtWgrS++zV0YHr9VVrXWB/qd3KNCQwJSwxuVKP5TV2J4ftfCE3H0lXd1J8Eg+ZWxuJHWgVALO0wUeM7BItlMPt9/ybGReqFPXUYTFkvXasn/0VziPfoFvQyg25G9p1x7Frr9UaKEM5R+/Z7H7LqUxAEONBzrvzI9LMK6ZbaO3VnPOXphn9E4n1WdJgn2NFuP/D7KNpWdARuS62G4Q3UiNIotqRgB",
+          "thinking": "The user wants a very long story about dragons and adventures. I should create an engaging fantasy tale with multiple characters, an epic quest, dragons as central figures, and plenty of adventure elements like danger, exploration, mystery, and heroism. I'll make it substantial in length with detailed world-building, character development, and an exciting plot.",
+          "type": "thinking"
+        },
+        {
+          "text": "# The Dragon's Crown: A Tale of Fire and Destiny\n\n## Part One: The Awakening\n\nThe village of Thornhaven had always existed in the shadow of the Blackspine Mountains, where legends whispered of dragons that once ruled the skies. For three hundred years, those legends had been nothing more than stories told to children at bedtime, cautionary tales to keep them from wandering too far into the dark forests. But on the morning of the autumn equinox, when seventeen-year-old Kael Stormwind woke to the sound of his mother's terrified screams, everything changed.\n\nHe bolted from his bed, still tangled in rough wool blankets, and stumbled to the window. What he saw would be burned into his memory forever. The eastern sky, usually painted in soft orange and pink by the rising sun, was instead filled with crimson wings. A dragon—massive, terrible, and undeniably real—circled above the village square. Its scales gleamed like rubies in the morning light, and when it opened its maw to roar, the sound shattered windows and sent birds fleeing in every direction.\n\nKael's hands trembled as he gripped the windowsill. His mind raced between disbelief and primal terror. Dragons weren't real. They *couldn't* be real. Yet there it was, as solid and present as the ground beneath his feet.\n\nThe dragon landed in the square with earth-shaking force, its talons carving deep furrows in the packed earth. People scattered in all directions, but the creature made no move to harm them. Instead, it lowered its great head and appeared to be... searching. Its golden eyes, each as large as a wagon wheel, swept across the crowds with unmistakable intelligence.\n\n\"Kael!\" His mother burst into his room, her face pale. \"We have to go. Now. Your father is getting the cart—\"\n\n\"Mother, look!\" Kael pointed. The dragon had gone still, its gaze fixed on something—or someone—in the crowd. Then, impossibly, it spoke.\n\nThe voice resonated not in the air but directly in Kael's mind, and judging by the way everyone in the square froze, they heard it too. \n\n*\"Three centuries I have slumbered, and now I wake to seek the one who bears the mark. The world trembles at the edge of shadow. Where is the heir of Dragonheart?\"*\n\nSilence fell like a blanket over Thornhaven. People looked at one another in confusion and fear. The heir of Dragonheart? It was a name from the oldest stories, from the age when dragons and humans had fought side by side against an ancient evil. But that was mythology, fantasy, legend.\n\nKael felt a strange warmth spreading across his left shoulder blade, the same spot that had been marked since birth with what his parents had always said was just an unusual birthmark. It had never caused him any trouble, just a dark pattern that almost looked like... scales.\n\nThe warmth turned to burning heat. He gasped, clutching at his shoulder, and in that moment, the dragon's great head swiveled directly toward his window. Their eyes met across the distance, and Kael felt something fundamental shift inside him, as if a door he'd never known existed had suddenly blown open.\n\n*\"There,\"* the dragon's voice resonated again. *\"The mark awakens. Come, young heir. We have little time, and the shadow grows.\"*\n\n\"No,\" Kael's mother whispered, but her voice held no conviction. She too was staring at her son, seeing something that seemed to confirm her deepest fears. \"You can't. You're just a boy. You're my son. You're not... you can't be...\"\n\nBut even as she spoke, Kael felt the truth of it settling into his bones. The stories his grandmother had told him before she died, the strange dreams he'd been having lately of flying through clouds and breathing fire, the way he'd always felt different, set apart, as if he was waiting for something without knowing what.\n\nHis father appeared in the doorway, breathing hard. \"Kael, your shoulder—it's glowing.\"\n\nKael looked down and saw light seeping through his shirt, a deep amber radiance that pulsed in rhythm with his heartbeat. When he pulled the fabric aside, the birthmark he'd carried his whole life was now unmistakably the shape of a dragon in flight, and it shone like molten gold.\n\nThe dragon in the square roared again, and this time there was urgency in the sound. *\"The darkness stirs in the north. Already the shadow dragons have awakened. If we do not act, everything you know will be consumed. I am Vyraxia, last of the Ruby Flight, and I have waited three hundred years for one strong enough to bear the Dragonheart legacy. Will you hide while the world burns, or will you rise to meet your destiny?\"*\n\nKael looked at his parents. His mother was crying silently, his father's jaw was set in that way that meant he was fighting emotion. They had always been good to him, loving, supportive. He'd had a simple life planned—help his father in the smithy, maybe marry Elara from the mill, raise children of his own in this quiet village.\n\nBut that life was ashes now, burned away by the arrival of a creature that shouldn't exist and a destiny he'd never asked for.\n\n\"I have to go,\" he said quietly.\n\nHis mother let out a sob, but his father nodded slowly. \"I know, son. I always knew this day might come. Your grandmother made me promise—if the dragons ever returned, we weren't to stop you.\" He reached behind the door and pulled out a sword that Kael had never seen before. The blade was a smoky grey metal that seemed to shift and flow like water, and the hilt was wrapped in leather worn smooth by many hands. \"This was hers. She said it belonged to your bloodline, passed down from the first Dragonheart.\"\n\nKael took the sword with trembling hands. The moment his fingers closed around the hilt, he felt that strange warmth again, and the weapon seemed to recognize him, humming with quiet power.\n\nHis mother pressed a small leather bag into his hands, her tears falling freely now. \"Food for the journey. Come back to us, Kael. Whatever happens out there, promise me you'll come back.\"\n\nHe wanted to promise, wanted to tell her everything would be alright, but something stopped him. Instead, he hugged them both fiercely, trying to memorize the feel of their embrace, the smell of his mother's lavender soap and his father's forge smoke.\n\nThen he was running down the stairs and out into the square, where Vyraxia waited.\n\nUp close, the dragon was even more magnificent and terrifying. Each scale was the size of a dinner plate, and her body radiated heat like a forge. When she lowered her head to regard him, Kael had to resist the urge to run.\n\n*\"You have courage, young one. That is good. You will need it.\"* Her mental voice was gentler now, almost warm. *\"Climb onto my back. We have far to go, and I will explain everything once we're aloft. But know this—from this moment forward, your life as you knew it is over. You are Dragonheart's heir, the last hope of the Dragon Riders, and the fate of all living things may rest on your shoulders.\"*\n\n\"That's a lot of pressure for someone who was planning to spend today fixing horseshoes,\" Kael muttered, but he approached the dragon nonetheless. Her scales were warm under his hands as he climbed, using the natural ridges and spines as handholds until he settled into the hollow at the base of her neck, between two large back-spines.\n\nVyraxia's wings unfurled with a sound like thunder, and then they were rising, the ground falling away beneath them. Kael's stomach lurched, and he gripped the spine in front of him with white knuckles. Below, he could see his entire village—the only home he'd ever known—shrinking to the size of a toy, and his parents, still standing in the doorway, watching their son disappear into legend.\n\nThe wind roared in his ears as they climbed higher, and despite his fear, despite everything, Kael felt something else stirring in his chest: excitement. Whatever came next, whatever trials and dangers awaited, he was flying on the back of a dragon, and the world spread out beneath him like a tapestry of infinite possibility.\n\n## Part Two: The Legacy Revealed\n\nThey flew for hours, heading north toward the Blackspine Mountains. At first, Kael was too overwhelmed by the sensation of flight to think clearly—the world tilted and spun beneath him, the wind tore at his clothes, and every movement of Vyraxia's powerful wings sent vibrations through his entire body. But gradually, he adjusted, and questions began to form.\n\n*\"You wonder about many things,\"* Vyraxia's voice echoed in his mind. *\"I will tell you what I can. But first, we must reach the Sanctuary. There are others who must hear this tale, and we have awakened something that should have remained asleep.\"*\n\n\"What did we awaken?\" Kael shouted over the wind.\n\n*\"The same thing that forced my kind into hiding three centuries ago. The same darkness that the first Dragonheart gave his life to seal away. But the seal is weakening, and my awakening—necessary as it was—has sent ripples through the old magic. The shadow dragons will know that the Ruby Flight has returned, and they will know what it means.\"*\n\n\"Shadow dragons? I thought you were the last dragon.\"\n\n*\"I am the last of the Ruby Flight, the guardians and protectors. But there are others. Dragons of darkness, corruption, and chaos. They serve the Shadow King, an entity of pure malevolence that sought to consume all life in the age before history. Your ancestor, the first Dragonheart, led an army of riders and dragons against him. The war lasted fifty years and laid waste to half the world. In the end, we won, but at terrible cost. The Dragonhearts were wiped out—or so we thought. The riders were scattered. And we dragons retreated into enchanted sleep, hidden away until the world had healed and our strength was needed once more.\"*\n\nKael processed this, his mind reeling. \"But how am I connected to all this? I'm just a blacksmith's son from Thornhaven. I've never done anything special.\"\n\n*\"The blood of heroes does not fade so easily. Somewhere in your lineage, the Dragonheart bloodline survived, passed down through generations who likely never knew what they carried. The mark you bear is proof of it—a sign that you carry the gift. The gift to bond with dragons, to share our strength, to stand against the darkness.\"*\n\nThey flew over a range of foothills, and Kael could see the Blackspine Mountains proper rising ahead, their peaks shrouded in permanent clouds. As they drew closer, he noticed something strange—the mountainside seemed to shimmer, as if he was looking at it through a heat haze.\n\n*\"The veil,\"* Vyraxia explained. *\"A barrier raised by the last of the great mages to hide the Sanctuary. Only those with dragon blood can perceive it.\"*\n\nThey passed through the shimmer, and Kael gasped. On the other side was a hidden valley, green and lush despite the autumn season everywhere else. A crystalline lake sparkled at the center, and arranged around its shores were structures unlike anything Kael had ever seen—towers of white stone that spiraled into the sky, bridges of silver metal that arched between peaks, and gardens that seemed to glow with their own inner light.\n\nBut it was the dragons that truly took his breath away.\n\nThere were dozens of them, in every color imaginable. Golden dragons basked on sunny rocks, their scales gleaming like coins. Emerald green dragons swam in the depths of the lake, barely visible beneath the water. Sapphire blue dragons soared through the air above, performing aerial acrobatics that seemed to defy the laws of nature. And there were others—dragons of purple and bronze, silver and black, white as snow and grey as storm clouds.\n\n*\"Behold the Sanctuary,\"* Vyraxia said with unmistakable pride. *\"The last refuge of dragonkind, preserved through the long centuries of sleep. We are fewer than we once were, but we endure.\"*\n\nAs Vyraxia descended toward a large platform near the shore of the lake, dragons began to converge from all directions, their eyes fixed on Kael with unmistakable interest and intelligence. He felt suddenly very small and very human amid such ancient, powerful beings.\n\nThey landed, an",
+          "type": "text"
+        }
+      ],
+      "id": "msg_01NrvGVMGyYQr6ehmbrvGJao",
+      "model": "claude-sonnet-4-5-20250929",
+      "role": "assistant",
+      "stop_reason": "max_tokens",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 45,
+        "output_tokens": 3000,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "02e54480-e1d0-4774-ad05-7f0c132e3b6c"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:40:45 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoyMDQ4LCJtZXNzYWdlcyI6W3siY29udGVudCI6IlNvbHZlIDEyKjcgYW5kIHNob3cgeW91ciBpbnRlcm5hbCB0aGlua2luZyAoYnJpZWYpLiIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImFudGhyb3BpYy9jbGF1ZGUtaGFpa3UtNC41IiwibiI6MSwicmVhc29uaW5nX2VmZm9ydCI6ImxvdyIsInNlZWQiOjQyLCJzdHJlYW0iOmZhbHNlLCJ0ZW1wZXJhdHVyZSI6MS4wfQ=="
+    },
+    "canonical_json": {
+      "max_tokens": 2048,
+      "messages": [
+        {
+          "content": "Solve 12*7 and show your internal thinking (brief).",
+          "role": "user"
+        }
+      ],
+      "model": "anthropic/claude-haiku-4.5",
+      "n": 1,
+      "reasoning_effort": "low",
+      "seed": 42,
+      "stream": false,
+      "temperature": 1.0
+    },
+    "headers": {
+      "accept-encoding": [
+        "gzip"
+      ],
+      "authorization": "[REDACTED:authorization]",
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.15"
+      ]
+    },
+    "method": "post",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  "response": {
+    "body": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "message": {
+            "content": "**Internal thinking:**\n- Break it down: 12 × 7 = (10 + 2) × 7\n- Distribute: 10 × 7 = 70, and 2 × 7 = 14\n- Add: 70 + 14 = 84\n\n**Answer: 84**",
+            "reasoning": "I need to solve 12 * 7.\n\nLet me think about this:\n12 * 7 = (10 + 2) * 7 = 10*7 + 2*7 = 70 + 14 = 84\n\nOr I could just multiply directly:\n12 * 7:\n- 7 * 10 = 70\n- 7 * 2 = 14\n- 70 + 14 = 84",
+            "reasoning_details": [
+              {
+                "format": "anthropic-claude-v1",
+                "index": 0,
+                "signature": "EuUCCkgICRACGAIqQLgo+pD524oHBFs2VuB1EgG4p2njnYiw8TWfVH1FWkFC1uct0HGdj+UEgWNwJctIZOIEWnuj2CyQFJCkI4euzAMSDMpcXAlPyoZwLg3GuBoMZ+QJMSVBKUGSBi6IIjCbrya/oPDFkUDsK+qAYGi4T326wEWrWmby7XUmczLjltepZ45fhP614/Y5RphIho4qygGrUPLoMmVnhUbHBzgjCGRMVlwjxDPFhAXfMBivXGAh3hna7LctJiBL+0yZIlWpyo49DcZ/XMGeyurgr7tQ6TTh6XojgtJVfMQ6fNtckZ+nZY9ktIP6aZpogmlMKA1qRR/CmPNWPy6UUGM8e2xMVykkRQXkvk8TNx2WNKVeMAM5lUh8CI0EWtzJ/ClGMmPmqr3yCebsxXOq/IuWFlWZjkBbV3SLUXglsdQph3cbIv5EyK1PXi7iPKtD/0iLxQTUQeiejOL1yzvyAfm6GAE=",
+                "text": "I need to solve 12 * 7.\n\nLet me think about this:\n12 * 7 = (10 + 2) * 7 = 10*7 + 2*7 = 70 + 14 = 84\n\nOr I could just multiply directly:\n12 * 7:\n- 7 * 10 = 70\n- 7 * 2 = 14\n- 70 + 14 = 84",
+                "type": "reasoning.text"
+              }
+            ],
+            "refusal": null,
+            "role": "assistant"
+          },
+          "native_finish_reason": "stop"
+        }
+      ],
+      "created": 1762104934,
+      "id": "gen-1762104934-7rmB4QM9On2pD2PDqq0V",
+      "model": "anthropic/claude-haiku-4.5",
+      "object": "chat.completion",
+      "provider": "Google",
+      "usage": {
+        "completion_tokens": 199,
+        "prompt_tokens": 50,
+        "total_tokens": 249
+      }
+    },
+    "headers": {
+      "access-control-allow-origin": [
+        "*"
+      ],
+      "cf-ray": [
+        "998563a29d58eac7-ORD"
+      ],
+      "connection": [
+        "keep-alive"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Sun, 02 Nov 2025 17:35:35 GMT"
+      ],
+      "permissions-policy": [
+        "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")"
+      ],
+      "referrer-policy": [
+        "no-referrer, strict-origin-when-cross-origin"
+      ],
+      "server": [
+        "cloudflare"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "vary": [
+        "Accept-Encoding"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ]
+    },
+    "status": 200
+  }
+}

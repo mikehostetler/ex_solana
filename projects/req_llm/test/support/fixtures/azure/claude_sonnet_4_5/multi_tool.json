@@ -1,0 +1,174 @@
+{
+  "model_spec": "azure:claude-sonnet-4-5",
+  "provider": "azure",
+  "request": {
+    "body": {
+      "b64": "eyJtYXhfdG9rZW5zIjoxMjgwMCwibWVzc2FnZXMiOlt7ImNvbnRlbnQiOiJXaGF0J3MgdGhlIHdlYXRoZXIgbGlrZSBpbiBQYXJpcywgRnJhbmNlPyIsInJvbGUiOiJ1c2VyIn1dLCJtb2RlbCI6ImNsYXVkZS1zb25uZXQtNC01Iiwic3RyZWFtIjpmYWxzZSwidGVtcGVyYXR1cmUiOjEuMCwidGhpbmtpbmciOnsiYnVkZ2V0X3Rva2VucyI6MTAyNCwidHlwZSI6ImVuYWJsZWQifSwidG9vbHMiOlt7ImRlc2NyaXB0aW9uIjoiR2V0IGN1cnJlbnQgd2VhdGhlciBpbmZvcm1hdGlvbiBmb3IgYSBsb2NhdGlvbiIsImlucHV0X3NjaGVtYSI6eyJhZGRpdGlvbmFsUHJvcGVydGllcyI6ZmFsc2UsInByb3BlcnRpZXMiOnsibG9jYXRpb24iOnsidHlwZSI6InN0cmluZyJ9LCJ1bml0Ijp7ImVudW0iOlsiY2Vsc2l1cyIsImZhaHJlbmhlaXQiXSwidHlwZSI6InN0cmluZyJ9fSwicmVxdWlyZWQiOlsibG9jYXRpb24iXSwidHlwZSI6Im9iamVjdCJ9LCJuYW1lIjoiZ2V0X3dlYXRoZXIifSx7ImRlc2NyaXB0aW9uIjoiVGVsbCBhIGZ1bm55IGpva2UiLCJpbnB1dF9zY2hlbWEiOnsiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlLCJwcm9wZXJ0aWVzIjp7InRvcGljIjp7ImRlc2NyaXB0aW9uIjoiVG9waWMgZm9yIHRoZSBqb2tlIiwidHlwZSI6InN0cmluZyJ9fSwidHlwZSI6Im9iamVjdCJ9LCJuYW1lIjoidGVsbF9qb2tlIn0seyJkZXNjcmlwdGlvbiI6IkdldCB0aGUgY3VycmVudCB0aW1lIiwiaW5wdXRfc2NoZW1hIjp7InByb3BlcnRpZXMiOnt9LCJ0eXBlIjoib2JqZWN0In0sIm5hbWUiOiJnZXRfdGltZSJ9XX0="
+    },
+    "canonical_json": {
+      "max_tokens": 12800,
+      "messages": [
+        {
+          "content": "What's the weather like in Paris, France?",
+          "role": "user"
+        }
+      ],
+      "model": "claude-sonnet-4-5",
+      "stream": false,
+      "temperature": 1.0,
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Get current weather information for a location",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "location": {
+                "type": "string"
+              },
+              "unit": {
+                "enum": [
+                  "celsius",
+                  "fahrenheit"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "name": "get_weather"
+        },
+        {
+          "description": "Tell a funny joke",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "topic": {
+                "description": "Topic for the joke",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "name": "tell_joke"
+        },
+        {
+          "description": "Get the current time",
+          "input_schema": {
+            "properties": {},
+            "type": "object"
+          },
+          "name": "get_time"
+        }
+      ]
+    },
+    "headers": {
+      "accept": [
+        "application/json"
+      ],
+      "accept-encoding": [
+        "gzip"
+      ],
+      "anthropic-version": [
+        "2023-06-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "user-agent": [
+        "req/0.5.16"
+      ],
+      "x-api-key": "[REDACTED:x-api-key]"
+    },
+    "method": "post",
+    "url": "https://shelvick-test.services.ai.azure.com/anthropic/v1/messages"
+  },
+  "response": {
+    "body": {
+      "content": [
+        {
+          "signature": "EvEECkYIChgCKkA1fqX9U2xxk2zTWvTfZMfVUI2dquSy9LgoS4wWYiM+G+jIjmj1XKm3trssycY77rw9Z/KP9+FegG+mhyhl0b+BEgworC8qJ07PEsA0RLQaDMVyQiX7YtA4+tyVwyIwCUg+g2t114+Gz0LbBP/NHK65kZk8JBOT0aWxhd+IRSdKjNsCA7VHgIoK0HD9bCtdKtgDPYgz9m8NO61uJ0pnjRiNxYZycC4vgoKRzaxMkbMhfr5wo8N2f0YZY/tespTXP8hP3cPadXaqaRknbpcI+8ui4mC4MR5sI82GGVBHVaLteNz6RuYWrQhAoQenbbmXcFUTo0660OCVmAFCgNMxWHJl0/D9dsUJ530y8Lz26SCNNFvLxpU8bmx11B+dFzAuED+ZeW4qPIB9V7dgfqQRPUvjC+LhwZKmFLN0+NBuZVP2bTc+ttyd6bGwpftFdupQ3uwRmXP+zcmUW2bLCB75YOwjzsL14gbYjt0U6WWLqdC3X/ep7iCZY7xde35aL/sKvmivnfgevc/bUh9bYfVG4kW0wq8OlxN+If6x9oqSxtmEtI0/a0XVHJ73MTFdQQrsQRv0/5b0DRpIeIp7Y/pAZ5eiuaVrD2549VDmPxv7BuH8Ent2D6+j1b9U6rx6WNC8LILLUho1vHVIhV5ix29f1wq1FzlLEQQ8H+n/FRBow1atWBdF9VZTgMK7ys8sQq031yy772343r2gSTLYrxcT7646AXgD+fmsPNzImpwp9nUTje6uNOrRskhX7VQd33aDm4cVs5hWuSDummrpETW4h9fBWM+cLKnURWR7EUMdU1k3lzUKy5tN0wB5eBgB",
+          "thinking": "The user is asking about the weather in Paris, France. I have access to the get_weather function which can provide current weather information for a location. \n\nThe function requires:\n- location (required): string - I should use \"Paris, France\"\n- unit (optional): either \"celsius\" or \"fahrenheit\" - The user didn't specify, but since Paris is in France which uses Celsius, I'll use celsius\n\nLet me call the get_weather function with the location parameter.",
+          "type": "thinking"
+        },
+        {
+          "id": "toolu_01KpejwbyAfP6UdE7Toj9Gk4",
+          "input": {
+            "location": "Paris, France",
+            "unit": "celsius"
+          },
+          "name": "get_weather",
+          "type": "tool_use"
+        }
+      ],
+      "id": "msg_01DZurNHfgUx4oXRsUAqhouy",
+      "model": "claude-sonnet-4-5-20250929",
+      "role": "assistant",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 725,
+        "output_tokens": 184,
+        "service_tier": "standard"
+      }
+    },
+    "headers": {
+      "apim-request-id": [
+        "a64eaef5-5c20-43b6-abf7-872743a8892c"
+      ],
+      "azureai-processed-tier": [
+        "default"
+      ],
+      "azureai-requested-tier": [
+        "default"
+      ],
+      "azureml-served-by-cluster": [
+        "hyena-eastus2-01"
+      ],
+      "content-type": [
+        "application/json"
+      ],
+      "date": [
+        "Fri, 28 Nov 2025 23:39:27 GMT"
+      ],
+      "request-context": [
+        "appId="
+      ],
+      "strict-transport-security": [
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      "transfer-encoding": [
+        "chunked"
+      ],
+      "x-content-type-options": [
+        "nosniff"
+      ],
+      "x-ms-region": [
+        "East US 2"
+      ],
+      "x-ratelimit-limit-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-remaining-tokens": [
+        "-1"
+      ],
+      "x-ratelimit-reset-tokens": [
+        "0"
+      ]
+    },
+    "status": 200
+  }
+}

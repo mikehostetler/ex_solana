@@ -11,7 +11,7 @@ defmodule ReqLLM.Streaming do
   The streaming system consists of three main components:
 
   - `StreamServer` - GenServer managing stream state and event processing
-  - `FinchClient` - HTTP transport layer using Finch for streaming requests  
+  - `FinchClient` - HTTP transport layer using Finch for streaming requests
   - `StreamResponse` - User-facing API providing streams and metadata tasks
 
   ## Flow
@@ -27,7 +27,7 @@ defmodule ReqLLM.Streaming do
 
       {:ok, stream_response} = ReqLLM.Streaming.start_stream(
         ReqLLM.Providers.Anthropic,
-        %ReqLLM.Model{provider: :anthropic, name: "claude-3-sonnet"}, 
+        %LLMDB.Model{provider: :anthropic, name: "claude-3-sonnet"},
         ReqLLM.Context.new("Hello!"),
         []
       )
@@ -43,9 +43,7 @@ defmodule ReqLLM.Streaming do
 
   """
 
-  alias ReqLLM.Streaming.FinchClient
-  alias ReqLLM.StreamServer
-  alias ReqLLM.{Context, Model, StreamResponse}
+  alias ReqLLM.{Context, StreamResponse, StreamResponse.MetadataHandle, StreamServer}
 
   require Logger
 
@@ -64,12 +62,13 @@ defmodule ReqLLM.Streaming do
 
   ## Returns
 
-    * `{:ok, stream_response}` - StreamResponse with stream and metadata_task
+    * `{:ok, stream_response}` - StreamResponse with stream and metadata_handle
     * `{:error, reason}` - Failed to start streaming components
 
   ## Options
 
     * `:timeout` - HTTP request timeout in milliseconds (default: 30_000)
+    * `:metadata_timeout` - Metadata collection timeout in milliseconds (default: 300_000)
     * `:fixture_path` - Path for test fixture capture (testing only)
     * `:finch_name` - Finch pool name (default: ReqLLM.Finch)
 
@@ -86,7 +85,7 @@ defmodule ReqLLM.Streaming do
       # With options
       {:ok, stream_response} = ReqLLM.Streaming.start_stream(
         provider_mod,
-        model, 
+        model,
         context,
         timeout: 60_000,
         fixture_path: "/tmp/test_fixture.json"
@@ -97,20 +96,18 @@ defmodule ReqLLM.Streaming do
   The function can fail at several points:
 
   - StreamServer fails to start
-  - Provider's build_stream_request/4 fails  
+  - Provider's build_stream_request/4 fails
   - HTTP streaming task fails to start
   - Task attachment fails
 
   All failures return `{:error, reason}` with descriptive error information.
   """
-  @spec start_stream(module(), Model.t(), Context.t(), keyword()) ::
+  @spec start_stream(module(), LLMDB.Model.t(), Context.t(), keyword()) ::
           {:ok, StreamResponse.t()} | {:error, term()}
   def start_stream(provider_mod, model, context, opts \\ []) do
     with {:ok, server_pid} <- start_stream_server(provider_mod, model, opts),
-         {:ok, http_task_pid, http_context, canonical_json} <-
-           start_http_streaming(provider_mod, model, context, opts, server_pid),
-         :ok <- StreamServer.attach_http_task(server_pid, http_task_pid),
-         :ok <- set_fixture_context_if_needed(server_pid, http_context, canonical_json) do
+         {:ok, _http_task_pid, _http_context, _canonical_json} <-
+           start_http_streaming(provider_mod, model, context, opts, server_pid) do
       # Create lazy stream using Stream.resource
       default_timeout =
         Application.get_env(
@@ -122,8 +119,8 @@ defmodule ReqLLM.Streaming do
       receive_timeout = Keyword.get(opts, :receive_timeout, default_timeout)
       stream = create_lazy_stream(server_pid, receive_timeout)
 
-      # Start metadata collection task
-      metadata_task = start_metadata_task(server_pid)
+      # Start metadata collection handle
+      metadata_handle = start_metadata_handle(server_pid, opts)
 
       # Create cancel function
       cancel_fn = fn -> StreamServer.cancel(server_pid) end
@@ -131,7 +128,7 @@ defmodule ReqLLM.Streaming do
       # Build StreamResponse
       stream_response = %StreamResponse{
         stream: stream,
-        metadata_task: metadata_task,
+        metadata_handle: metadata_handle,
         cancel: cancel_fn,
         model: model,
         context: context
@@ -167,20 +164,25 @@ defmodule ReqLLM.Streaming do
     end
   end
 
-  # Start HTTP streaming using FinchClient
+  # Start HTTP streaming through StreamServer
   defp start_http_streaming(provider_mod, model, context, opts, stream_server_pid) do
     finch_name = Keyword.get(opts, :finch_name, ReqLLM.Finch)
 
-    case FinchClient.start_stream(
+    case StreamServer.start_http(
+           stream_server_pid,
            provider_mod,
            model,
            context,
            opts,
-           stream_server_pid,
            finch_name
          ) do
       {:ok, task_pid, http_context, canonical_json} ->
         {:ok, task_pid, http_context, canonical_json}
+
+      {:error, {:provider_build_failed, {:http2_body_too_large, body_size, protocols}}} ->
+        message = format_http2_error_message(body_size, protocols)
+        Logger.error(message)
+        {:error, {:http2_body_too_large, message}}
 
       {:error, reason} ->
         Logger.error("Failed to start HTTP streaming: #{inspect(reason)}")
@@ -188,25 +190,35 @@ defmodule ReqLLM.Streaming do
     end
   end
 
-  # Set fixture context if fixture capture is enabled
-  defp set_fixture_context_if_needed(server_pid, http_context, canonical_json) do
-    if fixture_mode() == :record do
-      StreamServer.set_fixture_context(server_pid, http_context, canonical_json)
-    else
-      :ok
-    end
-  end
+  defp format_http2_error_message(body_size, protocols) do
+    size_kb = div(body_size, 1024)
 
-  defp fixture_mode do
-    case Code.ensure_loaded(ReqLLM.Test.Fixtures) do
-      {:module, mod} -> apply(mod, :mode, [])
-      {:error, _} -> :replay
-    end
+    """
+    Request body (#{size_kb}KB) exceeds safe limit for HTTP/2 connections (64KB).
+
+    This is due to a known issue in Finch's HTTP/2 implementation:
+    https://github.com/sneako/finch/issues/265
+
+    Your current pool configuration uses: #{inspect(protocols)}
+
+    To fix this, configure ReqLLM to use HTTP/1-only pools (recommended):
+
+        config :req_llm,
+          finch: [
+            name: ReqLLM.Finch,
+            pools: %{
+              :default => [protocols: [:http1], size: 1, count: 8]
+            }
+          ]
+
+    See the ReqLLM README section "HTTP/2 Configuration (Advanced)" for more details:
+    https://github.com/agentjido/req_llm#http2-configuration-advanced
+    """
   end
 
   defp maybe_capture_fixture(model, opts) do
     case Code.ensure_loaded(ReqLLM.Test.Fixtures) do
-      {:module, mod} -> apply(mod, :capture_path, [model, opts])
+      {:module, mod} -> mod.capture_path(model, opts)
       {:error, _} -> nil
     end
   end
@@ -235,11 +247,11 @@ defmodule ReqLLM.Streaming do
     )
   end
 
-  # Start metadata collection task that awaits completion
-  defp start_metadata_task(server_pid) do
-    Task.async(fn ->
-      metadata_timeout = Application.get_env(:req_llm, :metadata_timeout, 60_000)
+  defp start_metadata_handle(server_pid, opts) do
+    default_metadata_timeout = Application.get_env(:req_llm, :metadata_timeout, 300_000)
+    metadata_timeout = Keyword.get(opts, :metadata_timeout, default_metadata_timeout)
 
+    fetch_fun = fn ->
       case StreamServer.await_metadata(server_pid, metadata_timeout) do
         {:ok, metadata} ->
           metadata
@@ -248,6 +260,11 @@ defmodule ReqLLM.Streaming do
           Logger.warning("Metadata collection failed: #{inspect(reason)}")
           %{}
       end
-    end)
+    end
+
+    case MetadataHandle.start_link(fetch_fun) do
+      {:ok, handle} -> handle
+      {:error, reason} -> raise "Failed to start metadata handle: #{inspect(reason)}"
+    end
   end
 end
