@@ -1,6 +1,11 @@
 # Jido Behavior Tree
 
-> ⚠️ **Experimental Project** - This library is in active development and the API is subject to change. Use with caution in production environments.
+> **🧪 EXPERIMENTAL**
+>
+> This library is experimental and under active development.
+> - Public APIs may change without notice, including breaking changes
+> - Documentation and features are still evolving
+> - Not recommended for critical production systems yet
 
 An Elixir behavior tree implementation designed for Jido agents with integrated action support and AI compatibility.
 

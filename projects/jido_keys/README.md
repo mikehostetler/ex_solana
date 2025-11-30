@@ -1,9 +1,17 @@
 # JidoKeys
 
+> **⚠️ DEPRECATED & ARCHIVED**
+>
+> This library is no longer maintained and is archived. It will receive no further updates.
+>
+> **Migration:** Use standard environment configuration via `System.get_env/1` and the configuration
+> mechanisms in [`jido`](https://hex.pm/packages/jido) or [`jido_ai`](https://hex.pm/packages/jido_ai) instead.
+
+---
+
 [![Hex.pm](https://img.shields.io/hexpm/v/jido_keys.svg)](https://hex.pm/packages/jido_keys)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/jido_keys)
 [![License](https://img.shields.io/hexpm/l/jido_keys.svg)](https://github.com/agentjido/jido_keys/blob/main/LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/agentjido/jido_keys/ci.yml?branch=main)](https://github.com/agentjido/jido_keys/actions)
 
 A fast, secure configuration management library for Elixir applications that provides easy access to API keys and environment variables. Part of the [Jido ecosystem](https://github.com/agentjido/jido) for LLM-powered applications.
 

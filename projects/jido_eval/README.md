@@ -1,11 +1,17 @@
 # JidoEval
 
-**TODO: Add description**
+> **🧪 EXPERIMENTAL**
+>
+> This library is experimental and under active development.
+> - Public APIs may change without notice, including breaking changes
+> - Documentation and features are still evolving
+> - Not recommended for critical production systems yet
+
+---
+
+Evaluation framework for LLMs and Jido agents. Based on the [Ragas SDK](https://github.com/explodinggradients/ragas) pattern.
 
 ## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `jido_eval` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -15,7 +21,7 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/jido_eval>.
+## Status
+
+This package is in early development. See the [AGENTS.md](AGENTS.md) for development guidelines.
 

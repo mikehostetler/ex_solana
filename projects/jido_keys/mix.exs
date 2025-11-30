@@ -1,7 +1,7 @@
 defmodule JidoKeys.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.0.1"
 
   def project do
     [
@@ -23,7 +23,7 @@ defmodule JidoKeys.MixProject do
 
       # Docs
       name: "Jido Keys",
-      description: "Easy access to LLM API keys and environment configuration",
+      description: "[DEPRECATED] Easy access to LLM API keys and environment configuration. This package is archived; use standard environment configuration and jido/jido_ai instead.",
       source_url: "https://github.com/agentjido/jido_keys",
       homepage_url: "https://github.com/agentjido/jido_keys",
       package: package(),

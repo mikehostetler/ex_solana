@@ -23,6 +23,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido_signal"
     },
+    # EXPERIMENTAL - Ash framework integration
     %{
       name: "ash_jido",
       upstream_url: "git@github.com:agentjido/ash_jido.git",
@@ -44,6 +45,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido_ai"
     },
+    # EXPERIMENTAL - LLM evaluation framework
     %{
       name: "jido_eval",
       upstream_url: "git@github.com:agentjido/jido_eval.git",
@@ -65,6 +67,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/depot"
     },
+    # EXPERIMENTAL - Behavior tree implementation
     %{
       name: "jido_behaviortree",
       upstream_url: "git@github.com:agentjido/jido_behaviortree.git",
@@ -114,6 +117,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/kodo"
     },
+    # DEPRECATED & ARCHIVED - Use standard env config and jido/jido_ai instead
     %{
       name: "jido_keys",
       upstream_url: "git@github.com:agentjido/jido_keys.git",
@@ -128,6 +132,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/req_llm"
     },
+    # EXPERIMENTAL - Evolutionary optimization
     %{
       name: "kaizen",
       upstream_url: "git@github.com:agentjido/kaizen.git",

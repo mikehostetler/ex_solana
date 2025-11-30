@@ -3,7 +3,7 @@ defmodule Jido.BehaviorTree.MixProject do
 
   @version "1.0.0"
   @source_url "https://github.com/agentjido/jido_behaviortree"
-  @description "Behavior Tree implementation for Jido agents with integrated action support"
+  @description "[EXPERIMENTAL] Behavior Tree implementation for Jido agents with integrated action support. APIs may change without notice."
 
   def vsn do
     @version

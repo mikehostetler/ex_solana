@@ -1,14 +1,21 @@
 defmodule JidoEval.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/agentjido/jido_eval"
+  @description "[EXPERIMENTAL] Evaluation framework for LLMs and Jido agents. APIs may change without notice."
+
   def project do
     [
       app: :jido_eval,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      description: @description,
+      source_url: @source_url,
+      homepage_url: @source_url
     ]
   end
 
