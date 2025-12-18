@@ -97,9 +97,9 @@ defmodule Jido.Tools.Weather do
   defp handle_demo_result({:ok, %{forecast: forecast}}) when is_binary(forecast),
     do: IO.puts(forecast)
 
-  # credo:disable-for-next-line Credo.Check.Warning.IoInspect
   # Dialyzer has issues with IO.inspect label option in Elixir 1.19
   @dialyzer {:nowarn_function, handle_demo_result: 1}
+  # credo:disable-for-next-line Credo.Check.Warning.IoInspect
   defp handle_demo_result({:ok, result}), do: IO.inspect(result, label: "Weather Data")
   defp handle_demo_result({:error, error}), do: IO.puts("Error: #{error}")
 end
