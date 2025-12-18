@@ -83,6 +83,9 @@ jobs:
           otp-version: ${{ inputs.otp_version }}
           elixir-version: ${{ inputs.elixir_version }}
 
+      - name: Reinstall Hex for OTP compatibility
+        run: mix local.hex --force
+
       - name: Restore dependencies cache
         uses: actions/cache@v4
         id: deps-cache
