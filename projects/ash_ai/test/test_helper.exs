@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-ExUnit.start(capture_log: true)
+ExUnit.start(capture_log: true, exclude: [:live_llm])
 
 AshAi.TestRepo.start_link()
 Ecto.Adapters.SQL.Sandbox.mode(AshAi.TestRepo, :manual)

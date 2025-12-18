@@ -12,6 +12,7 @@ defmodule AshAi.EmbeddingModel do
 
   @doc "The dimensions of generated embeddings"
   @callback dimensions(opts) :: pos_integer()
+
   @doc "Generate embeddings for the given list of strings"
   @callback generate([String.t()], opts) :: {:ok, [vector()]} | {:error, term()}
 

@@ -9,7 +9,7 @@ defmodule AshAi.MixProject do
   Integrated LLM features for your Ash application.
   """
 
-  @version "0.3.0"
+  @version "0.4.0"
 
   @source_url "https://github.com/ash-project/ash_ai"
 
@@ -154,8 +154,8 @@ defmodule AshAi.MixProject do
       {:ash, ash_version("~> 3.0 and >= 3.7.1")},
       {:ash_json_api, "~> 1.4 and >= 1.4.27"},
       {:open_api_spex, "~> 3.0"},
+      {:langchain, "~> 0.4"},
       {:req_llm, "~> 1.0"},
-      {:langchain, "~> 0.4", optional: true},
       {:ash_postgres, "~> 2.5", optional: true},
       {:ash_oban, "~> 0.5", optional: true},
       {:ash_phoenix, "~> 2.0", optional: true},

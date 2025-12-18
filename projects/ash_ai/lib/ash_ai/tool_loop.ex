@@ -4,505 +4,472 @@
 
 defmodule AshAi.ToolLoop do
   @moduledoc """
-  Orchestrate LLM ↔ Tool calling loops with Ash context, policies, and execution tracking.
+  Manages the LLM conversation loop with tool calls.
 
-  This module provides the core functionality for building autonomous agents that can:
-  - Call LLMs to generate responses with tool calls
-  - Execute tools (Ash actions) with proper authorization
-  - Maintain conversation state across multiple iterations
-  - Stream responses in real-time
-  - Enforce security boundaries and iteration limits
+  This module provides a clean API for running conversations with LLMs
+  that can call tools. It handles the loop of:
+  1. Sending messages to the LLM
+  2. Processing tool calls from the LLM
+  3. Executing tools and collecting results
+  4. Continuing the conversation with tool results
 
   ## Usage
 
-  ### Synchronous Loop
-
-      messages = [
-        %{role: "user", content: "Create a blog post about Elixir"}
-      ]
-
-      {:ok, result} = AshAi.ToolLoop.run(messages,
-        model: "gpt-4",
-        otp_app: :my_blog,
-        actor: current_user,
-        tools: [:create_post, :publish_post]
-      )
-
-  ### Streaming Loop
-
-      AshAi.ToolLoop.stream(messages,
-        model: "gpt-4",
-        otp_app: :my_app,
-        actor: current_user,
-        on_tool_start: &log_tool_start/1
-      )
-      |> Stream.each(fn
-        {:text, chunk} -> IO.write(chunk)
-        {:tool_call, name, args} -> log_tool_call(name, args)
-        {:tool_result, name, result} -> log_tool_result(name, result)
-        {:done, final_message} -> handle_completion(final_message)
-      end)
-      |> Stream.run()
-
-  ## Options
-
-  - `:model` - The LLM model to use (required)
-  - `:req_llm` - The ReqLLM-compatible module (default: `ReqLLM`)
-  - `:otp_app` - OTP application for tool discovery
-  - `:tools` - List of tool names to expose, or `:all`
-  - `:actions` - List of `{Resource, action_list}` tuples
-  - `:actor` - The actor for authorization (passed to all tools)
-  - `:tenant` - The tenant for multi-tenancy (passed to all tools)
-  - `:context` - Additional context map (passed to all tools)
-  - `:max_iterations` - Maximum loop iterations (default: 10)
-  - `:timeout` - Maximum execution time in ms (default: 30_000)
-  - `:on_tool_start` - Callback receiving `AshAi.ToolStartEvent`
-  - `:on_tool_end` - Callback receiving `AshAi.ToolEndEvent`
-  - `:on_iteration` - Callback receiving `AshAi.IterationEvent`
-  - `:return_messages?` - Include message history in result (default: false)
-  - `:return_tool_results?` - Include tool results in output (default: false)
-
-  ## Security
-
-  Authorization is checked on **every** tool execution. The actor and tenant
-  remain constant throughout the loop, ensuring no privilege escalation.
-
-  ## Loop Termination
-
-  The loop terminates when:
-  - The LLM returns a message with no tool calls (success)
-  - Maximum iterations reached (error)
-  - Timeout exceeded (error)
-  - Tool execution fails (error, unless configured otherwise)
-  - Authorization fails (always error)
+      # Build messages
+      messages = [ReqLLM.Context.system("You are a helpful assistant.")]
+      
+      # Run the loop (blocking)
+      {:ok, result} = AshAi.ToolLoop.run(messages, opts)
+      
+      # Or stream events
+      stream = AshAi.ToolLoop.stream(messages, opts)
+      for event <- stream, do: handle_event(event)
   """
 
-  require Logger
-
-  alias AshAi.Tools
-
-  @type message :: map()
-  @type opts :: keyword()
-  @type result :: %{
-          message: ReqLLM.Message.t(),
-          iterations: integer(),
-          metadata: map(),
-          messages: [message()] | nil,
-          tool_results: [any()] | nil
-        }
-  @type stream_event ::
-          {:text, String.t()}
-          | {:tool_call, String.t(), map()}
-          | {:tool_result, String.t(), any()}
-          | {:done, result()}
+  alias ReqLLM.Context
 
   defmodule IterationEvent do
     @moduledoc """
-    Event data passed to the `on_iteration` callback.
-
-    Contains information about each iteration of the tool loop.
+    Event emitted at the start of each iteration in the tool loop.
     """
-    @type t :: %__MODULE__{
-            iteration: integer(),
-            message_count: integer(),
-            tool_calls: [String.t()],
-            timestamp: DateTime.t()
-          }
+    defstruct [:iteration, :messages_count, :tool_calls_count]
+  end
 
-    defstruct [:iteration, :message_count, :tool_calls, :timestamp]
+  defmodule Result do
+    @moduledoc """
+    Result returned from a completed tool loop.
+    """
+    defstruct [:messages, :final_text, :iterations, :tool_calls_made]
   end
 
   @doc """
-  Run a synchronous tool loop.
+  Runs the tool loop synchronously.
 
-  Executes the LLM ↔ Tool loop until completion or termination condition.
+  Returns `{:ok, %Result{}}` on success or `{:error, reason}` on failure.
 
-  Returns `{:ok, result}` with the final message and metadata, or
-  `{:error, reason}` if the loop fails.
+  ## Options
 
-  ## Examples
-
-      {:ok, result} = AshAi.ToolLoop.run(
-        [%{role: "user", content: "List all posts"}],
-        model: "gpt-4",
-        otp_app: :my_app,
-        actor: current_user
-      )
-
-      IO.puts(result.message.content)
+  - `:model` - The model to use (required, e.g., "openai:gpt-4o-mini")
+  - `:req_llm` - The ReqLLM module to use (default: ReqLLM)
+  - `:max_iterations` - Maximum number of iterations (default: 10)
+  - `:actor` - The actor performing actions
+  - `:tenant` - The tenant context
+  - `:context` - Additional context for actions
+  - `:on_tool_start` - Callback when a tool starts
+  - `:on_tool_end` - Callback when a tool ends
+  - `:otp_app` - OTP app for discovering tools
+  - `:actions` - List of {Resource, actions} tuples
   """
-  @spec run([message()], opts()) :: {:ok, result()} | {:error, any()}
   def run(messages, opts) do
-    with {:ok, config} <- validate_config(opts),
-         {:ok, tools, registry} <- build_tools(config) do
-      exec_ctx = build_exec_context(config, registry)
+    opts = AshAi.Options.validate!(opts)
+    model = opts.model
+    req_llm = opts.req_llm
+    max_iterations = opts.max_iterations
 
-      result =
-        execute_loop(
-          messages,
-          tools,
-          registry,
-          exec_ctx,
-          config,
-          1,
-          []
-        )
+    {tools, registry} = AshAi.Tools.build_tools_and_registry(opts)
+    context = build_context(opts)
 
-      case result do
-        {:ok, final_message, iterations, tool_results} ->
-          {:ok,
-           %{
-             message: final_message,
-             iterations: iterations,
-             metadata: %{
-               tool_calls_count: length(tool_results),
-               max_iterations_reached: iterations >= config.max_iterations
-             },
-             messages: if(config.return_messages?, do: messages, else: nil),
-             tool_results: if(config.return_tool_results?, do: tool_results, else: nil)
-           }}
-
-        {:error, _reason} = error ->
-          error
-      end
-    end
+    run_loop(req_llm, model, messages, tools, registry, context, opts, 1, max_iterations, [])
   end
 
   @doc """
-  Run a streaming tool loop.
+  Streams events from the tool loop.
 
-  Returns a stream that yields events as the loop executes.
+  Returns a Stream that yields events as they occur:
+  - `{:content, text}` - Text content from the LLM
+  - `{:tool_call, %{id: id, name: name, arguments: args}}` - Tool call from LLM
+  - `{:tool_result, %{id: id, result: result}}` - Result of tool execution
+  - `{:iteration, %IterationEvent{}}` - Start of a new iteration
+  - `{:done, %Result{}}` - Conversation complete
 
-  ## Events
+  ## Options
 
-  - `{:text, chunk}` - Text chunk from LLM response
-  - `{:tool_call, name, args}` - Tool is being called
-  - `{:tool_result, name, result}` - Tool execution completed
-  - `{:done, result}` - Loop completed
-
-  ## Examples
-
-      AshAi.ToolLoop.stream(
-        [%{role: "user", content: "Create a post"}],
-        model: "gpt-4",
-        otp_app: :my_app
-      )
-      |> Enum.each(&handle_event/1)
+  Same as `run/2`.
   """
-  @spec stream([message()], opts()) :: Enumerable.t()
   def stream(messages, opts) do
     Stream.resource(
       fn -> init_stream(messages, opts) end,
-      &next_stream_event/1,
+      &next_stream_chunk/1,
       &cleanup_stream/1
     )
   end
 
-  # Private Functions
-
-  defp validate_config(opts) do
-    config = %{
-      model: Keyword.get(opts, :model),
-      req_llm: Keyword.get(opts, :req_llm, ReqLLM),
-      otp_app: Keyword.get(opts, :otp_app),
-      domains: Keyword.get(opts, :domains),
-      tools: Keyword.get(opts, :tools),
-      actions: Keyword.get(opts, :actions),
-      actor: Keyword.get(opts, :actor),
-      tenant: Keyword.get(opts, :tenant),
-      context: Keyword.get(opts, :context, %{}),
-      max_iterations: Keyword.get(opts, :max_iterations, 10),
-      timeout: Keyword.get(opts, :timeout, 30_000),
-      on_tool_start: Keyword.get(opts, :on_tool_start),
-      on_tool_end: Keyword.get(opts, :on_tool_end),
-      on_iteration: Keyword.get(opts, :on_iteration),
-      return_messages?: Keyword.get(opts, :return_messages?, false),
-      return_tool_results?: Keyword.get(opts, :return_tool_results?, false)
-    }
-
-    if is_nil(config.model) do
-      {:error, "model is required"}
-    else
-      {:ok, config}
-    end
-  end
-
-  defp build_tools(config) do
-    tool_callbacks =
-      %{}
-      |> maybe_add_callback(:on_tool_start, config.on_tool_start)
-      |> maybe_add_callback(:on_tool_end, config.on_tool_end)
-
-    tool_opts =
-      [
-        actor: config.actor,
-        tenant: config.tenant,
-        context: config.context,
-        tool_callbacks: tool_callbacks
-      ]
-      |> maybe_add(:otp_app, config.otp_app)
-      |> maybe_add(:domains, config.domains)
-      |> maybe_add(:tools, config.tools)
-      |> maybe_add(:actions, config.actions)
-
-    try do
-      {tools, registry} = Tools.build(tool_opts)
-      {:ok, tools, registry}
-    rescue
-      error ->
-        {:error, Exception.message(error)}
-    end
-  end
-
-  defp maybe_add(opts, _key, nil), do: opts
-  defp maybe_add(opts, key, value), do: Keyword.put(opts, key, value)
-
-  defp maybe_add_callback(map, _key, nil), do: map
-  defp maybe_add_callback(map, key, value), do: Map.put(map, key, value)
-
-  defp build_exec_context(config, registry) do
-    %{
-      actor: config.actor,
-      tenant: config.tenant,
-      context: config.context,
-      registry: registry
-    }
-  end
-
-  defp execute_loop(
-         messages,
-         tools,
-         registry,
-         exec_ctx,
-         config,
-         iteration,
-         tool_results_acc
-       ) do
-    if iteration > config.max_iterations do
-      {:error, :max_iterations_reached}
-    else
-      emit_iteration_event(config, iteration, messages, [])
-
-      context = %ReqLLM.Context{messages: normalize_messages(messages), tools: tools}
-
-      case call_llm(config, context) do
-        {:ok, response} ->
-          message = response.message
-          tool_calls = extract_tool_calls(message)
-
-          if Enum.empty?(tool_calls) do
-            {:ok, message, iteration, tool_results_acc}
-          else
-            case execute_tool_calls(tool_calls, registry, exec_ctx) do
-              {:ok, results} ->
-                new_messages = messages ++ [message | results]
-                new_tool_results = tool_results_acc ++ extract_tool_result_data(results)
-
-                execute_loop(
-                  new_messages,
-                  tools,
-                  registry,
-                  exec_ctx,
-                  config,
-                  iteration + 1,
-                  new_tool_results
-                )
-
-              {:error, _reason} = error ->
-                error
-            end
-          end
-
-        {:error, _reason} = error ->
-          error
-      end
-    end
-  end
-
-  defp call_llm(config, context) do
-    task = Task.async(fn -> config.req_llm.generate_text(config.model, context) end)
-
-    case Task.yield(task, config.timeout) || Task.shutdown(task) do
-      {:ok, result} -> result
-      nil -> {:error, :timeout}
-    end
-  end
-
-  defp extract_tool_calls(message) do
-    (message.tool_calls || [])
-    |> Enum.map(fn tool_call ->
-      # tool_call.function.arguments is a JSON string, decode it
-      arguments =
-        case Jason.decode(tool_call.function.arguments) do
-          {:ok, args} -> args
-          {:error, _} -> %{}
-        end
-
-      %{
-        id: tool_call.id,
-        name: tool_call.function.name,
-        arguments: arguments
-      }
-    end)
-  end
-
-  defp execute_tool_calls(tool_calls, registry, exec_ctx) do
-    results =
-      Enum.map(tool_calls, fn tool_call ->
-        execute_single_tool(tool_call, registry, exec_ctx)
-      end)
-
-    if Enum.any?(results, &match?({:error, _}, &1)) do
-      Enum.find(results, &match?({:error, _}, &1))
-    else
-      {:ok, Enum.map(results, fn {:ok, msg} -> msg end)}
-    end
-  end
-
-  defp execute_single_tool(tool_call, registry, exec_ctx) do
-    callback = Map.get(registry, tool_call.name)
-
-    if callback do
-      context = %{
-        actor: exec_ctx.actor,
-        tenant: exec_ctx.tenant,
-        context: exec_ctx.context
-      }
-
-      case callback.(tool_call.arguments, context) do
-        {:ok, result_json, _raw} ->
-          {:ok,
-           %ReqLLM.Message{
-             role: :tool,
-             content: [ReqLLM.Message.ContentPart.text(result_json)],
-             tool_call_id: tool_call.id
-           }}
-
-        {:error, error_json} ->
-          {:error, {:tool_execution_failed, tool_call.name, error_json}}
-      end
-    else
-      {:error, {:tool_not_found, tool_call.name}}
-    end
-  end
-
-  defp extract_tool_result_data(result_messages) do
-    Enum.flat_map(result_messages, fn msg ->
-      msg.content
-      |> Enum.filter(&match?(%ReqLLM.Message.ContentPart{type: :text}, &1))
-      |> Enum.map(& &1.text)
-    end)
-  end
-
-  defp emit_iteration_event(config, iteration, messages, tool_calls) do
-    if config.on_iteration do
-      config.on_iteration.(%IterationEvent{
-        iteration: iteration,
-        message_count: length(messages),
-        tool_calls: Enum.map(tool_calls, & &1.name),
-        timestamp: DateTime.utc_now()
-      })
-    end
-  end
-
-  defp normalize_messages(messages) do
-    Enum.map(messages, fn
-      %ReqLLM.Message{} = msg ->
-        msg
-
-      %{role: role, content: content} when is_binary(content) ->
-        %ReqLLM.Message{
-          role: String.to_existing_atom(to_string(role)),
-          content: [ReqLLM.Message.ContentPart.text(content)]
-        }
-
-      %{role: role, content: content} when is_list(content) ->
-        %ReqLLM.Message{
-          role: String.to_existing_atom(to_string(role)),
-          content: content
-        }
-
-      msg when is_struct(msg) ->
-        msg
-    end)
-  end
-
-  # Streaming Implementation
-
   defp init_stream(messages, opts) do
-    with {:ok, config} <- validate_config(opts),
-         {:ok, tools, registry} <- build_tools(config) do
-      exec_ctx = build_exec_context(config, registry)
+    opts = AshAi.Options.validate!(opts)
+    model = opts.model
+    req_llm = opts.req_llm
 
-      {:ok,
-       %{
-         messages: messages,
-         tools: tools,
-         registry: registry,
-         exec_ctx: exec_ctx,
-         config: config,
-         iteration: 1,
-         tool_results: [],
-         state: :calling_llm,
-         buffer: []
-       }}
-    else
-      {:error, reason} ->
-        {:error, reason}
+    {tools, registry} = AshAi.Tools.build_tools_and_registry(opts)
+    context = build_context(opts)
+
+    %{
+      req_llm: req_llm,
+      model: model,
+      messages: messages,
+      tools: tools,
+      registry: registry,
+      context: context,
+      iteration: 1,
+      max_iterations: opts.max_iterations,
+      tool_calls_made: [],
+      state: :running
+    }
+  end
+
+  defp next_stream_chunk(%{state: :done} = state) do
+    {:halt, state}
+  end
+
+  defp next_stream_chunk(state) do
+    case stream_iteration(state) do
+      {:continue, events, new_state} ->
+        {events, new_state}
+
+      {:done, events, result} ->
+        {events ++ [{:done, result}], %{state | state: :done}}
     end
-  end
-
-  defp next_stream_event({:error, reason}) do
-    {[{:error, reason}], :done}
-  end
-
-  defp next_stream_event(:done) do
-    {:halt, :done}
-  end
-
-  defp next_stream_event(state) when state.iteration > state.config.max_iterations do
-    {[{:error, :max_iterations_reached}], :done}
-  end
-
-  defp next_stream_event(%{state: :calling_llm} = state) do
-    emit_iteration_event(state.config, state.iteration, state.messages, [])
-
-    context = %ReqLLM.Context{messages: normalize_messages(state.messages), tools: state.tools}
-
-    case state.config.req_llm.stream_text(state.config.model, context) do
-      {:ok, %{stream: stream}} ->
-        {[], %{state | state: :streaming, buffer: Enum.to_list(stream)}}
-
-      {:error, reason} ->
-        {[{:error, reason}], :done}
-    end
-  end
-
-  defp next_stream_event(%{state: :streaming, buffer: []} = state) do
-    # No more stream events, process what we have
-    {[], %{state | state: :processing_response}}
-  end
-
-  defp next_stream_event(%{state: :streaming, buffer: [event | rest]} = state) do
-    case event do
-      %{type: :content, text: text} ->
-        {[{:text, text}], %{state | buffer: rest}}
-
-      %{type: :tool_call, name: name, arguments: args, id: id} ->
-        tool_call = %{id: id, name: name, arguments: args}
-        new_state = %{state | buffer: rest, pending_tool_calls: [tool_call | []]}
-        {[{:tool_call, name, args}], new_state}
-
-      _ ->
-        next_stream_event(%{state | buffer: rest})
-    end
-  end
-
-  defp next_stream_event(%{state: :processing_response} = _state) do
-    # In a real implementation, we'd execute tool calls here
-    # For now, just finish
-    {:halt, :done}
   end
 
   defp cleanup_stream(_state), do: :ok
+
+  defp stream_iteration(state) do
+    %{
+      req_llm: req_llm,
+      model: model,
+      messages: messages,
+      tools: tools,
+      registry: registry,
+      context: context,
+      iteration: iteration,
+      max_iterations: max_iterations,
+      tool_calls_made: tool_calls_made
+    } = state
+
+    if iteration > max_iterations do
+      result = %Result{
+        messages: messages,
+        final_text: "",
+        iterations: iteration - 1,
+        tool_calls_made: tool_calls_made
+      }
+
+      {:done, [{:error, :max_iterations_reached}], result}
+    else
+      {:ok, response} = req_llm.stream_text(model, messages, tools: tools)
+
+      {text, tool_calls, events} = collect_stream(response.stream)
+
+      if tool_calls != [] do
+        tool_call_tuples =
+          Enum.map(tool_calls, fn tc ->
+            {tc.name, tc.arguments, id: tc.id}
+          end)
+
+        assistant_with_tools = Context.assistant("", tool_calls: tool_call_tuples)
+
+        messages = messages ++ [assistant_with_tools]
+
+        {messages, tool_events} = run_tools_streaming(tool_calls, messages, registry, context)
+
+        new_state = %{
+          state
+          | messages: messages,
+            iteration: iteration + 1,
+            tool_calls_made: tool_calls_made ++ tool_calls
+        }
+
+        {:continue,
+         events ++ tool_events ++ [{:iteration, %IterationEvent{iteration: iteration + 1}}],
+         new_state}
+      else
+        messages =
+          if text != "" do
+            messages ++ [Context.assistant(text)]
+          else
+            messages
+          end
+
+        result = %Result{
+          messages: messages,
+          final_text: text,
+          iterations: iteration,
+          tool_calls_made: tool_calls_made
+        }
+
+        {:done, events, result}
+      end
+    end
+  end
+
+  defp collect_stream(stream) do
+    # Track tool calls by index, accumulate argument fragments separately
+    acc = %{text: "", tool_calls: %{}, tool_arg_fragments: %{}, events: []}
+
+    acc =
+      Enum.reduce(stream, acc, fn chunk, acc ->
+        case chunk.type do
+          :content ->
+            text = chunk.text || ""
+            event = {:content, text}
+
+            %{
+              acc
+              | text: acc.text <> text,
+                events: acc.events ++ [event]
+            }
+
+          :tool_call ->
+            tool_id = chunk.metadata[:id] || chunk.metadata[:call_id] || generate_tool_id()
+            index = chunk.metadata[:index] || 0
+            tc = %{id: tool_id, name: chunk.name, index: index}
+
+            %{
+              acc
+              | tool_calls: Map.put(acc.tool_calls, index, tc)
+            }
+
+          :meta ->
+            case chunk.metadata do
+              %{tool_call_args: %{index: index, fragment: fragment}} ->
+                existing = Map.get(acc.tool_arg_fragments, index, "")
+
+                %{
+                  acc
+                  | tool_arg_fragments:
+                      Map.put(acc.tool_arg_fragments, index, existing <> fragment)
+                }
+
+              _ ->
+                acc
+            end
+
+          _ ->
+            acc
+        end
+      end)
+
+    # Merge accumulated fragments into tool calls and emit events
+    tool_calls =
+      acc.tool_calls
+      |> Enum.sort_by(fn {index, _tc} -> index end)
+      |> Enum.map(fn {index, tc} ->
+        arg_json = Map.get(acc.tool_arg_fragments, index, "{}")
+
+        arguments =
+          case Jason.decode(arg_json) do
+            {:ok, parsed} -> parsed
+            {:error, _} -> %{}
+          end
+
+        %{id: tc.id, name: tc.name, arguments: arguments}
+      end)
+
+    # Generate events for each completed tool call
+    tool_call_events = Enum.map(tool_calls, fn tc -> {:tool_call, tc} end)
+
+    {acc.text, tool_calls, acc.events ++ tool_call_events}
+  end
+
+  defp run_tools_streaming(tool_calls, messages, registry, ctx) do
+    {messages, events} =
+      Enum.reduce(tool_calls, {messages, []}, fn tc, {msgs, evts} ->
+        fun = Map.get(registry, tc.name)
+
+        {result, event} =
+          if is_nil(fun) do
+            content = Jason.encode!(%{error: "Unknown tool: #{tc.name}"})
+            {{:error, content}, {:tool_result, %{id: tc.id, error: "Unknown tool"}}}
+          else
+            args =
+              case tc.arguments do
+                s when is_binary(s) -> Jason.decode!(s)
+                m -> m
+              end
+
+            result =
+              try do
+                fun.(args, ctx)
+              rescue
+                e ->
+                  {:error, Jason.encode!(%{error: Exception.message(e)})}
+              end
+
+            content =
+              case result do
+                {:ok, content, _raw} -> content
+                {:error, content} -> content
+              end
+
+            {{:ok, content}, {:tool_result, %{id: tc.id, result: result}}}
+          end
+
+        content =
+          case result do
+            {:ok, c} -> c
+            {:error, c} -> c
+          end
+
+        {msgs ++ [Context.tool_result(tc.id, content)], evts ++ [event]}
+      end)
+
+    {messages, events}
+  end
+
+  defp build_context(opts) do
+    %{
+      actor: opts.actor,
+      tenant: opts.tenant,
+      context: opts.context || %{},
+      tool_callbacks: %{
+        on_tool_start: opts.on_tool_start,
+        on_tool_end: opts.on_tool_end
+      }
+    }
+  end
+
+  defp run_loop(
+         req_llm,
+         model,
+         messages,
+         tools,
+         registry,
+         context,
+         opts,
+         iteration,
+         max,
+         tool_calls_made
+       ) do
+    if iteration > max do
+      {:error, :max_iterations_reached}
+    else
+      {:ok, response} = req_llm.stream_text(model, messages, tools: tools)
+
+      acc = %{text: "", tool_calls: %{}, tool_arg_fragments: %{}}
+
+      acc =
+        response.stream
+        |> Enum.reduce(acc, fn chunk, acc ->
+          case chunk.type do
+            :content ->
+              text = chunk.text || ""
+              %{acc | text: acc.text <> text}
+
+            :tool_call ->
+              tool_id = chunk.metadata[:id] || chunk.metadata[:call_id] || generate_tool_id()
+              index = chunk.metadata[:index] || 0
+              tc = %{id: tool_id, name: chunk.name, index: index}
+              %{acc | tool_calls: Map.put(acc.tool_calls, index, tc)}
+
+            :meta ->
+              case chunk.metadata do
+                %{tool_call_args: %{index: index, fragment: fragment}} ->
+                  existing = Map.get(acc.tool_arg_fragments, index, "")
+
+                  %{
+                    acc
+                    | tool_arg_fragments:
+                        Map.put(acc.tool_arg_fragments, index, existing <> fragment)
+                  }
+
+                _ ->
+                  acc
+              end
+
+            _ ->
+              acc
+          end
+        end)
+
+      # Merge accumulated fragments into tool calls
+      tool_calls =
+        acc.tool_calls
+        |> Enum.map(fn {index, tc} ->
+          arg_json = Map.get(acc.tool_arg_fragments, index, "{}")
+
+          arguments =
+            case Jason.decode(arg_json) do
+              {:ok, parsed} -> parsed
+              {:error, _} -> %{}
+            end
+
+          %{id: tc.id, name: tc.name, arguments: arguments}
+        end)
+
+      if tool_calls != [] do
+        tool_call_tuples =
+          Enum.map(tool_calls, fn tc ->
+            {tc.name, tc.arguments, id: tc.id}
+          end)
+
+        assistant_with_tools = Context.assistant("", tool_calls: tool_call_tuples)
+
+        messages = messages ++ [assistant_with_tools]
+        messages = run_tools(tool_calls, messages, registry, context)
+
+        run_loop(
+          req_llm,
+          model,
+          messages,
+          tools,
+          registry,
+          context,
+          opts,
+          iteration + 1,
+          max,
+          tool_calls_made ++ tool_calls
+        )
+      else
+        messages =
+          if acc.text != "" do
+            messages ++ [Context.assistant(acc.text)]
+          else
+            messages
+          end
+
+        {:ok,
+         %Result{
+           messages: messages,
+           final_text: acc.text,
+           iterations: iteration,
+           tool_calls_made: tool_calls_made
+         }}
+      end
+    end
+  end
+
+  defp run_tools(tool_calls, messages, registry, ctx) do
+    Enum.reduce(tool_calls, messages, fn tc, msgs ->
+      fun = Map.get(registry, tc.name)
+
+      if is_nil(fun) do
+        msgs ++ [Context.tool_result(tc.id, Jason.encode!(%{error: "Unknown tool: #{tc.name}"}))]
+      else
+        args =
+          case tc.arguments do
+            s when is_binary(s) -> Jason.decode!(s)
+            m -> m
+          end
+
+        result =
+          try do
+            fun.(args, ctx)
+          rescue
+            e ->
+              {:error, Jason.encode!(%{error: Exception.message(e)})}
+          end
+
+        content =
+          case result do
+            {:ok, content, _raw} -> content
+            {:error, content} -> content
+          end
+
+        msgs ++ [Context.tool_result(tc.id, content)]
+      end
+    end)
+  end
+
+  defp generate_tool_id do
+    "call_#{:erlang.unique_integer([:positive])}"
+  end
 end

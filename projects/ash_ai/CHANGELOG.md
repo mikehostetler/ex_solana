@@ -11,6 +11,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.4.0](https://github.com/ash-project/ash_ai/compare/v0.3.0...v0.4.0) (2025-11-23)
+
+
+
+
+### Features:
+
+* Added _meta field to tools MCP (#140) by [@C-Sinclair](https://github.com/C-Sinclair) [(#140)](https://github.com/ash-project/ash_ai/pull/140)
+
+* Add MCP resources support with action descriptions (#138) by [@C-Sinclair](https://github.com/C-Sinclair) [(#138)](https://github.com/ash-project/ash_ai/pull/138)
+
 ## [v0.3.0](https://github.com/ash-project/ash_ai/compare/v0.2.14...v0.3.0) (2025-10-28)
 
 

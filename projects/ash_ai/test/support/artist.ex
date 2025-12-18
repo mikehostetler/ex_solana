@@ -175,3 +175,62 @@ defmodule AshAi.Test.Music.ArtistOban do
     defaults [:create, :read, :update, :destroy]
   end
 end
+
+defmodule AshAi.Test.Music.ArtistUi do
+  @moduledoc false
+  use Ash.Resource,
+    domain: AshAi.Test.Music,
+    extensions: [AshAi]
+
+  attributes do
+    uuid_v7_primary_key :id, writable?: true
+    attribute :name, :string, public?: true
+    attribute :bio, :string, public?: true
+  end
+
+  actions do
+    action :artist_card, :string do
+      description "Get an artist card UI representation."
+
+      run fn _, _ ->
+        {:ok, "<div>Artist Card</div>"}
+      end
+    end
+
+    action :artist_card_with_params, :string do
+      description "Get an artist card with custom template."
+      argument :template, :string, allow_nil?: false
+
+      run fn input, _ ->
+        {:ok, "<div>#{input.arguments.template}</div>"}
+      end
+    end
+
+    action :failing_action, :string do
+      description "Action that always fails for testing."
+
+      run fn _, _ ->
+        {:error, "Intentional test failure"}
+      end
+    end
+
+    action :artist_json, :string do
+      description "Get artist data as JSON string."
+
+      run fn _, _ ->
+        {:ok, Jason.encode!(%{artist: "Test Artist", genre: "Rock"})}
+      end
+    end
+
+    action :actor_test, :string do
+      description "Returns the actor ID if present."
+
+      run fn _, context ->
+        case context.actor do
+          nil -> {:ok, "no_actor"}
+          actor -> {:ok, "actor:#{inspect(actor)}"}
+        end
+      end
+    end
+  end
+end

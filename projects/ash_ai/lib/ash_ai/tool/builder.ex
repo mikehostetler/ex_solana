@@ -3,58 +3,61 @@
 # SPDX-License-Identifier: MIT
 
 defmodule AshAi.Tool.Builder do
-  @moduledoc false
+  @moduledoc """
+  Builds ReqLLM.Tool structs and callbacks from AshAi.Tool DSL entities.
 
-  alias AshAi.Tool
+  This module is responsible for converting AshAi tool definitions into
+  the format expected by ReqLLM, including generating the parameter schema
+  and creating the callback function that executes the tool.
+  """
 
-  @type tool_def :: AshAi.Tool.t()
-  @type opts :: %{
-          optional(:actor) => any(),
-          optional(:tenant) => any(),
-          optional(:context) => map(),
-          optional(:tool_callbacks) => map()
-        }
+  alias AshAi.Tool.{Schema, Execution}
+  alias AshAi.{ToolStartEvent, ToolEndEvent}
 
   @doc """
-  Build a {ReqLLM.Tool, callback} tuple from an AshAi.Tool DSL definition.
+  Builds a ReqLLM.Tool struct and callback function from an AshAi.Tool definition.
 
-  The callback is a function/2 that takes (arguments, context) and delegates
-  to AshAi.Tool.Execution.run/4.
+  Returns a tuple of `{ReqLLM.Tool, callback_fn}` where:
+  - `ReqLLM.Tool` contains the tool schema for the LLM
+  - `callback_fn` is a function/2 that takes (arguments, context) and executes the Ash action
+
+  ## Example
+
+      {tool, callback} = AshAi.Tool.Builder.build(tool_def)
+      result = callback.(%{"input" => %{"name" => "foo"}}, %{actor: current_user})
   """
-  @spec build(tool_def(), opts()) :: {ReqLLM.Tool.t(), function()}
-  def build(%Tool{} = tool_def, _opts \\ %{}) do
+  def build(%AshAi.Tool{} = tool_def, _opts \\ []) do
     name = to_string(tool_def.name)
-    description = build_description(tool_def)
-    parameter_schema = build_parameter_schema(tool_def)
-    callback = build_callback(tool_def, name)
 
-    tool = build_req_llm_tool(name, description, parameter_schema)
+    description =
+      String.trim(
+        tool_def.description || tool_def.action.description ||
+          "Call the #{tool_def.action.name} action on the #{inspect(tool_def.resource)} resource"
+      )
 
-    {tool, callback}
+    parameter_schema = Schema.for_tool(tool_def)
+
+    callback_fn = build_callback(tool_def)
+
+    tool =
+      ReqLLM.Tool.new!(
+        name: name,
+        description: description,
+        parameter_schema: parameter_schema,
+        callback: fn _args -> {:ok, "stub - should not be called"} end
+      )
+
+    {tool, callback_fn}
   end
 
-  defp build_description(%Tool{description: description, action: action, resource: resource}) do
-    String.trim(
-      description || action.description ||
-        "Call the #{action.name} action on the #{inspect(resource)} resource"
-    )
-  end
-
-  defp build_parameter_schema(%Tool{
-         resource: resource,
-         action: action,
-         action_parameters: action_parameters
-       }) do
-    Tool.Schema.for_action(resource, action, nil, action_parameters: action_parameters)
-  end
-
-  defp build_callback(%Tool{} = tool_def, name) do
+  defp build_callback(tool_def) do
     fn arguments, context ->
+      tool_name = to_string(tool_def.name)
       callbacks = context[:tool_callbacks] || %{}
 
       if on_start = callbacks[:on_tool_start] do
-        on_start.(%AshAi.ToolStartEvent{
-          tool_name: name,
+        on_start.(%ToolStartEvent{
+          tool_name: tool_name,
           action: tool_def.action.name,
           resource: tool_def.resource,
           arguments: arguments,
@@ -63,21 +66,11 @@ defmodule AshAi.Tool.Builder do
         })
       end
 
-      exec_ctx = %{
-        actor: context[:actor],
-        tenant: context[:tenant],
-        context: context[:context] || %{},
-        tool_callbacks: callbacks,
-        load: tool_def.load,
-        identity: tool_def.identity,
-        domain: tool_def.domain
-      }
-
-      result = Tool.Execution.run(tool_def.resource, tool_def.action, arguments, exec_ctx)
+      result = Execution.run(tool_def, arguments, context)
 
       if on_end = callbacks[:on_tool_end] do
-        on_end.(%AshAi.ToolEndEvent{
-          tool_name: name,
+        on_end.(%ToolEndEvent{
+          tool_name: tool_name,
           result: result
         })
       end
@@ -86,12 +79,56 @@ defmodule AshAi.Tool.Builder do
     end
   end
 
-  defp build_req_llm_tool(name, description, parameter_schema) do
-    ReqLLM.Tool.new!(
+  @doc """
+  Builds a LangChain.Function from an AshAi.Tool definition.
+
+  This is for backward compatibility with LangChain-based code.
+  """
+  def build_langchain_function(%AshAi.Tool{} = tool_def) do
+    name = to_string(tool_def.name)
+
+    description =
+      String.trim(
+        tool_def.description || tool_def.action.description ||
+          "Call the #{tool_def.action.name} action on the #{inspect(tool_def.resource)} resource"
+      )
+
+    parameter_schema = Schema.for_tool(tool_def)
+
+    LangChain.Function.new!(%{
       name: name,
       description: description,
-      parameter_schema: parameter_schema,
-      callback: fn _args -> {:ok, "stub - should not be called"} end
-    )
+      parameters_schema: parameter_schema,
+      strict: true,
+      async: tool_def.async,
+      function: &execute_with_callbacks(tool_def, &1, &2)
+    })
+  end
+
+  defp execute_with_callbacks(tool_def, arguments, context) do
+    tool_name = to_string(tool_def.name)
+    callbacks = context[:tool_callbacks] || %{}
+
+    if on_start = callbacks[:on_tool_start] do
+      on_start.(%ToolStartEvent{
+        tool_name: tool_name,
+        action: tool_def.action.name,
+        resource: tool_def.resource,
+        arguments: arguments,
+        actor: context[:actor],
+        tenant: context[:tenant]
+      })
+    end
+
+    result = Execution.run(tool_def, arguments, context)
+
+    if on_end = callbacks[:on_tool_end] do
+      on_end.(%ToolEndEvent{
+        tool_name: tool_name,
+        result: result
+      })
+    end
+
+    result
   end
 end

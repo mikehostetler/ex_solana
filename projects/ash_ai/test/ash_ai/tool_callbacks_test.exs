@@ -4,6 +4,10 @@
 
 defmodule AshAi.ToolCallbacksTest do
   use ExUnit.Case, async: true
+  import AshAi.Test.LangChainHelpers
+  alias AshAi.ChatFaker
+  alias LangChain.Chains.LLMChain
+  alias LangChain.Message
   alias __MODULE__.{TestDomain, TestResource}
 
   defmodule TestResource do
@@ -49,21 +53,23 @@ defmodule AshAi.ToolCallbacksTest do
     test "called with correct parameters for read action" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{"limit" => 10},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"limit" => 10}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, %AshAi.ToolStartEvent{} = event}
       assert event.tool_name == "read_test_resources"
@@ -79,21 +85,25 @@ defmodule AshAi.ToolCallbacksTest do
       actor = %{id: "user_123"}
       tenant = "tenant_456"
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: actor,
-        tenant: tenant,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
+          actor: actor,
+          tenant: tenant,
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end
-        }
-      }
+        )
 
-      callback.(%{}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, event}
       assert event.actor == actor
@@ -103,21 +113,23 @@ defmodule AshAi.ToolCallbacksTest do
     test "called for create action" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "create_test_resource")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "create_test_resource",
+        arguments: %{"input" => %{"name" => "Test Item"}},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"input" => %{"name" => "Test Item"}}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, event}
       assert event.tool_name == "create_test_resource"
@@ -135,21 +147,23 @@ defmodule AshAi.ToolCallbacksTest do
         |> Ash.Changeset.for_create(:create, %{name: "Test Item", status: "active"})
         |> Ash.create(domain: TestDomain)
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_end, %AshAi.ToolEndEvent{} = event}
       assert event.tool_name == "read_test_resources"
@@ -163,21 +177,23 @@ defmodule AshAi.ToolCallbacksTest do
     test "called with error result for invalid input" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "create_test_resource")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "create_test_resource",
+        arguments: %{"input" => %{}},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"input" => %{}}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_end, %AshAi.ToolEndEvent{} = event}
       assert event.tool_name == "create_test_resource"
@@ -195,21 +211,23 @@ defmodule AshAi.ToolCallbacksTest do
         |> Ash.Changeset.for_create(:create, %{name: "To Delete"})
         |> Ash.create(domain: TestDomain)
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "destroy_test_resource")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "destroy_test_resource",
+        arguments: %{"id" => resource.id},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"id" => resource.id}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_end, event}
       assert event.tool_name == "destroy_test_resource"
@@ -222,21 +240,23 @@ defmodule AshAi.ToolCallbacksTest do
     test "called for custom action" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "custom_test_action")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "custom_test_action",
+        arguments: %{"input" => %{"message" => "Hello"}},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"input" => %{"message" => "Hello"}}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_end, event}
       assert event.tool_name == "custom_test_action"
@@ -249,24 +269,26 @@ defmodule AshAi.ToolCallbacksTest do
     test "called in sequence" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event, System.monotonic_time()})
           end,
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event, System.monotonic_time()})
           end
-        }
-      }
+        )
 
-      callback.(%{}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, %AshAi.ToolStartEvent{} = start_event, start_time}
       assert_receive {:tool_end, %AshAi.ToolEndEvent{} = end_event, end_time}
@@ -283,24 +305,26 @@ defmodule AshAi.ToolCallbacksTest do
         |> Ash.Changeset.for_create(:create, %{name: "To Delete", status: "active"})
         |> Ash.create(domain: TestDomain)
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "destroy_test_resource")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "destroy_test_resource",
+        arguments: %{"id" => resource.id},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end,
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"id" => resource.id}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, start_event}
       assert_receive {:tool_end, end_event}
@@ -315,24 +339,26 @@ defmodule AshAi.ToolCallbacksTest do
     test "handle tool execution with invalid filter" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{"filter" => %{"invalid_field" => "value"}},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end,
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{"filter" => %{"invalid_field" => "value"}}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, _}
       assert_receive {:tool_end, end_event}
@@ -342,72 +368,110 @@ defmodule AshAi.ToolCallbacksTest do
 
   describe "backward compatibility" do
     test "tools work without any callbacks" do
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
-
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
       }
 
-      assert {:ok, json_result, _raw_result} = callback.(%{}, context)
-      assert is_binary(json_result)
+      chain = chain()
+
+      assert {:ok, chain} = run_chain(chain, tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
+
+      assert tool_result.name == "read_test_resources"
+      assert tool_result.type == :function
+
+      # Content should be extractable as text (backward compatible with both string and ContentPart formats)
+      assert {:ok, text} = extract_content_text(tool_result.content)
+      assert is_binary(text)
     end
 
     test "actor passed without callbacks still sets context" do
       actor = %{id: "user_123"}
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "create_test_resource")
-
-      context = %{
-        actor: actor,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "create_test_resource",
+        arguments: %{"input" => %{"name" => "Test with Actor"}},
+        index: 0
       }
 
-      assert {:ok, json_result, _raw_result} =
-               callback.(%{"input" => %{"name" => "Test with Actor"}}, context)
+      chain = chain(actor: actor)
 
-      assert json_result =~ "Test with Actor"
+      assert {:ok, chain} = run_chain(chain, tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
+
+      assert tool_result.name == "create_test_resource"
+      assert {:ok, text} = extract_content_text(tool_result.content)
+      assert text =~ "Test with Actor"
     end
 
     test "handles nil callbacks in custom context" do
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
-
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: nil
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
       }
 
-      assert {:ok, json_result, _raw_result} = callback.(%{}, context)
-      assert is_binary(json_result)
+      # Tests the || %{} fallback
+      chain =
+        %{llm: ChatFaker.new!(%{})}
+        |> LLMChain.new!()
+        |> AshAi.setup_ash_ai(actions: [{TestResource, [:read]}])
+        |> LLMChain.update_custom_context(%{tool_callbacks: nil})
+
+      assert {:ok, chain} = run_chain(chain, tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
+
+      assert tool_result.name == "read_test_resources"
+      assert {:ok, text} = extract_content_text(tool_result.content)
+      assert is_binary(text)
     end
 
     test "only on_tool_start callback works" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start, event})
           end
-        }
-      }
+        )
 
-      callback.(%{}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start, _}
       refute_receive {:tool_end, _}
@@ -416,21 +480,23 @@ defmodule AshAi.ToolCallbacksTest do
     test "only on_tool_end callback works" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_end: fn event ->
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      callback.(%{}, context)
+      {:ok, _chain} = run_chain(chain, tool_call)
 
       refute_receive {:tool_start, _}
       assert_receive {:tool_end, _}
@@ -451,15 +517,30 @@ defmodule AshAi.ToolCallbacksTest do
         })
         |> Ash.create(domain: TestDomain)
 
-      {_tools, registry} = get_tools_and_registry()
-      read_callback = Map.fetch!(registry, "read_test_resources")
-      update_callback = Map.fetch!(registry, "update_test_resource")
+      tool_calls = [
+        %LangChain.Message.ToolCall{
+          status: :complete,
+          type: :function,
+          call_id: "call_1",
+          name: "read_test_resources",
+          arguments: %{},
+          index: 0
+        },
+        %LangChain.Message.ToolCall{
+          status: :complete,
+          type: :function,
+          call_id: "call_2",
+          name: "update_test_resource",
+          arguments: %{
+            "id" => resource.id,
+            "input" => %{"status" => "active"}
+          },
+          index: 1
+        }
+      ]
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             :counters.add(call_count, 1, 1)
             send(test_pid, {:tool_start, event})
@@ -468,11 +549,13 @@ defmodule AshAi.ToolCallbacksTest do
             :counters.add(call_count, 2, 1)
             send(test_pid, {:tool_end, event})
           end
-        }
-      }
+        )
 
-      read_callback.(%{}, context)
-      update_callback.(%{"id" => resource.id, "input" => %{"status" => "active"}}, context)
+      chain
+      |> LLMChain.add_message(
+        Message.new_assistant!(%{status: :complete, tool_calls: tool_calls})
+      )
+      |> LLMChain.run(mode: :while_needs_response)
 
       assert :counters.get(call_count, 1) == 2
       assert :counters.get(call_count, 2) == 2
@@ -486,70 +569,87 @@ defmodule AshAi.ToolCallbacksTest do
 
   describe "callback error handling" do
     test "on_tool_start exceptions propagate" do
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn _event ->
             raise "Callback error"
           end
-        }
-      }
+        )
 
-      assert_raise RuntimeError, "Callback error", fn ->
-        callback.(%{}, context)
-      end
+      {:ok, chain} = run_chain(chain, tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
+
+      assert tool_result.name == "read_test_resources"
+      assert {:ok, text} = extract_content_text(tool_result.content)
+      assert text =~ "Callback error"
     end
 
     test "on_tool_end exceptions propagate" do
       test_pid = self()
 
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
+      }
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{
+      chain =
+        chain(
           on_tool_start: fn event ->
             send(test_pid, {:tool_start_called, event})
           end,
           on_tool_end: fn _event ->
             raise "End callback error"
           end
-        }
-      }
+        )
 
-      assert_raise RuntimeError, "End callback error", fn ->
-        callback.(%{}, context)
-      end
+      {:ok, chain} = run_chain(chain, tool_call)
 
       assert_receive {:tool_start_called, _}
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
+
+      assert tool_result.name == "read_test_resources"
+      assert {:ok, text} = extract_content_text(tool_result.content)
+      assert text =~ "End callback error"
     end
   end
 
-  defp get_tools_and_registry do
-    opts = [otp_app: :ash_ai, actions: [{TestResource, :*}]]
+  defp chain(opts \\ []) do
+    actions =
+      AshAi.Info.tools(TestDomain)
+      |> Enum.group_by(& &1.resource, & &1.action)
+      |> Map.to_list()
 
-    # Get exposed tools
-    tool_defs = AshAi.exposed_tools(opts)
+    %{llm: ChatFaker.new!(%{})}
+    |> LLMChain.new!()
+    |> AshAi.setup_ash_ai(Keyword.merge([actions: actions], opts))
+  end
 
-    # Convert to {tool, callback} tuples
-    tool_tuples = Enum.map(tool_defs, &AshAi.tool/1)
-
-    # Separate tools and callbacks
-    {tools, callbacks} = Enum.unzip(tool_tuples)
-
-    # Build registry mapping tool name to callback function (function/2)
-    registry =
-      Enum.zip(tools, callbacks)
-      |> Enum.into(%{}, fn {tool, callback} -> {tool.name, callback} end)
-
-    {tools, registry}
+  defp run_chain(chain, tool_call) do
+    chain
+    |> LLMChain.add_message(Message.new_assistant!(%{status: :complete, tool_calls: [tool_call]}))
+    |> LLMChain.run(mode: :while_needs_response)
   end
 end

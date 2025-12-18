@@ -125,6 +125,15 @@ defmodule AshAi.OpenApiTest do
 
     actions do
       default_accept [:*]
+
+      action :analyze_sentiment, Sentiment do
+        description "Analyze the sentiment of a given text"
+        argument :text, :string, allow_nil?: false
+
+        run prompt("openai:gpt-4o",
+              prompt: {"You are a sentiment analyzer", "Analyze: <%= @input.arguments.text %>"}
+            )
+      end
     end
   end
 
@@ -139,6 +148,18 @@ defmodule AshAi.OpenApiTest do
   end
 
   describe "resource_write_attribute_type/3" do
+    test "with TestResource" do
+      resource = TestResource
+
+      action = resource |> Ash.Resource.Info.action(:analyze_sentiment)
+
+      assert get_parameter_schema_properties(
+               action,
+               resource,
+               &AshAi.OpenApi.resource_write_attribute_type/3
+             ) == %{text: %{type: :string}}
+    end
+
     test "with Artist" do
       resource = Artist
 
