@@ -1,0 +1,98 @@
+# Reusable Elixir Lint Workflow
+# Usage: uses: agentjido/github-actions/.github/workflows/elixir-lint.yml@v1
+# (Transfer to agentjido/github-actions when permissions available)
+
+name: Elixir Lint
+
+on:
+  workflow_call:
+    inputs:
+      otp_version:
+        description: 'OTP version (if no .tool-versions)'
+        required: false
+        type: string
+      elixir_version:
+        description: 'Elixir version (if no .tool-versions)'
+        required: false
+        type: string
+      version_file:
+        description: 'Path to version file'
+        required: false
+        type: string
+        default: '.tool-versions'
+      mix_env:
+        description: 'MIX_ENV for compilation'
+        required: false
+        type: string
+        default: 'test'
+      lint_command:
+        description: 'Command to run for linting'
+        required: false
+        type: string
+        default: 'mix quality'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          version-file: ${{ inputs.version_file }}
+          version-type: strict
+          otp-version: ${{ inputs.otp_version }}
+          elixir-version: ${{ inputs.elixir_version }}
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        id: deps-cache
+        with:
+          path: |
+            deps
+            _build
+            ~/.mix
+            ~/.hex
+          key: ${{ runner.os }}-mix-lint-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-lint-${{ hashFiles('mix.lock') }}-
+            ${{ runner.os }}-mix-lint-
+
+      - name: Log cache status
+        run: |
+          if [ "${{ steps.deps-cache.outputs.cache-hit }}" == "true" ]; then
+            echo "Cache hit for key: ${{ runner.os }}-mix-lint-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}"
+          else
+            echo "Cache miss - attempted key: ${{ runner.os }}-mix-lint-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}"
+          fi
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile dependencies
+        run: mix deps.compile
+        env:
+          MIX_ENV: ${{ inputs.mix_env }}
+
+      - name: Restore Dialyzer PLT cache
+        uses: actions/cache@v4
+        id: plt-cache
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-plt-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}
+          restore-keys: |
+            ${{ runner.os }}-plt-${{ hashFiles('mix.lock') }}-
+            ${{ runner.os }}-plt-
+
+      - name: Create PLT directory
+        run: mkdir -p priv/plts
+
+      - name: Run lint checks
+        run: ${{ inputs.lint_command }}
+        env:
+          MIX_ENV: ${{ inputs.mix_env }}
