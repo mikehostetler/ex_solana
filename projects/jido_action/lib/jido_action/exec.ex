@@ -449,6 +449,7 @@ defmodule Jido.Exec do
       execute_action(action, params, context, opts)
     end
 
+    @dialyzer {:nowarn_function, execute_action_with_timeout: 5}
     defp execute_action_with_timeout(action, params, context, timeout, opts)
          when is_integer(timeout) and timeout > 0 do
       # Get the current process's group leader for IO routing
