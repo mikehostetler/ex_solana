@@ -244,7 +244,7 @@ defmodule JidoAction.MixProject do
       quality: [
         "format --check-formatted",
         "compile --warnings-as-errors",
-        "credo --min-priority high",
+        "credo --min-priority higher",
         "dialyzer"
       ]
     ]
