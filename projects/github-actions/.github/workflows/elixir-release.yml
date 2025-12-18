@@ -116,9 +116,10 @@ jobs:
         run: |
           set -euo pipefail
           OUTPUT=$(${{ inputs.release_command }} 2>&1) || {
-            if echo "$OUTPUT" | grep -q "No changes since"; then
+            if echo "$OUTPUT" | grep -qE "(No changes since|No changes should result)"; then
               echo "No releasable commits found since last release"
               echo "skipped=true" >> $GITHUB_OUTPUT
+              echo "### Skipped: No releasable commits" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             echo "$OUTPUT"
