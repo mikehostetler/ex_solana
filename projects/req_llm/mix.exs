@@ -209,7 +209,7 @@ defmodule ReqLLM.MixProject do
         "format --check-formatted",
         "compile --warnings-as-errors",
         "dialyzer",
-        "credo --min-priority high"
+        "credo --min-priority higher"
       ],
       q: ["quality"],
       docs: ["docs --formatter html"],

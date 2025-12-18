@@ -33,6 +33,12 @@ defmodule Jido.Signal.MixProject do
         summary: [threshold: 90],
         export: "cov",
         ignore_modules: [~r/^JidoTest\./]
+      ],
+
+      # Dialyzer
+      dialyzer: [
+        plt_local_path: "priv/plts/project.plt",
+        plt_core_path: "priv/plts/core.plt"
       ]
     ]
   end
@@ -228,7 +234,7 @@ defmodule Jido.Signal.MixProject do
       quality: [
         "format --check-formatted",
         "compile --warnings-as-errors",
-        "credo --min-priority high",
+        "credo --min-priority higher",
         "dialyzer"
       ]
     ]
