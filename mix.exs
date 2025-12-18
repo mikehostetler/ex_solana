@@ -24,7 +24,7 @@ defmodule JidoEval.MixProject do
   defp deps do
     [
       # Jido
-      {:jido_ai, path: "../jido_ai"},
+      jido_dep(:jido_ai, "../jido_ai", "~> 0.5.0"),
 
       # Core
       {:typed_struct, "~> 0.3.0"},
@@ -65,5 +65,19 @@ defmodule JidoEval.MixProject do
         "docs"
       ]
     ]
+  end
+
+  defp jido_dep(app, rel_path, hex_req, extra_opts \\ []) do
+    path = Path.expand(rel_path, __DIR__)
+
+    if File.dir?(path) and File.exists?(Path.join(path, "mix.exs")) do
+      {app, Keyword.merge([path: rel_path, override: true], extra_opts)}
+    else
+      {app, hex_req, extra_opts}
+    end
+    |> case do
+      {app, opts} when is_list(opts) -> {app, opts}
+      {app, req, opts} -> {app, req, opts}
+    end
   end
 end
