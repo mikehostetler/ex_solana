@@ -200,5 +200,13 @@ config :jido_workspace,
       publish_order: 11,
       dependencies: ["llm_db"],
       version_train: :independent
+    },
+    %{
+      name: "github-actions",
+      upstream_url: "https://github.com/agentjido/github-actions.git",
+      branch: "main",
+      type: :library,
+      path: "projects/github-actions"
     }
+
   ]
