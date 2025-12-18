@@ -89,3 +89,33 @@ use Jido.Action,
 - When backwards compatibility is critical
 
 **See example:** `lib/jido_tools/zoi_example.ex` demonstrates all Zoi features
+
+## Git Commit Guidelines
+
+Use **Conventional Commits** format for all commit messages:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation only
+- `style` - Formatting, no code change
+- `refactor` - Code change that neither fixes a bug nor adds a feature
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks, dependency updates
+
+**Examples:**
+```
+feat(tools): add new GitHub issue action
+fix(exec): handle timeout edge case in async execution
+docs: update action building guide
+test(plan): add DAG cycle detection tests
+chore(deps): bump nimble_options to 1.1.0
+```
