@@ -702,4 +702,296 @@ defmodule ReqLLM.Providers.OpenRouterTest do
       assert headers["x-title"] == ["My Cool App"]
     end
   end
+
+  describe "reasoning_details support" do
+    test "extracts reasoning_details from non-streaming response" do
+      # Use the existing fixture
+      fixture_path =
+        Path.join([
+          __DIR__,
+          "..",
+          "support",
+          "fixtures",
+          "openrouter",
+          "google_gemini_2_5_flash",
+          "reasoning_basic.json"
+        ])
+
+      fixture = File.read!(fixture_path) |> Jason.decode!()
+
+      # Create mock request and response from fixture
+      req = Req.new()
+
+      resp = %Req.Response{
+        status: 200,
+        body: fixture["response"]["body"]
+      }
+
+      # Decode the response
+      {^req, decoded_resp} = OpenRouter.decode_response({req, resp})
+
+      # Extract the ReqLLM.Response from the Req.Response body
+      response = decoded_resp.body
+
+      # Verify reasoning_details was extracted
+      assert response.message.reasoning_details != nil
+      assert is_list(response.message.reasoning_details)
+      refute Enum.empty?(response.message.reasoning_details)
+
+      # Verify structure matches fixture
+      [first_detail | _] = response.message.reasoning_details
+      assert first_detail["type"] == "reasoning.text"
+      assert first_detail["format"] == "unknown"
+      assert is_binary(first_detail["text"])
+      assert String.contains?(first_detail["text"], "Recalling Multiplication")
+    end
+
+    test "reasoning_details is nil for non-reasoning responses" do
+      req = Req.new()
+
+      resp = %Req.Response{
+        status: 200,
+        body: %{
+          "choices" => [
+            %{
+              "message" => %{
+                "role" => "assistant",
+                "content" => "Hello world"
+              },
+              "finish_reason" => "stop"
+            }
+          ],
+          "usage" => %{
+            "prompt_tokens" => 10,
+            "completion_tokens" => 2,
+            "total_tokens" => 12
+          }
+        }
+      }
+
+      {^req, decoded_resp} = OpenRouter.decode_response({req, resp})
+
+      # Should be nil for non-reasoning models
+      response = decoded_resp.body
+      assert response.message.reasoning_details == nil
+    end
+
+    test "encodes reasoning_details in subsequent requests" do
+      # Create a message with reasoning_details (simulating first turn response)
+      message_with_reasoning = %ReqLLM.Message{
+        role: :assistant,
+        content: [
+          ReqLLM.Message.ContentPart.text("The answer is 84")
+        ],
+        reasoning_details: [
+          %{
+            "type" => "reasoning.text",
+            "format" => "google-gemini-v1",
+            "index" => 0,
+            "text" => "Let me break down 12 * 7..."
+          }
+        ]
+      }
+
+      # Create a context with this message
+      context = %ReqLLM.Context{
+        messages: [
+          %ReqLLM.Message{
+            role: :user,
+            content: [ReqLLM.Message.ContentPart.text("What is 12*7?")]
+          },
+          message_with_reasoning,
+          %ReqLLM.Message{
+            role: :user,
+            content: [ReqLLM.Message.ContentPart.text("Now multiply by 2")]
+          }
+        ]
+      }
+
+      # Create mock request
+      mock_request = %Req.Request{
+        options: [
+          context: context,
+          model: "google/gemini-2.5-flash",
+          stream: false
+        ]
+      }
+
+      # Encode the body
+      updated_request = OpenRouter.encode_body(mock_request)
+      decoded_body = Jason.decode!(updated_request.body)
+
+      # Verify the assistant message includes reasoning_details
+      messages = decoded_body["messages"]
+      assistant_message = Enum.find(messages, fn msg -> msg["role"] == "assistant" end)
+
+      assert assistant_message != nil
+      assert assistant_message["reasoning_details"] != nil
+      assert is_list(assistant_message["reasoning_details"])
+      assert length(assistant_message["reasoning_details"]) == 1
+
+      [detail] = assistant_message["reasoning_details"]
+      assert detail["type"] == "reasoning.text"
+      assert detail["format"] == "google-gemini-v1"
+      assert detail["text"] == "Let me break down 12 * 7..."
+    end
+
+    test "reasoning_details preserved in full round-trip" do
+      # This is the key integration test: decode -> encode -> verify preservation
+
+      # Step 1: Decode a response with reasoning_details
+      fixture_path =
+        Path.join([
+          __DIR__,
+          "..",
+          "support",
+          "fixtures",
+          "openrouter",
+          "google_gemini_2_5_flash",
+          "reasoning_basic.json"
+        ])
+
+      fixture = File.read!(fixture_path) |> Jason.decode!()
+
+      req = Req.new()
+      resp = %Req.Response{status: 200, body: fixture["response"]["body"]}
+
+      {^req, decoded_resp} = OpenRouter.decode_response({req, resp})
+      first_response = decoded_resp.body
+
+      # Step 2: Use the decoded message in a new context
+      context = %ReqLLM.Context{
+        messages: [
+          %ReqLLM.Message{
+            role: :user,
+            content: [ReqLLM.Message.ContentPart.text("What is 12*7?")]
+          },
+          first_response.message,
+          %ReqLLM.Message{
+            role: :user,
+            content: [ReqLLM.Message.ContentPart.text("Double it")]
+          }
+        ]
+      }
+
+      # Step 3: Encode a new request with this context
+      mock_request = %Req.Request{
+        options: [
+          context: context,
+          model: "google/gemini-2.5-flash",
+          stream: false
+        ]
+      }
+
+      updated_request = OpenRouter.encode_body(mock_request)
+      decoded_body = Jason.decode!(updated_request.body)
+
+      # Step 4: Verify reasoning_details was preserved exactly
+      messages = decoded_body["messages"]
+      assistant_message = Enum.find(messages, fn msg -> msg["role"] == "assistant" end)
+
+      assert assistant_message["reasoning_details"] != nil
+
+      # The reasoning_details from the fixture should be exactly preserved
+      original_details =
+        fixture["response"]["body"]["choices"]
+        |> List.first()
+        |> get_in(["message", "reasoning_details"])
+
+      assert assistant_message["reasoning_details"] == original_details
+    end
+
+    test "empty reasoning_details array not encoded (cleaner wire format)" do
+      message = %ReqLLM.Message{
+        role: :assistant,
+        content: [ReqLLM.Message.ContentPart.text("Hello")],
+        reasoning_details: []
+      }
+
+      context = %ReqLLM.Context{messages: [message]}
+
+      mock_request = %Req.Request{
+        options: [context: context, model: "openai/gpt-4", stream: false]
+      }
+
+      updated_request = OpenRouter.encode_body(mock_request)
+      decoded_body = Jason.decode!(updated_request.body)
+
+      # Empty array should not be included (cleaner)
+      assistant_message = List.first(decoded_body["messages"])
+      refute Map.has_key?(assistant_message, "reasoning_details")
+    end
+
+    test "reasoning_details validation rejects malformed data" do
+      req = Req.new()
+
+      # Malformed: reasoning_details is not a list of maps
+      resp = %Req.Response{
+        status: 200,
+        body: %{
+          "choices" => [
+            %{
+              "message" => %{
+                "role" => "assistant",
+                "content" => "Answer",
+                "reasoning_details" => ["not", "maps"]
+              },
+              "finish_reason" => "stop"
+            }
+          ],
+          "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
+        }
+      }
+
+      {^req, decoded_resp} = OpenRouter.decode_response({req, resp})
+
+      # Should return nil for malformed data (defensive)
+      response = decoded_resp.body
+      assert response.message.reasoning_details == nil
+    end
+
+    test "reasoning_details attached to last context message, not duplicated" do
+      fixture_path =
+        Path.join([
+          __DIR__,
+          "..",
+          "support",
+          "fixtures",
+          "openrouter",
+          "google_gemini_2_5_flash",
+          "reasoning_basic.json"
+        ])
+
+      fixture = File.read!(fixture_path) |> Jason.decode!()
+
+      context = %ReqLLM.Context{
+        messages: [
+          %ReqLLM.Message{
+            role: :user,
+            content: [ReqLLM.Message.ContentPart.text("What is 12*7?")]
+          }
+        ]
+      }
+
+      req = %Req.Request{
+        options: [context: context, model: "google/gemini-2.5-flash", stream: false]
+      }
+
+      resp = %Req.Response{status: 200, body: fixture["response"]["body"]}
+
+      {^req, decoded_resp} = OpenRouter.decode_response({req, resp})
+      response = decoded_resp.body
+
+      assert %ReqLLM.Message{reasoning_details: details} = response.message
+      assert is_list(details) and details != []
+
+      assert %ReqLLM.Context{messages: msgs} = response.context
+      assert length(msgs) == 2
+
+      [user_msg, assistant_msg] = msgs
+      assert user_msg.role == :user
+      assert assistant_msg.role == :assistant
+      assert assistant_msg.reasoning_details == details
+    end
+  end
 end

@@ -18,8 +18,11 @@ defmodule ReqLLM.Providers.GoogleVertex.TokenCache do
 
   ## Cache Key
 
-  Service account JSON file path (string). This allows multiple service
-  accounts to be used simultaneously with independent token caches.
+  For file paths: the path string is used as the cache key.
+  For JSON strings or maps: the `client_email` field is used as the cache key.
+
+  This allows multiple service accounts to be used simultaneously with
+  independent token caches.
 
   ## Expiry & Refresh
 
@@ -29,6 +32,8 @@ defmodule ReqLLM.Providers.GoogleVertex.TokenCache do
   """
 
   use GenServer
+
+  alias ReqLLM.Provider.Utils
 
   require Logger
 
@@ -48,28 +53,40 @@ defmodule ReqLLM.Providers.GoogleVertex.TokenCache do
   - Expiry checking
   - Concurrent request deduplication
 
+  Accepts credentials in multiple formats:
+  - File path (string, if file exists) - uses path as cache key
+  - JSON string (string, if not a file) - uses client_email as cache key
+  - Map (already parsed) - uses client_email as cache key
+
   ## Examples
 
       iex> TokenCache.get_or_refresh("/path/to/service-account.json")
       {:ok, "ya29.c.Kl6iB..."}
 
+      iex> TokenCache.get_or_refresh(~s({"client_email": "...", "private_key": "..."}))
+      {:ok, "ya29.c.Kl6iB..."}
+
       iex> TokenCache.get_or_refresh("/invalid/path.json")
       {:error, :enoent}
   """
-  @spec get_or_refresh(service_account_json_path :: String.t()) ::
+  @spec get_or_refresh(service_account :: String.t() | map()) ::
           {:ok, access_token :: String.t()} | {:error, term()}
-  def get_or_refresh(service_account_json_path) do
-    GenServer.call(__MODULE__, {:get_or_refresh, service_account_json_path})
+  def get_or_refresh(service_account) do
+    GenServer.call(__MODULE__, {:get_or_refresh, service_account})
   end
 
   @doc """
   Invalidates cached token for a service account.
 
   Useful for testing or when credentials are rotated.
+
+  The cache_key should match what was used for caching:
+  - File path if credentials were provided as a file path
+  - client_email if credentials were provided as JSON string or map
   """
-  @spec invalidate(service_account_json_path :: String.t()) :: :ok
-  def invalidate(service_account_json_path) do
-    GenServer.call(__MODULE__, {:invalidate, service_account_json_path})
+  @spec invalidate(cache_key :: String.t()) :: :ok
+  def invalidate(cache_key) do
+    GenServer.call(__MODULE__, {:invalidate, cache_key})
   end
 
   @doc """
@@ -95,22 +112,28 @@ defmodule ReqLLM.Providers.GoogleVertex.TokenCache do
   end
 
   @impl true
-  def handle_call({:get_or_refresh, service_account_json_path}, _from, state) do
-    case lookup_token(state.table, service_account_json_path) do
-      {:ok, token} ->
-        {:reply, {:ok, token}, state}
+  def handle_call({:get_or_refresh, service_account}, _from, state) do
+    case resolve_cache_key(service_account) do
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
 
-      :expired ->
-        refresh_and_cache(state, service_account_json_path)
+      {cache_key, parsed_or_path} ->
+        case lookup_token(state.table, cache_key) do
+          {:ok, token} ->
+            {:reply, {:ok, token}, state}
 
-      :not_found ->
-        refresh_and_cache(state, service_account_json_path)
+          :expired ->
+            refresh_and_cache(state, cache_key, parsed_or_path)
+
+          :not_found ->
+            refresh_and_cache(state, cache_key, parsed_or_path)
+        end
     end
   end
 
   @impl true
-  def handle_call({:invalidate, service_account_json_path}, _from, state) do
-    :ets.delete(state.table, service_account_json_path)
+  def handle_call({:invalidate, cache_key}, _from, state) do
+    :ets.delete(state.table, cache_key)
     {:reply, :ok, state}
   end
 
@@ -136,20 +159,44 @@ defmodule ReqLLM.Providers.GoogleVertex.TokenCache do
     end
   end
 
-  defp refresh_and_cache(state, service_account_json_path) do
-    case ReqLLM.Providers.GoogleVertex.Auth.get_access_token(service_account_json_path) do
+  defp refresh_and_cache(state, cache_key, service_account) do
+    case ReqLLM.Providers.GoogleVertex.Auth.get_access_token(service_account) do
       {:ok, token} ->
         expires_at = System.system_time(:second) + @cache_ttl_seconds
-        :ets.insert(state.table, {service_account_json_path, token, expires_at})
+        :ets.insert(state.table, {cache_key, token, expires_at})
 
-        Logger.debug(
-          "Cached OAuth2 token for #{service_account_json_path}, expires in #{@cache_ttl_seconds}s"
-        )
+        Logger.debug("Cached OAuth2 token for #{cache_key}, expires in #{@cache_ttl_seconds}s")
 
         {:reply, {:ok, token}, state}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
+    end
+  end
+
+  # Resolve cache key based on credential type
+  defp resolve_cache_key(service_account) when is_map(service_account) do
+    # Already parsed map - normalize to string keys and use client_email as cache key
+    normalized = Utils.stringify_keys(service_account)
+    {normalized["client_email"], normalized}
+  end
+
+  defp resolve_cache_key(path_or_json) when is_binary(path_or_json) do
+    # Check if it's a file path first (more reliable than checking for "{")
+    if File.exists?(path_or_json) do
+      # File path - use path as cache key, let Auth read the file
+      {path_or_json, path_or_json}
+    else
+      # Not a file - try parsing as JSON string
+      case Jason.decode(path_or_json) do
+        {:ok, parsed} ->
+          {parsed["client_email"], parsed}
+
+        {:error, _reason} ->
+          {:error,
+           "Invalid service account credentials: " <>
+             "not a valid file path or JSON string"}
+      end
     end
   end
 end

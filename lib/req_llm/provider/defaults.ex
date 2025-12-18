@@ -568,7 +568,8 @@ defmodule ReqLLM.Provider.Defaults do
          content: c,
          tool_calls: tc,
          tool_call_id: tcid,
-         name: name
+         name: name,
+         reasoning_details: rd
        }) do
     base_message = %{
       role: to_string(r),
@@ -579,6 +580,7 @@ defmodule ReqLLM.Provider.Defaults do
     |> maybe_add_field(:tool_calls, tc)
     |> maybe_add_field(:tool_call_id, tcid)
     |> maybe_add_field(:name, name)
+    |> maybe_add_field(:reasoning_details, rd)
   end
 
   defp maybe_add_field(message, _key, nil), do: message
