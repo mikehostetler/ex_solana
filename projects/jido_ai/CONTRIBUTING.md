@@ -5,8 +5,8 @@ Thank you for your interest in contributing!
 ## Getting Started
 
 ```bash
-git clone git@github.com:agentjido/jido_workbench.git
-cd jido_workbench
+git clone git@github.com:agentjido/jido_ai.git
+cd jido_ai
 mix deps.get
 mix test
 mix quality

@@ -68,7 +68,7 @@ defmodule Jido.Signal.MixProject do
       extras: [
         "README.md",
         "CONTRIBUTING.md",
-        "LICENSE.md",
+        "LICENSE",
         "guides/getting-started.md",
         "guides/signals-and-dispatch.md",
         "guides/signal-router.md",
@@ -173,9 +173,11 @@ defmodule Jido.Signal.MixProject do
       maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
+        "Documentation" => "https://hexdocs.pm/jido_signal",
         "GitHub" => @source_url,
-        "AgentJido.xyz" => "https://agentjido.xyz",
-        "Jido Workbench" => "https://github.com/agentjido/jido_workbench"
+        "Website" => "https://agentjido.xyz",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Changelog" => "https://github.com/agentjido/jido_signal/blob/main/CHANGELOG.md"
       }
     ]
   end
@@ -198,7 +200,7 @@ defmodule Jido.Signal.MixProject do
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},
-      {:git_hooks, "~> 0.5.0", only: [:dev, :test], runtime: false},
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.21", only: [:dev, :test], runtime: false},

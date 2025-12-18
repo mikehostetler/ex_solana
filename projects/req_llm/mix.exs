@@ -193,8 +193,10 @@ defmodule ReqLLM.MixProject do
       maintainers: ["Mike Hostetler"],
       links: %{
         "Changelog" => "https://hexdocs.pm/req_llm/changelog.html",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Documentation" => "https://hexdocs.pm/req_llm",
         "GitHub" => @source_url,
-        "Elixir AI Discord" => "https://agentjido.xyz/discord"
+        "Website" => "https://agentjido.xyz"
       },
       files:
         ~w(lib priv mix.exs LICENSE README.md CHANGELOG.md CONTRIBUTING.md AGENTS.md usage-rules.md guides .formatter.exs)

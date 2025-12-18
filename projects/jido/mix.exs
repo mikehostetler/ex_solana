@@ -81,7 +81,7 @@ defmodule Jido.MixProject do
           "guides/about/alternatives.md",
           "CONTRIBUTING.md",
           "CHANGELOG.md",
-          "LICENSE.md"
+          "LICENSE"
         ],
         Examples: [
           "guides/examples/your-first-agent.livemd",
@@ -137,7 +137,7 @@ defmodule Jido.MixProject do
         {"guides/about/alternatives.md", title: "Alternatives"},
         {"CONTRIBUTING.md", title: "Contributing"},
         {"CHANGELOG.md", title: "Changelog"},
-        {"LICENSE.md", title: "Apache 2.0 License"},
+        {"LICENSE", title: "Apache 2.0 License"},
 
         # Examples
         {"guides/examples/hello-world.livemd", title: "Hello World"},
@@ -181,7 +181,7 @@ defmodule Jido.MixProject do
       formatters: ["html"],
       skip_undefined_reference_warnings_on: [
         "CHANGELOG.md",
-        "LICENSE.md"
+        "LICENSE"
       ],
       groups_for_modules: [
         Core: [
@@ -228,12 +228,15 @@ defmodule Jido.MixProject do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README.md", "LICENSE.md", "usage-rules.md"],
+      files: ["lib", "mix.exs", "README.md", "LICENSE", "usage-rules.md"],
       maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
+        "Documentation" => "https://hexdocs.pm/jido",
         "GitHub" => "https://github.com/agentjido/jido",
-        "Agent Workbench" => "https://github.com/agentjido/jido_workbench"
+        "Website" => "https://agentjido.xyz",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Changelog" => "https://github.com/agentjido/jido/blob/main/CHANGELOG.md"
       }
     ]
   end
@@ -268,7 +271,7 @@ defmodule Jido.MixProject do
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},
-      {:git_hooks, "~> 0.5.0", only: [:dev, :test], runtime: false},
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.21", only: [:dev, :test], runtime: false},

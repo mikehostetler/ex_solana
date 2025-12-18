@@ -3,7 +3,7 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/jido_signal.svg)](https://hex.pm/packages/jido_signal)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/jido_signal/)
 [![CI](https://github.com/agentjido/jido_signal/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido_signal/actions/workflows/elixir-ci.yml)
-[![License](https://img.shields.io/hexpm/l/jido_signal.svg)](https://github.com/agentjido/jido_signal/blob/main/LICENSE.md)
+[![License](https://img.shields.io/hexpm/l/jido_signal.svg)](https://github.com/agentjido/jido_signal/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/agentjido/jido_signal/badge.svg?branch=main)](https://coveralls.io/github/agentjido/jido_signal?branch=main)
 
 > **Agent Communication Envelope and Utilities**
@@ -481,7 +481,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Related Projects
 

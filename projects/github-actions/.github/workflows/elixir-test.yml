@@ -1,25 +1,23 @@
 # Reusable Elixir Test Workflow
 # Usage: uses: agentjido/github-actions/.github/workflows/elixir-test.yml@v1
-# (Transfer to agentjido/github-actions when permissions available)
+#
+# Supports version matrix testing via otp_versions and elixir_versions inputs (JSON arrays)
 
 name: Elixir Test
 
 on:
   workflow_call:
     inputs:
-      otp_version:
-        description: 'OTP version (if no .tool-versions)'
+      otp_versions:
+        description: 'JSON array of OTP versions'
         required: false
         type: string
-      elixir_version:
-        description: 'Elixir version (if no .tool-versions)'
+        default: '["27", "28"]'
+      elixir_versions:
+        description: 'JSON array of Elixir versions'
         required: false
         type: string
-      version_file:
-        description: 'Path to version file'
-        required: false
-        type: string
-        default: '.tool-versions'
+        default: '["1.18", "1.19"]'
       mix_env:
         description: 'MIX_ENV for tests'
         required: false
@@ -43,9 +41,18 @@ on:
 
 jobs:
   test:
-    name: Test
+    name: Test (OTP ${{ matrix.otp }} / Elixir ${{ matrix.elixir }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        otp: ${{ fromJson(inputs.otp_versions) }}
+        elixir: ${{ fromJson(inputs.elixir_versions) }}
 
     env:
       MIX_ENV: ${{ inputs.mix_env }}
@@ -70,7 +77,6 @@ jobs:
             -p $POSTGRES_PORT:5432 \
             ${{ inputs.postgres_image }}
 
-          # Wait for PostgreSQL to be ready (30 second timeout per NFR-PERF-009)
           echo "Waiting for PostgreSQL to be ready..."
           for i in {1..30}; do
             if docker exec postgres pg_isready -U $POSTGRES_USER -d $POSTGRES_DB > /dev/null 2>&1; then
@@ -89,10 +95,8 @@ jobs:
       - name: Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          version-file: ${{ inputs.version_file }}
-          version-type: strict
-          otp-version: ${{ inputs.otp_version }}
-          elixir-version: ${{ inputs.elixir_version }}
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
 
       - name: Restore dependencies cache
         uses: actions/cache@v4
@@ -103,18 +107,10 @@ jobs:
             _build
             ~/.mix
             ~/.hex
-          key: ${{ runner.os }}-mix-test-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}
+          key: ${{ runner.os }}-mix-test-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-test-${{ hashFiles('mix.lock') }}-
+            ${{ runner.os }}-mix-test-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-
             ${{ runner.os }}-mix-test-
-
-      - name: Log cache status
-        run: |
-          if [ "${{ steps.deps-cache.outputs.cache-hit }}" == "true" ]; then
-            echo "Cache hit for key: ${{ runner.os }}-mix-test-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}"
-          else
-            echo "Cache miss - attempted key: ${{ runner.os }}-mix-test-${{ hashFiles('mix.lock') }}-${{ hashFiles('.tool-versions') }}"
-          fi
 
       - name: Install dependencies
         run: mix deps.get

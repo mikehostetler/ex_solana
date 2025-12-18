@@ -4,7 +4,7 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/jido_action/)
 [![CI](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml)
 [![Quality Gate](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml/badge.svg?event=push&job=quality_gate)](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml)
-[![License](https://img.shields.io/hexpm/l/jido_action.svg)](https://github.com/agentjido/jido_action/blob/main/LICENSE.md)
+[![License](https://img.shields.io/hexpm/l/jido_action.svg)](https://github.com/agentjido/jido_action/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/agentjido/jido_action/badge.svg?branch=main)](https://coveralls.io/github/agentjido/jido_action?branch=main)
 
 > **Composable, validated actions for Elixir applications with built-in AI tool integration**
@@ -421,9 +421,9 @@ We welcome contributions! Please see our [GitHub repository](https://github.com/
 
 Copyright 2024 Mike Hostetler
 
-Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
-For information about dependency licenses, see the [LICENSE.md](LICENSE.md) file.
+For information about dependency licenses, see the [LICENSE](LICENSE) file.
 
 ## Links
 

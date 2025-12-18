@@ -1,82 +1,31 @@
-# Pull Request
-
 ## Description
 
-Provide a clear and concise description of what this PR accomplishes.
+Brief description of changes.
 
 ## Type of Change
 
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📚 Documentation update
-- [ ] 🔧 Refactoring (no functional changes)
-- [ ] ⚡ Performance improvement
-- [ ] 🧪 Test improvement
-- [ ] 🔨 Build/CI related changes
+- [ ] Bug fix (non-breaking change fixing an issue)
+- [ ] New feature (non-breaking change adding functionality)
+- [ ] Breaking change (fix or feature causing existing functionality to change)
+- [ ] Documentation update
 
 ## Breaking Changes
 
-If this PR introduces breaking changes, describe them here and provide migration instructions:
+<!-- If this is a breaking change, describe the impact and migration path -->
 
-```elixir
-# Before
-old_function(arg)
-
-# After  
-new_function(arg, new_required_param)
-```
-
-## Testing Approach
-
-Describe how you tested these changes:
-
-- [ ] Added new tests
-- [ ] Updated existing tests
-- [ ] Manual testing performed
-- [ ] Integration tests verified
-
-## Quality Checklist
+## Testing
 
 - [ ] Tests pass (`mix test`)
-- [ ] Quality checks pass (`mix quality` or `mix q`)
-  - [ ] Code formatted (`mix format`)
-  - [ ] No compilation warnings (`mix compile --warnings-as-errors`)
-  - [ ] Type checking passes (`mix dialyzer`)
-  - [ ] Static analysis passes (`mix credo --all`)
-- [ ] Documentation updated if needed
-- [ ] Semantic commit messages used (see format below)
-- [ ] Breaking changes noted above (if any)
-- [ ] Related issues referenced
+- [ ] Quality checks pass (`mix quality`)
 
-## Semantic Commit Message Format
+## Checklist
 
-This project follows conventional commit format. Ensure your commit messages follow this pattern:
-
-```
-type(scope): description
-
-[optional body]
-
-[optional footer(s)]
-```
-
-**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
-
-**Examples:**
-- `feat(bus): add new subscription filtering options`
-- `fix(router): resolve pattern matching edge case`
-- `docs(signal): update README with new examples`
+- [ ] My code follows the project's style guidelines
+- [ ] I have updated the documentation accordingly
+- [ ] I have added tests that prove my fix/feature works
+- [ ] All new and existing tests pass
+- [ ] My commits follow conventional commit format
 
 ## Related Issues
 
-Closes #[issue number]
-Relates to #[issue number]
-
-## Additional Context
-
-Add any other context, screenshots, or relevant information about the pull request here.
-
----
-
-*Please review the [Contributing Guidelines](./CONTRIBUTING.md) before submitting your PR.*
+Closes #

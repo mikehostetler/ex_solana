@@ -1,6 +1,3 @@
-# Automated release workflow using central reusable workflows
-# Trigger manually via GitHub Actions UI
-
 name: Release
 
 on:
