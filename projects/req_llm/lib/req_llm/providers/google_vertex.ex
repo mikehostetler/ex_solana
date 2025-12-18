@@ -18,7 +18,7 @@ defmodule ReqLLM.Providers.GoogleVertex do
       export GOOGLE_CLOUD_PROJECT="your-project-id"
       export GOOGLE_CLOUD_REGION="us-central1"
 
-      # Option 2: Pass directly in options
+      # Option 2: File path in options
       ReqLLM.generate_text(
         "google-vertex:claude-haiku-4-5@20251001",
         "Hello",
@@ -26,6 +26,26 @@ defmodule ReqLLM.Providers.GoogleVertex do
           service_account_json: "/path/to/service-account.json",
           project_id: "your-project-id",
           region: "us-central1"
+        ]
+      )
+
+      # Option 3: JSON string directly (no file needed)
+      ReqLLM.generate_text(
+        "google-vertex:claude-haiku-4-5@20251001",
+        "Hello",
+        provider_options: [
+          service_account_json: ~s({"client_email": "...", "private_key": "..."}),
+          project_id: "your-project-id"
+        ]
+      )
+
+      # Option 4: Pre-parsed map
+      ReqLLM.generate_text(
+        "google-vertex:claude-haiku-4-5@20251001",
+        "Hello",
+        provider_options: [
+          service_account_json: %{"client_email" => "...", "private_key" => "..."},
+          project_id: "your-project-id"
         ]
       )
 
@@ -78,9 +98,10 @@ defmodule ReqLLM.Providers.GoogleVertex do
 
   @provider_schema [
     service_account_json: [
-      type: :string,
+      type: {:or, [:string, :map]},
       doc:
-        "Path to service account JSON file (can also use GOOGLE_APPLICATION_CREDENTIALS env var)"
+        "Service account credentials: file path, JSON string, or pre-parsed map " <>
+          "(can also use GOOGLE_APPLICATION_CREDENTIALS env var for file path)"
     ],
     access_token: [
       type: :string,
@@ -100,6 +121,28 @@ defmodule ReqLLM.Providers.GoogleVertex do
       type: :map,
       doc:
         "Additional model-specific request fields (e.g., thinking config for extended thinking support)"
+    ],
+    anthropic_prompt_cache: [
+      type: :boolean,
+      doc: "Enable Anthropic prompt caching for Claude models on Vertex"
+    ],
+    anthropic_prompt_cache_ttl: [
+      type: :string,
+      doc: "TTL for cache (\"1h\" for one hour; omit for default ~5m)"
+    ],
+    anthropic_cache_messages: [
+      type: {:or, [:boolean, :integer]},
+      doc: """
+      Add cache breakpoint at a message position (requires anthropic_prompt_cache: true).
+      - `-1` or `true` - last message
+      - `-2` - second-to-last, `-3` - third-to-last, etc.
+      - `0` - first message, `1` - second, etc.
+      """
+    ],
+    google_grounding: [
+      type: :map,
+      doc:
+        "Enable Google Search grounding for Gemini models - allows model to search the web. Set to %{enable: true}."
     ]
   ]
 

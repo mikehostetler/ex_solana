@@ -1,0 +1,343 @@
+name: AI PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+env:
+  # Change to APPROVE / REQUEST_CHANGES / COMMENT
+  REVIEW_EVENT: COMMENT
+  # Configure which CLI to run for the review. Default is amp execute mode.
+  REVIEW_CLI_BIN: amp
+  REVIEW_CLI_ARGS: -x
+  # Elixir/ReqLLM-specific system prompt
+  SYSTEM_PROMPT: |
+    You are an expert Elixir code reviewer for the ReqLLM library.
+
+    Project context:
+    - ReqLLM is a composable Elixir library for AI interactions built on top of Req.
+    - It provides a unified interface to multiple AI providers (Anthropic, OpenAI, Google, etc.).
+    - The core public API lives in `ReqLLM` (generate_text/3, stream_text/3, generate_object/4).
+    - Provider modules live in `lib/req_llm/providers/` and must implement the `ReqLLM.Provider` behavior.
+
+    Code style and conventions (from AGENTS.md):
+    - Do NOT write comments into the body of any functions. Code should be self-explanatory.
+    - Use @moduledoc and @doc for documentation.
+    - Prefer pattern matching over conditionals.
+    - Use {:ok, result} / {:error, reason} tuples for fallible operations.
+    - Use TypedStruct for structured data and NimbleOptions for validating options.
+    - Use Splode-based error types (ReqLLM.Error.API, .Parse, .Auth).
+    - Keep imports minimal; prefer fully qualified module calls.
+    - Tests use three-tier architecture: test/req_llm/ (core), test/provider/ (mocked), test/coverage/ (live fixtures).
+
+    Review priorities:
+    1. Correctness - pattern matching, error handling, provider behavior callbacks
+    2. API consistency - naming, options, return types match existing patterns
+    3. Security - no exposed secrets, proper input validation
+    4. Tests - appropriate tier, using fixture system (ReqLLM.Test.LiveFixture)
+    5. Style - no inline comments in function bodies, Dialyzer/Credo compliance
+
+    Be pragmatic and focus on changes in this PR. Prefer actionable suggestions.
+    If something violates AGENTS.md guidance, call it out explicitly.
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ai-pr-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify tools
+        run: |
+          node -v
+          npm -v
+          jq --version
+          curl --version
+
+      - name: Install review CLI if missing (defaults to amp)
+        run: |
+          set -euo pipefail
+          if ! command -v "$REVIEW_CLI_BIN" >/dev/null 2>&1; then
+            if [ "$REVIEW_CLI_BIN" = "amp" ]; then
+              echo "Installing latest amp via npm..."
+              npm install -g @sourcegraph/amp@latest || {
+                echo "npm install failed; trying curl installer for latest..." >&2
+                curl -fsSL https://ampcode.com/install.sh | bash
+              }
+              command -v amp >/dev/null 2>&1 || { echo "amp not found after install" >&2; exit 1; }
+              amp --version
+            elif [ "$REVIEW_CLI_BIN" = "claude" ]; then
+              echo "Installing claude via npm..."
+              npm install -g @anthropic-ai/claude-code
+              command -v claude >/dev/null 2>&1 || { echo "claude not found after install" >&2; exit 1; }
+              claude --version || true
+            else
+              echo "Configured REVIEW_CLI_BIN=$REVIEW_CLI_BIN not found on PATH. Please ensure it is preinstalled." >&2
+              exit 1
+            fi
+          else
+            "$REVIEW_CLI_BIN" --version || true
+          fi
+
+      - name: Gather PR context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Set for this step and export for later steps
+          PR="${{ github.event.pull_request.number }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
+          echo "PR=$PR" >> "$GITHUB_ENV"
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+
+          # Use explicit repo + PR number in detached HEAD context
+          gh pr view "$PR" --repo "${{ github.repository }}" --json number,title,body,author,baseRefName,headRefName,url > pr.json
+          gh pr diff "$PR" --repo "${{ github.repository }}" --patch > diff.patch
+
+      - name: Run AI review
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          # Map AI_API_KEY to vendor-specific vars when missing
+          export AMP_API_KEY="${AMP_API_KEY:-${AI_API_KEY:-}}"
+          export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-${AI_API_KEY:-}}"
+
+          # Mask API keys in logs just in case
+          if [ -n "${AI_API_KEY:-}" ]; then echo "::add-mask::${AI_API_KEY}"; fi
+          if [ -n "${AMP_API_KEY:-}" ]; then echo "::add-mask::${AMP_API_KEY}"; fi
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then echo "::add-mask::${ANTHROPIC_API_KEY}"; fi
+
+          # Compose the instruction sent to cli (XML output with example)
+          INSTRUCTION=$(cat <<'EOF'
+          You are performing a single-pass human-style PR review.
+
+          Inputs:
+          - You will receive a unified diff (the PR patch) via stdin.
+          - Comment only on added lines; avoid spam.
+
+          Output format - XML with this exact structure:
+          <review>
+            <summary>Overall assessment in 2-3 sentences. Focus on correctness, security, and readability.</summary>
+            <comments>
+              <comment>
+                <file>path/to/file.ext</file>
+                <line>123</line>
+                <body>Your comment about this specific line</body>
+              </comment>
+            </comments>
+            <state>success</state> <!-- or "failure" if issues need fixing before merge -->
+            <description>Brief reason (under 120 chars)</description>
+          </review>
+
+          Example good response:
+          <review>
+            <summary>This PR adds user authentication with proper input validation. The implementation looks solid overall with good error handling.</summary>
+            <comments>
+              <comment>
+                <file>lib/req_llm/provider.ex</file>
+                <line>45</line>
+                <body>Consider using pattern matching in the function head instead of a case statement.</body>
+              </comment>
+            </comments>
+            <state>success</state>
+            <description>LGTM with minor style suggestion</description>
+          </review>
+          EOF
+          )
+
+          # Run CLI in execute mode with retries for malformed/empty output
+          echo "Running AI review..."
+          echo "Command: $REVIEW_CLI_BIN $REVIEW_CLI_ARGS"
+          echo "Diff size: $(wc -c < diff.patch) bytes"
+
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES..."
+
+            if cat diff.patch | timeout 300 "$REVIEW_CLI_BIN" $REVIEW_CLI_ARGS "${SYSTEM_PROMPT}
+
+          ${INSTRUCTION}" > ai_output.xml; then
+              # Check if output contains valid XML with required elements
+              if grep -q "<review>" ai_output.xml && grep -q "<summary>" ai_output.xml && grep -q "</review>" ai_output.xml; then
+                echo "Valid XML review received"
+                break
+              else
+                echo "Invalid or empty XML received, retrying..."
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+              fi
+            else
+              echo "AI call failed, retrying..."
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+            fi
+
+            # Add delay between retries
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "Waiting 5 seconds before retry..."
+              sleep 5
+            fi
+          done
+
+          # If all retries failed, create fallback response
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "All 5 retry attempts failed, creating fallback response"
+            cat > ai_output.xml <<'FALLBACK'
+          <review>
+            <summary>AI review failed after multiple attempts.</summary>
+            <comments></comments>
+            <state>success</state>
+            <description>AI Review completed with fallback</description>
+          </review>
+          FALLBACK
+          fi
+
+          echo "AI review completed"
+          echo "--- XML Output ---"
+          cat ai_output.xml
+          echo -e "\n--- End XML Output ---"
+
+          # Extract sections using Node.js for reliable parsing
+          echo "Using Node.js for XML parsing..."
+          node -e "
+          const fs = require('fs');
+          try {
+            const xmlText = fs.readFileSync('ai_output.xml', 'utf8');
+
+            // Extract summary
+            const summaryMatch = xmlText.match(/<summary>([\s\S]*?)<\/summary>/);
+            const summary = summaryMatch ? summaryMatch[1].trim() : 'No summary found';
+            fs.writeFileSync('summary.txt', summary);
+
+            // Extract state
+            const stateMatch = xmlText.match(/<state>([\s\S]*?)<\/state>/);
+            const state = stateMatch ? stateMatch[1].trim() : 'success';
+            fs.writeFileSync('state.txt', state);
+
+            // Extract description
+            const descMatch = xmlText.match(/<description>([\s\S]*?)<\/description>/);
+            const desc = descMatch ? descMatch[1].trim() : 'AI Review completed';
+            fs.writeFileSync('description.txt', desc);
+          } catch (error) {
+            fs.writeFileSync('summary.txt', 'XML parsing failed');
+            fs.writeFileSync('state.txt', 'success');
+            fs.writeFileSync('description.txt', 'AI Review completed');
+          }
+          "
+
+          # Convert summary to markdown for review body
+          echo "## AI Review Summary" > review.md
+          echo "" >> review.md
+          cat summary.txt >> review.md
+
+          # Extract inline comments for GitHub API
+          echo "[]" > comments.json
+          if grep -q "<comment>" ai_output.xml; then
+            echo "Processing inline comments for GitHub API..."
+            node -e "
+            const fs = require('fs');
+            try {
+              const xmlText = fs.readFileSync('ai_output.xml', 'utf8');
+              const comments = [];
+
+              // Match all comment blocks
+              const commentBlocks = xmlText.match(/<comment>[\s\S]*?<\/comment>/g) || [];
+
+              for (const block of commentBlocks) {
+                const fileMatch = block.match(/<file>(.*?)<\/file>/);
+                const lineMatch = block.match(/<line>(.*?)<\/line>/);
+                const bodyMatch = block.match(/<body>([\s\S]*?)<\/body>/);
+
+                if (fileMatch && lineMatch && bodyMatch) {
+                  const file = fileMatch[1].trim();
+                  const line = parseInt(lineMatch[1].trim());
+                  const body = bodyMatch[1].trim();
+
+                  // Use absolute line number with side (much more reliable than position)
+                  comments.push({
+                    path: file,
+                    line: line,
+                    side: 'RIGHT',
+                    body: body.replace(/\"/g, '\\\\\"')
+                  });
+                }
+              }
+
+              // Write result
+              fs.writeFileSync('comments.json', JSON.stringify(comments));
+            } catch (error) {
+              // Fallback to empty array
+              fs.writeFileSync('comments.json', '[]');
+            }
+            "
+            echo "Generated comments JSON:"
+            cat comments.json
+          fi
+
+          # Create status JSON
+          STATE=$(cat state.txt)
+          DESC=$(cat description.txt)
+          echo "{\"state\":\"$STATE\",\"description\":\"$DESC\"}" > status.json
+
+      - name: Post PR review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Build review payload with body + comments array
+          jq -n \
+            --arg event "${REVIEW_EVENT}" \
+            --arg body "$(cat review.md)" \
+            --argjson comments "$(cat comments.json)" \
+            '{ event: $event, body: $body, comments: $comments }' > review_payload.json
+
+          # Post the review
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/pulls/$PR/reviews" \
+            --input review_payload.json
+
+      - name: Set commit status from AI StatusJSON
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Guard: create a default status if missing
+          if [ ! -f status.json ]; then
+            echo '{"state":"success","description":"AI Review completed"}' > status.json
+          fi
+
+          STATE=$(jq -r '.state // "success"' status.json)
+          DESC=$(jq -r '.description // "AI Review completed"' status.json)
+          SHA="${{ github.event.pull_request.head.sha }}"
+
+          gh api \
+            -X POST \
+            repos/${{ github.repository }}/statuses/${SHA} \
+            -f state="$STATE" \
+            -f context="AI PR Review" \
+            -f description="$DESC"

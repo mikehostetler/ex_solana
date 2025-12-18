@@ -5,6 +5,8 @@ defmodule ReqLLM.Providers.GoogleVertex.Auth do
   Implements service account JWT-based authentication to obtain access tokens.
   """
 
+  alias ReqLLM.Provider.Utils
+
   require Logger
 
   @token_uri "https://oauth2.googleapis.com/token"
@@ -12,17 +14,22 @@ defmodule ReqLLM.Providers.GoogleVertex.Auth do
   @token_lifetime_seconds 3600
 
   @doc """
-  Get an OAuth2 access token from a service account JSON file.
+  Get an OAuth2 access token from service account credentials.
+
+  Accepts credentials in multiple formats:
+  - File path (string) - if file exists, reads and parses JSON file
+  - JSON string (string) - if not a file, parses as JSON directly
+  - Map - uses as-is (already parsed, normalizes atom keys to strings)
 
   Generates a fresh token on each call. Tokens are valid for 1 hour.
 
   Returns `{:ok, access_token}` or `{:error, reason}`.
   """
-  def get_access_token(service_account_json_path) do
-    Logger.debug("Getting GCP access token from: #{service_account_json_path}")
+  def get_access_token(service_account) do
+    Logger.debug("Getting GCP access token")
 
     # Generate new token
-    with {:ok, service_account} <- read_service_account(service_account_json_path),
+    with {:ok, service_account} <- read_service_account(service_account),
          {:ok, jwt} <- create_jwt(service_account),
          {:ok, token_response} <- exchange_jwt_for_token(jwt) do
       access_token = Map.get(token_response, "access_token")
@@ -35,13 +42,39 @@ defmodule ReqLLM.Providers.GoogleVertex.Auth do
     end
   end
 
-  # Read and parse service account JSON file
-  defp read_service_account(path) do
+  # Read and parse service account - accepts file path, JSON string, or map
+  defp read_service_account(service_account) when is_map(service_account) do
+    # Already parsed map - normalize to string keys
+    {:ok, Utils.stringify_keys(service_account)}
+  end
+
+  defp read_service_account(path_or_json) when is_binary(path_or_json) do
+    # Check if it's a file path first (more reliable than checking for "{")
+    if File.exists?(path_or_json) do
+      read_service_account_file(path_or_json)
+    else
+      # Not a file - try parsing as JSON string
+      case Jason.decode(path_or_json) do
+        {:ok, json} ->
+          {:ok, json}
+
+        {:error, _reason} ->
+          {:error,
+           "Invalid service account credentials: " <>
+             "not a valid file path or JSON string (#{String.length(path_or_json)} chars)"}
+      end
+    end
+  end
+
+  defp read_service_account_file(path) do
     case File.read(path) do
       {:ok, content} ->
         case Jason.decode(content) do
-          {:ok, json} -> {:ok, json}
-          {:error, reason} -> {:error, "Failed to parse service account JSON: #{inspect(reason)}"}
+          {:ok, json} ->
+            {:ok, json}
+
+          {:error, reason} ->
+            {:error, "Failed to parse service account JSON: #{inspect(reason)}"}
         end
 
       {:error, reason} ->

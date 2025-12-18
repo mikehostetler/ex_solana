@@ -113,7 +113,9 @@ defmodule ReqLLM.MixProject do
             ReqLLM.Provider.Registry,
             ReqLLM.Provider.Options,
             ReqLLM.Provider.Utils,
-            ReqLLM.Provider.Defaults
+            ReqLLM.Provider.Defaults,
+            ReqLLM.Provider.ResponseBuilder,
+            ReqLLM.Provider.Defaults.ResponseBuilder
           ],
           Core: [
             ReqLLM,
@@ -164,7 +166,7 @@ defmodule ReqLLM.MixProject do
       {:ex_aws_auth, "~> 1.3"},
       {:server_sent_events, "~> 0.2"},
       {:splode, "~> 0.2.3"},
-      {:typed_struct, "~> 0.3.0"},
+      {:typedstruct, "~> 0.5"},
       {:uniq, "~> 0.6"},
       {:zoi, "~> 0.10"},
       {:jsv, "~> 0.11"},
