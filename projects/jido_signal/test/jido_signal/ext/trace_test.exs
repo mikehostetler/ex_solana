@@ -106,12 +106,9 @@ defmodule Jido.Signal.Ext.TraceTest do
 
       data = Trace.from_attrs(attrs)
 
-      assert %{
-               trace_id: "trace-123",
-               span_id: "span-456",
-               parent_span_id: nil,
-               causation_id: nil
-             } = data
+      assert %{trace_id: "trace-123", span_id: "span-456"} = data
+      refute Map.has_key?(data, :parent_span_id)
+      refute Map.has_key?(data, :causation_id)
     end
 
     test "deserializes full CloudEvents attributes" do
@@ -150,12 +147,9 @@ defmodule Jido.Signal.Ext.TraceTest do
 
       data = Trace.from_attrs(attrs)
 
-      assert %{
-               trace_id: "trace-123",
-               span_id: "span-456",
-               parent_span_id: nil,
-               causation_id: nil
-             } = data
+      assert %{trace_id: "trace-123", span_id: "span-456"} = data
+      refute Map.has_key?(data, :parent_span_id)
+      refute Map.has_key?(data, :causation_id)
     end
   end
 
@@ -171,8 +165,8 @@ defmodule Jido.Signal.Ext.TraceTest do
 
       assert original.trace_id == restored.trace_id
       assert original.span_id == restored.span_id
-      assert restored.parent_span_id == nil
-      assert restored.causation_id == nil
+      refute Map.has_key?(restored, :parent_span_id)
+      refute Map.has_key?(restored, :causation_id)
     end
 
     test "preserves full data through serialization round-trip" do
@@ -203,7 +197,7 @@ defmodule Jido.Signal.Ext.TraceTest do
       assert original.trace_id == restored.trace_id
       assert original.span_id == restored.span_id
       assert original.parent_span_id == restored.parent_span_id
-      assert restored.causation_id == nil
+      refute Map.has_key?(restored, :causation_id)
     end
   end
 
