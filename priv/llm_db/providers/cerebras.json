@@ -41,6 +41,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gpt-oss",
         "open_weights": true,
         "temperature": true
       },
@@ -97,6 +98,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen",
         "open_weights": true,
         "temperature": true
       },
@@ -142,42 +144,24 @@
           "tool_calls": false
         },
         "tools": {
-          "enabled": true,
           "strict": false
         }
       },
-      "cost": {
-        "input": 2,
-        "output": 2
-      },
+      "cost": null,
       "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
+      "extra": null,
       "family": null,
       "id": "qwen-3-coder-480b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-07-23",
+      "knowledge": null,
+      "last_updated": null,
       "lifecycle": null,
-      "limits": {
-        "context": 131000,
-        "output": 32000
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
+      "limits": null,
+      "modalities": null,
       "model": null,
-      "name": "Qwen 3 Coder 480B",
+      "name": null,
       "provider": "cerebras",
       "provider_model_id": null,
-      "release_date": "2025-07-23",
+      "release_date": null,
       "tags": null
     },
     "zai-glm-4.6": {
@@ -209,6 +193,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "glm-4.6",
         "open_weights": true,
         "temperature": true
       },

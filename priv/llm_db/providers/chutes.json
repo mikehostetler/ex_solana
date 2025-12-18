@@ -10,6 +10,863 @@
   "extra": null,
   "id": "chutes",
   "models": {
+    "Alibaba-NLP/Tongyi-DeepResearch-30B-A3B": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0,
+        "output": 0
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "yi",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Alibaba-NLP/Tongyi-DeepResearch-30B-A3B",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Tongyi DeepResearch 30B A3B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "ArliAI/QwQ-32B-ArliAI-RpR-v1": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "text": true,
+          "tool_calls": false
+        },
+        "tools": {
+          "enabled": false,
+          "parallel": false,
+          "streaming": false,
+          "strict": false
+        }
+      },
+      "cost": {
+        "input": 0.03,
+        "output": 0.11
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwq",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "ArliAI/QwQ-32B-ArliAI-RpR-v1",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "QwQ 32B ArliAI RpR V1",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "MiniMaxAI/MiniMax-M2": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.26,
+        "output": 1.02
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "minimax",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "MiniMaxAI/MiniMax-M2",
+      "knowledge": "2024-10",
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 196608,
+        "output": 196608
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "MiniMax M2",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-10-27",
+      "tags": null
+    },
+    "NousResearch/DeepHermes-3-Mistral-24B-Preview": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.05,
+        "output": 0.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "mistral",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "NousResearch/DeepHermes-3-Mistral-24B-Preview",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepHermes 3 Mistral 24B Preview",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "NousResearch/Hermes-4-14B": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.01,
+        "output": 0.05
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "hermes",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "NousResearch/Hermes-4-14B",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 40960,
+        "output": 40960
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Hermes 4 14B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "NousResearch/Hermes-4-405B-FP8": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "hermes",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "NousResearch/Hermes-4-405B-FP8",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Hermes 4 405B FP8",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "NousResearch/Hermes-4-70B": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.11,
+        "output": 0.38
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "hermes",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "NousResearch/Hermes-4-70B",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Hermes 4 70B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "NousResearch/Hermes-4.3-36B": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.15,
+        "output": 0.6
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "hermes",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "NousResearch/Hermes-4.3-36B",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Hermes 4.3 36B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-12-11",
+      "tags": null
+    },
+    "OpenGVLab/InternVL3-78B": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.1,
+        "output": 0.39
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "internvl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "OpenGVLab/InternVL3-78B",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "InternVL3 78B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen2.5-72B-Instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.07,
+        "output": 0.26
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen2.5-72B-Instruct",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 72B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen2.5-Coder-32B-Instruct": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.03,
+        "output": 0.11
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5-coder",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 Coder 32B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen2.5-VL-32B-Instruct": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.05,
+        "output": 0.22
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen2.5-VL-32B-Instruct",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 16384,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 VL 32B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen2.5-VL-72B-Instruct": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.03,
+        "output": 0.13
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen2.5-VL-72B-Instruct",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 VL 72B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen3-14B": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.05,
+        "output": 0.22
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-14B",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 40960,
+        "output": 40960
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 14B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen3-235B-A22B": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-235B-A22B",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 40960,
+        "output": 40960
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 235B A22B",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.08,
+        "output": 0.55
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "knowledge": "2025-04",
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 235B A22B Instruct 2507",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-04-28",
+      "tags": null
+    },
+    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.11,
+        "output": 0.6
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-235B-A22B-Thinking-2507",
+      "knowledge": "2025-04",
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-235B-A22B-Thinking-2507",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-07-25",
+      "tags": null
+    },
     "Qwen/Qwen3-30B-A3B": {
       "aliases": [],
       "capabilities": {
@@ -37,6 +894,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -91,6 +949,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -118,7 +977,7 @@
       "release_date": "2025-07-25",
       "tags": null
     },
-    "zai-org/GLM-4.6": {
+    "Qwen/Qwen3-32B": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -139,77 +998,24 @@
         }
       },
       "cost": {
-        "input": 0.4,
-        "output": 1.75
+        "input": 0.08,
+        "output": 0.24
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "zai-org/GLM-4.6",
-      "knowledge": "2025-04",
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 202752,
-        "output": 202752
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "GLM 4.6",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-10-30",
-      "tags": null
-    },
-    "NousResearch/DeepHermes-3-Mistral-24B-Preview": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.15,
-        "output": 0.59
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "NousResearch/DeepHermes-3-Mistral-24B-Preview",
+      "id": "Qwen/Qwen3-32B",
       "knowledge": null,
-      "last_updated": "2025-11-08",
+      "last_updated": "2025-12-03",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 32768
+        "context": 40960,
+        "output": 40960
       },
       "modalities": {
         "input": [
@@ -220,67 +1026,13 @@
         ]
       },
       "model": null,
-      "name": "DeepHermes 3 Mistral 24B Preview",
+      "name": "Qwen3 32B",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
       "tags": null
     },
-    "deepseek-ai/DeepSeek-V3.1": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.2,
-        "output": 0.8
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-ai/DeepSeek-V3.1",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek V3.1",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-08-21",
-      "tags": null
-    },
-    "chutesai/Mistral-Small-3.2-24B-Instruct-2506": {
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -302,181 +1054,18 @@
       },
       "cost": {
         "input": 0.06,
-        "output": 0.18
+        "output": 0.25
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3-coder",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "chutesai/Mistral-Small-3.2-24B-Instruct-2506",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Mistral Small 3.2 24B Instruct (2506)",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-06-20",
-      "tags": null
-    },
-    "Qwen/Qwen3-VL-235B-A22B-Thinking": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.3,
-        "output": 1.2
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen3-VL-235B-A22B-Thinking",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 262144
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 VL 235B A22B Thinking",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "Qwen/Qwen3-Next-80B-A3B-Instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.1,
-        "output": 0.8
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
+      "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
       "knowledge": "2025-04",
-      "last_updated": "2025-09-11",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 262144
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 Next 80B A3B Instruct",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-09-11",
-      "tags": null
-    },
-    "moonshotai/Kimi-K2-Instruct-0905": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.39,
-        "output": 1.9
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "moonshotai/Kimi-K2-Instruct-0905",
-      "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
@@ -492,64 +1081,10 @@
         ]
       },
       "model": null,
-      "name": "Kimi K2 Instruct 0905",
+      "name": "Qwen3 Coder 30B A3B Instruct",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2024-09-05",
-      "tags": null
-    },
-    "NousResearch/Hermes-4-70B": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.11,
-        "output": 0.38
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "NousResearch/Hermes-4-70B",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Hermes 4 70B",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
+      "release_date": "2025-07-25",
       "tags": null
     },
     "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8": {
@@ -579,6 +1114,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3-coder",
         "open_weights": false,
         "temperature": true
       },
@@ -601,6 +1137,399 @@
       },
       "model": null,
       "name": "Qwen3 Coder 480B A35B Instruct (FP8)",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-08-01",
+      "tags": null
+    },
+    "Qwen/Qwen3-Next-80B-A3B-Instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.1,
+        "output": 0.8
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
+      "knowledge": "2025-04",
+      "last_updated": "2025-09-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 Next 80B A3B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-09-11",
+      "tags": null
+    },
+    "Qwen/Qwen3-VL-235B-A22B-Instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 VL 235B A22B Instruct",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "Qwen/Qwen3-VL-235B-A22B-Thinking": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "Qwen/Qwen3-VL-235B-A22B-Thinking",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 262144
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 VL 235B A22B Thinking",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "chutesai/Mistral-Small-3.1-24B-Instruct-2503": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.03,
+        "output": 0.11
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "mistral-small",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "chutesai/Mistral-Small-3.1-24B-Instruct-2503",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Mistral Small 3.1 24B Instruct 2503",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "chutesai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.06,
+        "output": 0.18
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "mistral-small",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "chutesai/Mistral-Small-3.2-24B-Instruct-2506",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Mistral Small 3.2 24B Instruct (2506)",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-06-20",
+      "tags": null
+    },
+    "deepseek-ai/DeepSeek-R1": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "text": true,
+          "tool_calls": false
+        },
+        "tools": {
+          "enabled": false,
+          "parallel": false,
+          "streaming": false,
+          "strict": false
+        }
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-r1",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-ai/DeepSeek-R1",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 163840,
+        "output": 163840
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "deepseek-ai/DeepSeek-R1-0528": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.4,
+        "output": 1.75
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-r1",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-ai/DeepSeek-R1-0528",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 163840,
+        "output": 163840
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 (0528)",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-08-01",
@@ -637,6 +1566,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -662,122 +1592,6 @@
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-05-29",
-      "tags": null
-    },
-    "microsoft/MAI-DS-R1-FP8": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "text": true,
-          "tool_calls": false
-        },
-        "tools": {
-          "enabled": false,
-          "parallel": false,
-          "streaming": false,
-          "strict": false
-        }
-      },
-      "cost": {
-        "input": 0.3,
-        "output": 1.2
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "microsoft/MAI-DS-R1-FP8",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "MAI DS R1 FP8",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "deepseek-ai/DeepSeek-R1": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "text": true,
-          "tool_calls": false
-        },
-        "tools": {
-          "enabled": false,
-          "parallel": false,
-          "streaming": false,
-          "strict": false
-        }
-      },
-      "cost": {
-        "input": 0.3,
-        "output": 1.2
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-ai/DeepSeek-R1",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
       "tags": null
     },
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {
@@ -807,6 +1621,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-r1-distill-llama",
         "open_weights": true,
         "temperature": true
       },
@@ -844,6 +1659,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": true,
         "temperature": true
       },
@@ -871,62 +1687,45 @@
       "release_date": "2025-11-08",
       "tags": null
     },
-    "unsloth/gemma-3-27b-it": {
+    "deepseek-ai/DeepSeek-V3-0324": {
       "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
+      "capabilities": null,
       "cost": {
-        "input": 0.13,
-        "output": 0.52
+        "input": 0.24,
+        "output": 0.84
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "deepseek-v3",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "unsloth/gemma-3-27b-it",
+      "id": "deepseek-ai/DeepSeek-V3-0324",
       "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
-        "context": 96000,
-        "output": 96000
+        "context": 163840,
+        "output": 163840
       },
       "modalities": {
         "input": [
-          "text",
-          "image"
+          "text"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Gemma 3 27b It",
+      "name": "DeepSeek V3 (0324)",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-11-08",
+      "release_date": "2025-08-01",
       "tags": null
     },
-    "NousResearch/Hermes-4-14B": {
+    "deepseek-ai/DeepSeek-V3.1": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -947,23 +1746,24 @@
         }
       },
       "cost": {
-        "input": 0.03,
-        "output": 0.11
+        "input": 0.2,
+        "output": 0.8
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "deepseek-v3",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "NousResearch/Hermes-4-14B",
+      "id": "deepseek-ai/DeepSeek-V3.1",
       "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
-        "context": 40960,
-        "output": 40960
+        "context": 163840,
+        "output": 163840
       },
       "modalities": {
         "input": [
@@ -974,10 +1774,10 @@
         ]
       },
       "model": null,
-      "name": "Hermes 4 14B",
+      "name": "DeepSeek V3.1",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-11-08",
+      "release_date": "2025-08-21",
       "tags": null
     },
     "deepseek-ai/DeepSeek-V3.1-Terminus": {
@@ -1007,6 +1807,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": true,
         "temperature": true
       },
@@ -1034,7 +1835,7 @@
       "release_date": "2025-09-22",
       "tags": null
     },
-    "NousResearch/Hermes-4-405B-FP8": {
+    "deepseek-ai/DeepSeek-V3.2": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1055,23 +1856,24 @@
         }
       },
       "cost": {
-        "input": 0.3,
-        "output": 1.2
+        "input": 0.27,
+        "output": 0.41
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "NousResearch/Hermes-4-405B-FP8",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
+      "id": "deepseek-ai/DeepSeek-V3.2",
+      "knowledge": "2025-12",
+      "last_updated": "2025-12-11",
       "lifecycle": null,
       "limits": {
-        "context": 131072,
-        "output": 131072
+        "context": 163840,
+        "output": 16384
       },
       "modalities": {
         "input": [
@@ -1082,13 +1884,13 @@
         ]
       },
       "model": null,
-      "name": "Hermes 4 405B FP8",
+      "name": "DeepSeek V3.2",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-11-08",
+      "release_date": "2025-12-01",
       "tags": null
     },
-    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
+    "deepseek-ai/DeepSeek-V3.2-Speciale-TEE": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1102,6 +1904,65 @@
           "enabled": true
         },
         "streaming": {
+          "text": true,
+          "tool_calls": false
+        },
+        "tools": {
+          "enabled": false,
+          "parallel": false,
+          "streaming": false,
+          "strict": false
+        }
+      },
+      "cost": {
+        "input": 0.27,
+        "output": 0.41
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-v3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-ai/DeepSeek-V3.2-Speciale-TEE",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 163840,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek V3.2 Speciale TEE",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-12-11",
+      "tags": null
+    },
+    "mistralai/Devstral-2-123B-Instruct-2512": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
           "tool_calls": true
         },
         "tools": {
@@ -1109,18 +1970,74 @@
         }
       },
       "cost": {
-        "input": 0.11,
+        "input": 0.15,
         "output": 0.6
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "devstral",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "Qwen/Qwen3-235B-A22B-Thinking-2507",
-      "knowledge": "2025-04",
+      "id": "mistralai/Devstral-2-123B-Instruct-2512",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Devstral 2 123B Instruct 2512",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-12-11",
+      "tags": null
+    },
+    "moonshotai/Kimi-K2-Instruct-0905": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.39,
+        "output": 1.9
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "kimi-k2",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "moonshotai/Kimi-K2-Instruct-0905",
+      "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
@@ -1136,13 +2053,13 @@
         ]
       },
       "model": null,
-      "name": "Qwen3-235B-A22B-Thinking-2507",
+      "name": "Kimi K2 Instruct 0905",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-07-25",
+      "release_date": "2024-09-05",
       "tags": null
     },
-    "meituan-longcat/LongCat-Flash-Chat-FP8": {
+    "moonshotai/Kimi-K2-Thinking": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1153,7 +2070,7 @@
           "strict": false
         },
         "reasoning": {
-          "enabled": false
+          "enabled": true
         },
         "streaming": {
           "tool_calls": true
@@ -1163,17 +2080,73 @@
         }
       },
       "cost": {
-        "input": 0,
-        "output": 0
+        "input": 0.45,
+        "output": 2.35
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "kimi-k2",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "meituan-longcat/LongCat-Flash-Chat-FP8",
+      "id": "moonshotai/Kimi-K2-Thinking",
+      "knowledge": null,
+      "last_updated": "2025-12-03",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Kimi K2 Thinking",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "openai/gpt-oss-120b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.04,
+        "output": 0.4
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "gpt-oss",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "openai/gpt-oss-120b",
       "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
@@ -1190,13 +2163,13 @@
         ]
       },
       "model": null,
-      "name": "LongCat Flash Chat FP8",
+      "name": "GPT OSS 120B",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-09-10",
+      "release_date": "2025-08-05",
       "tags": null
     },
-    "unsloth/Mistral-Small-24B-Instruct-2501": {
+    "openai/gpt-oss-20b": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1207,7 +2180,7 @@
           "strict": false
         },
         "reasoning": {
-          "enabled": false
+          "enabled": true
         },
         "streaming": {
           "tool_calls": true
@@ -1217,23 +2190,62 @@
         }
       },
       "cost": {
-        "input": 0.05,
-        "output": 0.22
+        "input": 0,
+        "output": 0
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gpt-oss",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "unsloth/Mistral-Small-24B-Instruct-2501",
+      "id": "openai/gpt-oss-20b",
       "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 32768
+        "context": 131072,
+        "output": 131072
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Gpt Oss 20b",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-11-08",
+      "tags": null
+    },
+    "rednote-hilab/dots.ocr": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.01,
+        "output": 0.01
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "dots.ocr",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "rednote-hilab/dots.ocr",
+      "knowledge": null,
+      "last_updated": "2025-11-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 131072
       },
       "modalities": {
         "input": [
@@ -1245,7 +2257,7 @@
         ]
       },
       "model": null,
-      "name": "Mistral Small 24B Instruct 2501",
+      "name": "Dots.Ocr",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
@@ -1282,6 +2294,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-r1",
         "open_weights": true,
         "temperature": true
       },
@@ -1307,393 +2320,6 @@
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-04-26",
-      "tags": null
-    },
-    "Qwen/Qwen3-32B": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.05,
-        "output": 0.2
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen3-32B",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 40960,
-        "output": 40960
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 32B",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "unsloth/gemma-3-4b-it": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0,
-        "output": 0
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "unsloth/gemma-3-4b-it",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 96000,
-        "output": 96000
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Gemma 3 4b It",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "deepseek-ai/DeepSeek-V3-0324": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.24,
-        "output": 0.84
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-ai/DeepSeek-V3-0324",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek V3 (0324)",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-08-01",
-      "tags": null
-    },
-    "Qwen/Qwen3-14B": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.05,
-        "output": 0.22
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen3-14B",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 40960,
-        "output": 40960
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 14B",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "Qwen/Qwen2.5-Coder-32B-Instruct": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.04,
-        "output": 0.16
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5 Coder 32B Instruct",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "chutesai/Mistral-Small-3.1-24B-Instruct-2503": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.05,
-        "output": 0.22
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "chutesai/Mistral-Small-3.1-24B-Instruct-2503",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Mistral Small 3.1 24B Instruct 2503",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "ArliAI/QwQ-32B-ArliAI-RpR-v1": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "text": true,
-          "tool_calls": false
-        },
-        "tools": {
-          "enabled": false,
-          "parallel": false,
-          "streaming": false,
-          "strict": false
-        }
-      },
-      "cost": {
-        "input": 0.03,
-        "output": 0.11
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "ArliAI/QwQ-32B-ArliAI-RpR-v1",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "QwQ 32B ArliAI RpR V1",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "deepseek-ai/DeepSeek-V3.2-Exp": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.25,
-        "output": 0.35
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-ai/DeepSeek-V3.2-Exp",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek V3.2 Exp",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-09-29",
       "tags": null
     },
     "tngtech/DeepSeek-TNG-R1T2-Chimera": {
@@ -1723,6 +2349,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-r1",
         "open_weights": true,
         "temperature": true
       },
@@ -1750,7 +2377,7 @@
       "release_date": "2025-07-08",
       "tags": null
     },
-    "MiniMaxAI/MiniMax-M2": {
+    "tngtech/TNG-R1T-Chimera-TEE": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1771,23 +2398,24 @@
         }
       },
       "cost": {
-        "input": 0.26,
-        "output": 1.02
+        "input": 0.3,
+        "output": 1.2
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "tng-r1t-chimera-tee",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "MiniMaxAI/MiniMax-M2",
-      "knowledge": "2024-10",
-      "last_updated": "2025-11-08",
+      "id": "tngtech/TNG-R1T-Chimera-TEE",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
       "lifecycle": null,
       "limits": {
-        "context": 196608,
-        "output": 196608
+        "context": 163840,
+        "output": 163840
       },
       "modalities": {
         "input": [
@@ -1798,51 +2426,51 @@
         ]
       },
       "model": null,
-      "name": "MiniMax M2",
+      "name": "TNG R1T Chimera TEE",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-10-27",
+      "release_date": "2025-12-11",
       "tags": null
     },
-    "Qwen/Qwen2.5-VL-72B-Instruct": {
+    "unsloth/Mistral-Nemo-Instruct-2407": {
       "aliases": [],
       "capabilities": null,
       "cost": {
-        "input": 0.08,
-        "output": 0.33
+        "input": 0.02,
+        "output": 0.04
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "mistral-nemo",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "Qwen/Qwen2.5-VL-72B-Instruct",
+      "id": "unsloth/Mistral-Nemo-Instruct-2407",
       "knowledge": null,
-      "last_updated": "2025-11-08",
+      "last_updated": "2025-12-03",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 32768
+        "context": 131072,
+        "output": 131072
       },
       "modalities": {
         "input": [
-          "text",
-          "image"
+          "text"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Qwen2.5 VL 72B Instruct",
+      "name": "Mistral Nemo Instruct 2407",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
       "tags": null
     },
-    "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+    "unsloth/Mistral-Small-24B-Instruct-2501": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1863,88 +2491,36 @@
         }
       },
       "cost": {
-        "input": 0.08,
-        "output": 0.55
+        "input": 0.03,
+        "output": 0.11
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "mistral-small",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
-      "knowledge": "2025-04",
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 262144
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 235B A22B Instruct 2507",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-04-28",
-      "tags": null
-    },
-    "Alibaba-NLP/Tongyi-DeepResearch-30B-A3B": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0,
-        "output": 0
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Alibaba-NLP/Tongyi-DeepResearch-30B-A3B",
+      "id": "unsloth/Mistral-Small-24B-Instruct-2501",
       "knowledge": null,
-      "last_updated": "2025-11-08",
+      "last_updated": "2025-12-11",
       "lifecycle": null,
       "limits": {
-        "context": 131072,
-        "output": 131072
+        "context": 32768,
+        "output": 32768
       },
       "modalities": {
         "input": [
-          "text"
+          "text",
+          "image"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Tongyi DeepResearch 30B A3B",
+      "name": "Mistral Small 24B Instruct 2501",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
@@ -1960,6 +2536,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gemma-3",
         "open_weights": true,
         "temperature": true
       },
@@ -1988,7 +2565,7 @@
       "release_date": "2025-11-08",
       "tags": null
     },
-    "Qwen/Qwen3-VL-235B-A22B-Instruct": {
+    "unsloth/gemma-3-27b-it": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2009,23 +2586,24 @@
         }
       },
       "cost": {
-        "input": 0.3,
-        "output": 1.2
+        "input": 0.04,
+        "output": 0.15
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gemma-3",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "id": "unsloth/gemma-3-27b-it",
       "knowledge": null,
-      "last_updated": "2025-11-08",
+      "last_updated": "2025-12-11",
       "lifecycle": null,
       "limits": {
-        "context": 262144,
-        "output": 262144
+        "context": 96000,
+        "output": 96000
       },
       "modalities": {
         "input": [
@@ -2037,32 +2615,15 @@
         ]
       },
       "model": null,
-      "name": "Qwen3 VL 235B A22B Instruct",
+      "name": "Gemma 3 27b It",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
       "tags": null
     },
-    "openai/gpt-oss-20b": {
+    "unsloth/gemma-3-4b-it": {
       "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
+      "capabilities": null,
       "cost": {
         "input": 0,
         "output": 0
@@ -2070,190 +2631,30 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gemma-3",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "openai/gpt-oss-20b",
+      "id": "unsloth/gemma-3-4b-it",
       "knowledge": null,
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
-        "context": 131072,
-        "output": 131072
+        "context": 96000,
+        "output": 96000
       },
       "modalities": {
         "input": [
-          "text"
+          "text",
+          "image"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Gpt Oss 20b",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "moonshotai/Kimi-K2-Thinking": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.55,
-        "output": 2.25
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "moonshotai/Kimi-K2-Thinking",
-      "knowledge": null,
-      "last_updated": "2025-11-13",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Kimi K2 Thinking",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "zai-org/GLM-4.5-Air": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0,
-        "output": 0
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "zai-org/GLM-4.5-Air",
-      "knowledge": "2025-04",
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "GLM 4.5 Air",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-07-28",
-      "tags": null
-    },
-    "Qwen/Qwen2.5-72B-Instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.07,
-        "output": 0.26
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen2.5-72B-Instruct",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5 72B Instruct",
+      "name": "Gemma 3 4b It",
       "provider": "chutes",
       "provider_model_id": null,
       "release_date": "2025-11-08",
@@ -2286,6 +2687,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "glm-4.5",
         "open_weights": true,
         "temperature": true
       },
@@ -2313,7 +2715,7 @@
       "release_date": "2025-10-30",
       "tags": null
     },
-    "openai/gpt-oss-120b": {
+    "zai-org/GLM-4.5-Air": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2334,18 +2736,19 @@
         }
       },
       "cost": {
-        "input": 0.04,
-        "output": 0.4
+        "input": 0,
+        "output": 0
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "glm-4.5-air",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "openai/gpt-oss-120b",
-      "knowledge": null,
+      "id": "zai-org/GLM-4.5-Air",
+      "knowledge": "2025-04",
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
@@ -2361,50 +2764,13 @@
         ]
       },
       "model": null,
-      "name": "GPT OSS 120B",
+      "name": "GLM 4.5 Air",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-08-05",
+      "release_date": "2025-07-28",
       "tags": null
     },
-    "unsloth/Mistral-Nemo-Instruct-2407": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.03,
-        "output": 0.11
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "unsloth/Mistral-Nemo-Instruct-2407",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Mistral Nemo Instruct 2407",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "deepseek-ai/DeepSeek-R1-0528": {
+    "zai-org/GLM-4.6": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2431,185 +2797,18 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-ai/DeepSeek-R1-0528",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 163840,
-        "output": 163840
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1 (0528)",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-08-01",
-      "tags": null
-    },
-    "rednote-hilab/dots.ocr": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.01,
-        "output": 0.01
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
+        "family": "glm-4.6",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "rednote-hilab/dots.ocr",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 131072
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Dots.Ocr",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "OpenGVLab/InternVL3-78B": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.07,
-        "output": 0.26
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "OpenGVLab/InternVL3-78B",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "InternVL3 78B",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "Qwen/Qwen2.5-VL-32B-Instruct": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.05,
-        "output": 0.22
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen2.5-VL-32B-Instruct",
-      "knowledge": null,
-      "last_updated": "2025-11-08",
-      "lifecycle": null,
-      "limits": {
-        "context": 16384,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5 VL 32B Instruct",
-      "provider": "chutes",
-      "provider_model_id": null,
-      "release_date": "2025-11-08",
-      "tags": null
-    },
-    "Qwen/Qwen3-Coder-30B-A3B-Instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.06,
-        "output": 0.25
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "id": "zai-org/GLM-4.6",
       "knowledge": "2025-04",
       "last_updated": "2025-11-08",
       "lifecycle": null,
       "limits": {
-        "context": 262144,
-        "output": 262144
+        "context": 202752,
+        "output": 202752
       },
       "modalities": {
         "input": [
@@ -2620,13 +2819,51 @@
         ]
       },
       "model": null,
-      "name": "Qwen3 Coder 30B A3B Instruct",
+      "name": "GLM 4.6",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-07-25",
+      "release_date": "2025-10-30",
       "tags": null
     },
-    "Qwen/Qwen3-235B-A22B": {
+    "zai-org/GLM-4.6-TEE": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "glm-4.6",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "zai-org/GLM-4.6-TEE",
+      "knowledge": null,
+      "last_updated": "2025-12-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "GLM 4.6 TEE",
+      "provider": "chutes",
+      "provider_model_id": null,
+      "release_date": "2025-12-11",
+      "tags": null
+    },
+    "zai-org/GLM-4.6V": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2648,36 +2885,38 @@
       },
       "cost": {
         "input": 0.3,
-        "output": 1.2
+        "output": 0.9
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "glm-4.6v",
         "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "Qwen/Qwen3-235B-A22B",
+      "id": "zai-org/GLM-4.6V",
       "knowledge": null,
-      "last_updated": "2025-11-08",
+      "last_updated": "2025-12-11",
       "lifecycle": null,
       "limits": {
-        "context": 40960,
-        "output": 40960
+        "context": 131072,
+        "output": 65536
       },
       "modalities": {
         "input": [
-          "text"
+          "text",
+          "image"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Qwen3 235B A22B",
+      "name": "GLM 4.6V",
       "provider": "chutes",
       "provider_model_id": null,
-      "release_date": "2025-11-08",
+      "release_date": "2025-12-11",
       "tags": null
     }
   },

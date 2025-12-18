@@ -10,7 +10,7 @@
   "extra": null,
   "id": "alibaba_cn",
   "models": {
-    "qwen2-5-vl-7b-instruct": {
+    "deepseek-r1": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -21,7 +21,117 @@
           "strict": false
         },
         "reasoning": {
-          "enabled": false
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.574,
+        "output": 2.294
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-r1",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-0528": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.574,
+        "output": 2.294
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-r1",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-0528",
+      "knowledge": null,
+      "last_updated": "2025-05-28",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 0528",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-05-28",
+      "tags": null
+    },
+    "deepseek-r1-distill-llama-70b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
         },
         "streaming": {
           "tool_calls": true
@@ -32,37 +142,312 @@
       },
       "cost": {
         "input": 0.287,
-        "output": 0.717
+        "output": 0.861
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "deepseek-r1-distill-llama",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen2-5-vl-7b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09",
+      "id": "deepseek-r1-distill-llama-70b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
       "lifecycle": null,
       "limits": {
-        "context": 131072,
-        "output": 8192
+        "context": 32768,
+        "output": 16384
       },
       "modalities": {
         "input": [
-          "text",
-          "image"
+          "text"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Qwen2.5-VL 7B Instruct",
+      "name": "DeepSeek R1 Distill Llama 70B",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-09",
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-distill-llama-8b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0,
+        "output": 0
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "deepseek-r1-distill-llama",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-distill-llama-8b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 Distill Llama 8B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-distill-qwen-1-5b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0,
+        "output": 0
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-distill-qwen-1-5b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 Distill Qwen 1.5B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-distill-qwen-14b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.144,
+        "output": 0.431
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-distill-qwen-14b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 Distill Qwen 14B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-distill-qwen-32b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.287,
+        "output": 0.861
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-distill-qwen-32b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 Distill Qwen 32B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
+      "tags": null
+    },
+    "deepseek-r1-distill-qwen-7b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.072,
+        "output": 0.144
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "deepseek-r1-distill-qwen-7b",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "DeepSeek R1 Distill Qwen 7B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01-01",
       "tags": null
     },
     "deepseek-v3": {
@@ -92,6 +477,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": false,
         "temperature": true
       },
@@ -146,6 +532,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": false,
         "temperature": true
       },
@@ -171,431 +558,6 @@
       "provider": "alibaba_cn",
       "provider_model_id": null,
       "release_date": "2025-01-01",
-      "tags": null
-    },
-    "qwen3-next-80b-a3b-thinking": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.144,
-        "output": 1.434
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-next-80b-a3b-thinking",
-      "knowledge": "2025-04",
-      "last_updated": "2025-09",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-Next 80B-A3B (Thinking)",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-09",
-      "tags": null
-    },
-    "deepseek-r1": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.574,
-        "output": 2.294
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-r1",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-01-01",
-      "tags": null
-    },
-    "qwen3-omni-flash": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.058,
-        "input_audio": 3.584,
-        "output": 0.23,
-        "output_audio": 7.168
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-omni-flash",
-      "knowledge": "2024-04",
-      "last_updated": "2025-09-15",
-      "lifecycle": null,
-      "limits": {
-        "context": 65536,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image",
-          "audio",
-          "video"
-        ],
-        "output": [
-          "text",
-          "audio"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-Omni Flash",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-09-15",
-      "tags": null
-    },
-    "qwen-vl-ocr": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.717,
-        "output": 0.717
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-vl-ocr",
-      "knowledge": "2024-04",
-      "last_updated": "2025-04-13",
-      "lifecycle": null,
-      "limits": {
-        "context": 34096,
-        "output": 4096
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen-VL OCR",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-10-28",
-      "tags": null
-    },
-    "qwen2-5-72b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.574,
-        "output": 1.721
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-72b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5 72B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-09",
-      "tags": null
-    },
-    "qwen3-vl-plus": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.143353,
-        "output": 1.433525,
-        "reasoning": 4.300576
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-vl-plus",
-      "knowledge": "2025-04",
-      "last_updated": "2025-09-23",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-VL Plus",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-09-23",
-      "tags": null
-    },
-    "qwen3-235b-a22b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.287,
-        "output": 1.147,
-        "reasoning": 2.868
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-235b-a22b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 235B-A22B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
-      "tags": null
-    },
-    "qwen3-coder-30b-a3b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.216,
-        "output": 0.861
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-coder-30b-a3b-instruct",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 65536
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-Coder 30B-A3B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
       "tags": null
     },
     "deepseek-v3-2-exp": {
@@ -625,6 +587,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": false,
         "temperature": true
       },
@@ -652,191 +615,7 @@
       "release_date": "2025-01-01",
       "tags": null
     },
-    "qwen3-8b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.072,
-        "output": 0.287,
-        "reasoning": 0.717
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-8b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 8B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
-      "tags": null
-    },
-    "qwen-mt-plus": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.259,
-        "output": 0.775
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-mt-plus",
-      "knowledge": "2024-04",
-      "last_updated": "2025-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 16384,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen-MT Plus",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-01",
-      "tags": null
-    },
-    "qwen3-32b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.287,
-        "output": 1.147,
-        "reasoning": 2.868
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-32b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 32B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
-      "tags": null
-    },
-    "tongyi-intent-detect-v3": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.058,
-        "output": 0.144
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "tongyi-intent-detect-v3",
-      "knowledge": "2024-04",
-      "last_updated": "2024-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 8192,
-        "output": 1024
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Tongyi Intent Detect V3",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-01",
-      "tags": null
-    },
-    "qwen-math-plus": {
+    "moonshot-kimi-k2-instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -858,76 +637,23 @@
       },
       "cost": {
         "input": 0.574,
-        "output": 1.721
+        "output": 2.294
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "kimi-k2",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen-math-plus",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09-19",
-      "lifecycle": null,
-      "limits": {
-        "context": 4096,
-        "output": 3072
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen Math Plus",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-08-16",
-      "tags": null
-    },
-    "qwen2-5-14b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.144,
-        "output": 0.431
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-14b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09",
+      "id": "moonshot-kimi-k2-instruct",
+      "knowledge": null,
+      "last_updated": "2025-01-01",
       "lifecycle": null,
       "limits": {
         "context": 131072,
-        "output": 8192
+        "output": 131072
       },
       "modalities": {
         "input": [
@@ -938,13 +664,13 @@
         ]
       },
       "model": null,
-      "name": "Qwen2.5 14B Instruct",
+      "name": "Moonshot Kimi K2 Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-09",
+      "release_date": "2025-01-01",
       "tags": null
     },
-    "qwen2-5-coder-7b-instruct": {
+    "qvq-max": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -955,7 +681,7 @@
           "strict": false
         },
         "reasoning": {
-          "enabled": false
+          "enabled": true
         },
         "streaming": {
           "tool_calls": true
@@ -965,289 +691,20 @@
         }
       },
       "cost": {
-        "input": 0.144,
-        "output": 0.287
+        "input": 1.147,
+        "output": 4.588
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-coder-7b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-11",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5-Coder 7B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-11",
-      "tags": null
-    },
-    "qwen3-max": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.861,
-        "output": 3.441
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
+        "family": "qvq-max",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen3-max",
-      "knowledge": "2025-04",
-      "last_updated": "2025-09-23",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 65536
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 Max",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-09-23",
-      "tags": null
-    },
-    "qwq-32b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.287,
-        "output": 0.861
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwq-32b",
+      "id": "qvq-max",
       "knowledge": "2024-04",
-      "last_updated": "2024-12",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "QwQ 32B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-12",
-      "tags": null
-    },
-    "qwen-max": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.345,
-        "output": 1.377
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-max",
-      "knowledge": "2024-04",
-      "last_updated": "2025-01-25",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen Max",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-04-03",
-      "tags": null
-    },
-    "qwen3-coder-plus": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 1,
-        "output": 5
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-coder-plus",
-      "knowledge": "2025-04",
-      "last_updated": "2025-07-23",
-      "lifecycle": null,
-      "limits": {
-        "context": 1048576,
-        "output": 65536
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 Coder Plus",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-07-23",
-      "tags": null
-    },
-    "qwen-vl-plus": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.115,
-        "output": 0.287
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-vl-plus",
-      "knowledge": "2024-04",
-      "last_updated": "2025-08-15",
+      "last_updated": "2025-03-25",
       "lifecycle": null,
       "limits": {
         "context": 131072,
@@ -1263,64 +720,10 @@
         ]
       },
       "model": null,
-      "name": "Qwen-VL Plus",
+      "name": "QVQ Max",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-01-25",
-      "tags": null
-    },
-    "qwen3-coder-480b-a35b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.861,
-        "output": 3.441
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-coder-480b-a35b-instruct",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 262144,
-        "output": 65536
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-Coder 480B-A35B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
+      "release_date": "2025-03-25",
       "tags": null
     },
     "qwen-deep-research": {
@@ -1350,6 +753,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-deep-research",
         "open_weights": false,
         "temperature": true
       },
@@ -1377,61 +781,7 @@
       "release_date": "2024-01",
       "tags": null
     },
-    "deepseek-r1-0528": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.574,
-        "output": 2.294
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-r1-0528",
-      "knowledge": null,
-      "last_updated": "2025-05-28",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1 0528",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-05-28",
-      "tags": null
-    },
-    "qwen-plus-character": {
+    "qwen-doc-turbo": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1452,23 +802,24 @@
         }
       },
       "cost": {
-        "input": 0.115,
-        "output": 0.287
+        "input": 0.087,
+        "output": 0.144
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-doc",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen-plus-character",
+      "id": "qwen-doc-turbo",
       "knowledge": "2024-04",
       "last_updated": "2024-01",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 4096
+        "context": 131072,
+        "output": 8192
       },
       "modalities": {
         "input": [
@@ -1479,13 +830,13 @@
         ]
       },
       "model": null,
-      "name": "Qwen Plus Character",
+      "name": "Qwen Doc Turbo",
       "provider": "alibaba_cn",
       "provider_model_id": null,
       "release_date": "2024-01",
       "tags": null
     },
-    "deepseek-r1-distill-qwen-7b": {
+    "qwen-flash": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1506,23 +857,24 @@
         }
       },
       "cost": {
-        "input": 0.072,
-        "output": 0.144
+        "input": 0.022,
+        "output": 0.216
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-flash",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "deepseek-r1-distill-qwen-7b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
+      "id": "qwen-flash",
+      "knowledge": "2024-04",
+      "last_updated": "2025-07-28",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 16384
+        "context": 1000000,
+        "output": 32768
       },
       "modalities": {
         "input": [
@@ -1533,50 +885,68 @@
         ]
       },
       "model": null,
-      "name": "DeepSeek R1 Distill Qwen 7B",
+      "name": "Qwen Flash",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-01",
+      "release_date": "2025-07-28",
       "tags": null
     },
-    "qwen3-asr-flash": {
+    "qwen-long": {
       "aliases": [],
-      "capabilities": null,
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
       "cost": {
-        "input": 0.032,
-        "output": 0.032
+        "input": 0.072,
+        "output": 0.287
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-long",
         "open_weights": false,
-        "temperature": false
+        "temperature": true
       },
       "family": null,
-      "id": "qwen3-asr-flash",
+      "id": "qwen-long",
       "knowledge": "2024-04",
-      "last_updated": "2025-09-08",
+      "last_updated": "2025-01-25",
       "lifecycle": null,
       "limits": {
-        "context": 53248,
-        "output": 4096
+        "context": 10000000,
+        "output": 8192
       },
       "modalities": {
         "input": [
-          "audio"
+          "text"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "Qwen3-ASR Flash",
+      "name": "Qwen Long",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-09-08",
+      "release_date": "2025-01-25",
       "tags": null
     },
-    "qwen2-5-math-72b-instruct": {
+    "qwen-math-plus": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1603,13 +973,14 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "qwen-math",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen2-5-math-72b-instruct",
+      "id": "qwen-math-plus",
       "knowledge": "2024-04",
-      "last_updated": "2024-09",
+      "last_updated": "2024-09-19",
       "lifecycle": null,
       "limits": {
         "context": 4096,
@@ -1624,291 +995,13 @@
         ]
       },
       "model": null,
-      "name": "Qwen2.5-Math 72B Instruct",
+      "name": "Qwen Math Plus",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-09",
+      "release_date": "2024-08-16",
       "tags": null
     },
-    "qwen-vl-max": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.23,
-        "output": 0.574
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-vl-max",
-      "knowledge": "2024-04",
-      "last_updated": "2025-08-13",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen-VL Max",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-04-08",
-      "tags": null
-    },
-    "qwen3-vl-30b-a3b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.108,
-        "output": 0.431,
-        "reasoning": 1.076
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-vl-30b-a3b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-VL 30B-A3B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
-      "tags": null
-    },
-    "qwen3-omni-flash-realtime": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.23,
-        "input_audio": 3.584,
-        "output": 0.918,
-        "output_audio": 7.168
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-omni-flash-realtime",
-      "knowledge": "2024-04",
-      "last_updated": "2025-09-15",
-      "lifecycle": null,
-      "limits": {
-        "context": 65536,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image",
-          "audio"
-        ],
-        "output": [
-          "text",
-          "audio"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-Omni Flash Realtime",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-09-15",
-      "tags": null
-    },
-    "qwen3-coder-flash": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.144,
-        "output": 0.574
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-coder-flash",
-      "knowledge": "2025-04",
-      "last_updated": "2025-07-28",
-      "lifecycle": null,
-      "limits": {
-        "context": 1000000,
-        "output": 65536
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3 Coder Flash",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-07-28",
-      "tags": null
-    },
-    "qwq-plus": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.23,
-        "output": 0.574
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwq-plus",
-      "knowledge": "2024-04",
-      "last_updated": "2025-03-05",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "QwQ Plus",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-03-05",
-      "tags": null
-    },
-    "qwen2-5-coder-32b-instruct": {
+    "qwen-math-turbo": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -1935,126 +1028,18 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-coder-32b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-11",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5-Coder 32B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-11",
-      "tags": null
-    },
-    "deepseek-r1-distill-qwen-1-5b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0,
-        "output": 0
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
+        "family": "qwen-math",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "deepseek-r1-distill-qwen-1-5b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1 Distill Qwen 1.5B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-01-01",
-      "tags": null
-    },
-    "qwen-turbo": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.044,
-        "output": 0.087,
-        "reasoning": 0.431
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-turbo",
+      "id": "qwen-math-turbo",
       "knowledge": "2024-04",
-      "last_updated": "2025-07-15",
+      "last_updated": "2024-09-19",
       "lifecycle": null,
       "limits": {
-        "context": 1000000,
-        "output": 16384
+        "context": 4096,
+        "output": 3072
       },
       "modalities": {
         "input": [
@@ -2065,13 +1050,13 @@
         ]
       },
       "model": null,
-      "name": "Qwen Turbo",
+      "name": "Qwen Math Turbo",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-11-01",
+      "release_date": "2024-09-19",
       "tags": null
     },
-    "qwen3-next-80b-a3b-instruct": {
+    "qwen-max": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2092,23 +1077,24 @@
         }
       },
       "cost": {
-        "input": 0.144,
-        "output": 0.574
+        "input": 0.345,
+        "output": 1.377
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "qwen-max",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen3-next-80b-a3b-instruct",
-      "knowledge": "2025-04",
-      "last_updated": "2025-09",
+      "id": "qwen-max",
+      "knowledge": "2024-04",
+      "last_updated": "2025-01-25",
       "lifecycle": null,
       "limits": {
         "context": 131072,
-        "output": 32768
+        "output": 8192
       },
       "modalities": {
         "input": [
@@ -2119,10 +1105,86 @@
         ]
       },
       "model": null,
-      "name": "Qwen3-Next 80B-A3B Instruct",
+      "name": "Qwen Max",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-09",
+      "release_date": "2024-04-03",
+      "tags": null
+    },
+    "qwen-mt-plus": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.259,
+        "output": 0.775
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-mt",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-mt-plus",
+      "knowledge": "2024-04",
+      "last_updated": "2025-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 16384,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen-MT Plus",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01",
+      "tags": null
+    },
+    "qwen-mt-turbo": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.101,
+        "output": 0.28
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-mt",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-mt-turbo",
+      "knowledge": "2024-04",
+      "last_updated": "2025-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 16384,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen-MT Turbo",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-01",
       "tags": null
     },
     "qwen-omni-turbo": {
@@ -2154,6 +1216,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-omni",
         "open_weights": false,
         "temperature": true
       },
@@ -2185,262 +1248,6 @@
       "release_date": "2025-01-19",
       "tags": null
     },
-    "qwen-mt-turbo": {
-      "aliases": [],
-      "capabilities": null,
-      "cost": {
-        "input": 0.101,
-        "output": 0.28
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-mt-turbo",
-      "knowledge": "2024-04",
-      "last_updated": "2025-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 16384,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen-MT Turbo",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-01",
-      "tags": null
-    },
-    "qwen3-vl-235b-a22b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.286705,
-        "output": 1.14682,
-        "reasoning": 2.867051
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen3-vl-235b-a22b",
-      "knowledge": "2025-04",
-      "last_updated": "2025-04",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen3-VL 235B-A22B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-04",
-      "tags": null
-    },
-    "qwen2-5-32b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.287,
-        "output": 0.861
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-32b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5 32B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-09",
-      "tags": null
-    },
-    "qwen2-5-math-7b-instruct": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": false
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.144,
-        "output": 0.287
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": true,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen2-5-math-7b-instruct",
-      "knowledge": "2024-04",
-      "last_updated": "2024-09",
-      "lifecycle": null,
-      "limits": {
-        "context": 4096,
-        "output": 3072
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen2.5-Math 7B Instruct",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2024-09",
-      "tags": null
-    },
-    "qvq-max": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 1.147,
-        "output": 4.588
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qvq-max",
-      "knowledge": "2024-04",
-      "last_updated": "2025-03-25",
-      "lifecycle": null,
-      "limits": {
-        "context": 131072,
-        "output": 8192
-      },
-      "modalities": {
-        "input": [
-          "text",
-          "image"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "QVQ Max",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-03-25",
-      "tags": null
-    },
     "qwen-omni-turbo-realtime": {
       "aliases": [],
       "capabilities": {
@@ -2470,6 +1277,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-omni",
         "open_weights": false,
         "temperature": true
       },
@@ -2528,6 +1336,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen-plus",
         "open_weights": false,
         "temperature": true
       },
@@ -2555,61 +1364,7 @@
       "release_date": "2024-01-25",
       "tags": null
     },
-    "qwen-flash": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.022,
-        "output": 0.216
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "qwen-flash",
-      "knowledge": "2024-04",
-      "last_updated": "2025-07-28",
-      "lifecycle": null,
-      "limits": {
-        "context": 1000000,
-        "output": 32768
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "Qwen Flash",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-07-28",
-      "tags": null
-    },
-    "qwen2-5-vl-72b-instruct": {
+    "qwen-plus-character": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2630,19 +1385,131 @@
         }
       },
       "cost": {
-        "input": 2.294,
-        "output": 6.881
+        "input": 0.115,
+        "output": 0.287
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": true,
+        "family": "qwen-plus",
+        "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen2-5-vl-72b-instruct",
+      "id": "qwen-plus-character",
       "knowledge": "2024-04",
-      "last_updated": "2024-09",
+      "last_updated": "2024-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 32768,
+        "output": 4096
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen Plus Character",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-01",
+      "tags": null
+    },
+    "qwen-turbo": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.044,
+        "output": 0.087,
+        "reasoning": 0.431
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-turbo",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-turbo",
+      "knowledge": "2024-04",
+      "last_updated": "2025-07-15",
+      "lifecycle": null,
+      "limits": {
+        "context": 1000000,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen Turbo",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-11-01",
+      "tags": null
+    },
+    "qwen-vl-max": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.23,
+        "output": 0.574
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-vl",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-vl-max",
+      "knowledge": "2024-04",
+      "last_updated": "2025-08-13",
       "lifecycle": null,
       "limits": {
         "context": 131072,
@@ -2658,7 +1525,267 @@
         ]
       },
       "model": null,
-      "name": "Qwen2.5-VL 72B Instruct",
+      "name": "Qwen-VL Max",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-04-08",
+      "tags": null
+    },
+    "qwen-vl-ocr": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.717,
+        "output": 0.717
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-vl",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-vl-ocr",
+      "knowledge": "2024-04",
+      "last_updated": "2025-04-13",
+      "lifecycle": null,
+      "limits": {
+        "context": 34096,
+        "output": 4096
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen-VL OCR",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-10-28",
+      "tags": null
+    },
+    "qwen-vl-plus": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.115,
+        "output": 0.287
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen-vl",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen-vl-plus",
+      "knowledge": "2024-04",
+      "last_updated": "2025-08-15",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen-VL Plus",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-01-25",
+      "tags": null
+    },
+    "qwen2-5-14b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.144,
+        "output": 0.431
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen2-5-14b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 14B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-09",
+      "tags": null
+    },
+    "qwen2-5-32b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.287,
+        "output": 0.861
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen2-5-32b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 32B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-09",
+      "tags": null
+    },
+    "qwen2-5-72b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.574,
+        "output": 1.721
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen2-5-72b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5 72B Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
       "release_date": "2024-09",
@@ -2691,6 +1818,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen2.5",
         "open_weights": true,
         "temperature": true
       },
@@ -2718,61 +1846,7 @@
       "release_date": "2024-09",
       "tags": null
     },
-    "deepseek-r1-distill-qwen-32b": {
-      "aliases": [],
-      "capabilities": {
-        "chat": true,
-        "embeddings": false,
-        "json": {
-          "native": false,
-          "schema": false,
-          "strict": false
-        },
-        "reasoning": {
-          "enabled": true
-        },
-        "streaming": {
-          "tool_calls": true
-        },
-        "tools": {
-          "enabled": true
-        }
-      },
-      "cost": {
-        "input": 0.287,
-        "output": 0.861
-      },
-      "deprecated": false,
-      "extra": {
-        "attachment": false,
-        "open_weights": false,
-        "temperature": true
-      },
-      "family": null,
-      "id": "deepseek-r1-distill-qwen-32b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
-      "lifecycle": null,
-      "limits": {
-        "context": 32768,
-        "output": 16384
-      },
-      "modalities": {
-        "input": [
-          "text"
-        ],
-        "output": [
-          "text"
-        ]
-      },
-      "model": null,
-      "name": "DeepSeek R1 Distill Qwen 32B",
-      "provider": "alibaba_cn",
-      "provider_model_id": null,
-      "release_date": "2025-01-01",
-      "tags": null
-    },
-    "qwen-doc-turbo": {
+    "qwen2-5-coder-32b-instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2793,19 +1867,20 @@
         }
       },
       "cost": {
-        "input": 0.087,
-        "output": 0.144
+        "input": 0.287,
+        "output": 0.861
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
+        "family": "qwen2.5-coder",
+        "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "qwen-doc-turbo",
+      "id": "qwen2-5-coder-32b-instruct",
       "knowledge": "2024-04",
-      "last_updated": "2024-01",
+      "last_updated": "2024-11",
       "lifecycle": null,
       "limits": {
         "context": 131072,
@@ -2820,13 +1895,68 @@
         ]
       },
       "model": null,
-      "name": "Qwen Doc Turbo",
+      "name": "Qwen2.5-Coder 32B Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-01",
+      "release_date": "2024-11",
       "tags": null
     },
-    "moonshot-kimi-k2-instruct": {
+    "qwen2-5-coder-7b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.144,
+        "output": 0.287
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5-coder",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen2-5-coder-7b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-11",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5-Coder 7B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-11",
+      "tags": null
+    },
+    "qwen2-5-math-72b-instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2848,22 +1978,23 @@
       },
       "cost": {
         "input": 0.574,
-        "output": 2.294
+        "output": 1.721
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
+        "family": "qwen2.5-math",
+        "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "moonshot-kimi-k2-instruct",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
+      "id": "qwen2-5-math-72b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
       "lifecycle": null,
       "limits": {
-        "context": 131072,
-        "output": 131072
+        "context": 4096,
+        "output": 3072
       },
       "modalities": {
         "input": [
@@ -2874,13 +2005,13 @@
         ]
       },
       "model": null,
-      "name": "Moonshot Kimi K2 Instruct",
+      "name": "Qwen2.5-Math 72B Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-01",
+      "release_date": "2024-09",
       "tags": null
     },
-    "qwen-math-turbo": {
+    "qwen2-5-math-7b-instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -2901,19 +2032,20 @@
         }
       },
       "cost": {
-        "input": 0.287,
-        "output": 0.861
+        "input": 0.144,
+        "output": 0.287
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
+        "family": "qwen2.5-math",
+        "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "qwen-math-turbo",
+      "id": "qwen2-5-math-7b-instruct",
       "knowledge": "2024-04",
-      "last_updated": "2024-09-19",
+      "last_updated": "2024-09",
       "lifecycle": null,
       "limits": {
         "context": 4096,
@@ -2928,10 +2060,10 @@
         ]
       },
       "model": null,
-      "name": "Qwen Math Turbo",
+      "name": "Qwen2.5-Math 7B Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2024-09-19",
+      "release_date": "2024-09",
       "tags": null
     },
     "qwen2-5-omni-7b": {
@@ -2962,6 +2094,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen2.5-omni",
         "open_weights": true,
         "temperature": true
       },
@@ -2993,7 +2126,7 @@
       "release_date": "2024-12",
       "tags": null
     },
-    "deepseek-r1-distill-llama-70b": {
+    "qwen2-5-vl-72b-instruct": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -3004,7 +2137,63 @@
           "strict": false
         },
         "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
           "enabled": true
+        }
+      },
+      "cost": {
+        "input": 2.294,
+        "output": 6.881
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen2.5-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen2-5-vl-72b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen2.5-VL 72B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-09",
+      "tags": null
+    },
+    "qwen2-5-vl-7b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
         },
         "streaming": {
           "tool_calls": true
@@ -3015,36 +2204,38 @@
       },
       "cost": {
         "input": 0.287,
-        "output": 0.861
+        "output": 0.717
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
+        "family": "qwen2.5-vl",
+        "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "deepseek-r1-distill-llama-70b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
+      "id": "qwen2-5-vl-7b-instruct",
+      "knowledge": "2024-04",
+      "last_updated": "2024-09",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 16384
+        "context": 131072,
+        "output": 8192
       },
       "modalities": {
         "input": [
-          "text"
+          "text",
+          "image"
         ],
         "output": [
           "text"
         ]
       },
       "model": null,
-      "name": "DeepSeek R1 Distill Llama 70B",
+      "name": "Qwen2.5-VL 7B Instruct",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-01",
+      "release_date": "2024-09",
       "tags": null
     },
     "qwen3-14b": {
@@ -3075,6 +2266,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -3102,7 +2294,543 @@
       "release_date": "2025-04",
       "tags": null
     },
-    "deepseek-r1-distill-qwen-14b": {
+    "qwen3-235b-a22b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.287,
+        "output": 1.147,
+        "reasoning": 2.868
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-235b-a22b",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 235B-A22B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-32b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.287,
+        "output": 1.147,
+        "reasoning": 2.868
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-32b",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 32B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-8b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.072,
+        "output": 0.287,
+        "reasoning": 0.717
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-8b",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 8B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-asr-flash": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.032,
+        "output": 0.032
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": false,
+        "temperature": false
+      },
+      "family": null,
+      "id": "qwen3-asr-flash",
+      "knowledge": "2024-04",
+      "last_updated": "2025-09-08",
+      "lifecycle": null,
+      "limits": {
+        "context": 53248,
+        "output": 4096
+      },
+      "modalities": {
+        "input": [
+          "audio"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-ASR Flash",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-09-08",
+      "tags": null
+    },
+    "qwen3-coder-30b-a3b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.216,
+        "output": 0.861
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-coder",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-coder-30b-a3b-instruct",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-Coder 30B-A3B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-coder-480b-a35b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.861,
+        "output": 3.441
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-coder",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-coder-480b-a35b-instruct",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-Coder 480B-A35B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-coder-flash": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.144,
+        "output": 0.574
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-coder",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-coder-flash",
+      "knowledge": "2025-04",
+      "last_updated": "2025-07-28",
+      "lifecycle": null,
+      "limits": {
+        "context": 1000000,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 Coder Flash",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-07-28",
+      "tags": null
+    },
+    "qwen3-coder-plus": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 1,
+        "output": 5
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-coder",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-coder-plus",
+      "knowledge": "2025-04",
+      "last_updated": "2025-07-23",
+      "lifecycle": null,
+      "limits": {
+        "context": 1048576,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 Coder Plus",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-07-23",
+      "tags": null
+    },
+    "qwen3-max": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.861,
+        "output": 3.441
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-max",
+      "knowledge": "2025-04",
+      "last_updated": "2025-09-23",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3 Max",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-09-23",
+      "tags": null
+    },
+    "qwen3-next-80b-a3b-instruct": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.144,
+        "output": 0.574
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-next-80b-a3b-instruct",
+      "knowledge": "2025-04",
+      "last_updated": "2025-09",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-Next 80B-A3B Instruct",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-09",
+      "tags": null
+    },
+    "qwen3-next-80b-a3b-thinking": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -3124,22 +2852,23 @@
       },
       "cost": {
         "input": 0.144,
-        "output": 0.431
+        "output": 1.434
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
-        "open_weights": false,
+        "family": "qwen3",
+        "open_weights": true,
         "temperature": true
       },
       "family": null,
-      "id": "deepseek-r1-distill-qwen-14b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
+      "id": "qwen3-next-80b-a3b-thinking",
+      "knowledge": "2025-04",
+      "last_updated": "2025-09",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
-        "output": 16384
+        "context": 131072,
+        "output": 32768
       },
       "modalities": {
         "input": [
@@ -3150,13 +2879,13 @@
         ]
       },
       "model": null,
-      "name": "DeepSeek R1 Distill Qwen 14B",
+      "name": "Qwen3-Next 80B-A3B (Thinking)",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-01",
+      "release_date": "2025-09",
       "tags": null
     },
-    "deepseek-r1-distill-llama-8b": {
+    "qwen3-omni-flash": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -3177,40 +2906,47 @@
         }
       },
       "cost": {
-        "input": 0,
-        "output": 0
+        "input": 0.058,
+        "input_audio": 3.584,
+        "output": 0.23,
+        "output_audio": 7.168
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3-omni",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "deepseek-r1-distill-llama-8b",
-      "knowledge": null,
-      "last_updated": "2025-01-01",
+      "id": "qwen3-omni-flash",
+      "knowledge": "2024-04",
+      "last_updated": "2025-09-15",
       "lifecycle": null,
       "limits": {
-        "context": 32768,
+        "context": 65536,
         "output": 16384
       },
       "modalities": {
         "input": [
-          "text"
+          "text",
+          "image",
+          "audio",
+          "video"
         ],
         "output": [
-          "text"
+          "text",
+          "audio"
         ]
       },
       "model": null,
-      "name": "DeepSeek R1 Distill Llama 8B",
+      "name": "Qwen3-Omni Flash",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-01",
+      "release_date": "2025-09-15",
       "tags": null
     },
-    "qwen-long": {
+    "qwen3-omni-flash-realtime": {
       "aliases": [],
       "capabilities": {
         "chat": true,
@@ -3231,22 +2967,254 @@
         }
       },
       "cost": {
-        "input": 0.072,
-        "output": 0.287
+        "input": 0.23,
+        "input_audio": 3.584,
+        "output": 0.918,
+        "output_audio": 7.168
       },
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3-omni",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
-      "id": "qwen-long",
+      "id": "qwen3-omni-flash-realtime",
       "knowledge": "2024-04",
-      "last_updated": "2025-01-25",
+      "last_updated": "2025-09-15",
       "lifecycle": null,
       "limits": {
-        "context": 10000000,
+        "context": 65536,
+        "output": 16384
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio"
+        ],
+        "output": [
+          "text",
+          "audio"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-Omni Flash Realtime",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-09-15",
+      "tags": null
+    },
+    "qwen3-vl-235b-a22b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.286705,
+        "output": 1.14682,
+        "reasoning": 2.867051
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-vl-235b-a22b",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-VL 235B-A22B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-vl-30b-a3b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.108,
+        "output": 0.431,
+        "reasoning": 1.076
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-vl",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-vl-30b-a3b",
+      "knowledge": "2025-04",
+      "last_updated": "2025-04",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-VL 30B-A3B",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-04",
+      "tags": null
+    },
+    "qwen3-vl-plus": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.143353,
+        "output": 1.433525,
+        "reasoning": 4.300576
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwen3-vl",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwen3-vl-plus",
+      "knowledge": "2025-04",
+      "last_updated": "2025-09-23",
+      "lifecycle": null,
+      "limits": {
+        "context": 262144,
+        "output": 32768
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Qwen3-VL Plus",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-09-23",
+      "tags": null
+    },
+    "qwq-32b": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.287,
+        "output": 0.861
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwq",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwq-32b",
+      "knowledge": "2024-04",
+      "last_updated": "2024-12",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
         "output": 8192
       },
       "modalities": {
@@ -3258,10 +3226,103 @@
         ]
       },
       "model": null,
-      "name": "Qwen Long",
+      "name": "QwQ 32B",
       "provider": "alibaba_cn",
       "provider_model_id": null,
-      "release_date": "2025-01-25",
+      "release_date": "2024-12",
+      "tags": null
+    },
+    "qwq-plus": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 0.23,
+        "output": 0.574
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "qwq",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "qwq-plus",
+      "knowledge": "2024-04",
+      "last_updated": "2025-03-05",
+      "lifecycle": null,
+      "limits": {
+        "context": 131072,
+        "output": 8192
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "QwQ Plus",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2025-03-05",
+      "tags": null
+    },
+    "tongyi-intent-detect-v3": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 0.058,
+        "output": 0.144
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "yi",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "tongyi-intent-detect-v3",
+      "knowledge": "2024-04",
+      "last_updated": "2024-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 8192,
+        "output": 1024
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Tongyi Intent Detect V3",
+      "provider": "alibaba_cn",
+      "provider_model_id": null,
+      "release_date": "2024-01",
       "tags": null
     }
   },

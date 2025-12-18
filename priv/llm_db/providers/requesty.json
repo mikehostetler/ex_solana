@@ -39,6 +39,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -54,7 +55,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -96,6 +98,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true
       },
@@ -111,7 +114,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -153,6 +157,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true
       },
@@ -168,7 +173,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -210,6 +216,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true
       },
@@ -225,7 +232,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -236,6 +244,65 @@
       "provider": "requesty",
       "provider_model_id": null,
       "release_date": "2025-08-05",
+      "tags": null
+    },
+    "anthropic/claude-opus-4-5": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.5,
+        "cache_write": 6.25,
+        "input": 5,
+        "output": 25
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "claude-opus",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "anthropic/claude-opus-4-5",
+      "knowledge": "2025-03-31",
+      "last_updated": "2025-11-24",
+      "lifecycle": null,
+      "limits": {
+        "context": 200000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Claude Opus 4.5",
+      "provider": "requesty",
+      "provider_model_id": null,
+      "release_date": "2025-11-24",
       "tags": null
     },
     "anthropic/claude-sonnet-4": {
@@ -267,6 +334,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -282,7 +350,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -324,6 +393,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -339,7 +409,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -381,6 +452,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gemini-flash",
         "open_weights": false,
         "temperature": true
       },
@@ -441,6 +513,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gemini-pro",
         "open_weights": false,
         "temperature": true
       },
@@ -472,6 +545,67 @@
       "release_date": "2025-06-17",
       "tags": null
     },
+    "google/gemini-3-pro-preview": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.2,
+        "cache_write": 4.5,
+        "input": 2,
+        "output": 12
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "gemini-pro",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "google/gemini-3-pro-preview",
+      "knowledge": "2025-01",
+      "last_updated": "2025-11-18",
+      "lifecycle": null,
+      "limits": {
+        "context": 1048576,
+        "output": 65536
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Gemini 3 Pro",
+      "provider": "requesty",
+      "provider_model_id": null,
+      "release_date": "2025-11-18",
+      "tags": null
+    },
     "openai/gpt-4.1": {
       "aliases": [],
       "capabilities": {
@@ -500,6 +634,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4.1",
         "open_weights": false,
         "temperature": true
       },
@@ -556,6 +691,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4.1-mini",
         "open_weights": false,
         "temperature": true
       },
@@ -612,6 +748,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4o-mini",
         "open_weights": false,
         "temperature": true
       },
@@ -668,6 +805,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5",
         "open_weights": false,
         "temperature": false
       },
@@ -728,6 +866,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5-mini",
         "open_weights": false,
         "temperature": false
       },
@@ -784,6 +923,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5-nano",
         "open_weights": false,
         "temperature": false
       },
@@ -839,6 +979,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "o4-mini",
         "open_weights": false,
         "temperature": true
       },
@@ -896,6 +1037,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "grok-4",
         "open_weights": false,
         "temperature": true
       },
@@ -953,6 +1095,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "grok-4",
         "open_weights": false,
         "temperature": true
       },

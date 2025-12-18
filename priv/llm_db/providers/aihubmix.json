@@ -37,6 +37,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": true,
         "temperature": true
       },
@@ -91,6 +92,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "deepseek-v3",
         "open_weights": true,
         "temperature": true
       },
@@ -145,6 +147,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "kimi-k2",
         "open_weights": true,
         "temperature": true
       },
@@ -201,6 +204,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true
       },
@@ -216,7 +220,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -258,6 +263,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true
       },
@@ -273,7 +279,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -315,6 +322,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -330,7 +338,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -371,6 +380,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gemini-flash",
         "open_weights": false,
         "temperature": true
       },
@@ -429,6 +439,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gemini-pro",
         "open_weights": false,
         "temperature": true
       },
@@ -457,6 +468,65 @@
       "provider": "aihubmix",
       "provider_model_id": null,
       "release_date": "2025-09-15",
+      "tags": null
+    },
+    "gemini-3-pro-preview": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.5,
+        "input": 2,
+        "output": 12
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "gemini-pro",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "gemini-3-pro-preview",
+      "knowledge": "2025-11",
+      "last_updated": "2025-11-19",
+      "lifecycle": null,
+      "limits": {
+        "context": 1000000,
+        "output": 65000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Gemini 3 Pro Preview",
+      "provider": "aihubmix",
+      "provider_model_id": null,
+      "release_date": "2025-11-19",
       "tags": null
     },
     "glm-4.6": {
@@ -488,6 +558,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "glm-4.6",
         "open_weights": true,
         "temperature": true
       },
@@ -543,6 +614,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4.1",
         "open_weights": false,
         "temperature": true
       },
@@ -599,6 +671,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4.1-mini",
         "open_weights": false,
         "temperature": true
       },
@@ -655,6 +728,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4.1-nano",
         "open_weights": false,
         "temperature": true
       },
@@ -711,6 +785,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4o",
         "open_weights": false,
         "temperature": true
       },
@@ -767,6 +842,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-4o",
         "open_weights": false,
         "temperature": true
       },
@@ -823,6 +899,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5",
         "open_weights": false,
         "temperature": true
       },
@@ -879,6 +956,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "gpt-5-codex",
         "open_weights": false,
         "temperature": false
       },
@@ -935,6 +1013,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5-mini",
         "open_weights": false,
         "temperature": true
       },
@@ -991,6 +1070,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5-nano",
         "open_weights": false,
         "temperature": true
       },
@@ -1047,6 +1127,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "gpt-5-pro",
         "open_weights": false,
         "temperature": true
       },
@@ -1073,6 +1154,177 @@
       "provider": "aihubmix",
       "provider_model_id": null,
       "release_date": "2025-09-15",
+      "tags": null
+    },
+    "gpt-5.1": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.125,
+        "input": 1.25,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "gpt-5",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "gpt-5.1",
+      "knowledge": "2025-11",
+      "last_updated": "2025-11-15",
+      "lifecycle": null,
+      "limits": {
+        "context": 400000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "GPT-5.1",
+      "provider": "aihubmix",
+      "provider_model_id": null,
+      "release_date": "2025-11-15",
+      "tags": null
+    },
+    "gpt-5.1-codex": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.13,
+        "input": 1.25,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "gpt-5-codex",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "gpt-5.1-codex",
+      "knowledge": "2025-11",
+      "last_updated": "2025-11-15",
+      "lifecycle": null,
+      "limits": {
+        "context": 400000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "GPT-5.1 Codex",
+      "provider": "aihubmix",
+      "provider_model_id": null,
+      "release_date": "2025-11-15",
+      "tags": null
+    },
+    "gpt-5.1-codex-mini": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.03,
+        "input": 0.25,
+        "output": 2
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "gpt-5-codex-mini",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "gpt-5.1-codex-mini",
+      "knowledge": "2025-11",
+      "last_updated": "2025-11-15",
+      "lifecycle": null,
+      "limits": {
+        "context": 400000,
+        "output": 128000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "GPT-5.1 Codex Mini",
+      "provider": "aihubmix",
+      "provider_model_id": null,
+      "release_date": "2025-11-15",
       "tags": null
     },
     "o4-mini": {
@@ -1107,6 +1359,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "o4-mini",
         "open_weights": false,
         "temperature": false
       },
@@ -1161,6 +1414,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -1215,6 +1469,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3",
         "open_weights": true,
         "temperature": true
       },
@@ -1269,6 +1524,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "qwen3-coder",
         "open_weights": false,
         "temperature": true
       },
