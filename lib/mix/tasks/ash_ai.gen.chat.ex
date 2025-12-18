@@ -58,7 +58,7 @@ if Code.ensure_loaded?(Igniter) do
 
       chat =
         if igniter.args.options[:domain] do
-          Igniter.Project.Module.parse(igniter.arg.options[:domain])
+          Igniter.Project.Module.parse(igniter.args.options[:domain])
         else
           Igniter.Project.Module.module_name(igniter, "Chat")
         end
@@ -403,7 +403,7 @@ if Code.ensure_loaded?(Igniter) do
           if ^arg(:complete) do
             ^arg(:text)
           else
-            ^atomic_ref(:text) <> ^arg(:text)
+            text <> ^arg(:text)
           end
         )})
 
@@ -414,14 +414,14 @@ if Code.ensure_loaded?(Igniter) do
                   if not is_nil(^arg(:tool_calls)) do
                     fragment(
                       "? || ?",
-                      ^atomic_ref(:tool_calls),
+                      tool_calls,
                       type(
                         ^arg(:tool_calls),
                         {:array, :map}
                       )
                     )
                   else
-                    ^atomic_ref(:tool_calls)
+                    tool_calls
                   end
                 )}
               )
@@ -433,14 +433,14 @@ if Code.ensure_loaded?(Igniter) do
                   if not is_nil(^arg(:tool_results)) do
                     fragment(
                       "? || ?",
-                      ^atomic_ref(:tool_results),
+                      tool_results,
                       type(
                         ^arg(:tool_results),
                         {:array, :map}
                       )
                     )
                   else
-                    ^atomic_ref(:tool_results)
+                    tool_results
                   end
                 )}
               )

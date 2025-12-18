@@ -5,87 +5,36 @@
 defmodule AshAi do
   @moduledoc """
   Documentation for `AshAi`.
+
+  AshAi provides AI capabilities for Ash applications, including:
+  - Tool exposure for LLM agents (LangChain and ReqLLM)
+  - Interactive IEx chat with tool calling
+  - MCP (Model Context Protocol) server support
+  - Vectorization for semantic search
+
+  ## Architecture
+
+  The tool functionality is organized into specialized modules:
+  - `AshAi.Tool.Schema` - Generates JSON schemas for tool parameters
+  - `AshAi.Tool.Execution` - Executes Ash actions from tool calls
+  - `AshAi.Tool.Errors` - Formats errors as JSON:API responses
+  - `AshAi.Tool.Builder` - Creates ReqLLM.Tool structs and callbacks
+  - `AshAi.Tools` - High-level API for tool discovery and building
+  - `AshAi.ToolLoop` - Manages LLM conversation loops with tools
   """
 
-  alias AshAi.Tool.Errors
+  alias LangChain.Chains.LLMChain
   alias ReqLLM.Context
 
   defstruct []
 
   require Logger
-  require Ash.Expr
 
-  defmodule FullText do
-    @moduledoc "A section that defines how complex vectorized columns are defined"
-    defstruct [
-      :used_attributes,
-      :text,
-      :__identifier__,
-      name: :full_text_vector,
-      __spark_metadata__: nil
-    ]
-  end
-
-  @full_text %Spark.Dsl.Entity{
-    name: :full_text,
-    imports: [Ash.Expr],
-    target: FullText,
-    identifier: :name,
-    schema: [
-      name: [
-        type: :atom,
-        default: :full_text_vector,
-        doc: "The name of the attribute to store the text vector in"
-      ],
-      used_attributes: [
-        type: {:list, :atom},
-        doc: "If set, a vector is only regenerated when these attributes are changed"
-      ],
-      text: [
-        type: {:fun, 1},
-        required: true,
-        doc:
-          "A function or expr that takes a list of records and computes a full text string that will be vectorized. If given an expr, use `atomic_ref` to refer to new values, as this is set as an atomic update."
-      ]
-    ]
-  }
-
-  @vectorize %Spark.Dsl.Section{
-    name: :vectorize,
-    entities: [
-      @full_text
-    ],
-    schema: [
-      attributes: [
-        type: :keyword_list,
-        doc:
-          "A keyword list of attributes to vectorize, and the name of the attribute to store the vector in",
-        default: []
-      ],
-      strategy: [
-        type: {:one_of, [:after_action, :manual, :ash_oban, :ash_oban_manual]},
-        default: :after_action,
-        doc:
-          "How to compute the vector. Currently supported strategies are `:after_action`, `:manual`, and `:ash_oban`."
-      ],
-      define_update_action_for_manual_strategy?: [
-        type: :boolean,
-        default: true,
-        doc:
-          "If true, an `ash_ai_update_embeddings` update action will be defined, which will automatically update the embeddings when run."
-      ],
-      ash_oban_trigger_name: [
-        type: :atom,
-        default: :ash_ai_update_embeddings,
-        doc:
-          "The name of the AshOban-trigger that will be run in order to update the record's embeddings. Defaults to `:ash_ai_update_embeddings`."
-      ],
-      embedding_model: [
-        type: {:spark_behaviour, AshAi.EmbeddingModel},
-        required: true
-      ]
-    ]
-  }
+  use Spark.Dsl.Extension,
+    sections: AshAi.Dsl.sections(),
+    imports: [AshAi.Actions],
+    transformers: [AshAi.Transformers.Vectorize],
+    verifiers: [AshAi.Verifiers.McpResourceActionsReturnString]
 
   defmodule Tool do
     @moduledoc "An action exposed to LLM agents"
@@ -99,94 +48,87 @@ defmodule AshAi do
       :identity,
       :description,
       :action_parameters,
+      :_meta,
+      __spark_metadata__: nil
+    ]
+
+    def has_meta?(%__MODULE__{_meta: meta})
+        when not is_nil(meta) and meta != %{},
+        do: true
+
+    def has_meta?(_), do: false
+  end
+
+  defmodule McpResource do
+    @moduledoc """
+    An MCP resource to expose via the Model Context Protocol (MCP).
+
+    MCP resources provide LLMs with access to static or dynamic content like UI components,
+    data files, or images. Unlike tools which perform actions, resources return content that
+    the LLM can read and reference.
+
+    ## Example
+
+    ```elixir
+    defmodule MyApp.Blog do
+      use Ash.Domain, extensions: [AshAi]
+
+      mcp_resources do
+        # Description inherited from :render_card action
+        mcp_resource :post_card, "file://ui/post_card.html", Post, :render_card,
+          mime_type: "text/html"
+
+        # Custom description overrides action description
+        mcp_resource :post_data, "file://data/post.json", Post, :to_json,
+          description: "JSON metadata including author, tags, and timestamps",
+          mime_type: "application/json"
+      end
+    end
+    ```
+
+    The action is called when an MCP client requests the resource, and its return value
+    (which must be a string) is sent to the client with the specified MIME type.
+
+    ## Description Behavior
+
+    Resource descriptions default to the action's description. You can provide a custom
+    `description` option in the DSL which takes precedence over the action description.
+    This helps LLMs understand when to use each resource.
+    """
+    @type t :: %__MODULE__{
+            name: atom(),
+            resource: Ash.Resource.t(),
+            action: atom() | Ash.Resource.Actions.Action.t(),
+            domain: module() | nil,
+            title: String.t(),
+            description: String.t(),
+            uri: String.t(),
+            mime_type: String.t()
+          }
+
+    defstruct [
+      :name,
+      :resource,
+      :action,
+      :domain,
+      :title,
+      :description,
+      :uri,
+      :mime_type,
       __spark_metadata__: nil
     ]
   end
 
-  defmodule ToolStartEvent do
-    @moduledoc """
-    Event data passed to the `on_tool_start` callback passed to `AshAi.setup_ash_ai/2`.
-
-    Contains information about the tool execution that is about to begin.
-    """
-    @type t :: %__MODULE__{
-            tool_name: String.t(),
-            action: atom(),
-            resource: module(),
-            arguments: map(),
-            actor: any() | nil,
-            tenant: any() | nil
-          }
-
-    defstruct [:tool_name, :action, :resource, :arguments, :actor, :tenant]
-  end
-
-  defmodule ToolEndEvent do
-    @moduledoc """
-    Event data passed to the `on_tool_end` callback passed to `AshAi.setup_ash_ai/2`.
-
-    Contains the tool name and execution result.
-    """
-    @type t :: %__MODULE__{
-            tool_name: String.t(),
-            result: {:ok, String.t(), any()} | {:error, String.t()}
-          }
-
-    defstruct [:tool_name, :result]
-  end
-
-  @tool %Spark.Dsl.Entity{
-    name: :tool,
-    target: Tool,
-    describe: """
-    Expose an Ash action as a tool that can be called by LLMs.
-
-    Tools allow LLMs to interact with your application by calling specific actions on resources.
-    Only public attributes can be used for filtering, sorting, and aggregation, but the `load`
-    option allows including private attributes in the response data.
-    """,
-    schema: [
-      name: [type: :atom, required: true],
-      resource: [type: {:spark, Ash.Resource}, required: true],
-      action: [type: :atom, required: true],
-      action_parameters: [
-        type: {:list, :atom},
-        required: false,
-        doc:
-          "A list of action specific parameters to allow for the underlying action. Only relevant for reads, and defaults to allowing `[:sort, :offset, :limit, :result_type, :filter]`"
-      ],
-      load: [
-        type: :any,
-        default: [],
-        doc:
-          "A list of relationships and calculations to load on the returned records. Note that loaded fields can include private attributes, which will then be included in the tool's response. However, private attributes cannot be used for filtering, sorting, or aggregation."
-      ],
-      async: [type: :boolean, default: true],
-      description: [
-        type: :string,
-        doc: "A description for the tool. Defaults to the action's description."
-      ],
-      identity: [
-        type: :atom,
-        default: nil,
-        doc:
-          "The identity to use for update/destroy actions. Defaults to the primary key. Set to `false` to disable entirely."
-      ]
-    ],
-    args: [:name, :resource, :action]
-  }
-
-  @tools %Spark.Dsl.Section{
-    name: :tools,
-    entities: [
-      @tool
+  defmodule FullText do
+    @moduledoc "A section that defines how complex vectorized columns are defined"
+    defstruct [
+      :used_attributes,
+      :text,
+      :__identifier__,
+      name: :full_text_vector,
+      __spark_metadata__: nil
     ]
-  }
-
-  use Spark.Dsl.Extension,
-    sections: [@tools, @vectorize],
-    imports: [AshAi.Actions],
-    transformers: [AshAi.Transformers.Vectorize]
+  end
 
   defmodule Options do
     @moduledoc false
@@ -204,6 +146,12 @@ defmodule AshAi do
           type: {:wrap_list, :atom},
           doc: """
            A list of tool names. If not set. Defaults to everything. If `actions` is also set, both are applied as filters.
+          """
+        ],
+        mcp_resources: [
+          type: {:or, [{:wrap_list, :atom}, {:literal, :*}]},
+          doc: """
+          A list of MCP resource names to expose, or `:*` for all. If not set, defaults to everything.
           """
         ],
         exclude_actions: [
@@ -247,14 +195,6 @@ defmodule AshAi do
           actor.
           """
         ],
-        model: [
-          type: :string,
-          default: "openai:gpt-4o-mini",
-          doc: """
-          The LLM model to use for chat. Format: "provider:model-name".
-          Examples: "openai:gpt-4o-mini", "anthropic:claude-haiku-4-5", "openai:gpt-4o".
-          """
-        ],
         on_tool_start: [
           type: {:fun, 1},
           required: false,
@@ -295,34 +235,132 @@ defmodule AshAi do
           ```
           """
         ],
+        model: [
+          type: :string,
+          default: "openai:gpt-4o-mini",
+          doc: """
+          The LLM model to use for chat. Format: "provider:model-name".
+          Examples: "openai:gpt-4o-mini", "anthropic:claude-haiku-4-5", "openai:gpt-4o".
+          """
+        ],
         req_llm: [
           type: :atom,
           default: ReqLLM,
           doc: """
-          The ReqLLM module to use for LLM operations. Defaults to `ReqLLM`.
-
-          This is primarily intended for testing purposes, allowing you to inject
-          a mock ReqLLM implementation to control responses and validate behavior
-          without making actual API calls.
-
-          Example for testing:
-          ```
-          iex_chat(nil, req_llm: FakeReqLLM, ...)
-          ```
+          The ReqLLM module to use for streaming. Defaults to ReqLLM.
+          Can be overridden for testing with a mock module.
+          """
+        ],
+        max_iterations: [
+          type: :pos_integer,
+          default: 10,
+          doc: """
+          Maximum number of iterations for tool calling loops.
+          Each iteration allows the LLM to make tool calls and receive results.
           """
         ]
       ]
   end
 
+  # ============================================================================
+  # LangChain Integration
+  # ============================================================================
+
+  @doc """
+  Returns a list of LangChain.Function structs for the given options.
+  """
   def functions(opts) do
     opts
     |> exposed_tools()
+    |> Enum.map(&AshAi.Tools.to_function/1)
+  end
+
+  @doc """
+  Adds the requisite context and tool calls to allow an agent to interact with your app.
+  """
+  def setup_ash_ai(lang_chain, opts \\ [])
+
+  def setup_ash_ai(lang_chain, opts) when is_list(opts) do
+    opts = Options.validate!(opts)
+    setup_ash_ai(lang_chain, opts)
+  end
+
+  def setup_ash_ai(lang_chain, opts) do
+    tools = functions(opts)
+
+    lang_chain
+    |> LLMChain.add_tools(tools)
+    |> LLMChain.update_custom_context(%{
+      actor: opts.actor,
+      tenant: opts.tenant,
+      context: opts.context,
+      tool_callbacks: %{
+        on_tool_start: opts.on_tool_start,
+        on_tool_end: opts.on_tool_end
+      }
+    })
+  end
+
+  # ============================================================================
+  # ReqLLM Integration
+  # ============================================================================
+
+  @doc """
+  Returns a list of ReqLLM.Tool structs for the given options.
+
+  This is the ReqLLM equivalent of `functions/1` which returns LangChain.Function structs.
+  """
+  def reqllm_functions(opts) do
+    opts
+    |> exposed_tools()
     |> Enum.map(fn tool_def ->
-      {tool, _callback} = tool(tool_def)
+      {tool, _callback} = reqllm_tool(tool_def)
       tool
     end)
   end
 
+  @doc """
+  Builds a ReqLLM.Tool and callback function from an AshAi.Tool definition.
+
+  Delegates to `AshAi.Tool.Builder.build/2`.
+
+  Returns a tuple of `{ReqLLM.Tool, callback_fn}` where:
+  - `ReqLLM.Tool` contains the tool schema for the LLM
+  - `callback_fn` is a function/2 that takes (arguments, context) and executes the Ash action
+
+  ## Example
+
+      {tool, callback} = AshAi.reqllm_tool(tool_def)
+      result = callback.(%{"input" => %{"name" => "foo"}}, %{actor: current_user})
+  """
+  def reqllm_tool(%Tool{} = tool_def) do
+    AshAi.Tool.Builder.build(tool_def)
+  end
+
+  # ============================================================================
+  # IEx Chat
+  # ============================================================================
+
+  @doc """
+  Interactive IEx chat using ReqLLM.
+
+  The first `lang_chain` argument is ignored and kept only for backward compatibility.
+  Use the `:model` option to specify which LLM to use (defaults to "openai:gpt-4o-mini").
+
+  ## Example
+
+      # Using default model
+      iex_chat(nil, otp_app: :my_app)
+
+      # Using a specific model
+      iex_chat(nil, otp_app: :my_app, model: "anthropic:claude-haiku-4-5")
+
+      # With a custom system prompt
+      iex_chat(nil,
+        otp_app: :my_app,
+        system_prompt: fn _opts -> "You are a helpful coding assistant." end
+      )
+  """
   def iex_chat(_lang_chain \\ nil, opts \\ []) do
     opts = Options.validate!(opts)
 
@@ -343,57 +381,12 @@ defmodule AshAi do
           [Context.system(system_prompt.(opts))]
       end
 
-    {tools, tool_registry} = build_tools_and_registry(opts)
+    {tools, tool_registry} = AshAi.Tools.build_tools_and_registry(opts)
 
-    run_loop(opts.model, base_messages, tools, tool_registry, opts, true)
+    run_iex_loop(opts.model, base_messages, tools, tool_registry, opts, true)
   end
 
-  defp build_tools_and_registry(opts) do
-    # Get tool definitions from DSL and convert to {tool, callback} tuples
-    tool_tuples =
-      opts
-      |> exposed_tools()
-      |> Enum.map(&tool/1)
-
-    # Separate tools and callbacks
-    {tools, callbacks} = Enum.unzip(tool_tuples)
-
-    # Build registry mapping tool name to callback function (function/2)
-    registry =
-      Enum.zip(tools, callbacks)
-      |> Enum.into(%{}, fn {tool, callback} -> {tool.name, callback} end)
-
-    {tools, registry}
-  end
-
-  @doc """
-  Adds the requisite context and tool calls to allow an agent to interact with your app.
-  """
-  def setup_ash_ai(lang_chain, opts \\ [])
-
-  def setup_ash_ai(lang_chain, opts) when is_list(opts) do
-    opts = Options.validate!(opts)
-    setup_ash_ai(lang_chain, opts)
-  end
-
-  def setup_ash_ai(lang_chain, opts) do
-    tools = functions(opts)
-
-    # LangChain integration (deprecated - use iex_chat for ReqLLM integration)
-    lang_chain
-    |> LangChain.Chains.LLMChain.add_tools(tools)
-    |> LangChain.Chains.LLMChain.update_custom_context(%{
-      actor: opts.actor,
-      tenant: opts.tenant,
-      context: opts.context,
-      tool_callbacks: %{
-        on_tool_start: opts.on_tool_start,
-        on_tool_end: opts.on_tool_end
-      }
-    })
-  end
-
-  defp run_loop(model, messages, tools, registry, opts, _first?) do
+  defp run_iex_loop(model, messages, tools, registry, opts, first?) do
     req_llm = opts.req_llm
     {:ok, response} = req_llm.stream_text(model, messages, tools: tools)
 
@@ -417,79 +410,79 @@ defmodule AshAi do
         end
       end)
 
-    cond do
-      acc.tool_calls != [] ->
-        assistant_with_tools =
-          Context.assistant(%{
-            tool_calls:
-              Enum.map(acc.tool_calls, fn tc ->
-                %{
-                  id: tc.id,
-                  type: "function",
-                  function: %{name: tc.name, arguments: tc.arguments}
-                }
-              end)
-          })
+    if acc.tool_calls != [] do
+      assistant_with_tools =
+        Context.assistant(%{
+          tool_calls:
+            Enum.map(acc.tool_calls, fn tc ->
+              %{
+                id: tc.id,
+                type: "function",
+                function: %{name: tc.name, arguments: tc.arguments}
+              }
+            end)
+        })
 
-        messages = messages ++ [assistant_with_tools]
+      messages = messages ++ [assistant_with_tools]
 
-        ctx = %{
-          actor: opts.actor,
-          tenant: opts.tenant,
-          context: opts.context || %{},
-          tool_callbacks: %{on_tool_start: opts.on_tool_start, on_tool_end: opts.on_tool_end}
-        }
+      ctx = %{
+        actor: opts.actor,
+        tenant: opts.tenant,
+        context: opts.context || %{},
+        tool_callbacks: %{on_tool_start: opts.on_tool_start, on_tool_end: opts.on_tool_end}
+      }
 
-        messages =
-          Enum.reduce(acc.tool_calls, messages, fn tc, msgs ->
-            fun = Map.get(registry, tc.name)
+      messages = run_iex_tools(acc.tool_calls, messages, registry, ctx)
 
-            if is_nil(fun) do
-              msgs ++
-                [
-                  Context.tool_result(tc.id, Jason.encode!(%{error: "Unknown tool: #{tc.name}"}))
-                ]
-            else
-              args =
-                case tc.arguments do
-                  s when is_binary(s) -> Jason.decode!(s)
-                  m -> m
-                end
+      run_iex_loop(model, messages, tools, registry, opts, false)
+    else
+      messages =
+        if acc.text != "" do
+          messages ++ [Context.assistant(acc.text)]
+        else
+          messages
+        end
 
-              result =
-                try do
-                  fun.(args, ctx)
-                rescue
-                  e ->
-                    {:error, Jason.encode!(%{error: Exception.message(e)})}
-                end
+      if !first? do
+        IO.write("\n")
+      end
 
-              content =
-                case result do
-                  {:ok, content, _raw} -> content
-                  {:error, content} -> content
-                end
+      user_message = get_user_message()
+      messages = messages ++ [Context.user(user_message)]
+      run_iex_loop(model, messages, tools, registry, opts, false)
+    end
+  end
 
-              msgs ++ [Context.tool_result(tc.id, content)]
-            end
-          end)
+  defp run_iex_tools(tool_calls, messages, registry, ctx) do
+    Enum.reduce(tool_calls, messages, fn tc, msgs ->
+      fun = Map.get(registry, tc.name)
 
-        run_loop(model, messages, tools, registry, opts, false)
-
-      true ->
-        messages =
-          if acc.text != "" do
-            messages ++ [Context.assistant(acc.text)]
-          else
-            messages
+      if is_nil(fun) do
+        msgs ++ [Context.tool_result(tc.id, Jason.encode!(%{error: "Unknown tool: #{tc.name}"}))]
+      else
+        args =
+          case tc.arguments do
+            s when is_binary(s) -> Jason.decode!(s)
+            m -> m
           end
 
-        IO.write("\n")
+        result =
+          try do
+            fun.(args, ctx)
+          rescue
+            e ->
+              {:error, Jason.encode!(%{error: Exception.message(e)})}
+          end
 
-        user_message = get_user_message()
-        messages = messages ++ [Context.user(user_message)]
-        run_loop(model, messages, tools, registry, opts, false)
-    end
+        content =
+          case result do
+            {:ok, content, _raw} -> content
+            {:error, content} -> content
+          end
+
+        msgs ++ [Context.tool_result(tc.id, content)]
+      end
+    end)
   end
 
   defp get_user_message do
@@ -501,38 +494,313 @@ defmodule AshAi do
     end
   end
 
-  # Create a ReqLLM.Tool and callback from an AshAi.Tool DSL entity
-  # Returns {tool, callback} tuple where callback is function/2
-  @deprecated "Use AshAi.Tool.Builder.build/2 instead"
-  @doc false
-  def tool(%Tool{} = tool_def) do
-    AshAi.Tool.Builder.build(tool_def, %{})
+  # ============================================================================
+  # Error Handling
+  # ============================================================================
+
+  def to_json_api_errors(domain, resource, errors, type) when is_list(errors) do
+    Enum.flat_map(errors, &to_json_api_errors(domain, resource, &1, type))
   end
 
-  defdelegate to_json_api_errors(domain, resource, errors, type), to: Errors
-  defdelegate class_to_status(class), to: Errors
-  defdelegate serialize_errors(errors), to: Errors
-  defdelegate with_source_pointer(built_error, error), to: Errors
-  defdelegate source_pointer(field, path), to: Errors
+  def to_json_api_errors(domain, resource, %mod{errors: errors}, type)
+      when mod in [Forbidden, Framework, Invalid, Unknown] do
+    Enum.flat_map(errors, &to_json_api_errors(domain, resource, &1, type))
+  end
 
-  @deprecated "Use AshAi.Tools.discovery/1 instead"
+  def to_json_api_errors(_domain, _resource, %AshJsonApi.Error{} = error, _type) do
+    [error]
+  end
+
+  def to_json_api_errors(domain, _resource, %{class: :invalid} = error, _type) do
+    if AshJsonApi.ToJsonApiError.impl_for(error) do
+      error
+      |> AshJsonApi.ToJsonApiError.to_json_api_error()
+      |> List.wrap()
+      |> Enum.flat_map(&with_source_pointer(&1, error))
+    else
+      uuid = Ash.UUID.generate()
+
+      stacktrace =
+        case error do
+          %{stacktrace: %{stacktrace: v}} ->
+            v
+
+          _ ->
+            nil
+        end
+
+      Logger.warning(
+        "`#{uuid}`: AshJsonApi.Error not implemented for error:\n\n#{Exception.format(:error, error, stacktrace)}"
+      )
+
+      if AshJsonApi.Domain.Info.show_raised_errors?(domain) do
+        [
+          %AshJsonApi.Error{
+            id: uuid,
+            status_code: class_to_status(error.class),
+            code: "something_went_wrong",
+            title: "SomethingWentWrong",
+            detail: """
+            Raised error: #{uuid}
+
+            #{Exception.format(:error, error, stacktrace)}"
+            """
+          }
+        ]
+      else
+        [
+          %AshJsonApi.Error{
+            id: uuid,
+            status_code: class_to_status(error.class),
+            code: "something_went_wrong",
+            title: "SomethingWentWrong",
+            detail: "Something went wrong. Error id: #{uuid}"
+          }
+        ]
+      end
+    end
+  end
+
+  def to_json_api_errors(_domain, _resource, %{class: :forbidden} = error, _type) do
+    [
+      %AshJsonApi.Error{
+        id: Ash.UUID.generate(),
+        status_code: class_to_status(error.class),
+        code: "forbidden",
+        title: "Forbidden",
+        detail: "forbidden"
+      }
+    ]
+  end
+
+  def to_json_api_errors(_domain, _resource, error, _type) do
+    uuid = Ash.UUID.generate()
+
+    stacktrace =
+      case error do
+        %{stacktrace: %{stacktrace: v}} ->
+          v
+
+        _ ->
+          nil
+      end
+
+    Logger.warning(
+      "`#{uuid}`: AshJsonApi.Error not implemented for error:\n\n#{Exception.format(:error, error, stacktrace)}"
+    )
+
+    [
+      %AshJsonApi.Error{
+        id: uuid,
+        status_code: class_to_status(error.class),
+        code: "something_went_wrong",
+        title: "SomethingWentWrong",
+        detail: "Something went wrong. Error id: #{uuid}"
+      }
+    ]
+  end
+
+  @doc "Turns an error class into an HTTP status code"
+  def class_to_status(:forbidden), do: 403
+  def class_to_status(:invalid), do: 400
+  def class_to_status(_), do: 500
+
+  def with_source_pointer(%{source_pointer: source_pointer} = built_error, _)
+      when source_pointer not in [nil, :undefined] do
+    [built_error]
+  end
+
+  def with_source_pointer(built_error, %{fields: fields, path: path})
+      when is_list(fields) and fields != [] do
+    Enum.map(fields, fn field ->
+      %{built_error | source_pointer: source_pointer(field, path)}
+    end)
+  end
+
+  def with_source_pointer(built_error, %{field: field, path: path})
+      when not is_nil(field) do
+    [
+      %{built_error | source_pointer: source_pointer(field, path)}
+    ]
+  end
+
+  def with_source_pointer(built_error, _) do
+    [built_error]
+  end
+
+  defp source_pointer(field, path) do
+    "/input/#{Enum.join(List.wrap(path) ++ [field], "/")}"
+  end
+
+  # ============================================================================
+  # MCP Resources
+  # ============================================================================
+
   @doc false
+  def exposed_mcp_resources(opts) when is_list(opts) do
+    exposed_mcp_resources(Options.validate!(opts))
+  end
+
+  def exposed_mcp_resources(opts) do
+    if !opts.otp_app and !opts.actions do
+      raise "Must specify `otp_app` if you do not specify `actions`"
+    end
+
+    domains =
+      if opts.actions do
+        opts.actions
+        |> Enum.map(fn {resource, _actions} ->
+          domain = Ash.Resource.Info.domain(resource)
+
+          if !domain do
+            raise "Cannot use an ash resource that does not have a domain"
+          end
+
+          domain
+        end)
+        |> Enum.uniq()
+      else
+        Application.get_env(opts.otp_app, :ash_domains) || []
+      end
+
+    domains
+    |> Enum.flat_map(fn domain ->
+      domain
+      |> AshAi.Info.mcp_resources()
+      |> Enum.filter(fn mcp_resource ->
+        valid_mcp_resource(mcp_resource, opts.mcp_resources, opts.actions, opts.exclude_actions)
+      end)
+      |> Enum.map(fn mcp_resource ->
+        action = Ash.Resource.Info.action(mcp_resource.resource, mcp_resource.action)
+
+        %{
+          mcp_resource
+          | domain: domain,
+            action: action,
+            description: mcp_resource.description || action.description
+        }
+      end)
+    end)
+  end
+
+  defp valid_mcp_resource(mcp_resource, allowed_mcp_resources, allowed_actions, exclude_actions) do
+    passes_mcp_resources_filter =
+      case allowed_mcp_resources do
+        [:*] -> true
+        :* -> true
+        nil -> true
+        [] -> false
+        list when is_list(list) -> Enum.member?(list, mcp_resource.name)
+      end
+
+    passes_actions_filter =
+      if allowed_actions && allowed_actions != [] do
+        Enum.any?(allowed_actions, fn
+          {resource, :*} ->
+            mcp_resource.resource == resource
+
+          {resource, actions} when is_list(actions) ->
+            mcp_resource.resource == resource && mcp_resource.action in actions
+        end)
+      else
+        true
+      end
+
+    is_excluded =
+      if exclude_actions && exclude_actions != [] do
+        Enum.any?(exclude_actions, fn {resource, action} ->
+          mcp_resource.resource == resource && mcp_resource.action == action
+        end)
+      else
+        false
+      end
+
+    passes_mcp_resources_filter && passes_actions_filter && !is_excluded
+  end
+
+  # ============================================================================
+  # Tool Discovery
+  # ============================================================================
+
   def exposed_tools(opts) when is_list(opts) do
     exposed_tools(Options.validate!(opts))
   end
 
-  @deprecated "Use AshAi.Tools.discovery/1 instead"
   def exposed_tools(opts) do
-    # Convert struct to map if needed
-    opts_map =
-      if is_struct(opts) do
-        Map.from_struct(opts)
-      else
-        opts
+    if opts.actions do
+      Enum.flat_map(opts.actions, fn
+        {resource, actions} ->
+          domain = Ash.Resource.Info.domain(resource)
+
+          if !domain do
+            raise "Cannot use an ash resource that does not have a domain"
+          end
+
+          tools = AshAi.Info.tools(domain)
+
+          if !Enum.any?(tools, fn tool ->
+               tool.resource == resource && (actions == :* || tool.action in actions)
+             end) do
+            raise "Cannot use an action that is not exposed as a tool"
+          end
+
+          if actions == :* do
+            tools
+            |> Enum.filter(&(&1.resource == resource))
+            |> Enum.map(fn tool ->
+              %{tool | domain: domain, action: Ash.Resource.Info.action(resource, tool.action)}
+            end)
+          else
+            tools
+            |> Enum.filter(&(&1.resource == resource && &1.action in actions))
+            |> Enum.map(fn tool ->
+              %{tool | domain: domain, action: Ash.Resource.Info.action(resource, tool.action)}
+            end)
+          end
+      end)
+    else
+      if !opts.otp_app do
+        raise "Must specify `otp_app` if you do not specify `actions`"
       end
 
-    AshAi.Tools.discovery(opts_map)
+      for domain <- Application.get_env(opts.otp_app, :ash_domains) || [],
+          tool <- AshAi.Info.tools(domain) do
+        %{tool | domain: domain, action: Ash.Resource.Info.action(tool.resource, tool.action)}
+      end
+    end
+    |> Enum.uniq()
+    |> then(fn tools ->
+      if is_list(opts.exclude_actions) do
+        Enum.reject(tools, fn tool ->
+          {tool.resource, tool.action.name} in opts.exclude_actions
+        end)
+      else
+        tools
+      end
+    end)
+    |> then(fn tools ->
+      if allowed_tools = opts.tools do
+        Enum.filter(tools, fn tool ->
+          tool.name in List.wrap(allowed_tools)
+        end)
+      else
+        tools
+      end
+    end)
+    |> Enum.filter(
+      &can?(
+        opts.actor,
+        &1.domain,
+        &1.resource,
+        &1.action,
+        opts.tenant
+      )
+    )
   end
+
+  # ============================================================================
+  # Vectorization
+  # ============================================================================
 
   def has_vectorize_change?(%Ash.Changeset{} = changeset) do
     full_text_attrs =
@@ -545,5 +813,42 @@ defmodule AshAi do
     Enum.any?(vectorized_attrs ++ full_text_attrs, fn attr ->
       Ash.Changeset.changing_attribute?(changeset, attr)
     end)
+  end
+
+  # ============================================================================
+  # Private Helpers
+  # ============================================================================
+
+  defp can?(actor, domain, resource, action, tenant) do
+    if Enum.empty?(Ash.Resource.Info.authorizers(resource)) do
+      true
+    else
+      Ash.can?({resource, action}, actor,
+        tenant: tenant,
+        domain: domain,
+        maybe_is: true,
+        run_queries?: false,
+        pre_flight?: false
+      )
+    end
+  rescue
+    e ->
+      Logger.error(
+        """
+        Error raised while checking permissions for #{inspect(resource)}.#{action.name}
+
+        When checking permissions, we check the action using an empty input.
+        Your action should be prepared for this.
+
+        For create/update/destroy actions, you may need to add `only_when_valid?: true`
+        to the changes, for other things, you may want to check validity of the changeset,
+        query or action input.
+
+        #{Exception.format(:error, e, __STACKTRACE__)}
+        """,
+        __STACKTRACE__
+      )
+
+      false
   end
 end

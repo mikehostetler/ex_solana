@@ -31,6 +31,23 @@ option allows including private attributes in the response data.
 
 
 
+### Examples
+```
+tool :list_artists, Artist, :read
+```
+
+```
+tool :create_artist, Artist, :create, description: "Create a new artist"
+```
+
+```
+tool :update_artist, Artist, :update, identity: :id, load: [:albums]
+```
+
+```
+tool :get_board, Board, :read, _meta: %{"openai/outputTemplate" => "ui://widget/kanban-board.html", "openai/toolInvocation/invoking" => "Preparing the board…", "openai/toolInvocation/invoked" => "Board ready."}
+```
+
 
 
 ### Arguments
@@ -49,6 +66,7 @@ option allows including private attributes in the response data.
 | [`async`](#tools-tool-async){: #tools-tool-async } | `boolean` | `true` |  |
 | [`description`](#tools-tool-description){: #tools-tool-description } | `String.t` |  | A description for the tool. Defaults to the action's description. |
 | [`identity`](#tools-tool-identity){: #tools-tool-identity } | `atom` |  | The identity to use for update/destroy actions. Defaults to the primary key. Set to `false` to disable entirely. |
+| [`_meta`](#tools-tool-_meta){: #tools-tool-_meta } | `any` | `%{}` | Optional metadata map for tool integrations. Supports provider-specific extensions like OpenAI metadata. Keys and values should be strings to comply with JSON-RPC serialization. |
 
 
 
@@ -108,6 +126,74 @@ Target: `AshAi.Tool`
 ### Introspection
 
 Target: `AshAi.FullText`
+
+
+
+
+## mcp_resources
+
+
+### Nested DSLs
+ * [mcp_resource](#mcp_resources-mcp_resource)
+
+
+
+
+
+### mcp_resources.mcp_resource
+```elixir
+mcp_resource name, uri, resource, action
+```
+
+
+An MCP resource to expose via the Model Context Protocol (MCP).
+MCP Resources are different to Ash Resources. Here they are used to
+respond to LLM models with static or dynamic assets like files, images, or JSON.
+
+The resource description defaults to the action's description. You can override this
+by providing a `description` option which takes precedence.
+
+
+
+
+### Examples
+```
+mcp_resource :artist_card, "file://info/artist_info.txt", Artist, :artist_info
+```
+
+```
+mcp_resource :artist_card, "file://ui/artist_card.html", Artist, :artist_card, mime_type: "text/html"
+```
+
+```
+mcp_resource :artist_data, "file://data/artist.json", Artist, :to_json, description: "Artist metadata as JSON", mime_type: "application/json"
+```
+
+
+
+### Arguments
+
+| Name | Type | Default | Docs |
+|------|------|---------|------|
+| [`name`](#mcp_resources-mcp_resource-name){: #mcp_resources-mcp_resource-name .spark-required} | `atom` |  |  |
+| [`uri`](#mcp_resources-mcp_resource-uri){: #mcp_resources-mcp_resource-uri .spark-required} | `String.t` |  | The URI where the resource can be accessed. |
+| [`resource`](#mcp_resources-mcp_resource-resource){: #mcp_resources-mcp_resource-resource .spark-required} | `module` |  |  |
+| [`action`](#mcp_resources-mcp_resource-action){: #mcp_resources-mcp_resource-action .spark-required} | `atom` |  |  |
+### Options
+
+| Name | Type | Default | Docs |
+|------|------|---------|------|
+| [`title`](#mcp_resources-mcp_resource-title){: #mcp_resources-mcp_resource-title .spark-required} | `String.t` |  | A short, human-readable title for the resource. |
+| [`description`](#mcp_resources-mcp_resource-description){: #mcp_resources-mcp_resource-description } | `String.t` |  | A description of the resource. This is important for LLM to determine what the resource is and when to call it. Defaults to the Action's description if not provided. |
+| [`mime_type`](#mcp_resources-mcp_resource-mime_type){: #mcp_resources-mcp_resource-mime_type } | `String.t` | `"text/plain"` | The MIME type of the resource, e.g. 'application/json', 'image/png', etc. |
+
+
+
+
+
+### Introspection
+
+Target: `AshAi.McpResource`
 
 
 

@@ -78,7 +78,6 @@ However, as of the writing of this guide, it requires setting a previous protoco
 #### Roadmap
 
 - Implement OAuth2 flow with AshAuthentication (long term)
-- Implement support for more than just tools, i.e resources etc.
 - Implement sessions, and provide a session id context to tools (this code is just commented out, and can be uncommented, just needs timeout logic for inactive sesions)
 
 #### Installation
@@ -186,6 +185,34 @@ end
 Expose these actions as tools. When you call `AshAi.setup_ash_ai(chain, opts)`, or `AshAi.iex_chat/2`
 it will add those as tool calls to the agent.
 
+## Expose content as MCP resources
+
+MCP resources provide LLMs with access to static or dynamic content like UI components, data files, or images. Unlike tools which perform actions, resources return content that the LLM can read and reference.
+
+```elixir
+defmodule MyApp.Blog do
+  use Ash.Domain, extensions: [AshAi]
+
+  mcp_resources do
+    # Return HTML UI for a post
+    # Description is inherited from the :render_card action
+    mcp_resource :post_card, "file://ui/post_card.html", Post, :render_card do
+      mime_type "text/html"
+    end
+
+    # Return JSON data with custom description
+    mcp_resource :post_metadata, "file://data/post.json", Post, :metadata do
+      description "Metadata about the post including author and tags",
+      mime_type "application/json"
+    end
+  end
+end
+```
+
+Resources are exposed via the MCP server at `/mcp` and can be accessed by MCP-compatible clients. The action is called when the resource is read, and its return value is sent to the LLM.
+
+**Description Behavior**: Resource descriptions default to the action's description. You can override this by providing a `description` option in the DSL, which takes precedence.
+
 ### Tool Data Access
 
 **Important**: Tools have different access levels for different operations:
@@ -254,13 +281,14 @@ action :analyze_sentiment, :atom do
   end
 
   run prompt(
-    "openai:gpt-4o",
+    LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
     # setting `tools: true` allows it to use all exposed tools in your app
     tools: true
     # alternatively you can restrict it to only a set of tools
     # tools: [:list, :of, :tool, :names]
     # provide an optional prompt, which is an EEx template
-     # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
+     # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>",
+    # adapter: {Adapter, [some: :opt]}
   )
 end
 ```
@@ -287,32 +315,24 @@ action :parse_job, JobListing do
   argument :raw_content, :string, allow_nil?: false
 
   run prompt(
-    "openai:gpt-4o-mini",
+    LangChain.ChatModels.ChatOpenAI.new!(%{model: "gpt-4o-mini"}),
     prompt: "Parse this job listing: <%= @input.arguments.raw_content %>",
     tools: false
   )
 end
 ```
 
-## Model Configuration
+## Adapters
 
-AshAi uses [ReqLLM](https://github.com/agentjido/req_llm) for LLM interactions. Models are specified as strings in the format `"provider:model_name"`:
+Adapters are used to determine how a given LLM fulfills a prompt-backed action. The adapter is guessed automatically from the model where possible.
+See `AshAi.Actions.Prompt.Adapter` for more information.
 
-```elixir
-# OpenAI
-run prompt("openai:gpt-4o", tools: true)
+### Setting up LangChain
 
-# Anthropic
-run prompt("anthropic:claude-haiku-4-5", tools: true)
+For any langchain models you use, you will need to configure them. See https://hexdocs.pm/langchain/ for more information.
 
-# Google
-run prompt("google:gemini-2.0-flash-exp", tools: false)
-
-# OpenRouter
-run prompt("openrouter:anthropic/claude-3.5-sonnet", tools: true)
-```
-
-For provider configuration (API keys, endpoints), see the [ReqLLM documentation](https://hexdocs.pm/req_llm).
+For AshAI Specific changes to use different models:
+- [Google Gemini 2.5](/documentation/models/gemini.md)
 
 ## Vectorization
 
@@ -454,93 +474,57 @@ end
 ### Embedding Models
 
 Embedding models are modules that are in charge of defining what the dimensions
-are of a given vector and how to generate one.
-
-#### Using ReqLLM (Recommended)
-
-AshAi provides a built-in embedding model that uses `ReqLLM` to generate embeddings
-from various providers (OpenAI, Google, Cohere, Voyage, etc.). To use it, install `req_llm`:
-
-```bash
-mix igniter.install req_llm
-```
-
-Then configure it in your resource:
+are of a given vector and how to generate one. This example uses `Req` to
+generate embeddings using `OpenAi`. To use it, you'd need to install `req`
+(`mix igniter.install req`).
 
 ```elixir
-vectorize do
-  embedding_model {AshAi.EmbeddingModels.ReqLLM,
-    model: "openai:text-embedding-3-small",
-    dimensions: 1536,
-    req_opts: [api_key: System.get_env("OPENAI_API_KEY")]
-  }
-  
-  # ... rest of vectorize config
-end
-```
-
-**Common model configurations:**
-
-```elixir
-# OpenAI text-embedding-3-small (1536 dimensions)
-embedding_model {AshAi.EmbeddingModels.ReqLLM,
-  model: "openai:text-embedding-3-small",
-  dimensions: 1536
-}
-
-# OpenAI text-embedding-3-large (3072 dimensions)
-embedding_model {AshAi.EmbeddingModels.ReqLLM,
-  model: "openai:text-embedding-3-large",
-  dimensions: 3072
-}
-
-# Google Gemini (768 or 3072 dimensions)
-embedding_model {AshAi.EmbeddingModels.ReqLLM,
-  model: "google:text-embedding-004",
-  dimensions: 768
-}
-
-# Cohere (1024 dimensions)
-embedding_model {AshAi.EmbeddingModels.ReqLLM,
-  model: "cohere:embed-english-v3.0",
-  dimensions: 1024
-}
-```
-
-**Options:**
-
-- `:model` (required) - ReqLLM model identifier (e.g., "openai:text-embedding-3-small")
-- `:dimensions` (required) - Vector dimensions for the model
-- `:req_opts` (optional) - Additional options passed to ReqLLM (e.g., API keys, timeouts)
-- `:max_batch_size` (optional) - Maximum batch size for chunking large requests (default: 100)
-
-#### Custom Embedding Models
-
-You can also create custom embedding models by implementing the `AshAi.EmbeddingModel` behaviour:
-
-```elixir
-defmodule MyApp.CustomEmbeddingModel do
+defmodule Tunez.OpenAIEmbeddingModel do
   use AshAi.EmbeddingModel
 
   @impl true
-  def dimensions(_opts), do: 1536
+  def dimensions(_opts), do: 3072
 
   @impl true
-  def generate(texts, opts) do
-    # Your custom implementation
-    # Must return {:ok, [vector]} | {:error, term()}
-    # where vector is a list of floats
+  def generate(texts, _opts) do
+    api_key = System.fetch_env!("OPEN_AI_API_KEY")
+
+    headers = [
+      {"Authorization", "Bearer #{api_key}"},
+      {"Content-Type", "application/json"}
+    ]
+
+    body = %{
+      "input" => texts,
+      "model" => "text-embedding-3-large"
+    }
+
+    response =
+      Req.post!("https://api.openai.com/v1/embeddings",
+        json: body,
+        headers: headers
+      )
+
+    case response.status do
+      200 ->
+        response.body["data"]
+        |> Enum.map(fn %{"embedding" => embedding} -> embedding end)
+        |> then(&{:ok, &1})
+
+      _status ->
+        {:error, response.body}
+    end
   end
 end
 ```
 
-Opts can be used to make embedding models that are dynamic depending on the resource:
+Opts can be used to make embedding models that are dynamic depending on the resource, i.e
 
 ```elixir
-embedding_model {MyApp.CustomEmbeddingModel, custom_option: "value"}
+embedding_model {MyApp.OpenAiEmbeddingModel, model: "a-specific-model"}
 ```
 
-Those opts are available in the `opts` argument to both `dimensions/1` and `generate/2` functions
+Those opts are available in the `_opts` argument to functions on your embedding model
 
 ## Using the vectors
 
@@ -551,12 +535,7 @@ read :search do
   argument :query, :string, allow_nil?: false
 
   prepare before_action(fn query, context ->
-    # Use the same embedding model configured in your resource
-    case AshAi.EmbeddingModels.ReqLLM.generate(
-      [query.arguments.query],
-      model: "openai:text-embedding-3-small",
-      dimensions: 1536
-    ) do
+    case YourEmbeddingModel.generate([query.arguments.query], []) do
       {:ok, [search_vector]} ->
         Ash.Query.filter(
           query,

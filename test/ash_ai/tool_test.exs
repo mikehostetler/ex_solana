@@ -4,6 +4,10 @@
 
 defmodule AshAi.ToolTest do
   use ExUnit.Case, async: true
+  import AshAi.Test.LangChainHelpers
+  alias AshAi.ChatFaker
+  alias LangChain.Chains.LLMChain
+  alias LangChain.Message
   alias __MODULE__.{TestDomain, TestResource}
 
   defmodule TestResource do
@@ -36,6 +40,16 @@ defmodule AshAi.ToolTest do
 
     tools do
       tool :read_test_resources, TestResource, :read, load: [:internal_status]
+
+      tool :read_test_resources_with_meta,
+           TestResource,
+           :read,
+           description: "Read test resources with metadata",
+           _meta: %{
+             "openai/outputTemplate" => "ui://widget/test-resources.html",
+             "openai/toolInvocation/invoking" => "Loading test resources…",
+             "openai/toolInvocation/invoked" => "Test resources loaded."
+           }
     end
   end
 
@@ -57,40 +71,56 @@ defmodule AshAi.ToolTest do
     end
 
     test "includes public and loaded fields" do
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
-
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        arguments: %{},
+        index: 0
       }
+
+      {:ok, chain} = chain() |> run_chain(tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
 
       # ID is included because it's a primary key
       # Public name and email are included because they're public attributes
       # Internal status is included because it's a loaded field
-      assert {:ok, text, _raw} = callback.(%{}, context)
+      assert {:ok, text} = extract_content_text(tool_result.content)
 
       assert text ==
                "[{\"id\":\"0197b375-4daa-7112-a9d8-7f0104485646\",\"public_name\":\"John Doe\",\"public_email\":\"john@example.com\",\"internal_status\":\"classified\"}]"
     end
 
-    test "handles nil arguments from MCP clients" do
-      {_tools, registry} = get_tools_and_registry()
-      callback = Map.fetch!(registry, "read_test_resources")
-
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
+    test "handles nil arguments from LangChain/MCP clients" do
+      # Simulate LangChain/MCP sending nil instead of empty map
+      tool_call = %LangChain.Message.ToolCall{
+        status: :complete,
+        type: :function,
+        call_id: "call_id",
+        name: "read_test_resources",
+        # This is what some LangChain/MCP clients send
+        arguments: nil,
+        index: 0
       }
 
-      # Should not crash with BadMapError when arguments is nil
-      assert {:ok, text, _raw} = callback.(nil, context)
+      # Should not crash with BadMapError
+      {:ok, chain} = chain() |> run_chain(tool_call)
+
+      tool_result =
+        chain.messages
+        |> Enum.find(&(is_nil(&1.tool_results) == false))
+        |> Map.get(:tool_results)
+        |> Enum.at(0)
 
       # Should return the resource data without crashing
+      assert {:ok, text} = extract_content_text(tool_result.content)
+
       assert text ==
                "[{\"id\":\"0197b375-4daa-7112-a9d8-7f0104485646\",\"public_name\":\"John Doe\",\"public_email\":\"john@example.com\",\"internal_status\":\"classified\"}]"
     end
@@ -101,7 +131,7 @@ defmodule AshAi.ToolTest do
       tool = get_test_tool()
 
       assert tool.name == "read_test_resources"
-      filter_properties = tool.parameter_schema["properties"]["filter"]["properties"]
+      filter_properties = tool.parameters_schema["properties"]["filter"]["properties"]
 
       # Public attributes are present
       assert Map.has_key?(filter_properties, "id")
@@ -117,7 +147,7 @@ defmodule AshAi.ToolTest do
       tool = get_test_tool()
 
       sort_field_enum =
-        tool.parameter_schema["properties"]["sort"]["items"]["properties"]["field"]["enum"]
+        tool.parameters_schema["properties"]["sort"]["items"]["properties"]["field"]["enum"]
 
       # Public attributes are present
       assert "id" in sort_field_enum
@@ -132,7 +162,7 @@ defmodule AshAi.ToolTest do
     test "aggregate field options only include public attributes" do
       tool = get_test_tool()
 
-      result_type_options = tool.parameter_schema["properties"]["result_type"]["oneOf"]
+      result_type_options = tool.parameters_schema["properties"]["result_type"]["oneOf"]
 
       aggregate_option =
         Enum.find(result_type_options, fn opt ->
@@ -152,28 +182,79 @@ defmodule AshAi.ToolTest do
     end
   end
 
-  defp get_tools_and_registry do
-    opts = [otp_app: :ash_ai, actions: [{TestResource, :*}]]
+  describe "tool _meta field" do
+    test "tool without _meta has has_meta?/1 return false" do
+      tools = AshAi.Info.tools(TestDomain)
+      tool_without_meta = Enum.find(tools, &(&1.name == :read_test_resources))
 
-    # Get exposed tools
-    tool_defs = AshAi.exposed_tools(opts)
+      refute AshAi.Tool.has_meta?(tool_without_meta)
+    end
 
-    # Convert to {tool, callback} tuples
-    tool_tuples = Enum.map(tool_defs, &AshAi.tool/1)
+    test "tool with _meta has has_meta?/1 return true" do
+      tools = AshAi.Info.tools(TestDomain)
+      tool_with_meta = Enum.find(tools, &(&1.name == :read_test_resources_with_meta))
 
-    # Separate tools and callbacks
-    {tools, callbacks} = Enum.unzip(tool_tuples)
+      assert AshAi.Tool.has_meta?(tool_with_meta)
+    end
 
-    # Build registry mapping tool name to callback function (function/2)
-    registry =
-      Enum.zip(tools, callbacks)
-      |> Enum.into(%{}, fn {tool, callback} -> {tool.name, callback} end)
+    test "tool with _meta contains the correct metadata" do
+      tools = AshAi.Info.tools(TestDomain)
+      tool_with_meta = Enum.find(tools, &(&1.name == :read_test_resources_with_meta))
 
-    {tools, registry}
+      assert tool_with_meta._meta == %{
+               "openai/outputTemplate" => "ui://widget/test-resources.html",
+               "openai/toolInvocation/invoking" => "Loading test resources…",
+               "openai/toolInvocation/invoked" => "Test resources loaded."
+             }
+    end
+
+    test "tool without _meta has _meta field as empty map or nil" do
+      tools = AshAi.Info.tools(TestDomain)
+      tool_without_meta = Enum.find(tools, &(&1.name == :read_test_resources))
+
+      assert tool_without_meta._meta == %{} or is_nil(tool_without_meta._meta)
+    end
+
+    test "tool with empty _meta has has_meta?/1 return false" do
+      tool_with_empty_meta = %AshAi.Tool{_meta: %{}}
+
+      refute AshAi.Tool.has_meta?(tool_with_empty_meta)
+    end
+
+    test "tool with nil _meta has has_meta?/1 return false" do
+      tool_with_nil_meta = %AshAi.Tool{_meta: nil}
+
+      refute AshAi.Tool.has_meta?(tool_with_nil_meta)
+    end
+  end
+
+  defp chain do
+    actions =
+      AshAi.Info.tools(TestDomain)
+      |> Enum.group_by(& &1.resource, & &1.action)
+      |> Map.to_list()
+
+    %{llm: ChatFaker.new!(%{})}
+    |> LLMChain.new!()
+    |> AshAi.setup_ash_ai(actions: actions)
+  end
+
+  defp run_chain(chain, tool_call) do
+    chain
+    |> LLMChain.add_message(Message.new_assistant!(%{status: :complete, tool_calls: [tool_call]}))
+    |> LLMChain.run(mode: :while_needs_response)
   end
 
   defp get_test_tool do
-    {tools, _registry} = get_tools_and_registry()
-    Enum.find(tools, &(&1.name == "read_test_resources"))
+    actions =
+      AshAi.Info.tools(TestDomain)
+      |> Enum.group_by(& &1.resource, & &1.action)
+      |> Map.to_list()
+
+    %{llm: ChatFaker.new!(%{})}
+    |> LLMChain.new!()
+    |> AshAi.setup_ash_ai(actions: actions)
+    |> Map.get(:tools)
+    |> Enum.at(0)
   end
 end

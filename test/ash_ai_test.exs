@@ -4,9 +4,10 @@
 
 defmodule AshAiTest do
   use ExUnit.Case, async: true
+  alias AshAi.ChatFaker
+  alias LangChain.Chains.LLMChain
+  alias LangChain.Message
   alias __MODULE__.{Music, Artist, Album}
-
-  @moduletag :capture_log
 
   defmodule Artist do
     use Ash.Resource, domain: Music, data_layer: Ash.DataLayer.Ets
@@ -111,15 +112,15 @@ defmodule AshAiTest do
 
     test "with read action", %{artist: artist} do
       tool_name = "list_artists"
-      {tools, registry} = get_tools_and_registry()
+      chain = chain()
 
-      assert %ReqLLM.Tool{} = tool = tools |> Enum.find(&(&1.name == tool_name))
+      assert %LangChain.Function{} = function = chain.tools |> Enum.find(&(&1.name == tool_name))
 
-      assert tool.description == "Call the read action on the AshAiTest.Artist resource"
+      assert function.description == "Call the read action on the AshAiTest.Artist resource"
 
-      assert tool.parameter_schema["additionalProperties"] == false
+      assert function.parameters_schema["additionalProperties"] == false
 
-      assert tool.parameter_schema["properties"]["filter"] == %{
+      assert function.parameters_schema["properties"]["filter"] == %{
                "type" => "object",
                "description" => "Filter results",
                "properties" => %{
@@ -178,21 +179,21 @@ defmodule AshAiTest do
                }
              }
 
-      refute tool.parameter_schema["properties"]["input"]
+      refute function.parameters_schema["properties"]["input"]
 
-      assert tool.parameter_schema["properties"]["limit"] == %{
+      assert function.parameters_schema["properties"]["limit"] == %{
                "type" => "integer",
                "description" => "The maximum number of records to return",
                "default" => 25
              }
 
-      assert tool.parameter_schema["properties"]["offset"] == %{
+      assert function.parameters_schema["properties"]["offset"] == %{
                "type" => "integer",
                "description" => "The number of records to skip",
                "default" => 0
              }
 
-      assert tool.parameter_schema["properties"]["sort"] == %{
+      assert function.parameters_schema["properties"]["sort"] == %{
                "type" => "array",
                "items" => %{
                  "type" => "object",
@@ -211,20 +212,12 @@ defmodule AshAiTest do
                }
              }
 
-      # Call the tool directly
-      callback = Map.fetch!(registry, tool_name)
+      tool_call =
+        tool_call(tool_name, %{"filter" => %{"name" => %{"eq" => artist.name}}})
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
-      }
+      assert {:ok, new_chain} = chain |> run_chain(tool_call)
 
-      assert {:ok, _text, raw} =
-               callback.(%{"filter" => %{"name" => %{"eq" => artist.name}}}, context)
-
-      assert [fetched_artist] = raw
+      assert [fetched_artist] = new_chain.last_message.processed_content
       assert fetched_artist.id == artist.id
       assert fetched_artist.albums_count == 0
       assert %Ash.NotLoaded{} = fetched_artist.albums_copies_sold
@@ -232,16 +225,17 @@ defmodule AshAiTest do
 
     test "with create action" do
       tool_name = "create_artist"
-      {tools, registry} = get_tools_and_registry()
+      chain = chain()
 
-      assert %ReqLLM.Tool{} = tool = tools |> Enum.find(&(&1.name == tool_name))
+      assert %LangChain.Function{} = function = chain.tools |> Enum.find(&(&1.name == tool_name))
 
-      assert tool.description == "Call the create action on the AshAiTest.Artist resource"
+      assert function.description == "Call the create action on the AshAiTest.Artist resource"
 
-      assert tool.parameter_schema["additionalProperties"] == false
+      assert function.parameters_schema["additionalProperties"] == false
 
-      assert tool.parameter_schema["properties"]["input"] == %{
+      assert function.parameters_schema["properties"]["input"] == %{
                "type" => "object",
+               "additionalProperties" => false,
                "properties" => %{
                  "id" => %{"type" => "string", "format" => "uuid"},
                  "name" => %{"type" => "string"}
@@ -249,19 +243,11 @@ defmodule AshAiTest do
                "required" => []
              }
 
-      # Call the tool directly
-      callback = Map.fetch!(registry, tool_name)
+      tool_call = tool_call(tool_name, %{"input" => %{"name" => "Chat Faker"}})
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
-      }
+      assert {:ok, new_chain} = chain |> run_chain(tool_call)
 
-      assert {:ok, _text, created_artist} =
-               callback.(%{"input" => %{"name" => "Chat Faker"}}, context)
-
+      assert created_artist = new_chain.last_message.processed_content
       assert created_artist.name == "Chat Faker"
       assert created_artist.albums_count == 0
       assert %Ash.NotLoaded{} = created_artist.albums_copies_sold
@@ -269,21 +255,22 @@ defmodule AshAiTest do
 
     test "with update action", %{artist: artist} do
       tool_name = "update_artist"
-      {tools, registry} = get_tools_and_registry()
+      chain = chain()
 
-      assert %ReqLLM.Tool{} = tool = tools |> Enum.find(&(&1.name == tool_name))
+      assert %LangChain.Function{} = function = chain.tools |> Enum.find(&(&1.name == tool_name))
 
-      assert tool.description == "Call the update action on the AshAiTest.Artist resource"
+      assert function.description == "Call the update action on the AshAiTest.Artist resource"
 
-      assert tool.parameter_schema["additionalProperties"] == false
+      assert function.parameters_schema["additionalProperties"] == false
 
-      assert tool.parameter_schema["properties"]["id"] == %{
+      assert function.parameters_schema["properties"]["id"] == %{
                "type" => "string",
                "format" => "uuid"
              }
 
-      assert tool.parameter_schema["properties"]["input"] == %{
+      assert function.parameters_schema["properties"]["input"] == %{
                "type" => "object",
+               "additionalProperties" => false,
                "properties" => %{
                  "id" => %{"type" => "string", "format" => "uuid"},
                  "name" => %{"type" => "string"}
@@ -291,19 +278,12 @@ defmodule AshAiTest do
                "required" => []
              }
 
-      # Call the tool directly
-      callback = Map.fetch!(registry, tool_name)
+      tool_call =
+        tool_call(tool_name, %{"id" => artist.id, "input" => %{"name" => "Chat Faker"}})
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
-      }
+      assert {:ok, new_chain} = chain() |> run_chain(tool_call)
 
-      assert {:ok, _text, updated_artist} =
-               callback.(%{"id" => artist.id, "input" => %{"name" => "Chat Faker"}}, context)
-
+      assert updated_artist = new_chain.last_message.processed_content
       assert updated_artist.id == artist.id
       assert updated_artist.name == "Chat Faker"
       assert updated_artist.albums_count == 0
@@ -312,34 +292,27 @@ defmodule AshAiTest do
 
     test "with destroy action", %{artist: artist} do
       tool_name = "delete_artist"
-      {tools, registry} = get_tools_and_registry()
+      chain = chain()
 
-      assert %ReqLLM.Tool{} = tool = tools |> Enum.find(&(&1.name == tool_name))
+      assert %LangChain.Function{} = function = chain.tools |> Enum.find(&(&1.name == tool_name))
 
-      assert tool.description == "Call the destroy action on the AshAiTest.Artist resource"
+      assert function.description == "Call the destroy action on the AshAiTest.Artist resource"
 
-      assert tool.parameter_schema["additionalProperties"] == false
+      assert function.parameters_schema["additionalProperties"] == false
 
-      assert tool.parameter_schema["properties"]["id"] == %{
+      assert function.parameters_schema["properties"]["id"] == %{
                "type" => "string",
                "format" => "uuid"
              }
 
       # no input schema because no inputs
-      refute tool.parameter_schema["properties"]["input"]
+      refute function.parameters_schema["properties"]["input"]
 
-      # Call the tool directly
-      callback = Map.fetch!(registry, tool_name)
+      tool_call = tool_call(tool_name, %{"id" => artist.id})
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
-      }
+      assert {:ok, new_chain} = chain() |> run_chain(tool_call)
 
-      assert {:ok, _text, destroyed_artist} = callback.(%{"id" => artist.id}, context)
-
+      assert destroyed_artist = new_chain.last_message.processed_content
       assert destroyed_artist.id == artist.id
       assert destroyed_artist.name == "Chet Baker"
       assert %Ash.NotLoaded{} = destroyed_artist.albums_copies_sold
@@ -347,50 +320,63 @@ defmodule AshAiTest do
 
     test "with generic action" do
       tool_name = "say_hello"
-      {tools, registry} = get_tools_and_registry()
+      chain = chain()
 
-      assert %ReqLLM.Tool{} = tool = tools |> Enum.find(&(&1.name == tool_name))
+      assert %LangChain.Function{} = function = chain.tools |> Enum.find(&(&1.name == tool_name))
 
-      assert tool.description == "Say hello"
+      assert function.description == "Say hello"
 
-      assert tool.parameter_schema["additionalProperties"] == false
+      assert function.parameters_schema["additionalProperties"] == false
 
-      assert tool.parameter_schema["properties"]["input"] == %{
+      assert function.parameters_schema["properties"]["input"] == %{
                "type" => "object",
+               "additionalProperties" => false,
                "properties" => %{"name" => %{"type" => "string"}},
                "required" => ["name"]
              }
 
-      # Call the tool directly
-      callback = Map.fetch!(registry, tool_name)
+      tool_call = tool_call(tool_name, %{"input" => %{"name" => "Chat Faker"}})
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: %{},
-        tool_callbacks: %{}
-      }
+      assert {:ok, new_chain} = chain() |> run_chain(tool_call)
 
-      assert {:ok, _text, result} = callback.(%{"input" => %{"name" => "Chat Faker"}}, context)
+      assert "Hello, Chat Faker!" = new_chain.last_message.processed_content
+    end
 
-      assert "Hello, Chat Faker!" = result
+    test "passes context through setup_ash_ai" do
+      custom_context = %{shared: %{conversation_id: "test-123"}}
+
+      chain =
+        %{llm: ChatFaker.new!(%{expect_fun: expect_fun()})}
+        |> LLMChain.new!()
+        |> AshAi.setup_ash_ai(
+          actions: [],
+          context: custom_context
+        )
+
+      assert chain.custom_context.context == custom_context
     end
 
     test "context is accessible in tool execution" do
       custom_context = %{shared: %{conversation_id: "test-123", user_id: 42}}
 
-      {_tools, registry} = get_tools_and_registry()
+      actions =
+        AshAi.Info.tools(Music)
+        |> Enum.group_by(& &1.resource, & &1.action)
+        |> Map.to_list()
 
-      callback = Map.fetch!(registry, "check_context")
+      chain =
+        %{llm: ChatFaker.new!(%{expect_fun: expect_fun()})}
+        |> LLMChain.new!()
+        |> AshAi.setup_ash_ai(
+          actions: actions,
+          context: custom_context
+        )
 
-      context = %{
-        actor: nil,
-        tenant: nil,
-        context: custom_context,
-        tool_callbacks: %{}
-      }
+      tool_call = tool_call("check_context", %{})
 
-      assert {:ok, _text, result} = callback.(%{}, context)
+      assert {:ok, new_chain} = chain |> run_chain(tool_call)
+
+      result = new_chain.last_message.processed_content
 
       assert result.context.shared == custom_context.shared
       assert result.context.conversation_id == "test-123"
@@ -398,23 +384,45 @@ defmodule AshAiTest do
     end
   end
 
-  defp get_tools_and_registry do
-    opts = [otp_app: :ash_ai, actions: [{Artist, :*}]]
+  defp tool_call(name, arguments) do
+    %LangChain.Message.ToolCall{
+      status: :complete,
+      type: :function,
+      call_id: "call_id",
+      name: name,
+      arguments: arguments,
+      index: 0
+    }
+  end
 
-    # Get exposed tools
-    tool_defs = AshAi.exposed_tools(opts)
+  defp chain do
+    actions =
+      AshAi.Info.tools(Music)
+      |> Enum.group_by(& &1.resource, & &1.action)
+      |> Map.to_list()
 
-    # Convert to {tool, callback} tuples
-    tool_tuples = Enum.map(tool_defs, &AshAi.tool/1)
+    %{llm: ChatFaker.new!(%{expect_fun: expect_fun()})}
+    |> LLMChain.new!()
+    |> AshAi.setup_ash_ai(actions: actions)
+  end
 
-    # Separate tools and callbacks
-    {tools, callbacks} = Enum.unzip(tool_tuples)
+  defp expect_fun do
+    fn _chat_model, messages, _tools ->
+      Message.new_assistant(%{processed_content: last_processed_content(messages)})
+    end
+  end
 
-    # Build registry mapping tool name to callback function (function/2)
-    registry =
-      Enum.zip(tools, callbacks)
-      |> Enum.into(%{}, fn {tool, callback} -> {tool.name, callback} end)
+  defp run_chain(chain, tool_call) do
+    chain
+    |> LLMChain.add_message(Message.new_assistant!(%{status: :complete, tool_calls: [tool_call]}))
+    |> LLMChain.run(mode: :while_needs_response)
+  end
 
-    {tools, registry}
+  defp last_processed_content(messages) do
+    messages
+    |> List.last()
+    |> Map.get(:tool_results)
+    |> List.first()
+    |> Map.get(:processed_content)
   end
 end
