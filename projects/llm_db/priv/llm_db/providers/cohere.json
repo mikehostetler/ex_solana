@@ -2,8 +2,10 @@
   "alias_of": null,
   "base_url": null,
   "config_schema": null,
-  "doc": null,
-  "env": null,
+  "doc": "https://docs.cohere.com/docs/models",
+  "env": [
+    "COHERE_API_KEY"
+  ],
   "exclude_models": null,
   "extra": null,
   "id": "cohere",
@@ -13,8 +15,8 @@
       "capabilities": null,
       "cost": {
         "image": 0.0,
-        "input": 0.0025,
-        "output": 0.01,
+        "input": 2.5,
+        "output": 10.0,
         "reasoning": 0.0,
         "request": 0.0
       },
@@ -46,6 +48,210 @@
       "release_date": "2025-03-13",
       "tags": null
     },
+    "command-a-03-2025": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 2.5,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "command-a",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "command-a-03-2025",
+      "knowledge": "2024-06-01",
+      "last_updated": "2025-03-13",
+      "lifecycle": null,
+      "limits": {
+        "context": 256000,
+        "output": 8000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Command A",
+      "provider": "cohere",
+      "provider_model_id": null,
+      "release_date": "2025-03-13",
+      "tags": null
+    },
+    "command-a-reasoning-08-2025": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 2.5,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "command-a",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "command-a-reasoning-08-2025",
+      "knowledge": "2024-06-01",
+      "last_updated": "2025-08-21",
+      "lifecycle": null,
+      "limits": {
+        "context": 256000,
+        "output": 32000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Command A Reasoning",
+      "provider": "cohere",
+      "provider_model_id": null,
+      "release_date": "2025-08-21",
+      "tags": null
+    },
+    "command-a-translate-08-2025": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "input": 2.5,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "command-a",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "command-a-translate-08-2025",
+      "knowledge": "2024-06-01",
+      "last_updated": "2025-08-28",
+      "lifecycle": null,
+      "limits": {
+        "context": 8000,
+        "output": 8000
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Command A Translate",
+      "provider": "cohere",
+      "provider_model_id": null,
+      "release_date": "2025-08-28",
+      "tags": null
+    },
+    "command-a-vision-07-2025": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": {
+        "input": 2.5,
+        "output": 10
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": false,
+        "family": "command-a",
+        "open_weights": true,
+        "temperature": true
+      },
+      "family": null,
+      "id": "command-a-vision-07-2025",
+      "knowledge": "2024-06-01",
+      "last_updated": "2025-07-31",
+      "lifecycle": null,
+      "limits": {
+        "context": 128000,
+        "output": 8000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Command A Vision",
+      "provider": "cohere",
+      "provider_model_id": null,
+      "release_date": "2025-07-31",
+      "tags": null
+    },
     "command-r-08-2024": {
       "aliases": [],
       "capabilities": {
@@ -69,19 +275,23 @@
       },
       "cost": {
         "image": 0.0,
-        "input": 1.5e-4,
-        "output": 0.0006,
+        "input": 0.15,
+        "output": 0.6,
         "reasoning": 0.0,
         "request": 0.0
       },
       "deprecated": false,
       "extra": {
-        "hugging_face_id": null
+        "attachment": false,
+        "family": "command-r",
+        "hugging_face_id": null,
+        "open_weights": true,
+        "temperature": true
       },
       "family": null,
       "id": "command-r-08-2024",
-      "knowledge": null,
-      "last_updated": null,
+      "knowledge": "2024-06-01",
+      "last_updated": "2024-08-30",
       "lifecycle": null,
       "limits": {
         "context": 128000,
@@ -125,19 +335,23 @@
       },
       "cost": {
         "image": 0.0,
-        "input": 0.0025,
-        "output": 0.01,
+        "input": 2.5,
+        "output": 10.0,
         "reasoning": 0.0,
         "request": 0.0
       },
       "deprecated": false,
       "extra": {
-        "hugging_face_id": null
+        "attachment": false,
+        "family": "command-r-plus",
+        "hugging_face_id": null,
+        "open_weights": true,
+        "temperature": true
       },
       "family": null,
       "id": "command-r-plus-08-2024",
-      "knowledge": null,
-      "last_updated": null,
+      "knowledge": "2024-06-01",
+      "last_updated": "2024-08-30",
       "lifecycle": null,
       "limits": {
         "context": 128000,
@@ -160,22 +374,43 @@
     },
     "command-r7b-12-2024": {
       "aliases": [],
-      "capabilities": null,
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
       "cost": {
         "image": 0.0,
-        "input": 3.75e-5,
-        "output": 1.5e-4,
+        "input": 0.0375,
+        "output": 0.15,
         "reasoning": 0.0,
         "request": 0.0
       },
       "deprecated": false,
       "extra": {
-        "hugging_face_id": ""
+        "attachment": false,
+        "family": "command-r",
+        "hugging_face_id": "",
+        "open_weights": true,
+        "temperature": true
       },
       "family": null,
       "id": "command-r7b-12-2024",
-      "knowledge": null,
-      "last_updated": null,
+      "knowledge": "2024-06-01",
+      "last_updated": "2024-02-27",
       "lifecycle": null,
       "limits": {
         "context": 128000,

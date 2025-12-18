@@ -1,12 +1,6 @@
 {
   "data": [
     {
-      "created": 1737331200,
-      "id": "grok-2-1212",
-      "object": "model",
-      "owned_by": "xai"
-    },
-    {
       "created": 1733961600,
       "id": "grok-2-vision-1212",
       "object": "model",
@@ -27,6 +21,18 @@
     {
       "created": 1752019200,
       "id": "grok-4-0709",
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "created": 1763510400,
+      "id": "grok-4-1-fast-non-reasoning",
+      "object": "model",
+      "owned_by": "xai"
+    },
+    {
+      "created": 1763510400,
+      "id": "grok-4-1-fast-reasoning",
       "object": "model",
       "owned_by": "xai"
     },

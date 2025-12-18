@@ -1,4 +1,4 @@
-name: Build Metadata
+name: Refresh Upstream Metadata
 
 on:
   schedule:
@@ -19,10 +19,19 @@ jobs:
   update-metadata:
     name: Pull and update LLM model metadata
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: llm-metadata
+      cancel-in-progress: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Disable git hooks
+        run: git config core.hooksPath /dev/null
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
@@ -36,81 +45,178 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-1.16-26-${{ hashFiles('**/mix.lock') }}
+          key: mix-${{ runner.os }}-elixir-1.16-otp-26-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-1.16-26-
+            mix-${{ runner.os }}-elixir-1.16-otp-26-
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
+          set -euo pipefail
           mix deps.get
 
       - name: Pull latest metadata from sources
-        id: pull
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
         run: |
+          set -euo pipefail
           echo "Pulling latest LLM model metadata..."
-          mix llm_models.pull
-          mix llm_models.build
-          echo "pull_complete=true" >> $GITHUB_OUTPUT
+          mix llm_db.pull
+          mix llm_db.build
 
       - name: Check for changes
         id: changes
         run: |
-          if [ "${{ inputs.force_update }}" = "true" ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          FORCE="${{ inputs.force_update || 'false' }}"
+
+          if [ "$FORCE" = "true" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Force update enabled - proceeding with PR creation"
-          elif git diff --quiet priv/llm_models/upstream/ priv/llm_models/snapshot.json lib/llm_models/generated/valid_providers.ex; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in metadata files"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in metadata files"
+            exit 0
           fi
 
-      - name: Generate metadata summary
-        if: steps.changes.outputs.has_changes == 'true'
+          if git status --porcelain priv/llm_db lib/llm_db/generated | grep -q .; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in metadata files"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected in metadata files"
+          fi
+
+      - name: Generate summary
         id: summary
-        run: |
-          chmod +x .github/workflows/scripts/generate_summary.sh
-          .github/workflows/scripts/generate_summary.sh
-
-      - name: Create branch and commit changes
         if: steps.changes.outputs.has_changes == 'true'
-        id: commit
         run: |
-          BRANCH_NAME="metadata-update-${{ github.run_number }}"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          set -euo pipefail
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          MANIFEST_FILE="priv/llm_db/manifest.json"
+          OUTPUT_FILE="${GITHUB_WORKSPACE}/metadata_summary.md"
+          COMMIT_FILE="${GITHUB_WORKSPACE}/commit_message.txt"
 
-          git checkout -b "$BRANCH_NAME"
-          git add priv/llm_models/upstream/
-          git add priv/llm_models/snapshot.json
-          git add lib/llm_models/generated/valid_providers.ex
+          # Detect what changed
+          CHANGED_PROVIDERS=$(git diff --name-only priv/llm_db/providers/ 2>/dev/null | xargs -I{} basename {} .json | sort -u | head -10)
+          NEW_PROVIDERS=$(git diff --name-only --diff-filter=A priv/llm_db/providers/ 2>/dev/null | xargs -I{} basename {} .json | sort -u)
+          MODIFIED_PROVIDERS=$(git diff --name-only --diff-filter=M priv/llm_db/providers/ 2>/dev/null | xargs -I{} basename {} .json | sort -u)
+          
+          # Count changes
+          NEW_COUNT=$(echo "$NEW_PROVIDERS" | grep -c . || echo 0)
+          MOD_COUNT=$(echo "$MODIFIED_PROVIDERS" | grep -c . || echo 0)
+          TOTAL_CHANGED=$(echo "$CHANGED_PROVIDERS" | grep -c . || echo 0)
+          
+          # Build commit message (conventional format)
+          if [ "$NEW_COUNT" -gt 0 ] && [ "$MOD_COUNT" -gt 0 ]; then
+            COMMIT_TITLE="feat: update model metadata ($NEW_COUNT new, $MOD_COUNT updated)"
+          elif [ "$NEW_COUNT" -gt 0 ]; then
+            COMMIT_TITLE="feat: add $NEW_COUNT new provider(s)"
+          elif [ "$MOD_COUNT" -gt 0 ]; then
+            COMMIT_TITLE="fix: update model metadata for $MOD_COUNT provider(s)"
+          else
+            COMMIT_TITLE="chore: refresh model metadata"
+          fi
+          
+          # Build commit body with details
+          echo "$COMMIT_TITLE" > "$COMMIT_FILE"
+          echo "" >> "$COMMIT_FILE"
+          
+          if [ -n "$NEW_PROVIDERS" ] && [ "$NEW_PROVIDERS" != "" ]; then
+            echo "New providers:" >> "$COMMIT_FILE"
+            echo "$NEW_PROVIDERS" | head -5 | sed 's/^/- /' >> "$COMMIT_FILE"
+            [ "$NEW_COUNT" -gt 5 ] && echo "- ... and $((NEW_COUNT - 5)) more" >> "$COMMIT_FILE"
+            echo "" >> "$COMMIT_FILE"
+          fi
+          
+          if [ -n "$MODIFIED_PROVIDERS" ] && [ "$MODIFIED_PROVIDERS" != "" ]; then
+            echo "Updated providers:" >> "$COMMIT_FILE"
+            echo "$MODIFIED_PROVIDERS" | head -5 | sed 's/^/- /' >> "$COMMIT_FILE"
+            [ "$MOD_COUNT" -gt 5 ] && echo "- ... and $((MOD_COUNT - 5)) more" >> "$COMMIT_FILE"
+          fi
+          
+          # Output for PR title and commit message
+          echo "commit_title=$COMMIT_TITLE" >> "$GITHUB_OUTPUT"
+          
+          # Output multiline commit message for the action
+          {
+            echo 'commit_message<<EOF'
+            cat "$COMMIT_FILE"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
-          git commit -m "Update model metadata" \
-                     -m "Automated metadata update from upstream sources"
+          # Build PR body
+          echo "## Model Metadata Update" > "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "Automated metadata update from upstream sources." >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
 
-          git push origin "$BRANCH_NAME"
+          if [ -f "$MANIFEST_FILE" ]; then
+            if jq empty "$MANIFEST_FILE" >/dev/null 2>&1; then
+              PROVIDER_COUNT=$(jq '.providers | length' "$MANIFEST_FILE")
+              GENERATED_AT=$(jq -r '.generated_at' "$MANIFEST_FILE" || echo "unknown")
+              MODEL_COUNT=$(find priv/llm_db/providers -name "*.json" -print0 \
+                | xargs -0 -r jq '.models | length' 2>/dev/null \
+                | awk '{s+=$1} END {print s+0}')
 
-      - name: Create Pull Request
+              echo "### Summary" >> "$OUTPUT_FILE"
+              echo "" >> "$OUTPUT_FILE"
+              echo "| Metric | Count |" >> "$OUTPUT_FILE"
+              echo "|--------|-------|" >> "$OUTPUT_FILE"
+              echo "| Total Providers | $PROVIDER_COUNT |" >> "$OUTPUT_FILE"
+              echo "| Total Models | $MODEL_COUNT |" >> "$OUTPUT_FILE"
+              echo "| New Providers | $NEW_COUNT |" >> "$OUTPUT_FILE"
+              echo "| Updated Providers | $MOD_COUNT |" >> "$OUTPUT_FILE"
+              echo "" >> "$OUTPUT_FILE"
+              echo "Generated: $GENERATED_AT" >> "$OUTPUT_FILE"
+              echo "" >> "$OUTPUT_FILE"
+            fi
+          fi
+          
+          if [ -n "$NEW_PROVIDERS" ] && [ "$NEW_PROVIDERS" != "" ]; then
+            echo "### New Providers" >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+            echo "$NEW_PROVIDERS" | sed 's/^/- `/' | sed 's/$/`/' >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+          fi
+          
+          if [ -n "$MODIFIED_PROVIDERS" ] && [ "$MODIFIED_PROVIDERS" != "" ]; then
+            echo "### Updated Providers" >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+            echo "$MODIFIED_PROVIDERS" | head -20 | sed 's/^/- `/' | sed 's/$/`/' >> "$OUTPUT_FILE"
+            [ "$MOD_COUNT" -gt 20 ] && echo "- ... and $((MOD_COUNT - 20)) more" >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+          fi
+
+          echo "### Changed Files" >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "\`\`\`" >> "$OUTPUT_FILE"
+          git diff --stat priv/llm_db/ lib/llm_db/generated/ >> "$OUTPUT_FILE" || true
+          echo "\`\`\`" >> "$OUTPUT_FILE"
+
+          # Show summary in Actions UI
+          cat "$OUTPUT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update metadata PR
         if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TITLE="Update model metadata - $(date +%Y-%m-%d)"
-          gh pr create \
-            --base main \
-            --head "${{ steps.commit.outputs.branch_name }}" \
-            --title "$TITLE" \
-            --body-file "/tmp/metadata_summary.md" \
-            --label "metadata-update" \
-            --label "automated"
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: ${{ steps.summary.outputs.commit_message }}
+          committer: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          title: "${{ steps.summary.outputs.commit_title }}"
+          body-path: "metadata_summary.md"
+          branch: "metadata-update"
+          base: "main"
+          add-paths: |
+            priv/llm_db/**
+            lib/llm_db/generated/**
 
       - name: Report no changes
         if: steps.changes.outputs.has_changes == 'false'
         run: |
           echo "No metadata changes detected. Skipping PR creation."
           echo "All model metadata is up to date."
+          echo "### No Changes Detected" >> "$GITHUB_STEP_SUMMARY"
+          echo "All model metadata is up to date." >> "$GITHUB_STEP_SUMMARY"

@@ -41,6 +41,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true
       },
@@ -56,7 +57,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -98,6 +100,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -113,7 +116,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -155,6 +159,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -170,7 +175,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -212,12 +218,13 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true
       },
       "family": null,
       "id": "claude-haiku-4-5@20251001",
-      "knowledge": "2025-02-31",
+      "knowledge": "2025-02-28",
       "last_updated": "2025-10-15",
       "lifecycle": null,
       "limits": {
@@ -227,7 +234,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -269,6 +277,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true
       },
@@ -284,7 +293,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -295,6 +305,65 @@
       "provider": "google_vertex_anthropic",
       "provider_model_id": null,
       "release_date": "2025-08-05",
+      "tags": null
+    },
+    "claude-opus-4-5@20251101": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.5,
+        "cache_write": 6.25,
+        "input": 5,
+        "output": 25
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "claude-opus",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "claude-opus-4-5@20251101",
+      "knowledge": "2025-03-31",
+      "last_updated": "2025-11-24",
+      "lifecycle": null,
+      "limits": {
+        "context": 200000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Claude Opus 4.5",
+      "provider": "google_vertex_anthropic",
+      "provider_model_id": null,
+      "release_date": "2025-11-24",
       "tags": null
     },
     "claude-opus-4@20250514": {
@@ -326,6 +395,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true
       },
@@ -341,7 +411,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -383,6 +454,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -398,7 +470,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -440,6 +513,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -455,7 +529,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"

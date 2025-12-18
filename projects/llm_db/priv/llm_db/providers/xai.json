@@ -71,6 +71,7 @@
       "extra": {
         "attachment": false,
         "created": 1743724800,
+        "family": "grok-3",
         "open_weights": false,
         "owned_by": "xai",
         "temperature": true
@@ -127,6 +128,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -182,6 +184,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -237,6 +240,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -298,6 +302,7 @@
       "extra": {
         "attachment": false,
         "created": 1743724800,
+        "family": "grok-3",
         "open_weights": false,
         "owned_by": "xai",
         "temperature": true
@@ -359,6 +364,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -419,6 +425,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -479,6 +486,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok-3",
         "open_weights": false,
         "temperature": true
       },
@@ -539,6 +547,7 @@
       "deprecated": false,
       "extra": {
         "attachment": false,
+        "family": "grok",
         "open_weights": false,
         "temperature": true
       },
@@ -589,6 +598,145 @@
       "release_date": null,
       "tags": null
     },
+    "grok-4-1-fast": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.05,
+        "input": 0.2,
+        "output": 0.5
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "grok",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "grok-4-1-fast",
+      "knowledge": "2025-07",
+      "last_updated": "2025-11-19",
+      "lifecycle": null,
+      "limits": {
+        "context": 2000000,
+        "output": 30000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Grok 4.1 Fast",
+      "provider": "xai",
+      "provider_model_id": null,
+      "release_date": "2025-11-19",
+      "tags": null
+    },
+    "grok-4-1-fast-non-reasoning": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": false
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.05,
+        "input": 0.2,
+        "output": 0.5
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "created": 1763510400,
+        "family": "grok",
+        "open_weights": false,
+        "owned_by": "xai",
+        "temperature": true
+      },
+      "family": null,
+      "id": "grok-4-1-fast-non-reasoning",
+      "knowledge": "2025-07",
+      "last_updated": "2025-11-19",
+      "lifecycle": null,
+      "limits": {
+        "context": 2000000,
+        "output": 30000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Grok 4.1 Fast (Non-Reasoning)",
+      "provider": "xai",
+      "provider_model_id": null,
+      "release_date": "2025-11-19",
+      "tags": null
+    },
+    "grok-4-1-fast-reasoning": {
+      "aliases": [],
+      "capabilities": null,
+      "cost": null,
+      "deprecated": false,
+      "extra": {
+        "created": 1763510400,
+        "owned_by": "xai"
+      },
+      "family": null,
+      "id": "grok-4-1-fast-reasoning",
+      "knowledge": null,
+      "last_updated": null,
+      "lifecycle": null,
+      "limits": null,
+      "modalities": null,
+      "model": null,
+      "name": null,
+      "provider": "xai",
+      "provider_model_id": null,
+      "release_date": null,
+      "tags": null
+    },
     "grok-4-fast": {
       "aliases": [],
       "capabilities": {
@@ -621,6 +769,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "grok",
         "open_weights": false,
         "temperature": true
       },
@@ -679,6 +828,7 @@
       "extra": {
         "attachment": false,
         "created": 1756944000,
+        "family": "grok",
         "open_weights": false,
         "owned_by": "xai",
         "temperature": true
@@ -799,6 +949,7 @@
       "extra": {
         "attachment": false,
         "created": 1755993600,
+        "family": "grok",
         "open_weights": false,
         "owned_by": "xai",
         "temperature": true

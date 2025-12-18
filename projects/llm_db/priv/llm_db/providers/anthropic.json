@@ -73,6 +73,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2024-10-22T00:00:00Z",
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -91,7 +92,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -133,6 +135,7 @@
       "deprecated": false,
       "extra": {
         "attachment": true,
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true
       },
@@ -148,7 +151,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -195,6 +199,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-02-24T00:00:00Z",
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -216,7 +221,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -261,6 +267,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2024-03-07T00:00:00Z",
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -279,7 +286,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -314,9 +322,9 @@
         }
       },
       "cost": {
-        "image": 24.0,
-        "input": 0.015000000000000001,
-        "output": 0.075,
+        "image": 2.4e4,
+        "input": 15.0,
+        "output": 75.0,
         "reasoning": 0.0,
         "request": 0.0
       },
@@ -371,9 +379,9 @@
         }
       },
       "cost": {
-        "image": 4.8,
-        "input": 0.003,
-        "output": 0.015000000000000001,
+        "image": 4.8e3,
+        "input": 3.0,
+        "output": 15.0,
         "reasoning": 0.0,
         "request": 0.0
       },
@@ -428,9 +436,9 @@
         }
       },
       "cost": {
-        "image": 4.8,
-        "input": 0.003,
-        "output": 0.015000000000000001,
+        "image": 4.8e3,
+        "input": 3.0,
+        "output": 15.0,
         "reasoning": 0.0,
         "request": 0.0
       },
@@ -496,13 +504,14 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-10-15T00:00:00Z",
+        "family": "claude-haiku",
         "open_weights": false,
         "temperature": true,
         "type": "model"
       },
       "family": null,
       "id": "claude-haiku-4-5-20251001",
-      "knowledge": "2025-02-31",
+      "knowledge": "2025-02-28",
       "last_updated": "2025-10-15",
       "lifecycle": {
         "status": "active"
@@ -514,7 +523,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -560,6 +570,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-08-05T00:00:00Z",
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -578,7 +589,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -624,6 +636,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-05-22T00:00:00Z",
+        "family": "claude-opus",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -642,7 +655,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -653,6 +667,126 @@
       "provider": "anthropic",
       "provider_model_id": null,
       "release_date": "2025-05-22",
+      "tags": null
+    },
+    "claude-opus-4-5": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.5,
+        "cache_write": 6.25,
+        "input": 5,
+        "output": 25
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "family": "claude-opus",
+        "open_weights": false,
+        "temperature": true
+      },
+      "family": null,
+      "id": "claude-opus-4-5",
+      "knowledge": "2025-03-31",
+      "last_updated": "2025-11-24",
+      "lifecycle": null,
+      "limits": {
+        "context": 200000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Claude Opus 4.5 (latest)",
+      "provider": "anthropic",
+      "provider_model_id": null,
+      "release_date": "2025-11-24",
+      "tags": null
+    },
+    "claude-opus-4-5-20251101": {
+      "aliases": [],
+      "capabilities": {
+        "chat": true,
+        "embeddings": false,
+        "json": {
+          "native": false,
+          "schema": false,
+          "strict": false
+        },
+        "reasoning": {
+          "enabled": true
+        },
+        "streaming": {
+          "tool_calls": true
+        },
+        "tools": {
+          "enabled": true
+        }
+      },
+      "cost": {
+        "cache_read": 0.5,
+        "cache_write": 6.25,
+        "input": 5,
+        "output": 25
+      },
+      "deprecated": false,
+      "extra": {
+        "attachment": true,
+        "created_at": "2025-11-24T00:00:00Z",
+        "family": "claude-opus",
+        "open_weights": false,
+        "temperature": true,
+        "type": "model"
+      },
+      "family": null,
+      "id": "claude-opus-4-5-20251101",
+      "knowledge": "2025-03-31",
+      "last_updated": "2025-11-01",
+      "lifecycle": null,
+      "limits": {
+        "context": 200000,
+        "output": 64000
+      },
+      "modalities": {
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "model": null,
+      "name": "Claude Opus 4.5",
+      "provider": "anthropic",
+      "provider_model_id": null,
+      "release_date": "2025-11-01",
       "tags": null
     },
     "claude-sonnet-4-20250514": {
@@ -688,6 +822,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-05-22T00:00:00Z",
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -706,7 +841,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
@@ -752,6 +888,7 @@
       "extra": {
         "attachment": true,
         "created_at": "2025-09-29T00:00:00Z",
+        "family": "claude-sonnet",
         "open_weights": false,
         "temperature": true,
         "type": "model"
@@ -770,7 +907,8 @@
       "modalities": {
         "input": [
           "text",
-          "image"
+          "image",
+          "pdf"
         ],
         "output": [
           "text"
