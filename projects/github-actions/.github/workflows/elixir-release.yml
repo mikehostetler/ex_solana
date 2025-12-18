@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           mix deps.get
-          MIX_ENV=${{ inputs.mix_env }} mix deps.compile git_ops
+          mix deps.compile
         env:
           MIX_ENV: ${{ inputs.mix_env }}
 
