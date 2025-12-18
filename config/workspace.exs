@@ -132,6 +132,14 @@ config :jido_workspace,
       type: :library,
       path: "projects/req_llm"
     },
+    # LLM model metadata catalog - high churn, independent version stream
+    %{
+      name: "llm_db",
+      upstream_url: "git@github.com:agentjido/llm_db.git",
+      branch: "main",
+      type: :library,
+      path: "projects/llm_db"
+    },
     # EXPERIMENTAL - Evolutionary optimization
     %{
       name: "kaizen",
@@ -149,28 +157,48 @@ config :jido_workspace,
     }
   ],
   hex_packages: [
+    # Core packages - publish together as version train
     %{
       name: "jido_signal",
       path: "projects/jido_signal",
       publish_order: 1,
-      dependencies: []
+      dependencies: [],
+      version_train: :core
     },
     %{
       name: "jido_action",
       path: "projects/jido_action",
       publish_order: 2,
-      dependencies: []
+      dependencies: [],
+      version_train: :core
     },
     %{
       name: "jido",
       path: "projects/jido",
       publish_order: 3,
-      dependencies: ["jido_signal", "jido_action"]
+      dependencies: ["jido_signal", "jido_action"],
+      version_train: :core
     },
     %{
       name: "jido_ai",
       path: "projects/jido_ai",
       publish_order: 4,
-      dependencies: ["jido", "jido_action"]
+      dependencies: ["jido", "jido_action"],
+      version_train: :core
+    },
+    # Independent packages - own version streams
+    %{
+      name: "llm_db",
+      path: "projects/llm_db",
+      publish_order: 10,
+      dependencies: [],
+      version_train: :independent
+    },
+    %{
+      name: "req_llm",
+      path: "projects/req_llm",
+      publish_order: 11,
+      dependencies: ["llm_db"],
+      version_train: :independent
     }
   ]
