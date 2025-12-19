@@ -124,3 +124,8 @@ Router.matches?("user.created", "user.*")     # true
 Router.matches?("audit.user.login", "audit.**")  # true  
 Router.matches?("user.profile.updated", "user.*")  # false
 ```
+
+## Next Steps
+
+- [Signal Extensions](signal-extensions.md) - Add custom metadata to signals with CloudEvents compliance
+- [Signal Journal](signal-journal.md) - Durable storage with causality tracking and conversation management

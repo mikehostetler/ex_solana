@@ -58,7 +58,7 @@ signal2 = Jido.Signal.new!(type: "email.sent", source: "/notifications")
 all_signals = Jido.Signal.Journal.query(journal)
 
 # Filter by criteria
-user_signals = Jido.Signal.Journal.query(journal, type: "user.*")
+user_signals = Jido.Signal.Journal.query(journal, type: "user.created")
 recent_signals = Jido.Signal.Journal.query(journal, after: DateTime.utc_now() |> DateTime.add(-3600))
 
 # Get causality relationships
@@ -167,6 +167,12 @@ defmodule MyApp.Journal.DatabaseAdapter do
     # Get all signals in conversation
     {:ok, signal_ids_mapset}
   end
+
+  @impl true
+  def get_all_signals(connection) do
+    # Return all stored signals (required for query support)
+    {:ok, signals_list}
+  end
 end
 
 # Use custom adapter
@@ -201,6 +207,8 @@ journal = Jido.Signal.Journal.new(Jido.Signal.Journal.Adapters.ETS)
 ```
 
 ### Querying Signals
+
+> **Note:** The `type:` filter matches exact strings only. Wildcard pattern matching is not currently supported in queries.
 
 ```elixir
 # Query with filters
@@ -350,9 +358,8 @@ defmodule MyApp.UserAggregate do
   end
   
   def rebuild_state(journal, aggregate_id) do
-    # Get all events for this aggregate
+    # Get all events for this aggregate by source
     events = Jido.Signal.Journal.query(journal, 
-      type: "user.*", 
       source: "/user/#{aggregate_id}"
     )
     
@@ -499,3 +506,8 @@ end
 8. **Clean Up Resources**: Properly terminate adapters to prevent resource leaks
 
 The Signal Journal provides the foundation for sophisticated event-driven architectures with complete traceability and powerful analysis capabilities. Combined with the Bus, it enables robust, observable, and maintainable signal processing systems.
+
+## Next Steps
+
+- [Serialization](serialization.md) - Signal serialization formats, custom implementations, and security considerations
+- [Advanced Usage](advanced.md) - Custom adapters, error handling strategies, and performance optimization

@@ -602,3 +602,7 @@ defmodule MySerializerTest do
   end
 end
 ```
+
+## Next Steps
+
+- [Advanced Usage](advanced.md) - Custom adapters, error handling strategies, and performance optimization

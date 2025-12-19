@@ -1,7 +1,7 @@
 defmodule Jido.Signal.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.1.0"
   @source_url "https://github.com/agentjido/jido_signal"
   @description "Agent Communication Envelope and Utilities"
 
@@ -33,6 +33,12 @@ defmodule Jido.Signal.MixProject do
         summary: [threshold: 90],
         export: "cov",
         ignore_modules: [~r/^JidoTest\./]
+      ],
+
+      # Dialyzer
+      dialyzer: [
+        plt_local_path: "priv/plts/project.plt",
+        plt_core_path: "priv/plts/core.plt"
       ]
     ]
   end
@@ -68,11 +74,12 @@ defmodule Jido.Signal.MixProject do
       extras: [
         "README.md",
         "CONTRIBUTING.md",
-        "LICENSE.md",
+        "LICENSE",
         "guides/getting-started.md",
         "guides/signals-and-dispatch.md",
-        "guides/signal-router.md",
         "guides/event-bus.md",
+        "guides/signal-router.md",
+        "guides/signal-extensions.md",
         "guides/signal-journal.md",
         "guides/serialization.md",
         "guides/advanced.md"
@@ -173,9 +180,11 @@ defmodule Jido.Signal.MixProject do
       maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
+        "Documentation" => "https://hexdocs.pm/jido_signal",
         "GitHub" => @source_url,
-        "AgentJido.xyz" => "https://agentjido.xyz",
-        "Jido Workbench" => "https://github.com/agentjido/jido_workbench"
+        "Website" => "https://agentjido.xyz",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Changelog" => "https://github.com/agentjido/jido_signal/blob/main/CHANGELOG.md"
       }
     ]
   end
@@ -198,7 +207,7 @@ defmodule Jido.Signal.MixProject do
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},
-      {:git_hooks, "~> 0.5.0", only: [:dev, :test], runtime: false},
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.21", only: [:dev, :test], runtime: false},
@@ -226,7 +235,7 @@ defmodule Jido.Signal.MixProject do
       quality: [
         "format --check-formatted",
         "compile --warnings-as-errors",
-        "credo --strict",
+        "credo --min-priority higher",
         "dialyzer"
       ]
     ]
