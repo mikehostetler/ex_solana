@@ -31,7 +31,9 @@ end
 
 ## Schema Definition
 
-Actions use [NimbleOptions](https://hexdocs.pm/nimble_options) for comprehensive parameter validation:
+Actions support two schema formats: [NimbleOptions](https://hexdocs.pm/nimble_options) and [Zoi](https://hexdocs.pm/zoi) (recommended for new code).
+
+### NimbleOptions Schema
 
 ```elixir
 schema: [
@@ -60,6 +62,27 @@ schema: [
 ]
 ```
 
+### Zoi Schema (Recommended)
+
+Zoi schemas provide richer validation with built-in transformations:
+
+```elixir
+use Jido.Action,
+  name: "create_user",
+  schema: Zoi.object(%{
+    email: Zoi.string() |> Zoi.trim() |> Zoi.email(),
+    age: Zoi.integer() |> Zoi.min(0) |> Zoi.max(120),
+    name: Zoi.string() |> Zoi.min_length(1) |> Zoi.max_length(100),
+    role: Zoi.enum([:admin, :user, :guest]) |> Zoi.default(:user)
+  })
+```
+
+**Zoi advantages:**
+- Built-in transformations (trim, downcase, coerce)
+- Rich refinements for custom validation
+- Better error messages
+- Type coercion out of the box
+
 ### Schema Features
 
 **Type Safety**: Validates parameter types at runtime  
@@ -78,7 +101,7 @@ defmodule MyApp.Actions.ProcessData do
     name: "process_data",
     schema: [data: [type: :string, required: true]]
 
-  # 1. Pre-validation hook
+  # 1. Pre-validation hook (before schema validation)
   @impl true
   def on_before_validate_params(params) do
     # Normalize or enrich parameters before validation
@@ -86,22 +109,31 @@ defmodule MyApp.Actions.ProcessData do
     {:ok, normalized}
   end
 
-  # 2. Main execution (required)
+  # 2. Post-validation hook (after schema validation)
+  @impl true
+  def on_after_validate_params(params) do
+    # Further processing after validation
+    {:ok, params}
+  end
+
+  # 3. Main execution (required)
   @impl true
   def run(params, context) do
     processed = expensive_operation(params.data)
     {:ok, %{result: processed, processed_at: DateTime.utc_now()}}
   end
 
-  # 3. Post-execution hook
+  # 4. Post-execution hook - receives {:ok, result} or {:error, reason}
   @impl true  
-  def on_after_run(result) do
+  def on_after_run({:ok, result}) do
     # Log, cache, or enrich the result
     Logger.info("Data processed successfully")
     {:ok, Map.put(result, :logged, true)}
   end
 
-  # 4. Error compensation
+  def on_after_run({:error, _} = error), do: error
+
+  # 5. Error compensation (called when compensation is enabled)
   @impl true
   def on_error(failed_params, error, context, opts) do
     # Clean up resources, send alerts, etc.
@@ -111,12 +143,25 @@ defmodule MyApp.Actions.ProcessData do
 end
 ```
 
+### Available Lifecycle Hooks
+
+| Hook | Called | Purpose |
+|------|--------|---------|
+| `on_before_validate_params/1` | Before schema validation | Normalize/enrich input params |
+| `on_after_validate_params/1` | After schema validation | Post-process validated params |
+| `on_before_validate_output/1` | Before output validation | Pre-process action output |
+| `on_after_validate_output/1` | After output validation | Post-process validated output |
+| `on_after_run/1` | After action execution | Receives `{:ok, result}` or `{:error, reason}` |
+| `on_error/4` | On error (when compensation enabled) | Cleanup/rollback on failure |
+
 ### Hook Execution Order
 
 ```
-Parameters → on_before_validate_params → Schema Validation → run → on_after_run → Result
-                                                               ↓
-                                                           Error → on_error
+Parameters → on_before_validate_params → Schema Validation → on_after_validate_params → run
+                                                                                         ↓
+Result ← on_after_validate_output ← Output Validation ← on_before_validate_output ← on_after_run
+                                                                                         ↓
+                                                                                 Error → on_error
 ```
 
 ## Compensation & Error Recovery
@@ -193,23 +238,21 @@ Actions automatically convert to AI-compatible tool definitions:
 # Get tool definition
 tool_def = MyApp.Actions.ProcessData.to_tool()
 
-# Returns OpenAI-compatible function definition:
+# Returns LangChain-compatible tool definition:
 %{
-  "type" => "function",
-  "function" => %{
-    "name" => "process_data", 
-    "description" => "Processes input data",
-    "parameters" => %{
-      "type" => "object",
-      "properties" => %{
-        "data" => %{"type" => "string", "description" => "Input data"}
-      },
-      "required" => ["data"]
-    }
+  name: "process_data",
+  description: "Processes input data",
+  function: #Function<...>,  # Executable function
+  parameters_schema: %{
+    "type" => "object",
+    "properties" => %{
+      "data" => %{"type" => "string", "description" => "Input data"}
+    },
+    "required" => ["data"]
   }
 }
 
-# Execute from AI tool call
+# Execute from AI tool call (handles string keys and type conversion)
 {:ok, result} = Jido.Action.Tool.execute_action(
   MyApp.Actions.ProcessData,
   %{"data" => "input from AI"},
@@ -286,9 +329,10 @@ end
 
 ## Next Steps
 
+**→ [Schemas & Validation](schemas-validation.md)** - Deep dive into NimbleOptions and Zoi schemas  
 **→ [Execution Engine](execution-engine.md)** - Robust action execution  
 **→ [Instructions & Plans](instructions-plans.md)** - Workflow composition  
 **→ [Error Handling Guide](error-handling.md)** - Advanced error patterns
 
 ---
-← [Your Second Action](your-second-action.md) | **Next: [Execution Engine](execution-engine.md)** →
+← [Your Second Action](your-second-action.md) | [Next: Schemas & Validation →](schemas-validation.md)

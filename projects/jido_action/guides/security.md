@@ -161,31 +161,43 @@ end
 
 ### Time Limits
 
+The execution engine provides timeout protection via `Jido.Exec.run/4`:
+
 ```elixir
 # Use execution engine timeouts
 {:ok, result} = Jido.Exec.run(
   MyApp.Actions.TimeLimited,
   params,
   context,
-  timeout: 5_000  # Prevent long-running operations
+  timeout: 5_000  # Prevent long-running operations (default: 30000ms)
 )
 
-# Per-action timeout configuration
+# For async operations
+async_ref = Jido.Exec.run_async(MyAction, params, context)
+{:ok, result} = Jido.Exec.await(async_ref, 10_000)  # Custom timeout
+
+# Internal timeout handling in actions
 defmodule MyApp.Actions.TimeLimited do
   use Jido.Action,
-    # Set strict timeout for this action
-    default_timeout: 3_000,
     schema: [operation: [type: :atom, required: true]]
 
   def run(params, _context) do
-    # Implementation with internal timeouts
-    Task.async(fn -> expensive_operation(params.operation) end)
-    |> Task.await(2_000)  # Internal timeout shorter than action timeout
-  rescue
-    :timeout ->
-      {:error, Jido.Action.Error.timeout_error("Operation timed out internally")}
+    # Use Task for internal timeout control
+    task = Task.async(fn -> expensive_operation(params.operation) end)
+    
+    case Task.yield(task, 2_000) || Task.shutdown(task) do
+      {:ok, result} -> {:ok, result}
+      nil -> {:error, Jido.Action.Error.timeout_error("Operation timed out")}
+    end
   end
 end
+```
+
+Configure default timeout globally:
+
+```elixir
+# config/config.exs
+config :jido_action, :default_timeout, 30_000
 ```
 
 ### File System Restrictions
@@ -341,6 +353,41 @@ end
 ```
 
 ## Access Control
+
+### Action Allowlisting
+
+Use `Jido.Instruction.validate_allowed_actions/2` to restrict which actions can be executed:
+
+```elixir
+alias Jido.Instruction
+
+# Create instructions
+instructions = [
+  Instruction.new(MyApp.Actions.SafeAction, %{data: "value"}),
+  Instruction.new(MyApp.Actions.AnotherSafeAction, %{id: 123})
+]
+
+# Define allowed actions (whitelist)
+allowed_actions = [
+  MyApp.Actions.SafeAction,
+  MyApp.Actions.AnotherSafeAction,
+  MyApp.Actions.ThirdAction
+]
+
+# Validate before execution
+case Instruction.validate_allowed_actions(instructions, allowed_actions) do
+  :ok ->
+    # All actions are allowed, proceed with execution
+    Jido.Exec.run(hd(instructions).action, hd(instructions).params, context)
+    
+  {:error, error} ->
+    # Some actions are not in the allowlist
+    Logger.warning("Blocked unauthorized actions", error: error)
+    {:error, error}
+end
+```
+
+This is particularly useful for AI tool execution where you want to restrict which actions an LLM can invoke.
 
 ### Context-Based Authorization
 
@@ -664,13 +711,27 @@ defmodule MyApp.Actions.SecurityTest do
 end
 ```
 
+## Built-in Security Features
+
+Jido Action provides these security features out of the box:
+
+| Feature | Implementation |
+|---------|---------------|
+| Parameter validation | NimbleOptions/Zoi schemas in action definitions |
+| Action allowlisting | `Jido.Instruction.validate_allowed_actions/2` |
+| Timeout protection | `timeout` option in `Jido.Exec.run/4` and `Jido.Exec.await/2` |
+| Lifecycle hooks | `on_before_validate_params/1` for input sanitization |
+| Error types | Structured error types (`InvalidInputError`, `TimeoutError`, `ExecutionFailureError`, etc.) |
+
 ## Best Practices
 
+The patterns shown in this guide are recommended implementations—not built-in configuration options.
+
 ### Defense in Depth
-- **Input Validation**: Validate at multiple layers
-- **Output Encoding**: Encode outputs for target context
-- **Principle of Least Privilege**: Grant minimal necessary permissions
-- **Fail Securely**: Default to denying access
+- **Input Validation**: Use schema validation plus custom validation in `run/2`
+- **Output Encoding**: Encode outputs for target context in your action logic
+- **Principle of Least Privilege**: Use `validate_allowed_actions/2` to whitelist actions
+- **Fail Securely**: Return `{:error, ...}` tuples; don't silently continue
 
 ### Secret Management
 - **Environment Variables**: Store secrets in environment variables
@@ -679,16 +740,16 @@ end
 - **Logging**: Never log secrets or sensitive data
 
 ### Access Control
-- **Authentication**: Verify user identity
-- **Authorization**: Check permissions for each action
-- **Session Management**: Secure session handling
-- **Audit Logging**: Log all security-relevant events
+- **Action Allowlisting**: Use `Jido.Instruction.validate_allowed_actions/2`
+- **Context-Based Auth**: Pass user/session info via context parameter
+- **Role Checks**: Implement RBAC in your action's `run/2` function
+- **Audit Logging**: Log security events using Elixir's Logger
 
 ### Resource Protection
-- **Rate Limiting**: Prevent abuse and DoS attacks
-- **Input Limits**: Limit input size and complexity
-- **Timeout Enforcement**: Prevent resource exhaustion
-- **Memory Monitoring**: Monitor and limit memory usage
+- **Timeout Enforcement**: Use `timeout` option in `Jido.Exec.run/4`
+- **Input Limits**: Validate input size in schemas or `on_before_validate_params/1`
+- **Rate Limiting**: Implement at the application/infrastructure layer
+- **Memory Monitoring**: Use BEAM observability tools (`:erlang.memory/1`, etc.)
 
 ## Next Steps
 

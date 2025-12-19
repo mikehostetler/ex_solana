@@ -12,7 +12,7 @@ Pause execution for a specified duration.
 ```elixir
 # Sleep for 1 second
 {:ok, result} = Jido.Tools.Basic.Sleep.run(%{duration_ms: 1000}, %{})
-# => {:ok, %{slept_for: 1000, completed_at: ~U[2024-01-15 10:30:45Z]}}
+# => {:ok, %{duration_ms: 1000}}
 
 # Use in workflows for delays
 plan = Jido.Plan.new()
@@ -22,7 +22,97 @@ plan = Jido.Plan.new()
 ```
 
 **Parameters:**
-- `duration_ms` (integer, required): Milliseconds to sleep
+- `duration_ms` (non-negative integer, default: 1000): Milliseconds to sleep
+
+### Log
+Log a message with a specified level.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Log.run(%{level: :info, message: "Hello"}, %{})
+# => {:ok, %{level: :info, message: "Hello"}}
+```
+
+**Parameters:**
+- `level` (atom, default: :info): Log level (:debug, :info, :warning, :error)
+- `message` (string, required): Message to log
+
+### Todo
+Log a todo item as a placeholder.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Todo.run(%{todo: "Implement this feature"}, %{})
+# => {:ok, %{todo: "Implement this feature"}}
+```
+
+**Parameters:**
+- `todo` (string, required): Todo item description
+
+### RandomSleep
+Introduce a random delay within a specified range.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.RandomSleep.run(%{min_ms: 100, max_ms: 500}, %{})
+# => {:ok, %{min_ms: 100, max_ms: 500, actual_delay: 342}}
+```
+
+**Parameters:**
+- `min_ms` (non-negative integer, required): Minimum sleep duration in milliseconds
+- `max_ms` (non-negative integer, required): Maximum sleep duration in milliseconds
+
+### Increment
+Increment a value by 1.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Increment.run(%{value: 5}, %{})
+# => {:ok, %{value: 6}}
+```
+
+**Parameters:**
+- `value` (integer, required): Value to increment
+
+### Decrement
+Decrement a value by 1.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Decrement.run(%{value: 5}, %{})
+# => {:ok, %{value: 4}}
+```
+
+**Parameters:**
+- `value` (integer, required): Value to decrement
+
+### Noop
+No operation, returns input unchanged.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Noop.run(%{foo: "bar"}, %{})
+# => {:ok, %{foo: "bar"}}
+```
+
+### Inspect
+Inspect a value using IO.inspect.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Inspect.run(%{value: [1, 2, 3]}, %{})
+# => {:ok, %{value: [1, 2, 3]}}
+```
+
+**Parameters:**
+- `value` (any, required): Value to inspect
+
+### Today
+Returns today's date in the specified format.
+
+```elixir
+{:ok, result} = Jido.Tools.Basic.Today.run(%{format: :iso8601}, %{})
+# => {:ok, %{format: :iso8601, date: "2024-01-15"}}
+
+{:ok, result} = Jido.Tools.Basic.Today.run(%{format: :human}, %{})
+# => {:ok, %{format: :human, date: "January 15, 2024"}}
+```
+
+**Parameters:**
+- `format` (atom, default: :iso8601): Format for the date (:iso8601, :basic, or :human)
 
 ## Arithmetic Tools
 
@@ -47,24 +137,43 @@ Subtract a value from a number.
 ```
 
 ### Multiply
-Multiply a number by a factor.
+Multiply two numbers.
 
 ```elixir
-{:ok, result} = Jido.Tools.Arithmetic.Multiply.run(%{value: 6, factor: 4}, %{})
+{:ok, result} = Jido.Tools.Arithmetic.Multiply.run(%{value: 6, amount: 4}, %{})
 # => {:ok, %{result: 24}}
 ```
 
+**Parameters:**
+- `value` (integer, required): The first number to multiply
+- `amount` (integer, required): The second number to multiply
+
 ### Divide
-Divide a number by a divisor.
+Divide one number by another.
 
 ```elixir
-{:ok, result} = Jido.Tools.Arithmetic.Divide.run(%{value: 20, divisor: 4}, %{})
+{:ok, result} = Jido.Tools.Arithmetic.Divide.run(%{value: 20, amount: 4}, %{})
 # => {:ok, %{result: 5.0}}
 
 # Division by zero returns error
-{:error, error} = Jido.Tools.Arithmetic.Divide.run(%{value: 10, divisor: 0}, %{})
-# => {:error, %{message: "Division by zero"}}
+{:error, error} = Jido.Tools.Arithmetic.Divide.run(%{value: 10, amount: 0}, %{})
+# => {:error, "Cannot divide by zero"}
 ```
+
+**Parameters:**
+- `value` (integer, required): The number to be divided (dividend)
+- `amount` (integer, required): The number to divide by (divisor)
+
+### Square
+Square a number.
+
+```elixir
+{:ok, result} = Jido.Tools.Arithmetic.Square.run(%{value: 5.0}, %{})
+# => {:ok, %{result: 25.0}}
+```
+
+**Parameters:**
+- `value` (float, required): The number to be squared
 
 ## File Operations
 
@@ -73,16 +182,15 @@ Read contents from a file.
 
 ```elixir
 {:ok, result} = Jido.Tools.Files.ReadFile.run(%{path: "/tmp/data.txt"}, %{})
-# => {:ok, %{content: "file contents", size: 13, path: "/tmp/data.txt"}}
+# => {:ok, %{path: "/tmp/data.txt", content: "file contents"}}
 
 # Handle missing files
 {:error, error} = Jido.Tools.Files.ReadFile.run(%{path: "/nonexistent.txt"}, %{})
-# => {:error, %{message: "File not found"}}
+# => {:error, "Failed to read file: :enoent"}
 ```
 
 **Parameters:**
-- `path` (string, required): File path to read
-- `encoding` (string, default: "utf8"): File encoding
+- `path` (string, required): Path to the file to be read
 
 ### Write File
 Write content to a file.
@@ -91,255 +199,442 @@ Write content to a file.
 {:ok, result} = Jido.Tools.Files.WriteFile.run(%{
   path: "/tmp/output.txt",
   content: "Hello, World!",
-  create_dirs: true
+  create_dirs: true,
+  mode: :write
 }, %{})
-# => {:ok, %{path: "/tmp/output.txt", size: 13, created_dirs: true}}
+# => {:ok, %{path: "/tmp/output.txt", bytes_written: 13}}
 ```
 
 **Parameters:**
-- `path` (string, required): File path to write
-- `content` (string, required): Content to write
-- `create_dirs` (boolean, default: false): Create parent directories
-- `encoding` (string, default: "utf8"): File encoding
+- `path` (string, required): Path to the file to be written
+- `content` (string, required): Content to be written to the file
+- `create_dirs` (boolean, default: false): Create parent directories if they don't exist
+- `mode` (atom, default: :write): Write mode - :write overwrites, :append adds to end
 
 ### Delete File
-Delete a file.
+Delete a file or directory.
 
 ```elixir
-{:ok, result} = Jido.Tools.Files.DeleteFile.run(%{path: "/tmp/temp.txt"}, %{})
-# => {:ok, %{deleted: true, path: "/tmp/temp.txt"}}
+{:ok, result} = Jido.Tools.Files.DeleteFile.run(%{path: "/tmp/temp.txt", recursive: false, force: false}, %{})
+# => {:ok, %{path: "/tmp/temp.txt"}}
+
+# Recursive deletion
+{:ok, result} = Jido.Tools.Files.DeleteFile.run(%{path: "/tmp/mydir", recursive: true}, %{})
+# => {:ok, %{deleted: ["/tmp/mydir/file.txt", "/tmp/mydir"]}}
 ```
 
+**Parameters:**
+- `path` (string, required): Path to delete
+- `recursive` (boolean, default: false): Recursively delete directories and contents
+- `force` (boolean, default: false): Force deletion even if file is read-only
+
+### Copy File
+Copy a file from source to destination.
+
+```elixir
+{:ok, result} = Jido.Tools.Files.CopyFile.run(%{source: "/tmp/a.txt", destination: "/tmp/b.txt"}, %{})
+# => {:ok, %{source: "/tmp/a.txt", destination: "/tmp/b.txt", bytes_copied: 1234}}
+```
+
+**Parameters:**
+- `source` (string, required): Path to the source file
+- `destination` (string, required): Path to the destination file
+
+### Move File
+Move/rename a file from source to destination.
+
+```elixir
+{:ok, result} = Jido.Tools.Files.MoveFile.run(%{source: "/tmp/a.txt", destination: "/tmp/b.txt"}, %{})
+# => {:ok, %{source: "/tmp/a.txt", destination: "/tmp/b.txt"}}
+```
+
+**Parameters:**
+- `source` (string, required): Path to the source file
+- `destination` (string, required): Path to the destination file
+
+### Make Directory
+Create a new directory.
+
+```elixir
+{:ok, result} = Jido.Tools.Files.MakeDirectory.run(%{path: "/tmp/newdir", recursive: true}, %{})
+# => {:ok, %{path: "/tmp/newdir"}}
+```
+
+**Parameters:**
+- `path` (string, required): Path to the directory to create
+- `recursive` (boolean, default: false): Create parent directories if they don't exist
+
 ### List Directory
-List files in a directory.
+List directory contents.
 
 ```elixir
 {:ok, result} = Jido.Tools.Files.ListDirectory.run(%{
   path: "/tmp",
-  include_hidden: false
+  recursive: false
 }, %{})
-# => {:ok, %{files: ["file1.txt", "file2.txt"], count: 2}}
+# => {:ok, %{entries: ["file1.txt", "file2.txt"]}}
+
+# With pattern matching
+{:ok, result} = Jido.Tools.Files.ListDirectory.run(%{
+  path: "/tmp",
+  pattern: "*.txt",
+  recursive: true
+}, %{})
+# => {:ok, %{entries: ["/tmp/file1.txt", "/tmp/subdir/file2.txt"]}}
 ```
 
 **Parameters:**
-- `path` (string, required): Directory path
-- `include_hidden` (boolean, default: false): Include hidden files
+- `path` (string, required): Path to the directory to list
+- `pattern` (string, optional): Glob pattern for filtering files
+- `recursive` (boolean, default: false): Include subdirectories recursively
 
 ## HTTP Tools
 
 ### ReqTool (HTTP Request Builder)
-Create custom HTTP request actions.
+A behavior and macro for creating HTTP request actions using the Req library.
 
 ```elixir
-# Create a specific API endpoint action
-GetUser = Jido.Tools.ReqTool.new(
-  url: "https://api.example.com/users/:id",
-  method: :get,
-  headers: %{"Authorization" => "Bearer #{api_token}"}
-)
+# Define a custom HTTP action module
+defmodule MyApp.GetUser do
+  use Jido.Tools.ReqTool,
+    name: "get_user",
+    description: "Fetch a user from the API",
+    url: "https://api.example.com/users",
+    method: :get,
+    headers: %{"Authorization" => "Bearer token123"}
+end
 
 # Use the generated action
-{:ok, response} = GetUser.run(%{id: "123"}, %{})
-# => {:ok, %{status: 200, body: %{"id" => "123", "name" => "John"}}}
+{:ok, response} = MyApp.GetUser.run(%{id: "123"}, %{})
+# => {:ok, %{
+#   request: %{url: "https://api.example.com/users", method: :get, params: %{id: "123"}},
+#   response: %{status: 200, body: %{"id" => "123", "name" => "John"}, headers: [...]}
+# }}
 
 # POST with body
-CreateUser = Jido.Tools.ReqTool.new(
-  url: "https://api.example.com/users",
-  method: :post,
-  headers: %{"Content-Type" => "application/json"}
-)
+defmodule MyApp.CreateUser do
+  use Jido.Tools.ReqTool,
+    name: "create_user",
+    description: "Create a new user",
+    url: "https://api.example.com/users",
+    method: :post,
+    headers: %{"Content-Type" => "application/json"}
+end
 
-{:ok, response} = CreateUser.run(%{
-  body: %{name: "Jane", email: "jane@example.com"}
-}, %{})
+{:ok, response} = MyApp.CreateUser.run(%{name: "Jane", email: "jane@example.com"}, %{})
 ```
 
-**Template Variables:**
-- URL templates support `:variable` syntax
-- Variables are replaced from parameters
+**Configuration Options (in `use` statement):**
+- `url` (string, required): The URL to make requests to
+- `method` (atom, required): HTTP method (:get, :post, :put, :delete)
+- `headers` (map, default: %{}): HTTP headers to include
+- `json` (boolean, default: true): Whether to parse the response as JSON
 
-**Common Parameters:**
-- `body` (any): Request body (auto-encoded to JSON)
-- `headers` (map): Additional headers
-- `query` (map): Query parameters
-- `timeout` (integer): Request timeout in milliseconds
-
-### Req (Simple HTTP)
-Make basic HTTP requests.
-
-```elixir
-# GET request
-{:ok, response} = Jido.Tools.Req.run(%{
-  method: :get,
-  url: "https://httpbin.org/json"
-}, %{})
-
-# POST with JSON body
-{:ok, response} = Jido.Tools.Req.run(%{
-  method: :post,
-  url: "https://httpbin.org/post",
-  body: %{name: "test", value: 123},
-  headers: %{"Content-Type" => "application/json"}
-}, %{})
-```
+**Optional Callback:**
+- `transform_result/1`: Override to transform the HTTP response result
 
 ## GitHub Tools
 
+These tools use the Tentacat library to interact with the GitHub API. Requires a Tentacat client.
+
 ### List Issues
-List GitHub repository issues.
+List all issues from a GitHub repository.
 
 ```elixir
-{:ok, issues} = Jido.Tools.Github.Issues.List.run(%{
+client = Tentacat.Client.new(%{access_token: token})
+{:ok, result} = Jido.Tools.Github.Issues.List.run(%{
+  client: client,
   owner: "octocat",
-  repo: "Hello-World",
-  state: "open",
-  per_page: 10
-}, %{github_token: token})
-# => {:ok, %{issues: [...], count: 5}}
+  repo: "Hello-World"
+}, %{})
+# => {:ok, %{status: "success", data: [...], raw: [...]}}
 ```
 
 **Parameters:**
-- `owner` (string, required): Repository owner
-- `repo` (string, required): Repository name
-- `state` (string, default: "open"): Issue state ("open", "closed", "all")
-- `labels` (list): Filter by labels
-- `per_page` (integer, default: 30): Results per page
+- `client` (any): The Tentacat client
+- `owner` (string): Repository owner
+- `repo` (string): Repository name
 
 ### Create Issue
 Create a new GitHub issue.
 
 ```elixir
-{:ok, issue} = Jido.Tools.Github.Issues.Create.run(%{
+client = Tentacat.Client.new(%{access_token: token})
+{:ok, result} = Jido.Tools.Github.Issues.Create.run(%{
+  client: client,
   owner: "octocat",
   repo: "Hello-World",
   title: "Bug Report",
   body: "Description of the bug...",
-  labels: ["bug", "priority-high"]
-}, %{github_token: token})
-# => {:ok, %{number: 123, id: 456789, url: "https://..."}}
+  labels: ["bug", "priority-high"],
+  assignee: "username",
+  milestone: "v1.0"
+}, %{})
+# => {:ok, %{status: "success", data: {...}, raw: {...}}}
 ```
+
+**Parameters:**
+- `client` (any): The Tentacat client
+- `owner` (string): Repository owner
+- `repo` (string): Repository name
+- `title` (string): Issue title
+- `body` (string): Issue body
+- `assignee` (string): Issue assignee
+- `milestone` (string): Issue milestone
+- `labels` (array): Issue labels
 
 ### Update Issue
 Update an existing GitHub issue.
 
 ```elixir
-{:ok, issue} = Jido.Tools.Github.Issues.Update.run(%{
+client = Tentacat.Client.new(%{access_token: token})
+{:ok, result} = Jido.Tools.Github.Issues.Update.run(%{
+  client: client,
   owner: "octocat",
   repo: "Hello-World",
   number: 123,
   state: "closed",
   labels: ["bug", "resolved"]
-}, %{github_token: token})
+}, %{})
+# => {:ok, %{status: "success", data: {...}, raw: {...}}}
 ```
+
+**Parameters:**
+- `client` (any): The Tentacat client
+- `owner` (string): Repository owner
+- `repo` (string): Repository name
+- `number` (integer): Issue number
+- `title` (string): New title
+- `body` (string): New body
+- `assignee` (string): New assignee
+- `state` (string): New state (open, closed)
+- `milestone` (string): New milestone
+- `labels` (array): New labels
 
 ### Find Issue
-Find issues by criteria.
+Find a specific issue by number.
 
 ```elixir
-{:ok, results} = Jido.Tools.Github.Issues.Find.run(%{
+client = Tentacat.Client.new(%{access_token: token})
+{:ok, result} = Jido.Tools.Github.Issues.Find.run(%{
+  client: client,
   owner: "octocat",
   repo: "Hello-World",
-  query: "is:open label:bug",
-  sort: "created",
-  order: "desc"
-}, %{github_token: token})
+  number: 123
+}, %{})
+# => {:ok, %{status: "success", data: {...}, raw: {...}}}
 ```
+
+**Parameters:**
+- `client` (any): The Tentacat client
+- `owner` (string): Repository owner
+- `repo` (string): Repository name
+- `number` (integer): Issue number
 
 ### Filter Issues
-Filter issues with advanced criteria.
+Filter repository issues by various criteria.
 
 ```elixir
-{:ok, filtered} = Jido.Tools.Github.Issues.Filter.run(%{
-  issues: existing_issues,
+client = Tentacat.Client.new(%{access_token: token})
+{:ok, result} = Jido.Tools.Github.Issues.Filter.run(%{
+  client: client,
+  owner: "octocat",
+  repo: "Hello-World",
   state: "open",
-  has_labels: ["bug"],
-  created_after: "2024-01-01",
-  assignee: "username"
+  assignee: "username",
+  labels: "bug,enhancement",
+  sort: "created",
+  direction: "desc"
 }, %{})
+# => {:ok, %{status: "success", data: [...], raw: [...]}}
 ```
+
+**Parameters:**
+- `client` (any): The Tentacat client
+- `owner` (string): Repository owner
+- `repo` (string): Repository name
+- `state` (string): Issue state (open, closed, all)
+- `assignee` (string): Filter by assignee
+- `creator` (string): Filter by creator
+- `labels` (string): Filter by labels (comma-separated)
+- `sort` (string): Sort by (created, updated, comments)
+- `direction` (string): Sort direction (asc, desc)
+- `since` (string): Only show issues updated after this time
 
 ## Weather Tools
 
 ### Get Weather
-Fetch current weather data.
+Fetch weather forecast using the National Weather Service API (no API key required).
 
 ```elixir
-{:ok, weather} = Jido.Tools.Weather.run(%{
-  location: "San Francisco, CA",
-  units: "metric"
+# Default format (text) - returns forecast string
+{:ok, forecast} = Jido.Tools.Weather.run(%{
+  location: "41.8781,-87.6298",  # Chicago coordinates
+  periods: 5,
+  format: :text
 }, %{})
-# => {:ok, %{
-#   temperature: 18.5,
-#   humidity: 65,
-#   description: "partly cloudy",
-#   location: "San Francisco, CA"
-# }}
+# => {:ok, "Tonight: Mostly Clear, Low: 45°F..."}
+
+# Map format - returns structured data
+{:ok, weather} = Jido.Tools.Weather.run(%{
+  location: "34.0522,-118.2437",  # Los Angeles
+  format: :map
+}, %{})
+# => {:ok, %{periods: [%{name: "Tonight", temperature: 65, ...}, ...]}}
+
+# Detailed format - includes all NWS data
+{:ok, weather} = Jido.Tools.Weather.run(%{
+  location: "40.7128,-74.0060",  # New York
+  format: :detailed,
+  periods: 3
+}, %{})
 ```
 
 **Parameters:**
-- `location` (string, required): Location name or coordinates
-- `units` (string, default: "metric"): Temperature units ("metric", "imperial")
+- `location` (string, default: "41.8781,-87.6298"): Location as coordinates (lat,lng)
+- `periods` (integer, default: 5): Number of forecast periods to return
+- `format` (atom, default: :text): Output format (:text, :map, or :detailed)
 
 ## Workflow Tools
 
 ### ActionPlan
-Execute complex DAG-based workflows.
+A behavior and macro for creating actions that execute Jido Plans (DAG-based workflows).
 
 ```elixir
-# Create a plan
-plan = Jido.Plan.new()
-|> Jido.Plan.add("validate", MyApp.Actions.ValidateInput, %{}, [])
-|> Jido.Plan.add("process_a", MyApp.Actions.ProcessA, %{}, ["validate"])
-|> Jido.Plan.add("process_b", MyApp.Actions.ProcessB, %{}, ["validate"])
-|> Jido.Plan.add("merge", MyApp.Actions.MergeResults, %{}, ["process_a", "process_b"])
+# Define a workflow action
+defmodule MyApp.MyWorkflowAction do
+  use Jido.Tools.ActionPlan,
+    name: "my_workflow",
+    description: "Executes a multi-step workflow"
 
-# Execute the plan
-{:ok, results} = Jido.Tools.ActionPlan.run(%{
-  plan: plan,
-  initial_data: %{input: "data to process"}
-}, %{user_id: "123"})
-# => {:ok, %{
-#   "validate" => %{...},
-#   "process_a" => %{...},
-#   "process_b" => %{...},
-#   "merge" => %{...}
-# }}
+  @impl Jido.Tools.ActionPlan
+  def build(params, context) do
+    Jido.Plan.new(context: context)
+    |> Jido.Plan.add(:fetch, MyApp.FetchAction, params)
+    |> Jido.Plan.add(:validate, MyApp.ValidateAction, depends_on: :fetch)
+    |> Jido.Plan.add(:save, MyApp.SaveAction, depends_on: :validate)
+  end
+
+  # Optional: transform the result
+  @impl Jido.Tools.ActionPlan
+  def transform_result(result) do
+    {:ok, %{workflow_result: result}}
+  end
+end
+
+# Execute the workflow action
+{:ok, results} = MyApp.MyWorkflowAction.run(%{input: "data"}, %{user_id: "123"})
+# => {:ok, %{workflow_result: %{fetch: %{...}, validate: %{...}, save: %{...}}}}
 ```
 
-**Parameters:**
-- `plan` (Jido.Plan, required): Plan to execute
-- `initial_data` (map, default: %{}): Initial data for the plan
+**Required Callback:**
+- `build/2`: Build a Plan struct from params and context
+
+**Optional Callback:**
+- `transform_result/1`: Transform the execution result
 
 ### Workflow
-Execute simple sequential workflows.
+A behavior and macro for creating actions that execute sequential workflow steps.
 
 ```elixir
-{:ok, result} = Jido.Tools.Workflow.run(%{
-  steps: [
-    {MyApp.Actions.Step1, %{param: "value1"}},
-    {MyApp.Actions.Step2, %{param: "value2"}},
-    MyApp.Actions.Step3
-  ],
-  initial_data: %{input: "start"}
-}, %{})
+defmodule MyApp.MySequentialWorkflow do
+  use Jido.Tools.Workflow,
+    name: "my_sequential_workflow",
+    description: "A workflow that performs multiple steps",
+    workflow: [
+      {:step, [name: "step_1"], [{LogAction, message: "Step 1"}]},
+      {:branch, [name: "branch_1"], [
+        true,  # Condition (can override execute_step/3 for dynamic)
+        {:step, [name: "true_branch"], [{LogAction, message: "Condition true"}]},
+        {:step, [name: "false_branch"], [{LogAction, message: "Condition false"}]}
+      ]},
+      {:step, [name: "final_step"], [{LogAction, message: "Completed"}]}
+    ]
+end
+
+{:ok, result} = MyApp.MySequentialWorkflow.run(%{input: "start"}, %{})
 ```
+
+**Supported Step Types:**
+- `:step` - Execute a single instruction
+- `:branch` - Conditional branching based on a boolean value
+- `:converge` - Converge branch paths
+- `:parallel` - Execute instructions in parallel
 
 ## Advanced Tools
 
 ### Simplebot
-A demonstration AI-like action for testing.
+A collection of simple robot simulation actions for testing and examples.
+
+Available actions:
+- `Move` - Move to a destination
+- `Idle` - Idle/wait
+- `DoWork` - Perform work (decreases battery)
+- `Report` - Report status
+- `Recharge` - Recharge battery to 100%
 
 ```elixir
-{:ok, response} = Jido.Tools.Simplebot.run(%{
-  message: "Hello, how are you?",
-  context: %{user_name: "Alice"}
+{:ok, result} = Jido.Tools.Simplebot.Move.run(%{destination: :warehouse}, %{})
+# => {:ok, %{destination: :warehouse, location: :warehouse}}
+
+{:ok, result} = Jido.Tools.Simplebot.DoWork.run(%{battery_level: 80}, %{})
+# => {:ok, %{battery_level: 60}}  # Battery decreased by 15-25
+
+{:ok, result} = Jido.Tools.Simplebot.Recharge.run(%{battery_level: 20}, %{})
+# => {:ok, %{battery_level: 100}}
+```
+
+### LuaEval
+Execute Lua code in a sandboxed VM.
+
+```elixir
+# Simple arithmetic
+{:ok, result} = Jido.Tools.LuaEval.run(%{code: "return 2 + 2"}, %{})
+# => {:ok, %{results: [4]}}
+
+# With global variables
+{:ok, result} = Jido.Tools.LuaEval.run(%{
+  code: "return x + 5",
+  globals: %{"x" => 10}
 }, %{})
-# => {:ok, %{response: "Hello Alice! I'm doing well, thank you for asking."}}
+# => {:ok, %{results: [15]}}
+
+# Return first value only
+{:ok, result} = Jido.Tools.LuaEval.run(%{
+  code: "return 1, 2, 3",
+  return_mode: :first
+}, %{})
+# => {:ok, %{result: 1}}
 ```
 
 **Parameters:**
-- `message` (string, required): Input message
-- `context` (map, default: %{}): Additional context
+- `code` (string, required): Lua code to execute
+- `globals` (map, default: %{}): Global variables to inject
+- `return_mode` (atom, default: :list): :list returns all values, :first returns only first
+- `enable_unsafe_libs` (boolean, default: false): Enable unsafe libs (os/io/package)
+- `timeout_ms` (integer, default: 1000): Execution timeout in milliseconds
+- `max_heap_bytes` (integer, default: 0): Per-process heap limit (0 = disabled)
+
+### ZoiExample
+A production-quality example demonstrating Zoi schema features. Use this as a reference for building actions with complex validation.
+
+```elixir
+# Example with nested objects, transformations, and refinements
+params = %{
+  user: %{
+    email: "  JOHN@EXAMPLE.COM  ",  # Will be trimmed and lowercased
+    password: "SecurePass123!",
+    name: "John Doe"
+  },
+  priority: :high
+}
+
+{:ok, result} = Jido.Exec.run(Jido.Tools.ZoiExample, params)
+result.user.email  # => "john@example.com"
+result.status      # => :approved
+```
+
+See the [Schemas & Validation Guide](schemas-validation.md) for more on Zoi schemas.
 
 ## Tool Composition
 
@@ -365,17 +660,24 @@ A demonstration AI-like action for testing.
 ### Parallel Tool Execution
 
 ```elixir
-# Execute tools in parallel using plans
-parallel_plan = Jido.Plan.new()
-|> Jido.Plan.add("weather_sf", Jido.Tools.Weather, %{location: "San Francisco"}, [])
-|> Jido.Plan.add("weather_ny", Jido.Tools.Weather, %{location: "New York"}, [])
-|> Jido.Plan.add("weather_la", Jido.Tools.Weather, %{location: "Los Angeles"}, [])
-|> Jido.Plan.add("compare", MyApp.Actions.CompareWeather, %{}, 
-    ["weather_sf", "weather_ny", "weather_la"])
+# Create a workflow action for parallel execution
+defmodule MyApp.WeatherComparison do
+  use Jido.Tools.ActionPlan,
+    name: "weather_comparison",
+    description: "Compare weather across cities"
 
-{:ok, results} = Jido.Tools.ActionPlan.run(%{
-  plan: parallel_plan
-}, %{})
+  @impl Jido.Tools.ActionPlan
+  def build(_params, _context) do
+    Jido.Plan.new()
+    |> Jido.Plan.add(:weather_sf, Jido.Tools.Weather, %{location: "41.8781,-87.6298"})
+    |> Jido.Plan.add(:weather_ny, Jido.Tools.Weather, %{location: "40.7128,-74.0060"})
+    |> Jido.Plan.add(:weather_la, Jido.Tools.Weather, %{location: "34.0522,-118.2437"})
+    |> Jido.Plan.add(:compare, MyApp.Actions.CompareWeather, 
+        depends_on: [:weather_sf, :weather_ny, :weather_la])
+  end
+end
+
+{:ok, results} = MyApp.WeatherComparison.run(%{}, %{})
 ```
 
 ### Conditional Tool Usage
@@ -383,9 +685,11 @@ parallel_plan = Jido.Plan.new()
 ```elixir
 defmodule MyApp.Actions.ConditionalFileOp do
   use Jido.Action,
+    name: "conditional_file_op",
+    description: "Read or delete a file based on operation",
     schema: [
       file_path: [type: :string, required: true],
-      operation: [type: :atom, in: [:read, :delete], required: true]
+      operation: [type: {:in, [:read, :delete]}, required: true]
     ]
 
   def run(params, context) do
@@ -394,7 +698,7 @@ defmodule MyApp.Actions.ConditionalFileOp do
         Jido.Tools.Files.ReadFile.run(%{path: params.file_path}, context)
       
       :delete ->
-        Jido.Tools.Files.DeleteFile.run(%{path: params.file_path}, context)
+        Jido.Tools.Files.DeleteFile.run(%{path: params.file_path, recursive: false, force: false}, context)
     end
   end
 end

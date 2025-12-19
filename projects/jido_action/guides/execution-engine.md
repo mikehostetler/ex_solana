@@ -1,8 +1,22 @@
 # Execution Engine
 
-**Prerequisites**: [Actions Guide](actions-guide.md)
+**Prerequisites**: [Actions Guide](actions-guide.md), [Schemas & Validation](schemas-validation.md)
 
 The execution engine (`Jido.Exec`) provides robust, production-ready action execution with timeouts, retries, telemetry, and proper error handling.
+
+## Setup
+
+Add the Task.Supervisor to your application's supervision tree:
+
+```elixir
+# In your application.ex
+children = [
+  {Task.Supervisor, name: Jido.Action.TaskSupervisor},
+  # ... other children
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
 
 ## Basic Execution
 
@@ -21,10 +35,20 @@ The execution engine (`Jido.Exec`) provides robust, production-ready action exec
   MyApp.Actions.ProcessData,
   %{data: "input"},
   %{user_id: "123"},
-  timeout: 10_000,          # 10 second timeout
-  max_retries: 3,           # Retry 3 times on failure
-  retry_delay: 1000         # Wait 1 second between retries
+  timeout: 10_000,          # 10 second timeout (default: 30_000)
+  max_retries: 3,           # Retry 3 times on failure (default: 1)
+  backoff: 250,             # Initial backoff in ms (default: 250)
+  log_level: :debug         # Override log level for this action
 )
+
+# Execute from an Instruction struct
+instruction = %Jido.Instruction{
+  action: MyApp.Actions.ProcessData,
+  params: %{data: "input"},
+  context: %{user_id: "123"},
+  opts: [timeout: 10_000]
+}
+{:ok, result} = Jido.Exec.run(instruction)
 ```
 
 ### Asynchronous Execution
@@ -37,18 +61,14 @@ async_ref = Jido.Exec.run_async(
   %{user_id: "123"}
 )
 
-# Await result
+# Await result (default timeout: 5000ms)
+{:ok, result} = Jido.Exec.await(async_ref)
+
+# Await with custom timeout
 {:ok, result} = Jido.Exec.await(async_ref, 30_000)
 
 # Cancel if needed
 :ok = Jido.Exec.cancel(async_ref)
-
-# Check status without blocking
-case Jido.Exec.status(async_ref) do
-  :pending -> IO.puts("Still running...")
-  {:ok, result} -> IO.puts("Completed: #{inspect(result)}")
-  {:error, reason} -> IO.puts("Failed: #{inspect(reason)}")
-end
 ```
 
 ## Execution Features
@@ -65,11 +85,13 @@ end
 )
 
 # Handle timeout errors
+alias Jido.Action.Error
+
 case Jido.Exec.run(action, params, context, timeout: 1000) do
   {:ok, result} -> 
     handle_success(result)
-  {:error, %{type: :timeout_error}} -> 
-    handle_timeout()
+  {:error, %Error.TimeoutError{timeout: timeout}} -> 
+    handle_timeout(timeout)
   {:error, error} -> 
     handle_other_error(error)
 end
@@ -77,7 +99,7 @@ end
 
 ### Retry Logic
 
-The execution engine uses exponential backoff with jitter for retries:
+The execution engine uses exponential backoff for retries:
 
 ```elixir
 # Configure retry behavior
@@ -85,13 +107,12 @@ The execution engine uses exponential backoff with jitter for retries:
   MyApp.Actions.UnreliableOperation,
   params,
   context,
-  max_retries: 5,           # Try up to 5 times
-  retry_delay: 1000,        # Start with 1 second delay
-  retry_backoff: 2.0,       # Double delay each time
-  retry_jitter: 0.1         # Add 10% random jitter
+  max_retries: 5,           # Try up to 5 times (default: 1)
+  backoff: 250              # Initial backoff in ms (default: 250)
 )
 
-# Retry progression: 1s → 2s → 4s → 8s → 16s (with jitter)
+# Retry progression with backoff: 250 doubles each time
+# 250ms → 500ms → 1s → 2s → 4s (capped at 30s)
 ```
 
 ### Custom Retry Logic
@@ -126,72 +147,93 @@ Sequential execution with data flow between actions:
 
 ```elixir
 # Chain actions with data flow
-{:ok, final_result} = Jido.Exec.Chain.chain([
-  MyApp.Actions.ValidateInput,
-  {MyApp.Actions.ProcessData, %{format: "json"}},  # Extra params
-  MyApp.Actions.SaveResult
-], %{input: "data"}, %{user_id: "123"})
+{:ok, final_result} = Jido.Exec.Chain.chain(
+  [
+    MyApp.Actions.ValidateInput,
+    {MyApp.Actions.ProcessData, %{format: "json"}},  # Merge extra params
+    MyApp.Actions.SaveResult
+  ],
+  %{input: "data"},
+  context: %{user_id: "123"}
+)
 
 # Data flows: input → validate → process → save → final_result
+# Each action's result is merged with params for the next action
 ```
 
-### Advanced Chaining
+### Chaining with Interruption
 
 ```elixir
-# Chain with interrupt function
-interrupt_fn = fn result, context ->
-  cond do
-    result.status == :error -> 
-      {:halt, result}  # Stop chain on error
-    result.user_blocked? -> 
-      {:halt, {:error, "User blocked"}}  # Conditional halt
-    true -> 
-      {:cont, result}  # Continue chain
-  end
+# Chain with interrupt check function
+# The interrupt check is called between each action
+interrupt_check = fn -> 
+  System.monotonic_time(:millisecond) > deadline
 end
 
-{:ok, result} = Jido.Exec.Chain.chain(
-  instructions,
+case Jido.Exec.Chain.chain(
+  actions,
   initial_params,
-  context,
-  interrupt_fn
+  context: %{},
+  interrupt_check: interrupt_check
+) do
+  {:ok, result} -> handle_success(result)
+  {:interrupted, partial_result} -> handle_interruption(partial_result)
+  {:error, error} -> handle_error(error)
+end
+```
+
+### Async Chaining
+
+```elixir
+# Run chain asynchronously
+task = Jido.Exec.Chain.chain(
+  actions,
+  initial_params,
+  async: true,
+  context: %{user_id: "123"}
 )
+
+result = Task.await(task)
 ```
 
 ### Chain Error Handling
 
 ```elixir
-case Jido.Exec.Chain.chain(instructions, params, context) do
+case Jido.Exec.Chain.chain(actions, params, context: context) do
   {:ok, result} ->
     handle_success(result)
   
-  {:error, {action, error, partial_results}} ->
-    # Know which action failed and what completed
-    Logger.error("Chain failed at #{action}: #{error.message}")
-    handle_partial_completion(partial_results)
+  {:error, error} ->
+    # Chain stops at first failure
+    Logger.error("Chain failed: #{inspect(error)}")
+    handle_error(error)
+    
+  {:interrupted, partial_result} ->
+    # Chain was interrupted between actions
+    handle_partial_completion(partial_result)
 end
 ```
 
 ## Closures
 
-Create reusable execution units with preset configuration:
+Create reusable execution units with preset context and options:
 
 ```elixir
-# Create closure with preset params and context
+# Create closure with preset context and options
 process_closure = Jido.Exec.Closure.closure(
   MyApp.Actions.ProcessData,
-  %{format: "json", validate: true},  # Preset params
-  %{user_id: "123"}                   # Preset context
+  %{user_id: "123"},              # Preset context
+  timeout: 10_000                 # Preset options
 )
 
-# Execute with additional params
-{:ok, result} = process_closure.(%{data: "input"})
+# Execute with params
+{:ok, result} = process_closure.(%{data: "input", format: "json"})
 
 # Async closure
 async_closure = Jido.Exec.Closure.async_closure(
   MyApp.Actions.LongRunning,
-  %{timeout: 30_000},
-  %{}
+  %{user_id: "123"},              # Preset context
+  timeout: 30_000                 # Preset options
 )
 
 async_ref = async_closure.(%{data: "large_dataset"})
@@ -200,18 +242,18 @@ async_ref = async_closure.(%{data: "large_dataset"})
 
 ## Telemetry & Observability
 
-The execution engine emits comprehensive telemetry events:
+The execution engine emits comprehensive telemetry events using `:telemetry.span/3`:
 
 ### Built-in Events
 
 ```elixir
 # Attach telemetry handlers
 :telemetry.attach_many(
-  "jido-exec-handler",
+  "jido-action-handler",
   [
-    [:jido, :exec, :start],
-    [:jido, :exec, :stop],
-    [:jido, :exec, :exception]
+    [:jido, :action, :start],
+    [:jido, :action, :stop],
+    [:jido, :action, :exception]
   ],
   &handle_telemetry/4,
   %{}
@@ -219,26 +261,40 @@ The execution engine emits comprehensive telemetry events:
 
 def handle_telemetry(event, measurements, metadata, _config) do
   case event do
-    [:jido, :exec, :start] ->
+    [:jido, :action, :start] ->
       Logger.info("Action started", 
         action: metadata.action,
-        params: metadata.params
+        params: metadata.params,
+        context: metadata.context
       )
     
-    [:jido, :exec, :stop] ->
+    [:jido, :action, :stop] ->
       Logger.info("Action completed", 
         action: metadata.action,
         duration: measurements.duration
       )
     
-    [:jido, :exec, :exception] ->
+    [:jido, :action, :exception] ->
       Logger.error("Action failed",
         action: metadata.action,
-        error: metadata.error,
+        kind: metadata.kind,
+        reason: metadata.reason,
         duration: measurements.duration
       )
   end
 end
+```
+
+### Disabling Telemetry
+
+```elixir
+# Run without telemetry events
+{:ok, result} = Jido.Exec.run(
+  MyApp.Actions.ProcessData,
+  params,
+  context,
+  telemetry: :silent
+)
 ```
 
 ### Custom Metrics
@@ -265,23 +321,25 @@ end
 
 ### Error Types
 
-The execution engine normalizes all errors to structured types:
+The execution engine uses structured exception types from `Jido.Action.Error`:
 
 ```elixir
+alias Jido.Action.Error
+
 case Jido.Exec.run(action, params, context) do
   {:ok, result} -> 
     result
   
-  {:error, %{type: :validation_error} = error} ->
+  {:error, %Error.InvalidInputError{} = error} ->
     handle_validation_error(error)
   
-  {:error, %{type: :execution_error} = error} ->
+  {:error, %Error.ExecutionFailureError{} = error} ->
     handle_execution_error(error)
   
-  {:error, %{type: :timeout_error} = error} ->
+  {:error, %Error.TimeoutError{} = error} ->
     handle_timeout_error(error)
   
-  {:error, %{type: :internal_error} = error} ->
+  {:error, %Error.InternalError{} = error} ->
     handle_internal_error(error)
 end
 ```
@@ -290,16 +348,18 @@ end
 
 ```elixir
 defmodule MyApp.RobustExecution do
+  alias Jido.Action.Error
+
   def execute_with_fallback(action, params, context) do
     case Jido.Exec.run(action, params, context, max_retries: 3) do
       {:ok, result} -> 
         {:ok, result}
       
-      {:error, %{type: :timeout_error}} ->
+      {:error, %Error.TimeoutError{}} ->
         # Try with longer timeout
         Jido.Exec.run(action, params, context, timeout: 30_000)
       
-      {:error, %{type: :execution_error}} ->
+      {:error, %Error.ExecutionFailureError{}} ->
         # Try fallback action
         Jido.Exec.run(MyApp.Actions.FallbackAction, params, context)
       

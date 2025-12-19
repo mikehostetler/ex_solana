@@ -2,8 +2,7 @@
 
 [![Hex.pm](https://img.shields.io/hexpm/v/jido_action.svg)](https://hex.pm/packages/jido_action)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/jido_action/)
-[![CI](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml)
-[![Quality Gate](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml/badge.svg?event=push&job=quality_gate)](https://github.com/agentjido/jido_action/actions/workflows/elixir-ci.yml)
+[![CI](https://github.com/agentjido/jido_action/actions/workflows/ci.yml/badge.svg)](https://github.com/agentjido/jido_action/actions/workflows/ci.yml)
 [![License](https://img.shields.io/hexpm/l/jido_action.svg)](https://github.com/agentjido/jido_action/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/agentjido/jido_action/badge.svg?branch=main)](https://coveralls.io/github/agentjido/jido_action?branch=main)
 
@@ -64,7 +63,7 @@ Jido.Action transforms ad-hoc functions into structured, validated, AI-compatibl
 
 ### **Structured Action Definition**
 - Compile-time configuration validation
-- Runtime parameter validation with NimbleOptions
+- Runtime parameter validation with NimbleOptions or Zoi schemas
 - Rich metadata including descriptions, categories, and tags
 - Automatic JSON serialization support
 
@@ -184,11 +183,12 @@ end)
 # Convert action to AI tool format
 tool_definition = MyApp.Actions.GreetUser.to_tool()
 
-# Returns OpenAI-compatible function definition:
+# Returns LangChain-compatible tool definition:
 %{
-  "name" => "greet_user",
-  "description" => "Greets a user with a personalized message",
-  "parameters" => %{
+  name: "greet_user",
+  description: "Greets a user with a personalized message",
+  function: #Function<...>,  # Executes the action
+  parameters_schema: %{
     "type" => "object",
     "properties" => %{
       "name" => %{"type" => "string", "description" => "User's name"},
@@ -202,8 +202,8 @@ tool_definition = MyApp.Actions.GreetUser.to_tool()
   }
 }
 
-# Use with AI frameworks like OpenAI function calling
-# The action can then be executed when the AI calls the tool
+# Use with AI frameworks - the function can be called directly
+# or convert to OpenAI format for function calling
 ```
 
 ## Core Components
@@ -231,6 +231,14 @@ The workflow composition system for building complex operations. Enables:
 - Context sharing across actions
 - Action allowlist validation
 - Flexible workflow definition patterns
+
+### Jido.Plan
+DAG-based execution planning for complex workflows. Features:
+- Directed acyclic graph of action dependencies
+- Parallel execution phases based on dependency analysis
+- Builder pattern for constructing plans
+- Cycle detection and validation
+- Keyword list and programmatic plan construction
 
 ## Bundled Tools
 
@@ -344,10 +352,12 @@ defmodule CustomAction do
     {:ok, enriched_params}
   end
 
-  def on_after_run(result) do
-    # Post-process results
+  def on_after_run({:ok, result}) do
+    # Post-process successful results
     {:ok, enhanced_result}
   end
+  
+  def on_after_run({:error, _} = error), do: error
 end
 ```
 
@@ -357,7 +367,7 @@ Actions emit telemetry events for monitoring:
 
 ```elixir
 # Attach telemetry handlers
-:telemetry.attach("action-handler", [:jido, :action, :complete], fn event, measurements, metadata, config ->
+:telemetry.attach("action-handler", [:jido, :action, :stop], fn event, measurements, metadata, config ->
   # Handle action completion events
   Logger.info("Action completed: #{metadata.action}")
 end, %{})
@@ -400,26 +410,13 @@ config :jido_action,
   default_backoff: 500
 ```
 
-## Maintenance and Support
-
-![Maintenance](https://img.shields.io/maintenance/yes/2024.svg)
-
-Jido Action is actively maintained with the following commitments:
-
-- **Issue Response**: Best-effort response within 7 days for bugs, 24 hours for security issues
-- **Security Updates**: Critical security fixes within 7 days, backported to supported versions
-- **Release Cadence**: Monthly minor releases, bi-weekly patch releases as needed
-- **Long-term Support**: Major versions supported for minimum 18 months
-
-For detailed information about our maintenance policy, support windows, and issue response times, see our [GitHub Issues](https://github.com/agentjido/jido_action/issues).
-
 ## Contributing
 
 We welcome contributions! Please see our [GitHub repository](https://github.com/agentjido/jido_action) for details.
 
 ## License
 
-Copyright 2024 Mike Hostetler
+Copyright 2024-2025 Mike Hostetler
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 

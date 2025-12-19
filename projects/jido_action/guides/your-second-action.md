@@ -33,7 +33,6 @@ defmodule MyApp.Actions.RegisterUser do
       age: [
         type: :integer, 
         required: true,
-        min: 13,
         doc: "User's age (minimum 13)"
       ],
       terms_accepted: [
@@ -65,6 +64,9 @@ defmodule MyApp.Actions.RegisterUser do
       
       String.length(params.password) < 8 ->
         {:error, Jido.Action.Error.execution_error("Password too short")}
+
+      params.age < 13 ->
+        {:error, Jido.Action.Error.execution_error("Must be at least 13 years old")}
       
       not params.terms_accepted ->
         {:error, Jido.Action.Error.execution_error("Terms must be accepted")}
@@ -92,11 +94,13 @@ defmodule MyApp.Actions.RegisterUser do
   end
 
   @impl true  
-  def on_after_run(result) do
+  def on_after_run({:ok, result}) do
     # Log successful registration
     IO.puts("User registered: #{result.user_id}")
     {:ok, result}
   end
+
+  def on_after_run({:error, _} = error), do: error
 
   @impl true
   def on_error(failed_params, error, _context, _opts) do
@@ -116,43 +120,44 @@ defmodule MyApp.Actions.RegisterUserTest do
   use ExUnit.Case
 
   alias MyApp.Actions.RegisterUser
+  alias Jido.Exec
 
-  describe "register_user/2" do
+  describe "register_user via Exec.run/4" do
     test "succeeds with valid input" do
       params = %{
         email: "user@example.com",
-        password: "secure123", 
+        password: "securepass123", 
         age: 25,
         terms_accepted: true
       }
       
-      assert {:ok, result} = RegisterUser.run(params, %{})
+      assert {:ok, result} = Exec.run(RegisterUser, params)
       assert String.starts_with?(result.user_id, "user_")
       assert result.email == "user@example.com"
       assert result.registered_at
     end
 
-    test "normalizes email case" do
+    test "normalizes email case via lifecycle hook" do
       params = %{
         email: "USER@EXAMPLE.COM",
-        password: "secure123",
+        password: "securepass123",
         age: 25, 
         terms_accepted: true
       }
       
-      assert {:ok, result} = RegisterUser.run(params, %{})
+      assert {:ok, result} = Exec.run(RegisterUser, params)
       assert result.email == "user@example.com"
     end
 
     test "rejects invalid email" do
       params = %{
         email: "invalid-email",
-        password: "secure123",
+        password: "securepass123",
         age: 25,
         terms_accepted: true
       }
       
-      assert {:error, error} = RegisterUser.run(params, %{})
+      assert {:error, error} = Exec.run(RegisterUser, params)
       assert error.message =~ "Invalid email format"
     end
 
@@ -164,40 +169,38 @@ defmodule MyApp.Actions.RegisterUserTest do
         terms_accepted: true
       }
       
-      assert {:error, error} = RegisterUser.run(params, %{})
+      assert {:error, error} = Exec.run(RegisterUser, params)
       assert error.message =~ "Password too short"
+    end
+
+    test "rejects underage users" do
+      params = %{
+        email: "user@example.com",
+        password: "securepass123", 
+        age: 12,
+        terms_accepted: true
+      }
+      
+      assert {:error, error} = Exec.run(RegisterUser, params)
+      assert error.message =~ "Must be at least 13 years old"
     end
 
     test "requires terms acceptance" do
       params = %{
         email: "user@example.com",
-        password: "secure123",
+        password: "securepass123",
         age: 25,
         terms_accepted: false
       }
       
-      assert {:error, error} = RegisterUser.run(params, %{})
+      assert {:error, error} = Exec.run(RegisterUser, params)
       assert error.message =~ "Terms must be accepted"
-    end
-
-    test "validates schema constraints" do
-      # Age too young
-      params = %{
-        email: "user@example.com",
-        password: "secure123", 
-        age: 12,
-        terms_accepted: true
-      }
-      
-      assert {:error, error} = RegisterUser.run(params, %{})
-      assert error.type == :validation_error
     end
 
     test "requires all mandatory fields" do
       params = %{email: "user@example.com"}
       
-      assert {:error, error} = RegisterUser.run(params, %{})
-      assert error.type == :validation_error
+      assert {:error, _error} = Exec.run(RegisterUser, params)
     end
   end
 end
@@ -226,7 +229,7 @@ Finished in 0.05 seconds (0.00s async, 0.05s sync)
   MyApp.Actions.RegisterUser,
   %{
     email: "user@example.com",
-    password: "secure123",
+    password: "securepass123",
     age: 25,
     terms_accepted: true
   },
@@ -247,17 +250,17 @@ async_ref = Jido.Exec.run_async(
 
 ## What You've Learned
 
-✅ **Schema Definition** - Complex validation with types, constraints, and docs  
-✅ **Error Handling** - Structured errors with helpful messages  
-✅ **Lifecycle Hooks** - Data normalization and logging  
-✅ **Testing Patterns** - Comprehensive test coverage  
-✅ **Production Usage** - Execution engine features
+- **Schema Definition** - Complex validation with types, constraints, and docs  
+- **Error Handling** - Structured errors with helpful messages  
+- **Lifecycle Hooks** - Data normalization and logging  
+- **Testing Patterns** - Comprehensive test coverage using `Jido.Exec.run/4`
+- **Production Usage** - Execution engine features
 
 ## Next Steps
 
-**→ [Actions](actions-guide.md)** - Deep dive into framework architecture  
-**→ [Error Handling Guide](error-handling.md)** - Advanced error patterns  
-**→ [Testing Guide](testing.md)** - More testing strategies
+**-> [Actions](actions-guide.md)** - Deep dive into framework architecture  
+**-> [Error Handling Guide](error-handling.md)** - Advanced error patterns  
+**-> [Testing Guide](testing.md)** - More testing strategies
 
 ---
-← [Getting Started](getting-started.md) | **Next: [Actions](actions-guide.md)** →
+[← Getting Started](getting-started.md) | [Next: Actions →](actions-guide.md)

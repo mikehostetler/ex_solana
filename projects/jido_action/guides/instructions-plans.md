@@ -74,6 +74,28 @@ Convert various formats to standard instruction structs:
 
 Plans orchestrate multiple instructions into complex workflows using Directed Acyclic Graphs (DAGs) with dependency management and parallel execution.
 
+### Plan Structure
+
+```elixir
+%Jido.Plan{
+  id: "plan_abc123",           # Auto-generated unique ID
+  steps: %{                    # Map of step name (atom) to PlanInstruction
+    step1: %Jido.Plan.PlanInstruction{...},
+    step2: %Jido.Plan.PlanInstruction{...}
+  },
+  context: %{user_id: "123"}   # Shared execution context
+}
+
+# Each step is a PlanInstruction
+%Jido.Plan.PlanInstruction{
+  id: "inst_xyz789",                    # Auto-generated unique ID  
+  name: :step1,                         # Step name (atom)
+  instruction: %Jido.Instruction{...},  # The wrapped instruction
+  depends_on: [:other_step],            # List of dependency step names
+  opts: []                              # Additional options
+}
+```
+
 ### Basic Plan Creation
 
 ```elixir
@@ -82,10 +104,30 @@ plan = Jido.Plan.new()
 
 # Add instructions with dependencies
 plan = plan
-|> Jido.Plan.add("validate", MyApp.Actions.ValidateInput, %{}, [])
-|> Jido.Plan.add("process", MyApp.Actions.ProcessData, %{}, ["validate"])
-|> Jido.Plan.add("save", MyApp.Actions.SaveOutput, %{}, ["process"])
-|> Jido.Plan.add("notify", MyApp.Actions.SendNotification, %{}, ["save"])
+|> Jido.Plan.add(:validate, MyApp.Actions.ValidateInput)
+|> Jido.Plan.add(:process, MyApp.Actions.ProcessData, depends_on: :validate)
+|> Jido.Plan.add(:save, MyApp.Actions.SaveOutput, depends_on: :process)
+|> Jido.Plan.add(:notify, MyApp.Actions.SendNotification, depends_on: :save)
+```
+
+### Creating Plans from Keyword Lists
+
+Use `Jido.Plan.build/2` to create plans from keyword list definitions:
+
+```elixir
+plan_def = [
+  fetch: MyApp.FetchAction,
+  validate: {MyApp.ValidateAction, depends_on: :fetch},
+  save: {MyApp.SaveAction, %{dest: "/tmp"}, depends_on: :validate}
+]
+
+{:ok, plan} = Jido.Plan.build(plan_def)
+
+# Or with shared context
+{:ok, plan} = Jido.Plan.build(plan_def, %{user_id: "123"})
+
+# Use build!/2 to raise on error
+plan = Jido.Plan.build!(plan_def)
 ```
 
 ### Advanced Plan Structure
@@ -93,16 +135,16 @@ plan = plan
 ```elixir
 # Complex workflow with parallel branches
 plan = Jido.Plan.new()
-|> Jido.Plan.add("input", MyApp.Actions.ValidateInput, %{}, [])
+|> Jido.Plan.add(:input, MyApp.Actions.ValidateInput)
 
-# Parallel processing branches
-|> Jido.Plan.add("process_a", MyApp.Actions.ProcessTypeA, %{}, ["input"])
-|> Jido.Plan.add("process_b", MyApp.Actions.ProcessTypeB, %{}, ["input"])
-|> Jido.Plan.add("process_c", MyApp.Actions.ProcessTypeC, %{}, ["input"])
+# Parallel processing branches (all depend on :input, can run in parallel)
+|> Jido.Plan.add(:process_a, MyApp.Actions.ProcessTypeA, depends_on: :input)
+|> Jido.Plan.add(:process_b, MyApp.Actions.ProcessTypeB, depends_on: :input)
+|> Jido.Plan.add(:process_c, MyApp.Actions.ProcessTypeC, depends_on: :input)
 
-# Convergence point
-|> Jido.Plan.add("merge", MyApp.Actions.MergeResults, %{}, ["process_a", "process_b", "process_c"])
-|> Jido.Plan.add("finalize", MyApp.Actions.Finalize, %{}, ["merge"])
+# Convergence point (depends on multiple steps)
+|> Jido.Plan.add(:merge, MyApp.Actions.MergeResults, depends_on: [:process_a, :process_b, :process_c])
+|> Jido.Plan.add(:finalize, MyApp.Actions.Finalize, depends_on: :merge)
 ```
 
 ### Plan Execution Phases
@@ -110,10 +152,55 @@ plan = Jido.Plan.new()
 The plan system automatically calculates execution phases based on dependencies:
 
 ```
-Phase 1: [input]                           # No dependencies
-Phase 2: [process_a, process_b, process_c] # Depend on input, run in parallel
-Phase 3: [merge]                           # Depends on all process_* actions
-Phase 4: [finalize]                        # Depends on merge
+Phase 1: [:input]                              # No dependencies
+Phase 2: [:process_a, :process_b, :process_c]  # Depend on input, run in parallel
+Phase 3: [:merge]                              # Depends on all process_* actions
+Phase 4: [:finalize]                           # Depends on merge
+```
+
+Use `Jido.Plan.execution_phases/1` to get the phases:
+
+```elixir
+{:ok, phases} = Jido.Plan.execution_phases(plan)
+# => {:ok, [[:input], [:process_a, :process_b, :process_c], [:merge], [:finalize]]}
+```
+
+### Adding Dependencies After Creation
+
+Use `Jido.Plan.depends_on/3` to add dependencies to existing steps:
+
+```elixir
+plan = Jido.Plan.new()
+|> Jido.Plan.add(:step1, MyApp.Action1)
+|> Jido.Plan.add(:step2, MyApp.Action2)
+|> Jido.Plan.depends_on(:step2, :step1)  # step2 now depends on step1
+```
+
+### Normalizing Plans
+
+Use `Jido.Plan.normalize/1` to convert a plan into a Graph and list of PlanInstructions:
+
+```elixir
+{:ok, {graph, plan_instructions}} = Jido.Plan.normalize(plan)
+
+# graph is a Graph.t() for DAG analysis
+# plan_instructions is a list of %Jido.Plan.PlanInstruction{}
+
+# Use normalize!/1 to raise on error
+{graph, plan_instructions} = Jido.Plan.normalize!(plan)
+```
+
+### Converting Plans to Keyword Lists
+
+Use `Jido.Plan.to_keyword/1` to convert a plan back to keyword list format:
+
+```elixir
+plan = Jido.Plan.new()
+|> Jido.Plan.add(:fetch, MyApp.FetchAction)
+|> Jido.Plan.add(:save, MyApp.SaveAction, depends_on: :fetch)
+
+keyword_list = Jido.Plan.to_keyword(plan)
+# => [fetch: MyApp.FetchAction, save: {MyApp.SaveAction, depends_on: :fetch}]
 ```
 
 ### Using ActionPlan Tool
@@ -164,16 +251,15 @@ context = %{
   tenant_id: "tenant_789"
 }
 
-# Available in all instructions
-plan = Jido.Plan.new()
-|> Jido.Plan.add("step1", MyApp.Actions.Step1, %{}, [])
-|> Jido.Plan.add("step2", MyApp.Actions.Step2, %{}, ["step1"])
+# Create plan with shared context
+plan = Jido.Plan.new(context: context)
+|> Jido.Plan.add(:step1, MyApp.Actions.Step1)
+|> Jido.Plan.add(:step2, MyApp.Actions.Step2, depends_on: :step1)
 
-# Execute with context
+# Execute the plan
 {:ok, results} = Jido.Exec.run(
   Jido.Tools.ActionPlan,
-  %{plan: plan, initial_data: %{}},
-  context  # Flows to all actions
+  %{plan: plan, initial_data: %{}}
 )
 ```
 
@@ -204,8 +290,8 @@ end
 
 # Plan automatically flows data between actions
 plan = Jido.Plan.new()
-|> Jido.Plan.add("produce", MyApp.Actions.ProduceData, %{type: "json"}, [])
-|> Jido.Plan.add("consume", MyApp.Actions.ConsumeData, %{}, ["produce"])
+|> Jido.Plan.add(:produce, {MyApp.Actions.ProduceData, %{type: "json"}})
+|> Jido.Plan.add(:consume, MyApp.Actions.ConsumeData, depends_on: :produce)
 ```
 
 ## Error Handling in Plans
@@ -262,20 +348,20 @@ Process multiple items in parallel, then merge results:
 defmodule MyApp.Workflows.FanOutFanIn do
   def create_plan(items) do
     plan = Jido.Plan.new()
-    |> Jido.Plan.add("prepare", MyApp.Actions.PrepareItems, %{items: items}, [])
+    |> Jido.Plan.add(:prepare, {MyApp.Actions.PrepareItems, %{items: items}})
     
     # Add parallel processing for each item
     plan = Enum.reduce(items, plan, fn item, acc_plan ->
-      Jido.Plan.add(acc_plan, "process_#{item.id}", 
-        MyApp.Actions.ProcessItem, 
-        %{item: item}, 
-        ["prepare"]
+      step_name = String.to_atom("process_#{item.id}")
+      Jido.Plan.add(acc_plan, step_name, 
+        {MyApp.Actions.ProcessItem, %{item: item}}, 
+        depends_on: :prepare
       )
     end)
     
     # Add convergence point
-    process_deps = Enum.map(items, &"process_#{&1.id}")
-    plan |> Jido.Plan.add("merge", MyApp.Actions.MergeResults, %{}, process_deps)
+    process_deps = Enum.map(items, &String.to_atom("process_#{&1.id}"))
+    plan |> Jido.Plan.add(:merge, MyApp.Actions.MergeResults, depends_on: process_deps)
   end
 end
 ```
@@ -308,11 +394,11 @@ Transform data through a series of steps:
 ```elixir
 # ETL Pipeline
 pipeline_plan = Jido.Plan.new()
-|> Jido.Plan.add("extract", MyApp.Actions.ExtractData, %{source: "db"}, [])
-|> Jido.Plan.add("validate", MyApp.Actions.ValidateData, %{}, ["extract"])
-|> Jido.Plan.add("transform", MyApp.Actions.TransformData, %{}, ["validate"])
-|> Jido.Plan.add("enrich", MyApp.Actions.EnrichData, %{}, ["transform"])
-|> Jido.Plan.add("load", MyApp.Actions.LoadData, %{target: "warehouse"}, ["enrich"])
+|> Jido.Plan.add(:extract, {MyApp.Actions.ExtractData, %{source: "db"}})
+|> Jido.Plan.add(:validate, MyApp.Actions.ValidateData, depends_on: :extract)
+|> Jido.Plan.add(:transform, MyApp.Actions.TransformData, depends_on: :validate)
+|> Jido.Plan.add(:enrich, MyApp.Actions.EnrichData, depends_on: :transform)
+|> Jido.Plan.add(:load, {MyApp.Actions.LoadData, %{target: "warehouse"}}, depends_on: :enrich)
 ```
 
 ### Error Recovery Pipeline
@@ -320,15 +406,19 @@ pipeline_plan = Jido.Plan.new()
 ```elixir
 # Pipeline with fallback steps
 recovery_plan = Jido.Plan.new()
-|> Jido.Plan.add("primary", MyApp.Actions.PrimaryOperation, %{}, [])
-|> Jido.Plan.add("fallback", MyApp.Actions.FallbackOperation, %{}, ["primary"])
-|> Jido.Plan.add("notify", MyApp.Actions.NotifyFailure, %{}, ["fallback"])
+|> Jido.Plan.add(:primary, MyApp.Actions.PrimaryOperation)
+|> Jido.Plan.add(:fallback, MyApp.Actions.FallbackOperation, depends_on: :primary)
+|> Jido.Plan.add(:notify, MyApp.Actions.NotifyFailure, depends_on: :fallback)
 
 # Fallback action only runs if primary fails
 defmodule MyApp.Actions.FallbackOperation do
+  use Jido.Action,
+    name: "fallback_operation",
+    schema: []
+
   def run(params, context) do
     # Check if primary succeeded
-    case Map.get(context, :results, %{})["primary"] do
+    case Map.get(context, :results, %{})[:primary] do
       {:ok, _} -> 
         {:ok, %{skipped: true, reason: "primary succeeded"}}
       {:error, _} ->

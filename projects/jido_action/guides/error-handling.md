@@ -6,84 +6,104 @@ Jido Action uses structured error handling with the Splode library, providing co
 
 ## Error Types
 
-All errors are normalized to `Jido.Action.Error` structs with consistent structure:
+Errors are represented as Splode-based exception structs organized into error classes. Error classes determine precedence when multiple errors are aggregated:
+
+- **`:invalid`** - Input validation, bad requests (highest precedence)
+- **`:execution`** - Runtime execution errors and action failures
+- **`:config`** - System configuration and setup errors
+- **`:internal`** - Unexpected internal errors (lowest precedence)
+
+Each error type has its own struct:
 
 ```elixir
-%Jido.Action.Error{
-  type: :validation_error,           # Error category
-  message: "Invalid parameter",      # Human-readable message
-  details: %{field: :age, value: -5} # Additional context
+# Validation error
+%Jido.Action.Error.InvalidInputError{
+  message: "Invalid parameter",
+  field: :age,
+  value: -5,
+  details: %{}
+}
+
+# Execution error
+%Jido.Action.Error.ExecutionFailureError{
+  message: "Database connection failed",
+  details: %{reason: :timeout}
+}
+
+# Timeout error
+%Jido.Action.Error.TimeoutError{
+  message: "Action timed out after 30s",
+  timeout: 30000,
+  details: %{}
 }
 ```
 
 ### Core Error Types
 
 #### Validation Errors
-Parameter validation failures:
+Parameter validation failures use `InvalidInputError`:
 
 ```elixir
 # Schema validation failure
-{:error, %Jido.Action.Error{
-  type: :validation_error,
+{:error, %Jido.Action.Error.InvalidInputError{
   message: "Required parameter missing: email",
+  field: nil,
+  value: nil,
   details: %{missing: [:email]}
 }}
 
 # Type validation failure
-{:error, %Jido.Action.Error{
-  type: :validation_error,
+{:error, %Jido.Action.Error.InvalidInputError{
   message: "Invalid type: expected integer, got string",
-  details: %{field: :age, expected: :integer, got: :string}
+  field: :age,
+  value: "hello",
+  details: %{expected: :integer, got: :string}
 }}
 ```
 
 #### Execution Errors
-Runtime failures during action execution:
+Runtime failures during action execution use `ExecutionFailureError`:
 
 ```elixir
 # Business logic failure
-{:error, %Jido.Action.Error{
-  type: :execution_error,
+{:error, %Jido.Action.Error.ExecutionFailureError{
   message: "Database connection failed",
   details: %{reason: :timeout, host: "db.example.com"}
 }}
 
 # External service failure
-{:error, %Jido.Action.Error{
-  type: :execution_error,
+{:error, %Jido.Action.Error.ExecutionFailureError{
   message: "API request failed: 503 Service Unavailable",
   details: %{status: 503, url: "https://api.example.com"}
 }}
 ```
 
 #### Timeout Errors
-Operation timeouts:
+Operation timeouts use `TimeoutError`:
 
 ```elixir
-{:error, %Jido.Action.Error{
-  type: :timeout_error,
+{:error, %Jido.Action.Error.TimeoutError{
   message: "Action exceeded timeout of 5000ms",
-  details: %{timeout: 5000, elapsed: 6234}
+  timeout: 5000,
+  details: %{elapsed: 6234}
 }}
 ```
 
 #### Configuration Errors
-Missing or invalid configuration:
+Missing or invalid configuration uses `ConfigurationError`:
 
 ```elixir
-{:error, %Jido.Action.Error{
-  type: :config_error,
+{:error, %Jido.Action.Error.ConfigurationError{
   message: "Missing required configuration",
   details: %{missing: [:api_key, :secret]}
 }}
 ```
 
 #### Internal Errors
-Unexpected system errors:
+Unexpected system errors use `InternalError`:
 
 ```elixir
-{:error, %Jido.Action.Error{
-  type: :internal_error,
+{:error, %Jido.Action.Error.InternalError{
   message: "Unexpected error occurred",
   details: %{original: %RuntimeError{message: "Something went wrong"}}
 }}
@@ -120,21 +140,24 @@ end
 
 ### Helper Functions
 
-```elixir
-# Validation errors
-Jido.Action.Error.validation_error("Invalid email format")
+All helper functions return exception structs (not wrapped in `{:error, ...}`):
 
-# Execution errors
+```elixir
+# Validation errors - returns InvalidInputError
+Jido.Action.Error.validation_error("Invalid email format")
+Jido.Action.Error.validation_error("Invalid age", %{field: :age, value: -5})
+
+# Execution errors - returns ExecutionFailureError
 Jido.Action.Error.execution_error("Database connection failed", %{timeout: 5000})
 
-# Timeout errors
-Jido.Action.Error.timeout_error("Operation timed out", %{limit: 5000})
+# Timeout errors - returns TimeoutError
+Jido.Action.Error.timeout_error("Operation timed out", %{timeout: 5000})
 
-# Configuration errors
+# Configuration errors - returns ConfigurationError
 Jido.Action.Error.config_error("Missing API key", %{missing: [:api_key]})
 
-# Internal errors
-Jido.Action.Error.internal_error("Unexpected system error", exception)
+# Internal errors - returns InternalError
+Jido.Action.Error.internal_error("Unexpected system error", %{original: exception})
 ```
 
 ## Error Handling Patterns
@@ -152,7 +175,7 @@ def run(params, context) do
        {:ok, saved} <- save_result(processed) do
     {:ok, saved}
   else
-    {:error, %Jido.Action.Error{} = error} ->
+    {:error, %_{} = error} when is_exception(error) ->
       {:error, error}
       
     {:error, reason} when is_binary(reason) ->
@@ -162,7 +185,7 @@ def run(params, context) do
       {:error, Jido.Action.Error.execution_error("Operation failed: #{inspect(reason)}")}
       
     error ->
-      {:error, Jido.Action.Error.internal_error("Unexpected error", error)}
+      {:error, Jido.Action.Error.internal_error("Unexpected error", %{original: error})}
   end
 end
 ```
@@ -179,18 +202,18 @@ def run(params, _context) do
   rescue
     exception in [ArgumentError] ->
       {:error, Jido.Action.Error.validation_error(
-        "Invalid argument: #{exception.message}"
+        "Invalid argument: #{Exception.message(exception)}"
       )}
       
     exception in [RuntimeError] ->
       {:error, Jido.Action.Error.execution_error(
-        "Runtime error: #{exception.message}"
+        "Runtime error: #{Exception.message(exception)}"
       )}
       
     exception ->
       {:error, Jido.Action.Error.internal_error(
         "Unexpected exception",
-        exception
+        %{original: exception}
       )}
   end
 end
@@ -252,22 +275,24 @@ end
 
 ## Compensation
 
-Actions can define compensation logic for error recovery and cleanup:
+Actions can define compensation logic for error recovery and cleanup. Compensation is triggered when an action fails and allows cleanup or rollback of partial changes.
 
 ### Enabling Compensation
+
+Configure compensation in your action's `use` options:
 
 ```elixir
 defmodule MyApp.Actions.TransferFunds do
   use Jido.Action,
     name: "transfer_funds",
-    compensation: [enabled: true, max_retries: 3],
+    compensation: [enabled: true, timeout: 5_000],
     schema: [
       from_account: [type: :string, required: true],
       to_account: [type: :string, required: true],
       amount: [type: :integer, required: true]
     ]
 
-  def run(params, context) do
+  def run(params, _context) do
     with {:ok, _} <- debit_account(params.from_account, params.amount),
          {:ok, _} <- credit_account(params.to_account, params.amount) do
       {:ok, %{
@@ -279,18 +304,18 @@ defmodule MyApp.Actions.TransferFunds do
     end
   end
 
-  # Compensation callback
+  # Compensation callback - called when action fails
+  # Signature: on_error(failed_params, error, context, opts) :: {:ok, map()} | {:error, Exception.t()}
   @impl true
-  def on_error(failed_params, error, context, _opts) do
-    case error.type do
-      :execution_error ->
+  def on_error(failed_params, error, _context, _opts) do
+    case error do
+      %Jido.Action.Error.ExecutionFailureError{} ->
         # Attempt to reverse any partial transactions
         case reverse_transaction(failed_params) do
           :ok -> 
             {:ok, %{compensated: true, reversed: true}}
           {:error, reason} ->
-            # Log compensation failure
-            Logger.error("Compensation failed: #{reason}")
+            Logger.error("Compensation failed: #{inspect(reason)}")
             {:ok, %{compensated: false, reason: reason}}
         end
         
@@ -302,12 +327,15 @@ defmodule MyApp.Actions.TransferFunds do
 
   defp reverse_transaction(params) do
     # Implement reversal logic
-    # This might involve crediting back the from_account
-    # and debiting the to_account if the credit succeeded
     :ok
   end
 end
 ```
+
+### Compensation Configuration Options
+
+- `enabled: true` - Enable compensation for the action (default: `false`)
+- `timeout: 5_000` - Timeout for compensation execution in milliseconds (default: `5000`)
 
 ### Compensation Patterns
 
@@ -316,7 +344,7 @@ end
 ```elixir
 defmodule MyApp.Actions.ProcessFile do
   use Jido.Action,
-    compensation: [enabled: true]
+    compensation: [enabled: true, timeout: 10_000]
 
   def run(params, _context) do
     temp_file = create_temp_file()
@@ -326,10 +354,13 @@ defmodule MyApp.Actions.ProcessFile do
       {:ok, result}
     rescue
       exception ->
-        {:error, Jido.Action.Error.execution_error("Processing failed: #{exception.message}")}
+        {:error, Jido.Action.Error.execution_error(
+          "Processing failed: #{Exception.message(exception)}"
+        )}
     end
   end
 
+  @impl true
   def on_error(_failed_params, _error, context, _opts) do
     # Clean up temporary files
     temp_files = Map.get(context, :temp_files, [])
@@ -344,15 +375,16 @@ end
 ```elixir
 defmodule MyApp.Actions.ReserveSeat do
   use Jido.Action,
-    compensation: [enabled: true]
+    compensation: [enabled: true, timeout: 5_000]
 
   def run(params, _context) do
     case reserve_seat_in_system(params.seat_id) do
       {:ok, reservation} -> {:ok, reservation}
-      {:error, reason} -> {:error, Jido.Action.Error.execution_error(reason)}
+      {:error, reason} -> {:error, Jido.Action.Error.execution_error(inspect(reason))}
     end
   end
 
+  @impl true
   def on_error(failed_params, _error, _context, _opts) do
     # Release the seat reservation
     case release_seat(failed_params.seat_id) do
@@ -403,7 +435,7 @@ end
   %{url: "https://api.example.com/data"},
   %{},
   max_retries: 3,
-  retry_delay: 1000
+  backoff: 1000  # Initial backoff in ms (doubles with each retry, capped at 30s)
 )
 ```
 
@@ -416,7 +448,7 @@ defmodule MyApp.Actions.FetchWithFallback do
       {:ok, result} -> 
         {:ok, result}
         
-      {:error, %{type: :execution_error}} ->
+      {:error, %Jido.Action.Error.ExecutionFailureError{}} ->
         # Try fallback source
         Jido.Exec.run(MyApp.Actions.FetchFromCache, params, context)
         
@@ -469,7 +501,7 @@ end
 # Attach error telemetry
 :telemetry.attach(
   "error-monitoring",
-  [:jido, :exec, :exception],
+  [:jido, :action, :exception],
   &handle_error_telemetry/4,
   %{}
 )
@@ -477,11 +509,11 @@ end
 def handle_error_telemetry(_event, _measurements, metadata, _config) do
   error = metadata.error
   
-  case error.type do
-    :execution_error when error.details[:critical] ->
+  case error do
+    %Jido.Action.Error.ExecutionFailureError{details: %{critical: true}} ->
       send_alert(error)
       
-    :timeout_error ->
+    %Jido.Action.Error.TimeoutError{} ->
       increment_timeout_counter(metadata.action)
       
     _ ->

@@ -82,6 +82,7 @@ defmodule JidoAction.MixProject do
         ],
         "Core Concepts": [
           "guides/actions-guide.md",
+          "guides/schemas-validation.md",
           "guides/execution-engine.md",
           "guides/instructions-plans.md",
           "guides/error-handling.md"
@@ -107,6 +108,7 @@ defmodule JidoAction.MixProject do
         {"guides/your-second-action.md", title: "Your Second Action"},
         # Core Concepts
         {"guides/actions-guide.md", title: "Actions"},
+        {"guides/schemas-validation.md", title: "Schemas & Validation"},
         {"guides/execution-engine.md", title: "Execution Engine"},
         {"guides/instructions-plans.md", title: "Instructions & Plans"},
         {"guides/error-handling.md", title: "Error Handling"},

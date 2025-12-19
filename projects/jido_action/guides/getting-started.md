@@ -61,19 +61,16 @@ end
 Jido Action includes 25+ pre-built actions:
 
 ```elixir
-# HTTP requests
-{:ok, response} = Jido.Tools.ReqTool.new(
-  url: "https://api.github.com/users/octocat"
-).run(%{}, %{})
-
 # File operations  
-{:ok, _} = Jido.Tools.Files.WriteFile.run(%{
+{:ok, _} = Jido.Exec.run(Jido.Tools.Files.WriteFile, %{
   path: "/tmp/test.txt",
-  content: "Hello World!"
-}, %{})
+  content: "Hello World!",
+  create_dirs: false,
+  mode: :write
+})
 
 # Arithmetic
-{:ok, result} = Jido.Tools.Arithmetic.Add.run(%{value: 5, amount: 3}, %{})
+{:ok, result} = Jido.Exec.run(Jido.Tools.Arithmetic.Add, %{value: 5, amount: 3})
 # => {:ok, %{result: 8}}
 ```
 
@@ -81,10 +78,11 @@ Jido Action includes 25+ pre-built actions:
 
 ```elixir
 # Sequential execution with data flow
-{:ok, final_result} = Jido.Exec.Chain.chain([
-  MyApp.Actions.ValidateEmail,
-  MyApp.Actions.SendWelcomeEmail
-], %{email: "user@example.com"}, %{user_id: "123"})
+{:ok, final_result} = Jido.Exec.Chain.chain(
+  [MyApp.Actions.ValidateEmail, MyApp.Actions.SendWelcomeEmail],
+  %{email: "user@example.com"},
+  context: %{user_id: "123"}
+)
 ```
 
 ## Next Steps
