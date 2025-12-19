@@ -43,39 +43,54 @@ end
 tool_def = MyApp.Actions.SearchUsers.to_tool()
 ```
 
-This generates an OpenAI-compatible function definition:
+This generates a tool definition map:
 
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "search_users",
-    "description": "Search for users by name or email", 
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "query": {
-          "type": "string",
-          "description": "Search query (name or email)"
-        },
-        "limit": {
-          "type": "integer", 
-          "description": "Maximum number of results",
-          "minimum": 1,
-          "maximum": 100
-        },
-        "include_inactive": {
-          "type": "boolean",
-          "description": "Include inactive users in results"
-        }
+```elixir
+%{
+  name: "search_users",
+  description: "Search for users by name or email",
+  function: #Function<...>,  # Executes the action with (params, context)
+  parameters_schema: %{
+    "type" => "object",
+    "properties" => %{
+      "query" => %{
+        "type" => "string",
+        "description" => "Search query (name or email)"
       },
-      "required": ["query"]
-    }
+      "limit" => %{
+        "type" => "integer",
+        "description" => "Maximum number of results"
+      },
+      "include_inactive" => %{
+        "type" => "boolean",
+        "description" => "Include inactive users in results"
+      }
+    },
+    "required" => ["query"]
   }
 }
 ```
 
 ## Using with OpenAI
+
+### Converting to OpenAI Format
+
+The `to_tool/0` function returns a LangChain-compatible format. To use with OpenAI's API, convert to their expected format:
+
+```elixir
+def to_openai_tool(action_module) do
+  tool = action_module.to_tool()
+  
+  %{
+    "type" => "function",
+    "function" => %{
+      "name" => tool.name,
+      "description" => tool.description,
+      "parameters" => tool.parameters_schema
+    }
+  }
+end
+```
 
 ### Basic Function Calling
 
@@ -90,8 +105,8 @@ defmodule MyApp.AI.Assistant do
   ]
 
   def chat_with_tools(messages, context \\ %{}) do
-    # Convert actions to tool definitions
-    tools = Enum.map(@available_tools, & &1.to_tool())
+    # Convert actions to OpenAI tool definitions
+    tools = Enum.map(@available_tools, &to_openai_tool/1)
     
     # Make OpenAI request with tools
     response = OpenAI.chat_completion(%{
@@ -139,8 +154,21 @@ defmodule MyApp.AI.Assistant do
 
   defp find_action_by_name(name) do
     Enum.find(@available_tools, fn action ->
-      action.action_name() == name
+      action.name() == name
     end)
+  end
+
+  defp to_openai_tool(action_module) do
+    tool = action_module.to_tool()
+    
+    %{
+      "type" => "function",
+      "function" => %{
+        "name" => tool.name,
+        "description" => tool.description,
+        "parameters" => tool.parameters_schema
+      }
+    }
   end
 end
 ```

@@ -201,7 +201,7 @@ end
   params,
   context,
   max_retries: 3,
-  retry_delay: 1000
+  backoff: 1000
 )
 
 # Use compensation for state changes
@@ -245,27 +245,23 @@ end
 **A:** Several strategies:
 
 ```elixir
-# 1. Disable features you don't need
-defmodule MyApp.Actions.FastAction do
-  use Jido.Action,
-    telemetry: false,      # Disable telemetry
-    validate_output: false # Skip output validation
-
-  def run(params, _context) do
-    # Fast implementation
-    {:ok, result}
-  end
-end
-
-# 2. Use direct execution for simple cases
+# 1. Use direct execution for simple cases (bypasses execution engine overhead)
 {:ok, result} = MyApp.Actions.FastAction.run(params, context)
 
-# 3. Batch operations
-{:ok, results} = Jido.Exec.run_async_batch([
-  {MyApp.Actions.ProcessItem, item1},
-  {MyApp.Actions.ProcessItem, item2},
-  {MyApp.Actions.ProcessItem, item3}
-], context)
+# 2. Use silent telemetry for reduced overhead
+{:ok, result} = Jido.Exec.run(
+  MyApp.Actions.FastAction,
+  params,
+  context,
+  telemetry: :silent
+)
+
+# 3. Batch async operations
+refs = Enum.map([item1, item2, item3], fn item ->
+  Jido.Exec.run_async(MyApp.Actions.ProcessItem, item, context)
+end)
+
+results = Enum.map(refs, &Jido.Exec.await/1)
 ```
 
 ### Q: How do I handle large data sets?
@@ -358,7 +354,7 @@ defmodule MyApp.AI.ErrorHandler do
           type: "parameter_validation_failed",
           message: error.message,
           details: error.details,
-          schema: action.action_schema(),
+          schema: action.schema(),
           suggestion: "Please check parameter types and constraints"
         }}
         
@@ -383,14 +379,14 @@ end
   MyApp.Actions.ValidateInput,
   MyApp.Actions.ProcessData,
   MyApp.Actions.SaveResult
-], initial_data, context)
+], initial_data, context: context)
 
 # Use plan for complex workflow
 plan = Jido.Plan.new()
-|> Jido.Plan.add("validate", MyApp.Actions.ValidateInput, %{}, [])
-|> Jido.Plan.add("process_a", MyApp.Actions.ProcessTypeA, %{}, ["validate"])
-|> Jido.Plan.add("process_b", MyApp.Actions.ProcessTypeB, %{}, ["validate"])
-|> Jido.Plan.add("merge", MyApp.Actions.MergeResults, %{}, ["process_a", "process_b"])
+|> Jido.Plan.add(:validate, MyApp.Actions.ValidateInput)
+|> Jido.Plan.add(:process_a, MyApp.Actions.ProcessTypeA, depends_on: :validate)
+|> Jido.Plan.add(:process_b, MyApp.Actions.ProcessTypeB, depends_on: :validate)
+|> Jido.Plan.add(:merge, MyApp.Actions.MergeResults, depends_on: [:process_a, :process_b])
 ```
 
 ### Q: How do I handle conditional execution in workflows?
@@ -418,15 +414,15 @@ end
 # Option 2: Dynamic plan building
 def build_plan(user_type) do
   plan = Jido.Plan.new()
-  |> Jido.Plan.add("validate", MyApp.Actions.ValidateUser, %{}, [])
+  |> Jido.Plan.add(:validate, MyApp.Actions.ValidateUser)
   
-  plan = if user_type == :premium do
-    plan |> Jido.Plan.add("premium_process", MyApp.Actions.PremiumProcess, %{}, ["validate"])
+  {plan, process_step} = if user_type == :premium do
+    {Jido.Plan.add(plan, :premium_process, MyApp.Actions.PremiumProcess, depends_on: :validate), :premium_process}
   else
-    plan |> Jido.Plan.add("basic_process", MyApp.Actions.BasicProcess, %{}, ["validate"])
+    {Jido.Plan.add(plan, :basic_process, MyApp.Actions.BasicProcess, depends_on: :validate), :basic_process}
   end
   
-  plan |> Jido.Plan.add("finalize", MyApp.Actions.Finalize, %{}, ["premium_process", "basic_process"])
+  Jido.Plan.add(plan, :finalize, MyApp.Actions.Finalize, depends_on: process_step)
 end
 ```
 
@@ -465,7 +461,7 @@ end
 
 ### Q: How do I test async actions?
 
-**A:** Use the execution engine's test utilities:
+**A:** Use the execution engine's async functions:
 
 ```elixir
 test "async action completes successfully" do
@@ -475,7 +471,7 @@ test "async action completes successfully" do
     %{}
   )
   
-  # Wait for completion
+  # Wait for completion with timeout
   assert {:ok, result} = Jido.Exec.await(async_ref, 5000)
   assert result.processed == true
 end
@@ -487,11 +483,11 @@ test "async action can be cancelled" do
     %{}
   )
   
-  # Cancel before completion
+  # Cancel before completion - returns :ok on success
   assert :ok = Jido.Exec.cancel(async_ref)
   
-  # Should return cancelled status
-  assert {:error, :cancelled} = Jido.Exec.await(async_ref, 1000)
+  # Await after cancel will timeout or error
+  assert {:error, _} = Jido.Exec.await(async_ref, 100)
 end
 ```
 
@@ -506,16 +502,16 @@ end
 :telemetry.attach_many(
   "production-monitoring",
   [
-    [:jido, :exec, :start],
-    [:jido, :exec, :stop],
-    [:jido, :exec, :exception]
+    [:jido, :action, :start],
+    [:jido, :action, :stop],
+    [:jido, :action, :exception]
   ],
   &MyApp.Telemetry.handle_event/4,
   %{}
 )
 
 defmodule MyApp.Telemetry do
-  def handle_event([:jido, :exec, :stop], measurements, metadata, _) do
+  def handle_event([:jido, :action, :stop], measurements, metadata, _) do
     # Send metrics to monitoring system
     duration_ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
     
@@ -612,24 +608,26 @@ end
 
 ### Q: My workflows are failing - how do I debug?
 
-**A:** Use plan execution debugging:
+**A:** Use plan execution phases to understand the workflow:
 
 ```elixir
-# Enable detailed plan logging
-{:ok, results} = Jido.Tools.ActionPlan.run(%{
-  plan: plan,
-  initial_data: data,
-  debug: true  # Enable debug output
-}, context)
+# Check execution phases before running
+{:ok, phases} = Jido.Plan.execution_phases(plan)
+IO.inspect(phases, label: "Execution phases")
 
-# Check partial results on failure
-case Jido.Tools.ActionPlan.run(%{plan: plan}, context) do
-  {:ok, results} -> results
-  {:error, {failed_step, error, partial_results}} ->
-    Logger.error("Plan failed at step #{failed_step}",
-      error: error.message,
-      completed_steps: Map.keys(partial_results)
-    )
+# Execute steps individually for debugging
+Enum.each(Map.values(plan.steps), fn plan_instruction ->
+  IO.puts("Step: #{plan_instruction.name}")
+  IO.puts("  Action: #{inspect(plan_instruction.instruction.action)}")
+  IO.puts("  Depends on: #{inspect(plan_instruction.depends_on)}")
+end)
+
+# For detailed debugging, run actions individually
+case Jido.Exec.run(MyApp.Actions.FailingStep, params, context) do
+  {:ok, result} -> 
+    Logger.info("Step succeeded", result: result)
+  {:error, error} ->
+    Logger.error("Step failed", error: Exception.message(error))
 end
 ```
 

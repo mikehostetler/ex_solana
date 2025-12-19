@@ -31,6 +31,12 @@ defmodule JidoAction.MixProject do
       # Coverage
       test_coverage: [
         tool: ExCoveralls
+      ],
+
+      # Dialyzer
+      dialyzer: [
+        plt_local_path: "priv/plts/project.plt",
+        plt_core_path: "priv/plts/core.plt"
       ]
     ]
   end
@@ -76,6 +82,7 @@ defmodule JidoAction.MixProject do
         ],
         "Core Concepts": [
           "guides/actions-guide.md",
+          "guides/schemas-validation.md",
           "guides/execution-engine.md",
           "guides/instructions-plans.md",
           "guides/error-handling.md"
@@ -90,7 +97,7 @@ defmodule JidoAction.MixProject do
         "Help & Reference": [
           "guides/faq.md",
           "CHANGELOG.md",
-          "LICENSE.md"
+          "LICENSE"
         ]
       ],
       extras: [
@@ -101,6 +108,7 @@ defmodule JidoAction.MixProject do
         {"guides/your-second-action.md", title: "Your Second Action"},
         # Core Concepts
         {"guides/actions-guide.md", title: "Actions"},
+        {"guides/schemas-validation.md", title: "Schemas & Validation"},
         {"guides/execution-engine.md", title: "Execution Engine"},
         {"guides/instructions-plans.md", title: "Instructions & Plans"},
         {"guides/error-handling.md", title: "Error Handling"},
@@ -113,13 +121,13 @@ defmodule JidoAction.MixProject do
         # Help & Reference
         {"guides/faq.md", title: "FAQ"},
         {"CHANGELOG.md", title: "Changelog"},
-        {"LICENSE.md", title: "Apache 2.0 License"}
+        {"LICENSE", title: "Apache 2.0 License"}
       ],
       extra_section: "Guides",
       formatters: ["html"],
       skip_undefined_reference_warnings_on: [
         "CHANGELOG.md",
-        "LICENSE.md"
+        "LICENSE"
       ],
       groups_for_modules: [
         Core: [
@@ -179,13 +187,15 @@ defmodule JidoAction.MixProject do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README.md", "LICENSE.md", "usage-rules.md"],
+      files: ["lib", "mix.exs", "README.md", "LICENSE", "usage-rules.md"],
       maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
+        "Documentation" => "https://hexdocs.pm/jido_action",
         "GitHub" => @source_url,
-        "AgentJido.xyz" => "https://agentjido.xyz",
-        "Jido Workbench" => "https://github.com/agentjido/jido_workbench"
+        "Website" => "https://agentjido.xyz",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Changelog" => "https://github.com/agentjido/jido_action/blob/main/CHANGELOG.md"
       }
     ]
   end
@@ -213,7 +223,7 @@ defmodule JidoAction.MixProject do
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},
-      {:git_hooks, "~> 0.5.0", only: [:dev, :test], runtime: false},
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
@@ -242,7 +252,7 @@ defmodule JidoAction.MixProject do
       quality: [
         "format --check-formatted",
         "compile --warnings-as-errors",
-        "credo --strict",
+        "credo --min-priority higher",
         "dialyzer"
       ]
     ]

@@ -172,9 +172,11 @@ defmodule JidoTest.TestActions do
     end
 
     @impl true
-    def on_after_run(result) do
+    def on_after_run({:ok, result}) do
       {:ok, Map.put(result, :execution_time, System.system_time(:millisecond) - result.timestamp)}
     end
+
+    def on_after_run({:error, _} = error), do: error
 
     @impl true
     def on_error(failed_params, _error, _context, _opts), do: {:ok, failed_params}
@@ -329,7 +331,7 @@ defmodule JidoTest.TestActions do
       end
     end
 
-    def run(_, context), do: run(%{count: 1, delay: 250}, context)
+    def run(_, context), do: run(%{count: 1, delay: 250, link_to_group?: false}, context)
   end
 
   defmodule NakedTaskAction do

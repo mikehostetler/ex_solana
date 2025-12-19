@@ -14,8 +14,9 @@ defmodule MyApp.Actions.ProcessUserTest do
 
   alias MyApp.Actions.ProcessUser
 
-  describe "process_user/2" do
+  describe "direct run/2 testing" do
     test "processes valid user data" do
+      # Direct run/2 calls skip validation - useful for testing action logic
       params = %{
         name: "John Doe",
         email: "john@example.com",
@@ -27,35 +28,50 @@ defmodule MyApp.Actions.ProcessUserTest do
       assert result.email == "john@example.com"
       assert result.processed_at
     end
+  end
 
-    test "rejects invalid email format" do
+  describe "testing with Jido.Exec.run/4 (recommended)" do
+    test "validates and processes user data" do
+      # Jido.Exec.run/4 includes full validation, retries, timeouts
       params = %{
         name: "John Doe",
-        email: "invalid-email",
+        email: "john@example.com",
         age: 30
       }
       
-      assert {:error, error} = ProcessUser.run(params, %{})
-      assert error.type == :validation_error
-      assert error.message =~ "Invalid email"
+      assert {:ok, result} = Jido.Exec.run(ProcessUser, params, %{})
+      assert result.name == "John Doe"
     end
 
-    test "applies default values" do
+    test "rejects invalid parameters via schema validation" do
+      params = %{name: "John Doe"}  # missing email
+      
+      assert {:error, error} = Jido.Exec.run(ProcessUser, params, %{})
+      assert is_exception(error)
+    end
+
+    test "applies default values from schema" do
       params = %{
         name: "John Doe",
         email: "john@example.com"
         # age not provided, should use default
       }
       
-      assert {:ok, result} = ProcessUser.run(params, %{})
+      assert {:ok, result} = Jido.Exec.run(ProcessUser, params, %{})
       assert result.age == 18  # default value
     end
+  end
 
-    test "validates required parameters" do
-      params = %{name: "John Doe"}  # missing email
-      
-      assert {:error, error} = ProcessUser.run(params, %{})
-      assert error.type == :validation_error
+  describe "validate_params/1 testing" do
+    test "validates parameters in isolation" do
+      valid_params = %{name: "John", email: "john@example.com", age: 30}
+      assert {:ok, validated} = ProcessUser.validate_params(valid_params)
+      assert validated.name == "John"
+    end
+
+    test "returns error for invalid parameters" do
+      invalid_params = %{name: "John"}  # missing required email
+      assert {:error, _} = ProcessUser.validate_params(invalid_params)
     end
   end
 
@@ -69,20 +85,16 @@ defmodule MyApp.Actions.ProcessUserTest do
       
       context = %{user_id: "admin_123", role: :admin}
       
-      assert {:ok, result} = ProcessUser.run(params, context)
+      assert {:ok, result} = Jido.Exec.run(ProcessUser, params, context)
       assert result.processed_by == "admin_123"
     end
 
-    test "handles missing context gracefully" do
-      params = %{
-        name: "John Doe", 
-        email: "john@example.com",
-        age: 30
-      }
+    test "action receives metadata in context" do
+      # Jido.Exec.run injects action_metadata into context
+      params = %{name: "John", email: "john@example.com", age: 30}
       
-      # Empty context should still work
-      assert {:ok, result} = ProcessUser.run(params, %{})
-      refute Map.has_key?(result, :processed_by)
+      assert {:ok, result} = Jido.Exec.run(ProcessUser, params, %{})
+      # Action can access context.action_metadata for name, description, etc.
     end
   end
 end
@@ -97,29 +109,36 @@ defmodule MyApp.Actions.LifecycleActionTest do
   # Test action with all lifecycle hooks
   defmodule TestAction do
     use Jido.Action,
+      name: "test_action",
       schema: [input: [type: :string, required: true]]
 
+    @impl true
     def on_before_validate_params(params) do
-      # Add test marker
+      # Add test marker before validation
       {:ok, Map.put(params, :preprocessed, true)}
     end
 
+    @impl true
     def run(params, _context) do
       {:ok, %{result: params.input, preprocessed: params.preprocessed}}
     end
 
-    def on_after_run(result) do
-      # Add post-processing marker
+    # Note: on_after_run receives the full result tuple, not just the result map
+    @impl true
+    def on_after_run({:ok, result}) do
       {:ok, Map.put(result, :postprocessed, true)}
     end
+    def on_after_run({:error, _} = error), do: error
 
+    @impl true
     def on_error(_params, _error, _context, _opts) do
       {:ok, %{error_handled: true}}
     end
   end
 
-  test "lifecycle hooks are called in order" do
-    assert {:ok, result} = TestAction.run(%{input: "test"}, %{})
+  test "lifecycle hooks are called via Exec.run" do
+    # Note: Lifecycle hooks are invoked through Jido.Exec.run, not direct run/2 calls
+    assert {:ok, result} = Jido.Exec.run(TestAction, %{input: "test"}, %{})
     
     # Check preprocessing happened
     assert result.preprocessed == true
@@ -131,9 +150,14 @@ defmodule MyApp.Actions.LifecycleActionTest do
     assert result.result == "test"
   end
 
-  test "error hook is called on failure" do
-    # This would need to be tested with an action that can fail
-    # and has compensation enabled
+  test "validate_params/1 can be tested directly" do
+    # Test parameter validation in isolation
+    assert {:ok, validated} = TestAction.validate_params(%{input: "test"})
+    assert validated.input == "test"
+    assert validated.preprocessed == true  # on_before_validate_params was called
+
+    # Test validation failure
+    assert {:error, _} = TestAction.validate_params(%{wrong_key: "value"})
   end
 end
 ```
@@ -148,10 +172,12 @@ defmodule MyApp.Actions.TimeoutTest do
 
   defmodule SlowAction do
     use Jido.Action,
+      name: "slow_action",
       schema: [delay_ms: [type: :integer, default: 1000]]
 
+    @impl true
     def run(%{delay_ms: delay}, _context) do
-      :timer.sleep(delay)
+      Process.sleep(delay)
       {:ok, %{completed_after: delay}}
     end
   end
@@ -173,10 +199,12 @@ defmodule MyApp.Actions.TimeoutTest do
       SlowAction,
       %{delay_ms: 1000},
       %{},
-      timeout: 500
+      timeout: 100
     )
     
-    assert error.type == :timeout_error
+    # Timeout errors are Jido.Action.Error.TimeoutError
+    assert error.__struct__ == Jido.Action.Error.TimeoutError
+    assert Exception.message(error) =~ "timed out"
   end
 end
 ```
@@ -187,12 +215,19 @@ end
 defmodule MyApp.Actions.RetryTest do
   use ExUnit.Case
 
+  # Use an ETS table to track retry attempts
   defmodule FlakyAction do
     use Jido.Action,
-      schema: [fail_count: [type: :integer, default: 0]]
+      name: "flaky_action",
+      schema: [
+        fail_count: [type: :integer, default: 0],
+        table_name: [type: :atom, required: true]
+      ]
 
-    def run(%{fail_count: fail_count}, context) do
-      attempt = Map.get(context, :attempt, 1)
+    @impl true
+    def run(%{fail_count: fail_count, table_name: table_name}, _context) do
+      # Track attempts using ETS
+      attempt = :ets.update_counter(table_name, :attempts, 1, {:attempts, 0})
       
       if attempt <= fail_count do
         {:error, Jido.Action.Error.execution_error("Simulated failure")}
@@ -202,29 +237,36 @@ defmodule MyApp.Actions.RetryTest do
     end
   end
 
-  test "retries on failure and eventually succeeds" do
+  setup do
+    table = :ets.new(:retry_test, [:set, :public])
+    on_exit(fn -> :ets.delete(table) end)
+    {:ok, table: table}
+  end
+
+  test "retries on failure and eventually succeeds", %{table: table} do
     # Should fail twice, succeed on third attempt
     assert {:ok, result} = Jido.Exec.run(
       FlakyAction,
-      %{fail_count: 2},
+      %{fail_count: 2, table_name: table},
       %{},
       max_retries: 3,
-      retry_delay: 10  # Fast retries for tests
+      backoff: 10  # Fast retries for tests
     )
     
     assert result.succeeded_on_attempt == 3
   end
 
-  test "gives up after max retries" do
+  test "gives up after max retries", %{table: table} do
     assert {:error, error} = Jido.Exec.run(
       FlakyAction,
-      %{fail_count: 10},  # Always fails
+      %{fail_count: 10, table_name: table},  # Always fails
       %{},
       max_retries: 2,
-      retry_delay: 10
+      backoff: 10
     )
     
-    assert error.type == :execution_error
+    assert is_exception(error)
+    assert Exception.message(error) =~ "Simulated failure"
   end
 end
 ```
@@ -239,8 +281,10 @@ defmodule MyApp.Workflows.ChainTest do
 
   defmodule Step1 do
     use Jido.Action,
+      name: "step1",
       schema: [input: [type: :string, required: true]]
 
+    @impl true
     def run(%{input: input}, _context) do
       {:ok, %{step1_output: "processed_#{input}"}}
     end
@@ -248,40 +292,72 @@ defmodule MyApp.Workflows.ChainTest do
 
   defmodule Step2 do
     use Jido.Action,
+      name: "step2",
       schema: [step1_output: [type: :string, required: true]]
 
+    @impl true
     def run(%{step1_output: input}, _context) do
       {:ok, %{final_result: "final_#{input}"}}
     end
   end
 
   test "chain executes steps in sequence" do
-    {:ok, result} = Jido.Exec.Chain.chain([
-      Step1,
-      Step2
-    ], %{input: "test"}, %{})
+    # Note: context is passed as a keyword option, not a 3rd positional arg
+    {:ok, result} = Jido.Exec.Chain.chain(
+      [Step1, Step2],
+      %{input: "test"},
+      context: %{}
+    )
     
+    # Chain merges results, so both step outputs are available
     assert result.final_result == "final_processed_test"
+    assert result.step1_output == "processed_test"
   end
 
   test "chain stops on first error" do
     defmodule FailingStep do
-      use Jido.Action
+      use Jido.Action,
+        name: "failing_step"
+      
+      @impl true
       def run(_params, _context) do
         {:error, Jido.Action.Error.execution_error("Step failed")}
       end
     end
 
-    assert {:error, {FailingStep, error, partial_results}} = 
-      Jido.Exec.Chain.chain([
-        Step1,
-        FailingStep,
-        Step2  # Should not execute
-      ], %{input: "test"}, %{})
+    # Chain returns {:error, error} on failure (no partial results tuple)
+    assert {:error, error} = Jido.Exec.Chain.chain(
+      [Step1, FailingStep, Step2],
+      %{input: "test"},
+      context: %{}
+    )
     
-    assert error.message == "Step failed"
-    # Partial results should include Step1 output
-    assert partial_results["Step1"].step1_output == "processed_test"
+    assert Exception.message(error) =~ "Step failed"
+  end
+
+  test "chain with action-specific parameters" do
+    # Actions can receive additional params via tuple syntax
+    {:ok, result} = Jido.Exec.Chain.chain(
+      [
+        Step1,
+        {Step2, %{extra_param: "value"}}
+      ],
+      %{input: "test"}
+    )
+    
+    assert result.final_result == "final_processed_test"
+  end
+
+  test "async chain execution" do
+    task = Jido.Exec.Chain.chain(
+      [Step1, Step2],
+      %{input: "test"},
+      async: true
+    )
+    
+    assert %Task{} = task
+    assert {:ok, result} = Task.await(task)
+    assert result.final_result == "final_processed_test"
   end
 end
 ```
@@ -292,18 +368,46 @@ end
 defmodule MyApp.Workflows.PlanTest do
   use ExUnit.Case
 
+  # Define test actions
+  defmodule InputAction do
+    use Jido.Action, name: "input_action"
+    @impl true
+    def run(params, _context), do: {:ok, Map.put(params, :input_processed, true)}
+  end
+
+  defmodule ProcessA do
+    use Jido.Action, name: "process_a"
+    @impl true
+    def run(params, _context), do: {:ok, Map.put(params, :process_a_done, true)}
+  end
+
+  defmodule ProcessB do
+    use Jido.Action, name: "process_b"
+    @impl true
+    def run(params, _context), do: {:ok, Map.put(params, :process_b_done, true)}
+  end
+
+  defmodule MergeAction do
+    use Jido.Action, name: "merge_action"
+    @impl true
+    def run(params, _context), do: {:ok, Map.put(params, :merged, true)}
+  end
+
   describe "plan execution" do
     test "executes phases in correct order" do
+      # Build a plan with dependencies
       plan = Jido.Plan.new()
       |> Jido.Plan.add("input", InputAction, %{}, [])
-      |> Jido.Plan.add("process_a", ProcessA, %{}, ["input"])
-      |> Jido.Plan.add("process_b", ProcessB, %{}, ["input"])
-      |> Jido.Plan.add("merge", MergeAction, %{}, ["process_a", "process_b"])
+      |> Jido.Plan.add("process_a", ProcessA, %{}, depends_on: ["input"])
+      |> Jido.Plan.add("process_b", ProcessB, %{}, depends_on: ["input"])
+      |> Jido.Plan.add("merge", MergeAction, %{}, depends_on: ["process_a", "process_b"])
       
-      {:ok, results} = Jido.Tools.ActionPlan.run(%{
-        plan: plan,
-        initial_data: %{data: "test"}
-      }, %{})
+      # Execute the plan
+      {:ok, results} = Jido.Exec.run(
+        Jido.Tools.ActionPlan,
+        %{plan: plan, initial_data: %{data: "test"}},
+        %{}
+      )
       
       # Verify all steps executed
       assert Map.has_key?(results, "input")
@@ -313,20 +417,32 @@ defmodule MyApp.Workflows.PlanTest do
     end
 
     test "handles dependency failures" do
+      defmodule FailingAction do
+        use Jido.Action, name: "failing_action"
+        @impl true
+        def run(_params, _context) do
+          {:error, Jido.Action.Error.execution_error("Intentional failure")}
+        end
+      end
+
+      defmodule SuccessAction do
+        use Jido.Action, name: "success_action"
+        @impl true
+        def run(params, _context), do: {:ok, params}
+      end
+
       plan = Jido.Plan.new()
       |> Jido.Plan.add("step1", SuccessAction, %{}, [])
-      |> Jido.Plan.add("step2", FailingAction, %{}, ["step1"])
-      |> Jido.Plan.add("step3", SuccessAction, %{}, ["step2"])  # Should not run
+      |> Jido.Plan.add("step2", FailingAction, %{}, depends_on: ["step1"])
+      |> Jido.Plan.add("step3", SuccessAction, %{}, depends_on: ["step2"])
       
-      assert {:error, {failed_id, error, partial_results}} = 
-        Jido.Tools.ActionPlan.run(%{
-          plan: plan,
-          initial_data: %{}
-        }, %{})
+      assert {:error, error} = Jido.Exec.run(
+        Jido.Tools.ActionPlan,
+        %{plan: plan, initial_data: %{}},
+        %{}
+      )
       
-      assert failed_id == "step2"
-      assert Map.has_key?(partial_results, "step1")
-      refute Map.has_key?(partial_results, "step3")
+      assert is_exception(error)
     end
   end
 end
@@ -396,50 +512,104 @@ end
 defmodule MyApp.Actions.ErrorHandlingTest do
   use ExUnit.Case
 
+  # Error types in Jido.Action.Error:
+  # - InvalidInputError - validation failures
+  # - ExecutionFailureError - action execution failures
+  # - TimeoutError - timeout exceeded
+  # - ConfigurationError - invalid action configuration
+  # - InternalError - unexpected internal errors
+  # - UnknownError - fallback for unclassified errors
+
+  alias Jido.Action.Error
+
+  defmodule TestAction do
+    use Jido.Action,
+      name: "test_action",
+      schema: [
+        name: [type: :string, required: true],
+        age: [type: :integer]
+      ]
+
+    @impl true
+    def run(%{name: name}, _context), do: {:ok, %{name: name}}
+  end
+
   describe "validation errors" do
     test "missing required parameter" do
-      assert {:error, error} = MyAction.run(%{}, %{})
-      assert error.type == :validation_error
-      assert error.message =~ "required"
+      assert {:error, error} = Jido.Exec.run(TestAction, %{}, %{})
+      assert error.__struct__ == Error.InvalidInputError
+      assert Exception.message(error) =~ "name"
     end
 
     test "invalid parameter type" do
-      assert {:error, error} = MyAction.run(%{age: "not_a_number"}, %{})
-      assert error.type == :validation_error
-      assert error.message =~ "type"
+      assert {:error, error} = Jido.Exec.run(TestAction, %{name: "John", age: "not_a_number"}, %{})
+      assert error.__struct__ == Error.InvalidInputError
     end
 
-    test "parameter out of range" do
-      assert {:error, error} = MyAction.run(%{age: -5}, %{})
-      assert error.type == :validation_error
-      assert error.message =~ "range"
+    test "test validate_params/1 directly" do
+      assert {:error, msg} = TestAction.validate_params(%{})
+      assert is_binary(msg)
+      assert msg =~ "name"
     end
   end
 
   describe "execution errors" do
-    test "external service failure" do
-      # Mock external service to fail
-      expect(ExternalService, :call, fn _ -> {:error, :service_unavailable} end)
-      
-      assert {:error, error} = MyAction.run(%{valid: "params"}, %{})
-      assert error.type == :execution_error
-      assert error.message =~ "service"
+    defmodule FailingAction do
+      use Jido.Action, name: "failing_action"
+      @impl true
+      def run(_params, _context) do
+        {:error, Error.execution_error("Service unavailable")}
+      end
     end
 
-    test "database connection failure" do
-      # Test with database down
-      assert {:error, error} = DatabaseAction.run(%{query: "SELECT 1"}, %{})
-      assert error.type == :execution_error
+    test "action returns execution error" do
+      assert {:error, error} = Jido.Exec.run(FailingAction, %{}, %{})
+      assert error.__struct__ == Error.ExecutionFailureError
+      assert Exception.message(error) =~ "Service unavailable"
+    end
+
+    test "action raises exception" do
+      defmodule RaisingAction do
+        use Jido.Action, name: "raising_action"
+        @impl true
+        def run(_params, _context), do: raise "Unexpected error"
+      end
+
+      assert {:error, error} = Jido.Exec.run(RaisingAction, %{}, %{})
+      assert error.__struct__ == Error.ExecutionFailureError
+      assert Exception.message(error) =~ "Unexpected error"
     end
   end
 
   describe "compensation" do
-    test "compensation runs on error" do
-      # Action that creates resource then fails
-      assert {:error, _} = CreateAndFailAction.run(%{}, %{})
+    defmodule CompensatingAction do
+      use Jido.Action,
+        name: "compensating_action",
+        compensation: [enabled: true]
       
-      # Verify compensation cleaned up the resource
-      refute resource_exists?("test_resource")
+      @impl true
+      def run(%{should_fail: true}, _context) do
+        {:error, Error.execution_error("Intentional failure")}
+      end
+      def run(_params, _context), do: {:ok, %{result: "success"}}
+
+      @impl true
+      def on_error(params, error, _context, _opts) do
+        {:ok, Map.merge(params, %{compensated: true, original_error: error})}
+      end
+    end
+
+    test "compensation runs on error when enabled" do
+      assert {:error, error} = Jido.Exec.run(
+        CompensatingAction,
+        %{should_fail: true},
+        %{},
+        timeout: 100
+      )
+      
+      # Error contains compensation details
+      assert error.details.compensated == true
+      assert error.details.original_error != nil
     end
   end
 end
@@ -453,53 +623,73 @@ end
 defmodule MyApp.Actions.AIIntegrationTest do
   use ExUnit.Case
 
+  # Define a test action for AI integration
+  defmodule SearchUsers do
+    use Jido.Action,
+      name: "search_users",
+      description: "Search for users by query",
+      schema: [
+        query: [type: :string, required: true, doc: "Search query"],
+        limit: [type: :integer, default: 10, doc: "Maximum results"]
+      ]
+
+    @impl true
+    def run(%{query: query, limit: limit}, _context) do
+      # Mock search results
+      {:ok, %{users: [%{email: query}], count: 1}}
+    end
+  end
+
   test "action converts to valid tool definition" do
-    tool_def = MyApp.Actions.SearchUsers.to_tool()
+    tool_def = SearchUsers.to_tool()
     
-    assert tool_def["type"] == "function"
-    assert is_map(tool_def["function"])
+    # Tool definition structure
+    assert is_binary(tool_def.name)
+    assert tool_def.name == "search_users"
+    assert is_binary(tool_def.description)
+    assert is_function(tool_def.function, 2)
+    assert is_map(tool_def.parameters_schema)
     
-    function = tool_def["function"]
-    assert function["name"] == "search_users"
-    assert is_binary(function["description"])
-    assert is_map(function["parameters"])
-    
-    params = function["parameters"]
+    # Parameters schema follows JSON Schema format
+    params = tool_def.parameters_schema
     assert params["type"] == "object"
     assert is_map(params["properties"])
-    assert is_list(params["required"])
   end
 
   test "tool execution from AI parameters" do
+    # AI systems typically send string keys
     ai_params = %{
       "query" => "john@example.com",
-      "limit" => 5,
-      "include_inactive" => false
+      "limit" => 5
     }
     
-    {:ok, result} = Jido.Action.Tool.execute_action(
-      MyApp.Actions.SearchUsers,
+    # execute_action handles string-to-atom key conversion
+    {:ok, json_result} = Jido.Action.Tool.execute_action(
+      SearchUsers,
       ai_params,
       %{}
     )
     
-    assert is_list(result.users)
-    assert result.count <= 5
+    # Result is JSON-encoded for AI consumption
+    result = Jason.decode!(json_result)
+    assert is_list(result["users"])
   end
 
   test "handles invalid AI parameters" do
     invalid_params = %{
-      "query" => nil,  # Required parameter missing
+      # Missing required "query" parameter
       "limit" => "not_a_number"
     }
     
-    assert {:error, error} = Jido.Action.Tool.execute_action(
-      MyApp.Actions.SearchUsers,
+    assert {:error, json_error} = Jido.Action.Tool.execute_action(
+      SearchUsers,
       invalid_params,
       %{}
     )
     
-    assert error.type == :validation_error
+    # Error is JSON-encoded
+    error = Jason.decode!(json_error)
+    assert Map.has_key?(error, "error")
   end
 end
 ```
@@ -512,26 +702,31 @@ end
 defmodule MyApp.TestHelpers do
   @moduledoc "Utilities for testing actions"
 
+  import ExUnit.Assertions
+
   def assert_success(result) do
     case result do
       {:ok, data} -> data
+      {:ok, data, _directive} -> data
       {:error, error} -> 
-        ExUnit.Assertions.flunk("Expected success, got error: #{inspect(error)}")
+        flunk("Expected success, got error: #{inspect(error)}")
     end
   end
 
-  def assert_error(result, expected_type \\ nil) do
+  def assert_error(result) do
     case result do
-      {:error, error} ->
-        if expected_type do
-          assert error.type == expected_type, 
-            "Expected error type #{expected_type}, got #{error.type}"
-        end
-        error
-      
+      {:error, error} -> error
+      {:error, error, _directive} -> error
       {:ok, data} ->
-        ExUnit.Assertions.flunk("Expected error, got success: #{inspect(data)}")
+        flunk("Expected error, got success: #{inspect(data)}")
     end
+  end
+
+  def assert_exception_type(result, expected_module) do
+    error = assert_error(result)
+    assert error.__struct__ == expected_module,
+      "Expected #{inspect(expected_module)}, got #{inspect(error.__struct__)}"
+    error
   end
 
   def with_timeout(action, params, context, timeout_ms) do
@@ -549,14 +744,31 @@ defmodule MyApp.Actions.SomeTest do
   use ExUnit.Case
   import MyApp.TestHelpers
 
-  test "action succeeds" do
-    result = assert_success(MyAction.run(%{valid: "params"}, %{}))
+  # Assume MyAction is defined elsewhere
+  alias MyApp.Actions.MyAction
+
+  test "action succeeds via Exec.run" do
+    result = assert_success(Jido.Exec.run(MyAction, %{valid: "params"}, %{}))
     assert result.processed == true
   end
 
   test "action fails with validation error" do
-    error = assert_error(MyAction.run(%{}, %{}), :validation_error)
-    assert error.message =~ "required"
+    error = assert_error(Jido.Exec.run(MyAction, %{}, %{}))
+    assert Exception.message(error) =~ "required"
+  end
+
+  test "action fails with specific error type" do
+    error = assert_exception_type(
+      Jido.Exec.run(MyAction, %{}, %{}),
+      Jido.Action.Error.InvalidInputError
+    )
+    assert Exception.message(error) =~ "required"
+  end
+
+  test "async action execution" do
+    result = run_async_and_wait(MyAction, %{valid: "params"}, %{})
+    assert {:ok, data} = result
+    assert data.processed == true
   end
 end
 ```
