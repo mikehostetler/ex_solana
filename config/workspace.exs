@@ -149,13 +149,20 @@ config :jido_workspace,
       path: "projects/kaizen"
     },
     %{
-      name: "jido_hub",
-      upstream_url: "git@github.com:mikehostetler/jido_hub.git",
-      branch: "main",
-      type: :library,
-      path: "projects/jido_hub"
-    }
-  ],
+       name: "jido_hub",
+       upstream_url: "git@github.com:mikehostetler/jido_hub.git",
+       branch: "main",
+       type: :library,
+       path: "projects/jido_hub"
+     },
+    %{
+       name: "jido_code",
+       upstream_url: "git@github.com:agentjido/jido_code.git",
+       branch: "main",
+       type: :library,
+       path: "projects/jido_code"
+     }
+    ],
   hex_packages: [
     # Core packages - publish together as version train
     %{
