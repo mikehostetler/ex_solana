@@ -1,7 +1,7 @@
 defmodule Jido.Signal.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.1.0"
   @source_url "https://github.com/agentjido/jido_signal"
   @description "Agent Communication Envelope and Utilities"
 
@@ -77,8 +77,9 @@ defmodule Jido.Signal.MixProject do
         "LICENSE",
         "guides/getting-started.md",
         "guides/signals-and-dispatch.md",
-        "guides/signal-router.md",
         "guides/event-bus.md",
+        "guides/signal-router.md",
+        "guides/signal-extensions.md",
         "guides/signal-journal.md",
         "guides/serialization.md",
         "guides/advanced.md"

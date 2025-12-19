@@ -29,6 +29,25 @@ Unsubscribe:
 :ok = Jido.Signal.Bus.unsubscribe(:my_bus, sub_id)
 ```
 
+## Error Handling
+
+All Bus functions return `{:ok, result}` on success or `{:error, term()}` on failure:
+
+```elixir
+case Jido.Signal.Bus.publish(:my_bus, [signal]) do
+  {:ok, recorded_signals} -> 
+    Logger.info("Published #{length(recorded_signals)} signals")
+  {:error, reason} -> 
+    Logger.error("Publish failed: #{inspect(reason)}")
+end
+
+case Jido.Signal.Bus.subscribe(:my_bus, "user.*") do
+  {:ok, sub_id} -> sub_id
+  {:error, :bus_not_found} -> raise "Bus not running"
+  {:error, reason} -> raise "Subscribe failed: #{inspect(reason)}"
+end
+```
+
 ## Middleware Hooks
 
 Implement custom middleware to intercept signals:
@@ -77,6 +96,8 @@ Start bus with middleware:
 
 ## Persistent Subscriptions
 
+> **Note:** Persistent subscriptions are partially implemented. The `persistent: true` flag and acknowledgment tracking work, but checkpoint-based replay on reconnection is not yet fully implemented.
+
 Create persistent subscriptions that survive client disconnections:
 
 ```elixir
@@ -93,7 +114,7 @@ Create persistent subscriptions that survive client disconnections:
 {:ok, last_timestamp} = Jido.Signal.Bus.reconnect(:my_bus, sub_id, self())
 ```
 
-Persistent subscriptions maintain checkpoints and replay missed signals on reconnection.
+Persistent subscriptions track acknowledgments. Full checkpoint-based replay is planned for a future release.
 
 ## Snapshots and Replay
 
@@ -149,3 +170,8 @@ Persistent subscription options:
   start_from: :origin    # :origin, :current, or timestamp
 )
 ```
+
+## Next Steps
+
+- [Signal Router](signal-router.md) - Trie-based routing with pattern matching and priority execution
+- [Signal Extensions](signal-extensions.md) - Add domain-specific metadata while maintaining CloudEvents compliance

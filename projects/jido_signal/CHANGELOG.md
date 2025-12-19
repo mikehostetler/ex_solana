@@ -7,16 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-06-18
+
 ### Added
 - Parallel dispatch processing for multiple targets with configurable concurrency (default: 8)
 - Configuration option `:dispatch_max_concurrency` to control parallel dispatch concurrency
 - Self-call detection for Named adapter in sync mode to prevent deadlocks
+- Payload size limits and schema validation for Signal serialization
 
 ### Changed
 - **BREAKING:** `dispatch/2` with multiple configs now returns `{:error, [errors]}` instead of first error only
 - Removed double validation overhead (internal optimization - no API impact)
 - Simplified batch processing to use single async stream (internal optimization)
 - Improved batch dispatch concurrency defaults from 5 to 8
+- Deprecated `jido_dispatch` field in Signal struct
 
 ### Deprecated
 - `batch_size` option in `dispatch_batch/3` - kept for backwards compatibility but no longer used
@@ -33,9 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Named adapter now prevents self-call deadlocks in sync delivery mode
-
-### Removed
-### Security
+- Documentation examples and bugs (Fixes #11, #12, Refs #13)
+- Flaky DispatchTest by isolating tests that modify global Application env
 
 ## [1.0.0] - 2025-02-03
 
@@ -51,5 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation with guides and examples
 - OTP supervision tree architecture
 
-[Unreleased]: https://github.com/agentjido/jido_signal/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/agentjido/jido_signal/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/agentjido/jido_signal/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/agentjido/jido_signal/releases/tag/v1.0.0

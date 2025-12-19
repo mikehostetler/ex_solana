@@ -2,7 +2,7 @@
 
 [![Hex.pm](https://img.shields.io/hexpm/v/jido_signal.svg)](https://hex.pm/packages/jido_signal)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/jido_signal/)
-[![CI](https://github.com/agentjido/jido_signal/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido_signal/actions/workflows/elixir-ci.yml)
+[![CI](https://github.com/agentjido/jido_signal/actions/workflows/ci.yml/badge.svg)](https://github.com/agentjido/jido_signal/actions/workflows/ci.yml)
 [![License](https://img.shields.io/hexpm/l/jido_signal.svg)](https://github.com/agentjido/jido_signal/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/agentjido/jido_signal/badge.svg?branch=main)](https://coveralls.io/github/agentjido/jido_signal?branch=main)
 
@@ -163,23 +163,23 @@ Bus.publish(:my_app_bus, [signal])
 Signals are CloudEvents-compliant message envelopes that carry your application's events:
 
 ```elixir
-# Basic signal
+# Basic signal with positional constructor (preferred)
+{:ok, signal} = Signal.new("order.created", %{order_id: "ord_123", amount: 99.99},
+  source: "/ecommerce/orders"
+)
+
+# Map constructor (also available)
 {:ok, signal} = Signal.new(%{
   type: "order.created",
   source: "/ecommerce/orders",
   data: %{order_id: "ord_123", amount: 99.99}
 })
 
-# With dispatch configuration
-{:ok, signal} = Signal.new(%{
-  type: "payment.processed",
-  source: "/payments",
-  data: %{payment_id: "pay_456"},
-  jido_dispatch: [
-    {:pubsub, topic: "payments"},
-    {:webhook, url: "https://api.partner.com/webhook", secret: "secret123"}
-  ]
-})
+# Dispatch is configured when subscribing or dispatching, not on the signal
+:ok = Dispatch.dispatch(signal, [
+  {:pubsub, target: MyApp.PubSub, topic: "payments"},
+  {:webhook, url: "https://api.partner.com/webhook", secret: "secret123"}
+])
 ```
 
 ### Custom Signal Types
@@ -273,12 +273,14 @@ dispatch_configs = [
 
 ### Persistent Subscriptions
 
-Ensure reliable message delivery with acknowledgments:
+Track signal acknowledgments for reliable processing:
+
+> **Note:** Persistent subscriptions track acknowledgments. Full checkpoint-based replay on reconnection is planned for a future release.
 
 ```elixir
 # Create persistent subscription
 {:ok, sub_id} = Bus.subscribe(:my_app_bus, "payment.*", 
-  persistent?: true, 
+  persistent: true, 
   dispatch: {:pid, target: self()}
 )
 
@@ -291,10 +293,6 @@ receive do
     # Acknowledge successful processing
     Bus.ack(:my_app_bus, sub_id, signal.id)
 end
-
-# If subscriber crashes and restarts
-Bus.reconnect(:my_app_bus, sub_id, self())
-# Unacknowledged signals are automatically replayed
 ```
 
 ### Middleware Pipeline
@@ -427,14 +425,14 @@ workflow_signals = [
 
 ## Documentation
 
-- **[Getting Started Guide](guides/getting-started.md)** - Step-by-step tutorial
-- **[Signal Extensions](guides/signal-extensions.md)** - Creating custom Signal extensions
-- **[Signals & Dispatch](guides/signals-and-dispatch.md)** - Routing and delivery patterns  
-- **[Event Bus](guides/event-bus.md)** - Pub/sub messaging system
-- **[Signal Router](guides/signal-router.md)** - Advanced pattern matching
-- **[Signal Journal](guides/signal-journal.md)** - Causality tracking
-- **[Serialization](guides/serialization.md)** - Data formats and protocols
-- **[Advanced Topics](guides/advanced.md)** - Performance and monitoring
+- **[Getting Started Guide](guides/getting-started.md)** - Quick setup and first signal
+- **[Signals & Dispatch](guides/signals-and-dispatch.md)** - Signal structure and dispatch adapters
+- **[Event Bus](guides/event-bus.md)** - Pub/sub messaging with middleware
+- **[Signal Router](guides/signal-router.md)** - Pattern matching and routing
+- **[Signal Extensions](guides/signal-extensions.md)** - Custom Signal metadata extensions
+- **[Signal Journal](guides/signal-journal.md)** - Causality tracking and persistence
+- **[Serialization](guides/serialization.md)** - JSON, MessagePack, and Erlang Term formats
+- **[Advanced Topics](guides/advanced.md)** - Custom adapters, performance, and testing
 - **[API Reference](https://hexdocs.pm/jido_signal)** - Complete function documentation
 
 ## Development

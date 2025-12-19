@@ -47,16 +47,14 @@ That's it! The extension automatically:
 Add extension data to a Signal:
 
 ```elixir
-alias MyApp.Signal.Ext.Thread
-
 # Create a Signal
 {:ok, signal} = Jido.Signal.new("llm.conversation.message", 
   %{content: "Hello, how can I help?", role: "assistant"},
   source: "/chat/session"
 )
 
-# Add thread extension
-{:ok, signal_with_thread} = Jido.Signal.put_extension(signal, Thread, %{
+# Add thread extension using namespace STRING
+{:ok, signal_with_thread} = Jido.Signal.put_extension(signal, "thread", %{
   id: "thread-123",
   parent_id: "msg-456" 
 })
@@ -65,21 +63,25 @@ alias MyApp.Signal.Ext.Thread
 Retrieve extension data:
 
 ```elixir
-thread_data = Jido.Signal.get_extension(signal_with_thread, Thread)
+thread_data = Jido.Signal.get_extension(signal_with_thread, "thread")
 # => %{id: "thread-123", parent_id: "msg-456"}
+
+# Non-existent extension returns nil
+missing = Jido.Signal.get_extension(signal_with_thread, "nonexistent")
+# => nil
 ```
 
 List all extensions on a Signal:
 
 ```elixir
 extensions = Jido.Signal.list_extensions(signal_with_thread)
-# => [MyApp.Signal.Ext.Thread]
+# => ["thread"]
 ```
 
 Remove an extension:
 
 ```elixir
-signal_without_thread = Jido.Signal.delete_extension(signal_with_thread, Thread)
+signal_without_thread = Jido.Signal.delete_extension(signal_with_thread, "thread")
 ```
 
 ## Built-in Dispatch Extension
@@ -87,15 +89,13 @@ signal_without_thread = Jido.Signal.delete_extension(signal_with_thread, Thread)
 Jido.Signal includes a built-in Dispatch extension that provides the same functionality as the legacy `jido_dispatch` field:
 
 ```elixir
-alias Jido.Signal.Ext.Dispatch
-
-# Add dispatch configuration via extension
-{:ok, signal} = Jido.Signal.put_extension(signal, Dispatch, 
+# Add dispatch configuration via extension using namespace STRING
+{:ok, signal} = Jido.Signal.put_extension(signal, "dispatch", 
   {:pubsub, topic: "chat-events"}
 )
 
 # Multiple dispatch targets
-{:ok, signal} = Jido.Signal.put_extension(signal, Dispatch, [
+{:ok, signal} = Jido.Signal.put_extension(signal, "dispatch", [
   {:pubsub, topic: "events"},
   {:logger, level: :info}
 ])
@@ -183,22 +183,20 @@ Signals can have multiple extensions simultaneously:
 ```elixir
 {:ok, signal} = Jido.Signal.new("user.action", %{action: "login"})
 
-# Add multiple extensions
-{:ok, signal} = signal 
-  |> Jido.Signal.put_extension(Thread, %{id: "session-123"})
-  |> elem(1)
-  |> Jido.Signal.put_extension(CustomTrace, %{
-       trace_id: "trace-abc", 
-       span_id: "span-def"
-     })
+# Add multiple extensions using namespace strings
+{:ok, signal} = Jido.Signal.put_extension(signal, "thread", %{id: "session-123"})
+{:ok, signal} = Jido.Signal.put_extension(signal, "trace", %{
+  trace_id: "trace-abc", 
+  span_id: "span-def"
+})
 
 # All extensions are preserved during serialization/deserialization
 {:ok, json} = Jido.Signal.serialize(signal)
 {:ok, deserialized_signal} = Jido.Signal.deserialize(json)
 
 # Extensions are fully restored
-thread_data = Jido.Signal.get_extension(deserialized_signal, Thread)
-trace_data = Jido.Signal.get_extension(deserialized_signal, CustomTrace)
+thread_data = Jido.Signal.get_extension(deserialized_signal, "thread")
+trace_data = Jido.Signal.get_extension(deserialized_signal, "trace")
 ```
 
 ## Extension Guidelines
@@ -273,23 +271,27 @@ end
 
 ## Error Handling and Safety
 
-Jido Signal provides automatic error isolation for extensions to prevent corrupted extension data from affecting Signal processing. When extension callbacks fail, the system gracefully handles errors:
+Jido Signal provides automatic error isolation for extensions to prevent corrupted extension data from affecting Signal processing.
+
+The `put_extension/3` function returns `{:ok, signal}` on success or `{:error, reason}` if validation fails:
 
 ```elixir
-# If an extension has corrupted data or fails validation
-signal = %Jido.Signal{
-  extensions: %{"thread" => %{invalid: "data"}}
-}
+# Successful extension data
+{:ok, signal} = Jido.Signal.put_extension(signal, "thread", %{id: "thread-123"})
 
-# Safe operations return {:error, reason} instead of raising
-case Jido.Signal.get_extension(signal, Thread) do
-  {:ok, thread_data} -> 
-    # Extension data successfully retrieved
-    thread_data
-  {:error, _reason} -> 
-    # Extension failed validation - handle gracefully
-    nil
-end
+# Validation failure returns an error tuple
+{:error, reason} = Jido.Signal.put_extension(signal, "thread", %{invalid: "data"})
+
+# Unknown extension returns an error
+{:error, "Unknown extension: unknown"} = Jido.Signal.put_extension(signal, "unknown", %{})
+```
+
+The `get_extension/2` function returns the data directly or `nil`:
+
+```elixir
+# Extension data or nil - no tuple wrapping
+thread_data = Jido.Signal.get_extension(signal, "thread")
+# => %{id: "thread-123"} or nil
 ```
 
 The system uses "safe" wrapper functions internally that:
@@ -300,7 +302,7 @@ The system uses "safe" wrapper functions internally that:
 
 ## Unknown Extension Handling
 
-When deserializing Signals with unknown extensions (extensions not registered in the current system), Jido Signal:
+When deserializing Signals with unknown extensions (extensions not registered in the current system), the serialization layer handles them gracefully:
 
 ```elixir
 # Signal from external system with unknown "customext" extension
@@ -313,16 +315,15 @@ json = """
 }
 """
 
-# Deserialization succeeds and logs a warning
+# Deserialization succeeds - unknown attributes are preserved
 {:ok, signal} = Jido.Signal.deserialize(json)
-# => [warning] Unknown extension attributes detected: customextdata
 
 # Unknown extension data is preserved as raw attributes
 signal.extensions
 # => %{"_unknown" => %{"customextdata" => "some-value"}}
 ```
 
-This ensures:
+This is handled at the serialization/deserialization layer and ensures:
 - Forward compatibility with future extensions
 - Graceful handling of mixed-system environments
 - Preservation of all CloudEvents data during round-trips
@@ -339,3 +340,8 @@ This ensures:
 8. **Test Error Cases**: Verify your application handles extension failures
 
 Extensions provide a powerful way to add domain-specific functionality to Signals while maintaining standardization and interoperability. The built-in error isolation ensures your system remains robust even when dealing with corrupted or unknown extension data, making them ideal for building sophisticated event-driven systems that scale from simple applications to complex distributed architectures.
+
+## Next Steps
+
+- [Signal Journal](signal-journal.md) - Durable append-only storage with causality tracking and replay capability
+- [Serialization](serialization.md) - Convert signals to binary format for storage and transmission

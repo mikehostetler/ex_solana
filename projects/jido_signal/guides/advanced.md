@@ -1,5 +1,12 @@
 # Advanced Usage
 
+```elixir
+# Common aliases used in examples
+alias Jido.Signal
+alias Jido.Signal.Bus
+alias Jido.Signal.Dispatch
+```
+
 ## Custom Adapters
 
 Implement the `Jido.Signal.Dispatch.Adapter` behaviour to create custom signal delivery mechanisms:
@@ -224,10 +231,17 @@ Optimize bus subscriptions for high-throughput scenarios:
 
 ```elixir
 # Use specific patterns instead of wildcards
-{:ok, _} = Bus.subscribe(bus, "user.profile.*", self())  # Better
-{:ok, _} = Bus.subscribe(bus, "**", self())              # Avoid
+{:ok, _} = Bus.subscribe(bus, "user.profile.*",
+  dispatch: {:pid, target: self(), delivery_mode: :async}
+)  # Better
 
 # Batch subscription management
 patterns = ["user.created", "user.updated", "user.deleted"]
-subscriptions = Enum.map(patterns, &Bus.subscribe(bus, &1, self()))
+subscriptions = Enum.map(patterns, fn pattern ->
+  Bus.subscribe(bus, pattern, dispatch: {:pid, target: self(), delivery_mode: :async})
+end)
 ```
+
+## Next Steps
+
+You've completed the Jido Signal guides! For detailed module documentation, see the [API Reference](https://hexdocs.pm/jido_signal).

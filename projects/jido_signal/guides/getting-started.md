@@ -14,6 +14,40 @@ def deps do
 end
 ```
 
+## Application Setup
+
+Add the Signal Bus to your application's supervision tree:
+
+```elixir
+# In your application.ex
+defmodule MyApp.Application do
+  use Application
+
+  def start(_type, _args) do
+    children = [
+      # Jido.Signal's internal supervisor starts automatically
+      # Add your Signal Bus(es) here
+      {Jido.Signal.Bus, name: :my_bus}
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
+For applications with multiple buses or custom middleware:
+
+```elixir
+children = [
+  {Jido.Signal.Bus, name: :events_bus},
+  {Jido.Signal.Bus, 
+    name: :audit_bus,
+    middleware: [{Jido.Signal.Bus.Middleware.Logger, level: :info}]
+  }
+]
+```
+
 ## Create a Signal
 
 Basic signal creation (preferred):
@@ -34,16 +68,6 @@ Also available:
   source: "/auth/registration",
   data: %{user_id: "123", email: "user@example.com"}
 })
-```
-
-With dispatch configuration:
-
-```elixir
-# Using the positional form
-{:ok, signal} = Jido.Signal.new("metrics.collected", %{cpu: 80, memory: 70},
-  source: "/monitoring",
-  jido_dispatch: {:pid, [target: pid, delivery_mode: :async]}
-)
 ```
 
 ## Dispatch to a Process
@@ -82,14 +106,14 @@ configs = [
 
 ## Basic Error Handling
 
-Dispatch returns structured errors:
+Dispatch returns raw error atoms by default:
 
 ```elixir
 case Jido.Signal.Dispatch.dispatch(signal, config) do
   :ok -> 
     :success
-  {:error, %Jido.Signal.Error.DispatchError{} = error} ->
-    Logger.error("Dispatch failed: #{error.message}")
+  {:error, reason} ->
+    Logger.error("Dispatch failed: #{inspect(reason)}")
     {:error, :dispatch_failed}
 end
 ```
@@ -110,6 +134,9 @@ Process not alive:
 
 ```elixir
 config = {:pid, [target: dead_pid, delivery_mode: :async]}
-{:error, %Jido.Signal.Error.DispatchError{}} = 
-  Jido.Signal.Dispatch.dispatch(signal, config)
+{:error, :process_not_alive} = Jido.Signal.Dispatch.dispatch(signal, config)
 ```
+
+## Next Steps
+
+- [Signals and Dispatch](signals-and-dispatch.md) - Deep dive into signal structure, dispatch adapters, and custom signal types
