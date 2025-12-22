@@ -91,6 +91,12 @@ usage = ReqLLM.StreamResponse.usage(response)
   - Zero-copy mapping to provider JSON-schema / function-calling endpoints
   - OpenAI native structured outputs with three modes (`:auto` (default), `:json_schema`, `:tool_strict`)
 
+- **Provider-specific capabilities**
+  - Anthropic web search for real-time content access (via `provider_options: [web_search: %{max_uses: 5}]`)
+  - Extended thinking/reasoning for supported models
+  - Prompt caching for cost optimization
+  - All provider-specific options documented in provider guides
+
 - **Embedding generation**
   - Single or batch embeddings via `Embedding.generate/3` (Not all providers support this)
   - Automatic dimension / encoding validation and usage accounting
@@ -115,8 +121,8 @@ usage = ReqLLM.StreamResponse.usage(response)
   - Accepts `"provider:model"`, `{:provider, "model", opts}` tuples, or `%ReqLLM.Model{}` structs
   - Helper functions for parsing, introspection and default-merging
 
-- **Secure, layered key management** (`ReqLLM.Keys`)  
-  - Per-request override → application config → env vars / .env files  
+- **Secure, layered key management** (`ReqLLM.Keys`)
+  - Per-request override → application config → env vars / .env files
 
 - **Extensive reliability tooling**
   - Fixture-backed test matrix (`LiveFixture`) supports cached, live, or provider-filtered runs
@@ -296,8 +302,6 @@ This approach gives you full control over the Req pipeline, allowing you to add 
 - [Fixture Testing](guides/fixture-testing.md) – model validation and supported models
 - [Adding a Provider](guides/adding_a_provider.md) – extend with new providers
 - Provider Guides: [Anthropic](guides/anthropic.md), [OpenAI](guides/openai.md), [Google](guides/google.md), [xAI](guides/xai.md), [Groq](guides/groq.md), [OpenRouter](guides/openrouter.md), [Amazon Bedrock](guides/amazon_bedrock.md), [Cerebras](guides/cerebras.md), [Meta](guides/meta.md), [Z.AI](guides/zai.md), [Z.AI Coder](guides/zai_coder.md)
-
-
 
 ## Roadmap & Status
 

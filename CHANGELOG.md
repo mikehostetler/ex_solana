@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Anthropic web search tool support** for real-time web content access
+  - `web_search` provider option enables Claude to search the web during conversations
+  - Configurable options: `max_uses`, `allowed_domains`, `blocked_domains`, `user_location`
+  - Automatic source citations in responses
+  - Works with all supported Claude models (Sonnet 4.5, Sonnet 4, Haiku 4.5, Haiku 3.5, Opus 4.5, Opus 4.1, Opus 4)
+  - Can be combined with regular function tools
+  - Pricing: $10 per 1,000 searches plus standard token costs
+  - Example: `provider_options: [web_search: %{max_uses: 5, allowed_domains: ["wikipedia.org"]}]`
 - **ReqLLM.ModelHelpers capability helper functions** for type-safe model capability access
   - Centralized helpers like `ReqLLM.ModelHelpers.json_schema?/1`, `ReqLLM.ModelHelpers.tools_strict?/1`
   - Replaces scattered `get_in(model.capabilities, ...)` calls across providers
@@ -572,3 +580,74 @@ This is the first stable 1.0 release of ReqLLM, marking production readiness wit
 [1.0.0-rc.3]: https://github.com/agentjido/req_llm/releases/tag/v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/agentjido/req_llm/releases/tag/v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/agentjido/req_llm/releases/tag/v1.0.0-rc.1
+
+<!-- changelog -->
+
+## [v1.1.0](https://github.com/agentjido/req_llm/compare/v1.0.0...v1.1.0) (2025-12-21)
+
+
+
+
+### Features:
+
+* preserve cache_control metadata in OpenAI content encoding (#291) by Itay Adler
+
+* add load_dotenv config option to control .env file loading (#287) by mikehostetler
+
+* Support inline JSON credentials for Google Vertex AI (#260) by shelvick
+
+* anthropic: Add message caching support for conversation prefixes (#281) by shelvick
+
+* anthropic: Add message caching support for conversation prefixes by shelvick
+
+* anthropic: Add offset support to message caching by shelvick
+
+* vertex: Add Google Search grounding support for Gemini models (#284) by shelvick
+
+* vertex: Add Google Search grounding support for Gemini models by shelvick
+
+* add AI PR review workflow by mikehostetler
+
+* change to typedstruct (#256) by JoeriDijkstra
+
+* Add Google Context Caching support for Gemini models (#193) by neilberkman
+
+* Add Google Vertex Gemini support by Neil Berkman
+
+* Add credential fallback for fixture recording (#218) by neilberkman
+
+* Integrate llm_db for model metadata (v1.1.0) (#212) by mikehostetler
+
+* req_llm: accept LLMDB.Model; remove runtime fields from Model struct by mikehostetler
+
+* allow task_type with google embeddings by Kasun Vithanage
+
+* add StreamResponse.process_stream/2 for real-time callbacks (#178) by Edgar Gomes
+
+### Bug Fixes:
+
+* Propagate streaming errors to process_stream result (#286) by mikehostetler
+
+* Add anthropic_cache_messages to Bedrock and Vertex schemas by shelvick
+
+* bedrock: Remove incorrect Converse API requirement for inference profiles by shelvick
+
+* vertex: Extract google_grounding from nested provider_options by shelvick
+
+* vertex: Remove incorrect camelCase transformation for grounding tools by shelvick
+
+* increase default timeout for OpenAI reasoning models (#252) by mikehostetler
+
+* merge consecutive tool results into single user message (#243) (#250) by mikehostetler
+
+* respect existing env vars when loading .env (#239) (#249) by mikehostetler
+
+* typespec on object generation to allow zoi schemas (#208) by Kasun Vithanage
+
+* typespec for zoi schemas on object generation by Kasun Vithanage
+
+### Refactoring:
+
+* req_llm: move max_retries to request options by mikehostetler
+
+* req_llm: delegate model metadata to LLMDB; keep provider registry by mikehostetler

@@ -89,6 +89,18 @@ defmodule ReqLLM.Providers.Anthropic do
     anthropic_beta: [
       type: {:list, :string},
       doc: "Internal use: beta feature flags"
+    ],
+    web_search: [
+      type: :map,
+      doc: """
+      Enable web search tool with optional configuration:
+      - `max_uses` - Limit the number of searches per request (integer)
+      - `allowed_domains` - List of domains to include (list of strings)
+      - `blocked_domains` - List of domains to exclude (list of strings)
+      - `user_location` - Map with keys: type, city, region, country, timezone
+
+      Example: %{max_uses: 5, allowed_domains: ["example.com"]}
+      """
     ]
   ]
 
@@ -702,12 +714,34 @@ defmodule ReqLLM.Providers.Anthropic do
   defp maybe_add_tools(body, options) do
     tools = get_option(options, :tools, [])
 
-    case tools do
+    # Check for web_search in both top-level options and provider_options
+    web_search_config =
+      get_option(options, :web_search) ||
+        get_option(get_option(options, :provider_options, []), :web_search)
+
+    # Build the tools list
+    all_tools =
+      case {tools, web_search_config} do
+        {[], nil} ->
+          []
+
+        {tools, nil} when is_list(tools) ->
+          Enum.map(tools, &tool_to_anthropic_format/1)
+
+        {[], web_search_config} when is_map(web_search_config) ->
+          [build_web_search_tool(web_search_config)]
+
+        {tools, web_search_config} when is_list(tools) and is_map(web_search_config) ->
+          Enum.map(tools, &tool_to_anthropic_format/1) ++
+            [build_web_search_tool(web_search_config)]
+      end
+
+    case all_tools do
       [] ->
         body
 
-      tools when is_list(tools) ->
-        body = Map.put(body, :tools, Enum.map(tools, &tool_to_anthropic_format/1))
+      tools_list ->
+        body = Map.put(body, :tools, tools_list)
 
         case get_option(options, :tool_choice) do
           nil -> body
@@ -753,6 +787,35 @@ defmodule ReqLLM.Providers.Anthropic do
       input_schema: schema["function"]["parameters"]
     }
   end
+
+  # Builds a web search tool definition for Anthropic API.
+  #
+  # ## Parameters
+  #   * `config` - Map with optional keys:
+  #     * `:max_uses` - Integer limiting the number of searches per request
+  #     * `:allowed_domains` - List of domains to include in results
+  #     * `:blocked_domains` - List of domains to exclude from results
+  #     * `:user_location` - Map with keys: type, city, region, country, timezone
+  defp build_web_search_tool(config) when is_map(config) do
+    base_tool = %{
+      type: "web_search_20250305",
+      name: "web_search"
+    }
+
+    # Add optional parameters if present (handle both atom and string keys)
+    base_tool
+    |> maybe_put_web_search(:max_uses, get_web_search_option(config, :max_uses))
+    |> maybe_put_web_search(:allowed_domains, get_web_search_option(config, :allowed_domains))
+    |> maybe_put_web_search(:blocked_domains, get_web_search_option(config, :blocked_domains))
+    |> maybe_put_web_search(:user_location, get_web_search_option(config, :user_location))
+  end
+
+  defp get_web_search_option(config, key) do
+    Map.get(config, key) || Map.get(config, Atom.to_string(key))
+  end
+
+  defp maybe_put_web_search(tool, _key, nil), do: tool
+  defp maybe_put_web_search(tool, key, value), do: Map.put(tool, key, value)
 
   @doc """
   Maps reasoning effort levels to token budgets.
