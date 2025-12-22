@@ -9,8 +9,12 @@ defmodule JidoCode.Tools.RegistryTest do
   end
 
   setup do
-    # Clear registry before each test
-    Registry.clear()
+    # Clear registry before each test (safe - ignore if GenServer not available)
+    try do
+      Registry.clear()
+    catch
+      :exit, _ -> :ok
+    end
     :ok
   end
 

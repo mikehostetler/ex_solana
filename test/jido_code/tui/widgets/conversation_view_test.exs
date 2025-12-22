@@ -24,15 +24,21 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
   # Helper to extract content stack from render result
   # The render now returns a horizontal stack: [content_stack, scrollbar]
-  defp get_content_stack(%TermUI.Component.RenderNode{type: :stack, direction: :horizontal, children: [content | _]}) do
+  defp get_content_stack(%TermUI.Component.RenderNode{
+         type: :stack,
+         direction: :horizontal,
+         children: [content | _]
+       }) do
     content
   end
+
   defp get_content_stack(result), do: result
 
   # Helper to flatten nested stacks into a list of text nodes
   defp flatten_nodes(%TermUI.Component.RenderNode{type: :stack, children: children}) do
     Enum.flat_map(children, &flatten_nodes/1)
   end
+
   defp flatten_nodes(%TermUI.Component.RenderNode{type: :text} = node), do: [node]
   defp flatten_nodes(_), do: []
 
@@ -162,13 +168,14 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "preserves config from props" do
-      state = init_state(
-        max_collapsed_lines: 10,
-        show_timestamps: false,
-        scrollbar_width: 3,
-        indent: 4,
-        scroll_lines: 5
-      )
+      state =
+        init_state(
+          max_collapsed_lines: 10,
+          show_timestamps: false,
+          scrollbar_width: 3,
+          indent: 4,
+          scroll_lines: 5
+        )
 
       assert state.max_collapsed_lines == 10
       assert state.show_timestamps == false
@@ -233,6 +240,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   describe "set_messages/2" do
     test "replaces all messages" do
       state = init_state(messages: [make_message("1", :user, "Old")])
+
       new_messages = [
         make_message("2", :user, "New1"),
         make_message("3", :assistant, "New2")
@@ -273,6 +281,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "recalculates total_lines" do
       state = init_state()
+
       messages = [
         make_message("1", :user, "Hello"),
         make_message("2", :assistant, "World")
@@ -497,9 +506,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "scrolls to :bottom sets offset to max" do
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
@@ -510,9 +520,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "scrolls to {:message, id} makes message visible" do
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
@@ -520,7 +531,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       state = ConversationView.scroll_to(state, {:message, "5"})
 
       # Message 5 should now be visible (scroll offset adjusted)
-      assert state.cursor_message_idx == 4  # 0-indexed
+      # 0-indexed
+      assert state.cursor_message_idx == 4
     end
 
     test "scroll to non-existent message is no-op" do
@@ -539,9 +551,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
   describe "scroll_by/2" do
     test "scrolls down by positive delta" do
-      messages = Enum.map(1..20, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..20, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
@@ -552,9 +565,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "scrolls up by negative delta" do
-      messages = Enum.map(1..20, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..20, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5, scroll_offset: 10}
@@ -574,9 +588,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "clamps to max_scroll_offset for overshooting" do
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
@@ -740,9 +755,11 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "does not auto-scroll when was_at_bottom is false" do
       # Create many messages to have scrollable content
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
 
@@ -753,10 +770,12 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       # Manually set streaming state with was_at_bottom false
       new_msg = make_message("streaming", :assistant, "")
-      state = %{state |
-        messages: state.messages ++ [new_msg],
-        streaming_id: "streaming",
-        was_at_bottom: false
+
+      state = %{
+        state
+        | messages: state.messages ++ [new_msg],
+          streaming_id: "streaming",
+          was_at_bottom: false
       }
 
       # Append chunk
@@ -779,9 +798,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "returns false when not at bottom" do
-      messages = Enum.map(1..20, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..20, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
 
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5, scroll_offset: 0}
@@ -954,6 +974,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       custom_styles = %{
         user: %{name: "Me", color: :blue}
       }
+
       state = init_state(role_styles: custom_styles)
       style = ConversationView.get_role_style(state, :user)
       assert style.name == "Me"
@@ -1058,12 +1079,13 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       # Second child should be content line
       content_node = Enum.at(children, 1)
       assert %TermUI.Component.RenderNode{type: :text, content: content} = content_node
-      assert String.starts_with?(content, "  ")  # 2 space indent
+      # 2 space indent
+      assert String.starts_with?(content, "  ")
     end
 
     test "renders truncation indicator for long messages" do
       # Create a message with many lines
-      long_content = Enum.map(1..20, fn i -> "Line #{i}" end) |> Enum.join("\n")
+      long_content = Enum.map_join(1..20, "\n", fn i -> "Line #{i}" end)
       messages = [make_message("1", :user, long_content)]
       state = init_state(messages: messages, max_collapsed_lines: 5)
       area = %{x: 0, y: 0, width: 80, height: 24}
@@ -1072,9 +1094,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       all_nodes = flatten_nodes(result)
 
       # Find truncation indicator
-      indicator = Enum.find(all_nodes, fn node ->
-        String.contains?(node.content || "", "more lines")
-      end)
+      indicator =
+        Enum.find(all_nodes, fn node ->
+          String.contains?(node.content || "", "more lines")
+        end)
 
       assert indicator != nil
       assert indicator.content =~ "┄┄┄"
@@ -1082,7 +1105,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "does not render truncation indicator for expanded messages" do
-      long_content = Enum.map(1..20, fn i -> "Line #{i}" end) |> Enum.join("\n")
+      long_content = Enum.map_join(1..20, "\n", fn i -> "Line #{i}" end)
       messages = [make_message("1", :user, long_content)]
       state = init_state(messages: messages, max_collapsed_lines: 5)
       state = ConversationView.toggle_expand(state, "1")
@@ -1092,9 +1115,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       all_nodes = flatten_nodes(result)
 
       # Should not have truncation indicator
-      indicator = Enum.find(all_nodes, fn node ->
-        String.contains?(node.content || "", "more lines")
-      end)
+      indicator =
+        Enum.find(all_nodes, fn node ->
+          String.contains?(node.content || "", "more lines")
+        end)
 
       assert indicator == nil
     end
@@ -1104,6 +1128,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "Hello"),
         make_message("2", :assistant, "Hi there!")
       ]
+
       state = init_state(messages: messages)
       area = %{x: 0, y: 0, width: 80, height: 24}
 
@@ -1111,9 +1136,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       all_nodes = flatten_nodes(result)
 
       # Find headers
-      headers = Enum.filter(all_nodes, fn node ->
-        String.contains?(node.content || "", ":")
-      end)
+      headers =
+        Enum.filter(all_nodes, fn node ->
+          String.contains?(node.content || "", ":")
+        end)
 
       # Should have at least 2 headers (one for each message)
       user_header = Enum.find(headers, &String.contains?(&1.content, "You:"))
@@ -1133,9 +1159,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       all_nodes = flatten_nodes(result)
 
       # Find content node with streaming cursor
-      cursor_node = Enum.find(all_nodes, fn node ->
-        String.contains?(node.content || "", "▌")
-      end)
+      cursor_node =
+        Enum.find(all_nodes, fn node ->
+          String.contains?(node.content || "", "▌")
+        end)
 
       assert cursor_node != nil
     end
@@ -1153,9 +1180,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       all_nodes = flatten_nodes(result)
 
       # Should NOT find streaming cursor
-      cursor_node = Enum.find(all_nodes, fn node ->
-        String.contains?(node.content || "", "▌")
-      end)
+      cursor_node =
+        Enum.find(all_nodes, fn node ->
+          String.contains?(node.content || "", "▌")
+        end)
 
       assert cursor_node == nil
     end
@@ -1194,8 +1222,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "Hello"),
         make_message("2", :assistant, "Hi")
       ]
+
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 20}  # Content is ~6 lines
+      # Content is ~6 lines
+      state = %{state | viewport_height: 20}
 
       range = ConversationView.calculate_visible_range(state)
 
@@ -1206,9 +1236,11 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "calculates visible range with scroll offset" do
       # Create many messages so content exceeds viewport
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5, scroll_offset: 6}
 
@@ -1231,10 +1263,12 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     test "handles partial message visibility at edges" do
       # Create messages that span multiple lines
       long_content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5"
+
       messages = [
         make_message("1", :user, long_content),
         make_message("2", :user, long_content)
       ]
+
       state = init_state(messages: messages)
       # Scroll so first message is partially visible
       state = %{state | viewport_height: 5, scroll_offset: 3}
@@ -1260,6 +1294,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "Hello"),
         make_message("2", :assistant, "World")
       ]
+
       state = init_state(messages: messages)
 
       info = ConversationView.get_message_line_info(state)
@@ -1277,6 +1312,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "Short"),
         make_message("2", :user, "Also short")
       ]
+
       state = init_state(messages: messages)
 
       info = ConversationView.get_message_line_info(state)
@@ -1299,8 +1335,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert %TermUI.Component.RenderNode{type: :stack, children: children} = scrollbar
       # All children should be thumb (█)
       assert Enum.all?(children, fn node ->
-        node.content == "█"
-      end)
+               node.content == "█"
+             end)
     end
 
     test "renders proportional thumb for long content" do
@@ -1326,7 +1362,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       scrollbar_top = ConversationView.render_scrollbar(state, 10)
 
-      state = %{state | scroll_offset: 40}  # Near bottom
+      # Near bottom
+      state = %{state | scroll_offset: 40}
       scrollbar_bottom = ConversationView.render_scrollbar(state, 10)
 
       # Extract thumb positions
@@ -1383,7 +1420,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "thumb position at bottom when at max scroll" do
       state = init_state()
-      max_offset = 40  # total_lines - viewport_height = 50 - 10
+      # total_lines - viewport_height = 50 - 10
+      max_offset = 40
       state = %{state | viewport_height: 10, total_lines: 50, scroll_offset: max_offset}
 
       {thumb_size, thumb_pos} = ConversationView.calculate_scrollbar_metrics(state, 10)
@@ -1396,9 +1434,11 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   describe "virtual rendering" do
     test "only renders visible messages" do
       # Create many messages
-      messages = Enum.map(1..20, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..20, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 10, scroll_offset: 0}
       area = %{x: 0, y: 0, width: 80, height: 10}
@@ -1455,9 +1495,11 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     end
 
     test "scroll_by clamps to valid range" do
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
 
@@ -1487,9 +1529,11 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "add_message does not auto-scroll when scrolled up" do
       # Create initial messages to have scrollable content
-      messages = Enum.map(1..10, fn i ->
-        make_message("#{i}", :user, "Message #{i}")
-      end)
+      messages =
+        Enum.map(1..10, fn i ->
+          make_message("#{i}", :user, "Message #{i}")
+        end)
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5}
 
@@ -1628,6 +1672,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("2", :assistant, "Second"),
         make_message("3", :user, "Third")
       ]
+
       state = init_state(messages: messages)
       state = %{state | cursor_message_idx: 2}
 
@@ -1643,6 +1688,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("2", :assistant, "Second"),
         make_message("3", :user, "Third")
       ]
+
       state = init_state(messages: messages)
       state = %{state | cursor_message_idx: 0}
 
@@ -1668,6 +1714,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "First"),
         make_message("2", :assistant, "Second")
       ]
+
       state = init_state(messages: messages)
       state = %{state | cursor_message_idx: 1}
 
@@ -1728,6 +1775,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, String.duplicate("Line\n", 20)),
         make_message("2", :assistant, String.duplicate("Line\n", 20))
       ]
+
       state = init_state(messages: messages, max_collapsed_lines: 5)
 
       event = %TermUI.Event.Key{key: nil, char: "e", modifiers: []}
@@ -1742,6 +1790,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, String.duplicate("Line\n", 20)),
         make_message("2", :assistant, String.duplicate("Line\n", 20))
       ]
+
       state = init_state(messages: messages, max_collapsed_lines: 5)
       state = ConversationView.expand_all(state)
 
@@ -1833,6 +1882,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "First"),
         make_message("2", :assistant, "Second")
       ]
+
       state = init_state(messages: messages)
 
       new_state = ConversationView.move_focus(state, 1)
@@ -1845,6 +1895,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "First"),
         make_message("2", :assistant, "Second")
       ]
+
       state = init_state(messages: messages)
       state = %{state | cursor_message_idx: 1}
 
@@ -1918,6 +1969,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("1", :user, "First"),
         make_message("2", :assistant, "Second")
       ]
+
       state = init_state(messages: messages)
       state = %{state | cursor_message_idx: 1}
 
@@ -2099,6 +2151,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
         make_message("2", :assistant, "Second"),
         make_message("3", :user, "Third")
       ]
+
       state = init_state(messages: messages)
       state = %{state | viewport_height: 20, viewport_width: 82}
 

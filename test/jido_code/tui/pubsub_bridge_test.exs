@@ -54,7 +54,7 @@ defmodule JidoCode.TUI.PubSubBridgeTest do
     end
 
     test "forwards {:config_changed, config} to runtime", %{bridge: _bridge} do
-      config = %{provider: "anthropic", model: "claude-3-5-sonnet"}
+      config = %{provider: "anthropic", model: "claude-3-5-haiku-20241022"}
       Phoenix.PubSub.broadcast(JidoCode.PubSub, "tui.events", {:config_changed, config})
 
       assert_receive {:forwarded, :root, {:config_changed, ^config}}, 1000

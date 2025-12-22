@@ -47,8 +47,8 @@ defmodule JidoCode.Tools do
   - `:timeout` - Execution timeout in milliseconds
   """
 
-  alias JidoCode.Tools.{Param, Registry, Tool}
   alias JidoCode.Tools.Definitions
+  alias JidoCode.Tools.{Param, Registry, Tool}
 
   @doc """
   Registers all built-in tools with the Registry.

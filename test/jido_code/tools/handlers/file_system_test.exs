@@ -21,6 +21,88 @@ defmodule JidoCode.Tools.Handlers.FileSystemTest do
   end
 
   # ============================================================================
+  # Session Context Tests
+  # ============================================================================
+
+  describe "session-aware context" do
+    setup %{tmp_dir: tmp_dir} do
+      # Set dummy API key for test
+      System.put_env("ANTHROPIC_API_KEY", "test-key-fs-handler")
+
+      on_exit(fn ->
+        System.delete_env("ANTHROPIC_API_KEY")
+      end)
+
+      # Start required registries if not already started
+      unless Process.whereis(JidoCode.SessionProcessRegistry) do
+        start_supervised!({Registry, keys: :unique, name: JidoCode.SessionProcessRegistry})
+      end
+
+      # Create a session
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "fs-session-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:fs_session_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session}
+    end
+
+    test "ReadFile uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      # Create test file
+      File.write!(Path.join(tmp_dir, "session_test.txt"), "Session content")
+
+      # Use session_id context
+      context = %{session_id: session.id}
+      assert {:ok, "Session content"} = ReadFile.execute(%{"path" => "session_test.txt"}, context)
+    end
+
+    test "WriteFile uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      context = %{session_id: session.id}
+
+      assert {:ok, _} =
+               WriteFile.execute(
+                 %{"path" => "session_output.txt", "content" => "Written via session"},
+                 context
+               )
+
+      assert File.read!(Path.join(tmp_dir, "session_output.txt")) == "Written via session"
+    end
+
+    test "session_id context rejects path traversal", %{session: session} do
+      context = %{session_id: session.id}
+
+      assert {:error, error} = ReadFile.execute(%{"path" => "../../../etc/passwd"}, context)
+      assert error =~ "Security error"
+    end
+
+    test "invalid session_id returns error" do
+      context = %{session_id: "not-a-valid-uuid"}
+      assert {:error, error} = ReadFile.execute(%{"path" => "test.txt"}, context)
+      assert error =~ "invalid_session_id" or error =~ "Invalid session ID"
+    end
+
+    test "non-existent session_id returns error" do
+      # Valid UUID format but no session exists
+      context = %{session_id: "550e8400-e29b-41d4-a716-446655440000"}
+      assert {:error, error} = ReadFile.execute(%{"path" => "test.txt"}, context)
+      # Session.Manager returns :not_found which gets formatted as "not_found" error
+      # The format_error handles :not_found as "File error (not_found): path"
+      assert error =~ "not_found" or error =~ "not found"
+    end
+  end
+
+  # ============================================================================
   # ReadFile Tests
   # ============================================================================
 
@@ -242,7 +324,11 @@ defmodule JidoCode.Tools.Handlers.FileSystemTest do
 
       assert {:error, error} =
                EditFile.execute(
-                 %{"path" => "../../../etc/passwd", "old_string" => "root", "new_string" => "hacked"},
+                 %{
+                   "path" => "../../../etc/passwd",
+                   "old_string" => "root",
+                   "new_string" => "hacked"
+                 },
                  context
                )
 

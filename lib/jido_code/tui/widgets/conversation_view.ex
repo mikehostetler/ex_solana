@@ -335,7 +335,7 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
               Enum.drop(nodes, visible_range.start_line_offset)
 
             idx == visible_range.end_msg_idx and
-                idx == visible_range.start_msg_idx and
+              idx == visible_range.start_msg_idx and
                 visible_range.start_line_offset > 0 ->
               # Both start and end are same message - handle both clips
               nodes
@@ -611,7 +611,13 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
           state.messages
           |> Enum.take(idx)
           |> Enum.reduce(0, fn msg, acc ->
-            acc + message_line_count(msg, state.max_collapsed_lines, state.expanded, state.viewport_width)
+            acc +
+              message_line_count(
+                msg,
+                state.max_collapsed_lines,
+                state.expanded,
+                state.viewport_width
+              )
           end)
 
         # Scroll to put message at top of viewport
@@ -839,7 +845,14 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
         state.messages
         |> Enum.with_index()
         |> Enum.map_reduce(0, fn {msg, _idx}, acc ->
-          lines = message_line_count(msg, state.max_collapsed_lines, state.expanded, state.viewport_width)
+          lines =
+            message_line_count(
+              msg,
+              state.max_collapsed_lines,
+              state.expanded,
+              state.viewport_width
+            )
+
           {{acc, lines}, acc + lines}
         end)
 
@@ -873,7 +886,9 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
     {cumulative, _} =
       state.messages
       |> Enum.map_reduce(0, fn msg, acc ->
-        lines = message_line_count(msg, state.max_collapsed_lines, state.expanded, state.viewport_width)
+        lines =
+          message_line_count(msg, state.max_collapsed_lines, state.expanded, state.viewport_width)
+
         {{acc, lines}, acc + lines}
       end)
 
@@ -1076,6 +1091,7 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
 
     # Wrap and potentially truncate content
     wrapped_lines = wrap_text(message.content, content_width)
+
     {display_lines, truncated?} =
       truncate_content(wrapped_lines, state.max_collapsed_lines, state.expanded, message.id)
 
@@ -1224,8 +1240,12 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       |> Enum.map(&Enum.join/1)
 
     case chunks do
-      [] -> {[], ""}
-      [single] -> {[], single}
+      [] ->
+        {[], ""}
+
+      [single] ->
+        {[], single}
+
       _ ->
         {init, [last]} = Enum.split(chunks, -1)
         {init, last}

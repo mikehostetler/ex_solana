@@ -12,6 +12,7 @@ defmodule JidoCode.Tools.Security do
   - **Relative paths**: Resolved relative to project root
   - **Path traversal**: `..` sequences resolved and validated
   - **Symlinks**: Followed and validated against boundary
+  - **Protected files**: `.jido_code/settings.json` files are blocked from modification
 
   ## Usage
 
@@ -23,6 +24,9 @@ defmodule JidoCode.Tools.Security do
 
       # Absolute path outside project
       {:error, :path_outside_boundary} = Security.validate_path("/etc/passwd", "/project")
+
+      # Protected settings file blocked
+      {:error, :protected_settings_file} = Security.validate_path(".jido_code/settings.json", "/project")
 
   ## Logging
 
@@ -36,6 +40,7 @@ defmodule JidoCode.Tools.Security do
           :path_escapes_boundary
           | :path_outside_boundary
           | :symlink_escapes_boundary
+          | :protected_settings_file
           | :invalid_path
 
   @type validate_opts :: [log_violations: boolean()]
@@ -48,7 +53,8 @@ defmodule JidoCode.Tools.Security do
   Validates that a path is within the project boundary.
 
   Resolves the path (handling `..` and symlinks) and ensures the result
-  is within the project root directory.
+  is within the project root directory. Also blocks access to protected
+  settings files.
 
   ## Parameters
 
@@ -61,6 +67,14 @@ defmodule JidoCode.Tools.Security do
 
   - `{:ok, resolved_path}` - Path is valid and resolved
   - `{:error, reason}` - Path violates security boundary
+
+  ## Error Reasons
+
+  - `:path_escapes_boundary` - Path traversal attempts to escape project
+  - `:path_outside_boundary` - Absolute path outside project root
+  - `:symlink_escapes_boundary` - Symlink points outside project
+  - `:protected_settings_file` - Attempt to access .jido_code/settings.json
+  - `:invalid_path` - Invalid path format
 
   ## Examples
 
@@ -75,6 +89,9 @@ defmodule JidoCode.Tools.Security do
 
       # Absolute path outside project
       {:error, :path_outside_boundary} = validate_path("/etc/passwd", "/project")
+
+      # Protected settings file
+      {:error, :protected_settings_file} = validate_path(".jido_code/settings.json", "/project")
   """
   @spec validate_path(String.t(), String.t(), validate_opts()) ::
           {:ok, String.t()} | {:error, validation_error()}
@@ -97,8 +114,14 @@ defmodule JidoCode.Tools.Security do
 
     # Check if resolved path is within project boundary
     if within_boundary?(resolved, normalized_root) do
-      # Check for symlinks if path exists
-      check_symlinks(resolved, normalized_root, log_violations)
+      # Check for protected settings file
+      if is_protected_settings_file?(resolved) do
+        maybe_log_violation(:protected_settings_file, path, log_violations)
+        {:error, :protected_settings_file}
+      else
+        # Check for symlinks if path exists
+        check_symlinks(resolved, normalized_root, log_violations)
+      end
     else
       reason = determine_violation_reason(path)
       maybe_log_violation(reason, path, log_violations)
@@ -306,6 +329,16 @@ defmodule JidoCode.Tools.Security do
   # ============================================================================
   # Private Functions
   # ============================================================================
+
+  # Checks if a path is a protected settings file (.jido_code/settings.json)
+  defp is_protected_settings_file?(path) do
+    # Normalize the path for consistent checking
+    normalized = Path.expand(path)
+
+    # Check if path ends with .jido_code/settings.json
+    String.ends_with?(normalized, "/.jido_code/settings.json") or
+      String.ends_with?(normalized, ".jido_code/settings.json")
+  end
 
   defp determine_violation_reason(path) do
     if Path.type(path) == :absolute do

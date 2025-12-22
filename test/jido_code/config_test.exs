@@ -36,7 +36,7 @@ defmodule JidoCode.ConfigTest do
     end
 
     test "returns error when API key is missing" do
-      Application.put_env(:jido_code, :llm, provider: :anthropic, model: "claude-3-5-sonnet")
+      Application.put_env(:jido_code, :llm, provider: :anthropic, model: "claude-3-5-haiku-20241022")
       System.delete_env("ANTHROPIC_API_KEY")
 
       assert {:error, message} = Config.get_llm_config()
@@ -47,7 +47,7 @@ defmodule JidoCode.ConfigTest do
     test "returns valid config when properly configured" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet",
+        model: "claude-3-5-haiku-20241022",
         temperature: 0.5,
         max_tokens: 2048
       )
@@ -56,7 +56,7 @@ defmodule JidoCode.ConfigTest do
 
       assert {:ok, config} = Config.get_llm_config()
       assert config.provider == :anthropic
-      assert config.model == "claude-3-5-sonnet"
+      assert config.model == "claude-3-5-haiku-20241022"
       assert config.temperature == 0.5
       assert config.max_tokens == 2048
     end
@@ -64,7 +64,7 @@ defmodule JidoCode.ConfigTest do
     test "uses default values for optional config" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet"
+        model: "claude-3-5-haiku-20241022"
       )
 
       System.put_env("ANTHROPIC_API_KEY", "test-key")
@@ -95,17 +95,17 @@ defmodule JidoCode.ConfigTest do
         model: "claude-3-opus"
       )
 
-      System.put_env("JIDO_CODE_MODEL", "claude-3-5-sonnet")
+      System.put_env("JIDO_CODE_MODEL", "claude-3-5-haiku-20241022")
       System.put_env("ANTHROPIC_API_KEY", "test-key")
 
       assert {:ok, config} = Config.get_llm_config()
-      assert config.model == "claude-3-5-sonnet"
+      assert config.model == "claude-3-5-haiku-20241022"
     end
 
     test "empty env vars fall back to config" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet"
+        model: "claude-3-5-haiku-20241022"
       )
 
       System.put_env("JIDO_CODE_PROVIDER", "")
@@ -114,7 +114,7 @@ defmodule JidoCode.ConfigTest do
 
       assert {:ok, config} = Config.get_llm_config()
       assert config.provider == :anthropic
-      assert config.model == "claude-3-5-sonnet"
+      assert config.model == "claude-3-5-haiku-20241022"
     end
   end
 
@@ -128,7 +128,7 @@ defmodule JidoCode.ConfigTest do
     test "returns config when valid" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet"
+        model: "claude-3-5-haiku-20241022"
       )
 
       System.put_env("ANTHROPIC_API_KEY", "test-key")
@@ -146,7 +146,7 @@ defmodule JidoCode.ConfigTest do
     test "returns true when properly configured" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet"
+        model: "claude-3-5-haiku-20241022"
       )
 
       System.put_env("ANTHROPIC_API_KEY", "test-key")
@@ -160,7 +160,7 @@ defmodule JidoCode.ConfigTest do
       # Below 0
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet",
+        model: "claude-3-5-haiku-20241022",
         temperature: -0.5
       )
 
@@ -173,7 +173,7 @@ defmodule JidoCode.ConfigTest do
     test "temperature above 1.0 is clamped to 1.0" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet",
+        model: "claude-3-5-haiku-20241022",
         temperature: 1.5
       )
 
@@ -186,7 +186,7 @@ defmodule JidoCode.ConfigTest do
     test "non-positive max_tokens falls back to default" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 0
       )
 
@@ -199,7 +199,7 @@ defmodule JidoCode.ConfigTest do
     test "negative max_tokens falls back to default" do
       Application.put_env(:jido_code, :llm,
         provider: :anthropic,
-        model: "claude-3-5-sonnet",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: -100
       )
 

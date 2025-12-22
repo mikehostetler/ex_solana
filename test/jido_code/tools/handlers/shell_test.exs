@@ -14,6 +14,93 @@ defmodule JidoCode.Tools.Handlers.ShellTest do
   end
 
   # ============================================================================
+  # Session Context Tests
+  # ============================================================================
+
+  describe "session-aware context" do
+    setup %{tmp_dir: tmp_dir} do
+      # Set dummy API key for test
+      System.put_env("ANTHROPIC_API_KEY", "test-key-shell-handler")
+
+      on_exit(fn ->
+        System.delete_env("ANTHROPIC_API_KEY")
+      end)
+
+      # Start required registries if not already started
+      unless Process.whereis(JidoCode.SessionProcessRegistry) do
+        start_supervised!({Registry, keys: :unique, name: JidoCode.SessionProcessRegistry})
+      end
+
+      # Create a session
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "shell-session-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:shell_session_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session}
+    end
+
+    test "RunCommand uses session_id for project root", %{tmp_dir: tmp_dir, session: session} do
+      # Create test file
+      File.write!(Path.join(tmp_dir, "session_test.txt"), "Session content")
+
+      # Use session_id context
+      context = %{session_id: session.id}
+
+      {:ok, json} =
+        RunCommand.execute(%{"command" => "cat", "args" => ["session_test.txt"]}, context)
+
+      result = Jason.decode!(json)
+      assert result["exit_code"] == 0
+      assert result["stdout"] == "Session content"
+    end
+
+    test "RunCommand runs in session's project directory", %{tmp_dir: tmp_dir, session: session} do
+      context = %{session_id: session.id}
+      {:ok, json} = RunCommand.execute(%{"command" => "pwd"}, context)
+
+      result = Jason.decode!(json)
+      assert result["exit_code"] == 0
+      assert String.contains?(result["stdout"], tmp_dir)
+    end
+
+    test "session_id context blocks path traversal", %{session: session} do
+      context = %{session_id: session.id}
+
+      {:error, error} =
+        RunCommand.execute(%{"command" => "cat", "args" => ["../../../etc/passwd"]}, context)
+
+      assert error =~ "Path traversal not allowed"
+    end
+
+    test "session_id context blocks absolute paths outside project", %{session: session} do
+      context = %{session_id: session.id}
+
+      {:error, error} =
+        RunCommand.execute(%{"command" => "cat", "args" => ["/etc/passwd"]}, context)
+
+      assert error =~ "Absolute paths outside project not allowed"
+    end
+
+    test "invalid session_id returns error" do
+      context = %{session_id: "not-a-valid-uuid"}
+      {:error, error} = RunCommand.execute(%{"command" => "echo", "args" => ["test"]}, context)
+      assert error =~ "invalid_session_id" or error =~ "Invalid session ID"
+    end
+  end
+
+  # ============================================================================
   # Shell Module Tests
   # ============================================================================
 
@@ -273,12 +360,12 @@ defmodule JidoCode.Tools.Handlers.ShellTest do
       {:error, error} =
         RunCommand.execute(%{"command" => "cat", "args" => ["../../../etc/passwd"]}, context)
 
-      assert error =~ "path traversal not allowed"
+      assert error =~ "Path traversal not allowed"
 
       {:error, error} =
         RunCommand.execute(%{"command" => "ls", "args" => ["foo/../../../bar"]}, context)
 
-      assert error =~ "path traversal not allowed"
+      assert error =~ "Path traversal not allowed"
     end
 
     test "blocks absolute paths outside project", %{tmp_dir: tmp_dir} do
@@ -287,10 +374,10 @@ defmodule JidoCode.Tools.Handlers.ShellTest do
       {:error, error} =
         RunCommand.execute(%{"command" => "cat", "args" => ["/etc/passwd"]}, context)
 
-      assert error =~ "absolute paths outside project not allowed"
+      assert error =~ "Absolute paths outside project not allowed"
 
       {:error, error} = RunCommand.execute(%{"command" => "ls", "args" => ["/home"]}, context)
-      assert error =~ "absolute paths outside project not allowed"
+      assert error =~ "Absolute paths outside project not allowed"
     end
 
     test "allows absolute paths inside project", %{tmp_dir: tmp_dir} do

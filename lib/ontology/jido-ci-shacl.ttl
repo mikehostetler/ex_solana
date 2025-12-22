@@ -1,0 +1,162 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Jido CI Validation Ruleset (SHACL)
+# Enforces deterministic correctness of project memory graphs
+#################################################################
+
+#################################################################
+# SHAPE 1 — Every MemoryItem must belong to exactly one Project
+#################################################################
+
+jido:MemoryItemProjectShape
+    a sh:NodeShape ;
+    sh:targetClass jido:MemoryItem ;
+    sh:property [
+        sh:path jido:appliesToProject ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "Every MemoryItem must belong to exactly one Project."
+    ] .
+
+#################################################################
+# SHAPE 2 — No Decision may exist without a Rationale
+#################################################################
+
+jido:DecisionRationaleShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Decision ;
+    sh:property [
+        sh:path jido:rationale ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Every Decision must include a rationale."
+    ] .
+
+#################################################################
+# SHAPE 3 — Every MemoryItem must have Confidence & Timestamp
+#################################################################
+
+jido:MemoryItemProvenanceShape
+    a sh:NodeShape ;
+    sh:targetClass jido:MemoryItem ;
+    sh:property [
+        sh:path jido:hasConfidence ;
+        sh:minCount 1 ;
+        sh:message "Every MemoryItem must specify a confidence level."
+    ] ;
+    sh:property [
+        sh:path jido:hasTimestamp ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "Every MemoryItem must include a timestamp."
+    ] .
+
+#################################################################
+# SHAPE 4 — No Superseded Item May Be Re-Activated
+#################################################################
+
+jido:NoReactivationShape
+    a sh:NodeShape ;
+    sh:targetSubjectsOf jido:supersededBy ;
+    sh:not [
+        sh:property [
+            sh:path jido:hasTaskStatus ;
+            sh:hasValue jido:Active
+        ]
+    ] ;
+    sh:message "Superseded items must never be reactivated." .
+
+#################################################################
+# SHAPE 5 — All Tasks Must Have Assigned Agents
+#################################################################
+
+jido:TaskAssignmentShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Task ;
+    sh:property [
+        sh:path jido:assignedTo ;
+        sh:minCount 1 ;
+        sh:message "Every Task must be assigned to an Agent."
+    ] .
+
+#################################################################
+# SHAPE 6 — All Errors Must Have a Status
+#################################################################
+
+jido:ErrorStatusShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Error ;
+    sh:property [
+        sh:path jido:hasErrorStatus ;
+        sh:minCount 1 ;
+        sh:message "Every Error must have a lifecycle status."
+    ] .
+
+#################################################################
+# SHAPE 7 — Root Causes Must Explain at Least One Error
+#################################################################
+
+jido:RootCauseExplainsErrorShape
+    a sh:NodeShape ;
+    sh:targetClass jido:RootCause ;
+    sh:property [
+        sh:path [ sh:inversePath jido:hasRootCause ] ;
+        sh:minCount 1 ;
+        sh:message "Each RootCause must explain at least one Error."
+    ] .
+
+#################################################################
+# SHAPE 8 — No Two Active Decisions May Coexist Without Supersession
+#################################################################
+
+jido:DecisionUniquenessShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Decision ;
+    sh:property [
+        sh:path jido:supersededBy ;
+        sh:maxCount 1 ;
+        sh:message "A Decision may supersede at most one prior Decision."
+    ] .
+
+#################################################################
+# SHAPE 9 — Conventions Must Have Scope & Enforcement
+#################################################################
+
+jido:ConventionGovernanceShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Convention ;
+    sh:property [
+        sh:path jido:hasConventionScope ;
+        sh:minCount 1 ;
+        sh:message "Every Convention must define a scope."
+    ] ;
+    sh:property [
+        sh:path jido:hasEnforcementLevel ;
+        sh:minCount 1 ;
+        sh:message "Every Convention must define an enforcement level."
+    ] .
+
+#################################################################
+# SHAPE 10 — Agents Must Have Role & Capability
+#################################################################
+
+jido:AgentGovernanceShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Agent ;
+    sh:property [
+        sh:path jido:hasRole ;
+        sh:minCount 1 ;
+        sh:message "Every Agent must have at least one Role."
+    ] ;
+    sh:property [
+        sh:path jido:hasCapability ;
+        sh:minCount 1 ;
+        sh:message "Every Agent must declare at least one Capability."
+    ] .
+
+#################################################################
+# End of CI Validation Ruleset
+#################################################################

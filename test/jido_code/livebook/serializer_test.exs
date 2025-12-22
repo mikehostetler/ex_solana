@@ -1,7 +1,7 @@
 defmodule JidoCode.Livebook.SerializerTest do
   use ExUnit.Case, async: true
 
-  alias JidoCode.Livebook.{Serializer, Notebook, Cell}
+  alias JidoCode.Livebook.{Cell, Notebook, Serializer}
 
   describe "serialize/1" do
     test "serializes empty notebook" do

@@ -1,0 +1,120 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoConventionOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Convention Ontology" ;
+    rdfs:comment "Ontology module defining coding conventions, architectural standards, agent rules, and project-wide norms for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoProjectOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Convention Concepts
+#################################################################
+
+jido:Convention a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Convention" ;
+    rdfs:comment "A commonly accepted project-wide or system-wide standard." .
+
+jido:CodingStandard a owl:Class ;
+    rdfs:subClassOf jido:Convention ;
+    rdfs:label "Coding Standard" ;
+    rdfs:comment "A convention related to coding style, formatting, or structure." .
+
+jido:ArchitecturalConvention a owl:Class ;
+    rdfs:subClassOf jido:Convention ;
+    rdfs:label "Architectural Convention" ;
+    rdfs:comment "A convention governing architectural patterns and structure." .
+
+jido:AgentRule a owl:Class ;
+    rdfs:subClassOf jido:Convention ;
+    rdfs:label "Agent Rule" ;
+    rdfs:comment "A rule governing agent behavior and authority." .
+
+jido:ProcessConvention a owl:Class ;
+    rdfs:subClassOf jido:Convention ;
+    rdfs:label "Process Convention" ;
+    rdfs:comment "A convention governing workflow, review, or operational processes." .
+
+#################################################################
+# Convention Scope Modeling
+#################################################################
+
+jido:ConventionScope a owl:Class ;
+    rdfs:label "Convention Scope" ;
+    rdfs:comment "The scope at which a convention applies." .
+
+jido:GlobalScope a owl:NamedIndividual, jido:ConventionScope .
+jido:ProjectScope a owl:NamedIndividual, jido:ConventionScope .
+jido:AgentScope a owl:NamedIndividual, jido:ConventionScope .
+
+#################################################################
+# Convention Enforcement Level
+#################################################################
+
+jido:EnforcementLevel a owl:Class ;
+    rdfs:label "Enforcement Level" ;
+    rdfs:comment "Strength of enforcement for a convention." .
+
+jido:Advisory a owl:NamedIndividual, jido:EnforcementLevel .
+jido:Required a owl:NamedIndividual, jido:EnforcementLevel .
+jido:Strict a owl:NamedIndividual, jido:EnforcementLevel .
+
+#################################################################
+# Convention Relationships
+#################################################################
+
+jido:appliesToModule a owl:ObjectProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range jido:Module ;
+    rdfs:label "applies to module" .
+
+jido:appliesToDomain a owl:ObjectProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range jido:Domain ;
+    rdfs:label "applies to domain" .
+
+jido:governsAgent a owl:ObjectProperty ;
+    rdfs:domain jido:AgentRule ;
+    rdfs:range jido:Agent ;
+    rdfs:label "governs agent" .
+
+jido:hasEnforcementLevel a owl:ObjectProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range jido:EnforcementLevel ;
+    rdfs:label "has enforcement level" .
+
+jido:hasConventionScope a owl:ObjectProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range jido:ConventionScope ;
+    rdfs:label "has convention scope" .
+
+#################################################################
+# Convention Metadata
+#################################################################
+
+jido:conventionName a owl:DatatypeProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range xsd:string ;
+    rdfs:label "convention name" .
+
+jido:conventionDescription a owl:DatatypeProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range xsd:string ;
+    rdfs:label "convention description" .
+
+jido:violationConsequence a owl:DatatypeProperty ;
+    rdfs:domain jido:Convention ;
+    rdfs:range xsd:string ;
+    rdfs:label "violation consequence" ;
+    rdfs:comment "Describes the expected consequence of violating the convention." .

@@ -1,0 +1,140 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoCoreOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Core Ontology" ;
+    rdfs:comment "Core foundational ontology for JidoCode cognitive agent memory system." ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Upper-Level Classes
+#################################################################
+
+jido:Entity a owl:Class ;
+    rdfs:label "Entity" ;
+    rdfs:comment "Root concept for all things in the Jido knowledge system." .
+
+jido:Agent a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Agent" .
+
+jido:Project a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Project" .
+
+jido:WorkSession a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Work Session" .
+
+jido:MemoryItem a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Memory Item" ;
+    rdfs:comment "Any persistent unit of long-term memory." .
+
+#################################################################
+# Confidence & Source Modeling
+#################################################################
+
+jido:ConfidenceLevel a owl:Class ;
+    rdfs:label "Confidence Level" .
+
+jido:High a owl:NamedIndividual, jido:ConfidenceLevel .
+jido:Medium a owl:NamedIndividual, jido:ConfidenceLevel .
+jido:Low a owl:NamedIndividual, jido:ConfidenceLevel .
+
+jido:SourceType a owl:Class ;
+    rdfs:label "Source Type" .
+
+jido:UserSource a owl:NamedIndividual, jido:SourceType .
+jido:AgentSource a owl:NamedIndividual, jido:SourceType .
+jido:ToolSource a owl:NamedIndividual, jido:SourceType .
+jido:ExternalDocumentSource a owl:NamedIndividual, jido:SourceType .
+
+#################################################################
+# Temporal & Provenance Classes
+#################################################################
+
+jido:Evidence a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Evidence" .
+
+jido:Justification a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Justification" .
+
+#################################################################
+# Core Object Properties
+#################################################################
+
+jido:assertedBy a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:Agent ;
+    rdfs:label "asserted by" .
+
+jido:assertedIn a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:WorkSession ;
+    rdfs:label "asserted in" .
+
+jido:appliesToProject a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:Project ;
+    rdfs:label "applies to project" .
+
+jido:derivedFrom a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:Evidence ;
+    rdfs:label "derived from" .
+
+jido:supersededBy a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:MemoryItem ;
+    rdfs:label "superseded by" .
+
+jido:invalidatedBy a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:MemoryItem ;
+    rdfs:label "invalidated by" .
+
+jido:hasConfidence a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:ConfidenceLevel ;
+    rdfs:label "has confidence" .
+
+jido:hasSourceType a owl:ObjectProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range jido:SourceType ;
+    rdfs:label "has source type" .
+
+#################################################################
+# Core Data Properties
+#################################################################
+
+jido:summary a owl:DatatypeProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range xsd:string ;
+    rdfs:label "summary" .
+
+jido:detailedExplanation a owl:DatatypeProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range xsd:string ;
+    rdfs:label "detailed explanation" .
+
+jido:rationale a owl:DatatypeProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range xsd:string ;
+    rdfs:label "rationale" .
+
+jido:hasTimestamp a owl:DatatypeProperty ;
+    rdfs:domain jido:MemoryItem ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "has timestamp" .

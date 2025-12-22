@@ -2,8 +2,8 @@ defmodule JidoCode.Tools.Handlers.LivebookTest do
   # async: false because we're modifying the shared Manager state
   use ExUnit.Case, async: false
 
+  alias JidoCode.Livebook.{Cell, Parser}
   alias JidoCode.Tools.Handlers.Livebook.EditCell
-  alias JidoCode.Livebook.{Parser, Cell}
 
   @moduletag :tmp_dir
 
@@ -26,6 +26,146 @@ defmodule JidoCode.Tools.Handlers.LivebookTest do
   y = 2
   ```
   """
+
+  # ============================================================================
+  # Session Context Tests
+  # ============================================================================
+
+  describe "session-aware context" do
+    setup %{tmp_dir: tmp_dir} do
+      # Start required registries if not already started
+      start_supervised!({Registry, keys: :unique, name: JidoCode.SessionProcessRegistry})
+
+      # Create a session
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "livebook-session-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:livebook_session_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session}
+    end
+
+    test "EditCell uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      # Create test notebook
+      notebook_path = Path.join(tmp_dir, "session_test.livemd")
+      File.write!(notebook_path, @sample_notebook)
+
+      # Use session_id context
+      context = %{session_id: session.id}
+
+      assert {:ok, message} =
+               EditCell.execute(
+                 %{
+                   "notebook_path" => "session_test.livemd",
+                   "cell_index" => 1,
+                   "new_source" => "session_value = 42"
+                 },
+                 context
+               )
+
+      assert message =~ "Successfully replaced"
+
+      # Verify the change
+      updated_content = File.read!(notebook_path)
+      assert updated_content =~ "session_value = 42"
+    end
+
+    test "session_id context rejects path traversal", %{session: session} do
+      context = %{session_id: session.id}
+
+      assert {:error, error} =
+               EditCell.execute(
+                 %{
+                   "notebook_path" => "../../../etc/passwd",
+                   "cell_index" => 0,
+                   "new_source" => "malicious"
+                 },
+                 context
+               )
+
+      assert error =~ "Security error"
+    end
+
+    test "invalid session_id returns error" do
+      context = %{session_id: "not-a-valid-uuid"}
+
+      assert {:error, error} =
+               EditCell.execute(
+                 %{
+                   "notebook_path" => "test.livemd",
+                   "cell_index" => 0,
+                   "new_source" => "test"
+                 },
+                 context
+               )
+
+      assert error =~ "invalid_session_id" or error =~ "Invalid session ID"
+    end
+
+    test "non-existent session_id returns error" do
+      # Valid UUID format but no session exists
+      context = %{session_id: "550e8400-e29b-41d4-a716-446655440000"}
+
+      assert {:error, error} =
+               EditCell.execute(
+                 %{
+                   "notebook_path" => "test.livemd",
+                   "cell_index" => 0,
+                   "new_source" => "test"
+                 },
+                 context
+               )
+
+      assert error =~ "not_found" or error =~ "not found"
+    end
+
+    test "delete mode uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      # Create test notebook
+      notebook_path = Path.join(tmp_dir, "delete_session_test.livemd")
+      File.write!(notebook_path, @sample_notebook)
+
+      # Parse to get code cells before delete
+      {:ok, notebook_before} = notebook_path |> File.read!() |> Parser.parse()
+      code_cells_before = Enum.filter(notebook_before.cells, &Cell.code_cell?/1)
+      code_count_before = length(code_cells_before)
+
+      # Use session_id context
+      context = %{session_id: session.id}
+
+      assert {:ok, message} =
+               EditCell.execute(
+                 %{
+                   "notebook_path" => "delete_session_test.livemd",
+                   "cell_index" => 1,
+                   "edit_mode" => "delete"
+                 },
+                 context
+               )
+
+      assert message =~ "Successfully deleted"
+
+      # Verify code cell was removed
+      {:ok, notebook_after} = notebook_path |> File.read!() |> Parser.parse()
+      code_cells_after = Enum.filter(notebook_after.cells, &Cell.code_cell?/1)
+
+      assert length(code_cells_after) == code_count_before - 1
+    end
+  end
+
+  # ============================================================================
+  # Replace Mode Tests
+  # ============================================================================
 
   describe "EditCell.execute/2 - replace mode" do
     test "replaces cell at valid index", %{tmp_dir: tmp_dir} do

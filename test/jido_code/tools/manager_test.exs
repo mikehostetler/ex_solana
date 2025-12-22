@@ -1,14 +1,25 @@
 defmodule JidoCode.Tools.ManagerTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
+  alias JidoCode.Session
   alias JidoCode.Tools.Manager
 
   # Most tests use a separate test instance, but some tests need to use the global Manager
   # that's started by the application supervision tree.
 
   setup do
-    # For most tests, we use the global Manager started by the application
-    # Only specific tests that need isolation will start their own instance
+    # Ensure application is started (Manager is in supervision tree)
+    Application.ensure_all_started(:jido_code)
+
+    # Suppress deprecation warnings for most tests
+    Application.put_env(:jido_code, :suppress_global_manager_warnings, true)
+
+    on_exit(fn ->
+      Application.delete_env(:jido_code, :suppress_global_manager_warnings)
+    end)
+
     :ok
   end
 
@@ -261,6 +272,177 @@ defmodule JidoCode.Tools.ManagerTest do
       {:ok, project_root} = Manager.project_root()
       {:ok, resolved} = Manager.validate_path("test.txt", log_violations: false)
       assert resolved == Path.join(project_root, "test.txt")
+    end
+  end
+
+  # ============================================================================
+  # Session-Aware Compatibility Layer Tests
+  # ============================================================================
+
+  describe "session-aware compatibility layer" do
+    @describetag :tmp_dir
+
+    setup %{tmp_dir: tmp_dir} do
+      # Create a session with a manager for testing
+      {:ok, session} = Session.new(project_path: tmp_dir, name: "test-session")
+
+      {:ok, supervisor_pid} =
+        Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:test_supervisor, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session, tmp_dir: tmp_dir}
+    end
+
+    test "project_root/1 delegates to Session.Manager when session_id provided", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      {:ok, path} = Manager.project_root(session_id: session.id)
+      assert path == tmp_dir
+    end
+
+    test "project_root/1 uses global manager when no session_id", %{tmp_dir: _tmp_dir} do
+      {:ok, path} = Manager.project_root()
+      # Global manager returns its own project root (not the session's)
+      assert is_binary(path)
+    end
+
+    test "project_root/1 returns error for unknown session_id" do
+      assert {:error, :not_found} = Manager.project_root(session_id: "non_existent_session")
+    end
+
+    test "validate_path/2 delegates to Session.Manager when session_id provided", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      {:ok, resolved} = Manager.validate_path("test.txt", session_id: session.id)
+      assert resolved == Path.join(tmp_dir, "test.txt")
+    end
+
+    test "validate_path/2 uses global manager when no session_id" do
+      {:ok, project_root} = Manager.project_root()
+      {:ok, resolved} = Manager.validate_path("test.txt", log_violations: false)
+      assert resolved == Path.join(project_root, "test.txt")
+    end
+
+    test "validate_path/2 returns error for unknown session_id" do
+      assert {:error, :not_found} = Manager.validate_path("test.txt", session_id: "non_existent")
+    end
+
+    test "read_file/2 delegates to Session.Manager when session_id provided", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      # Create a test file
+      test_file = Path.join(tmp_dir, "test_read.txt")
+      File.write!(test_file, "test content")
+
+      {:ok, content} = Manager.read_file("test_read.txt", session_id: session.id)
+      assert content == "test content"
+    end
+
+    test "read_file/2 returns error for unknown session_id" do
+      assert {:error, :not_found} = Manager.read_file("test.txt", session_id: "non_existent")
+    end
+
+    test "write_file/3 delegates to Session.Manager when session_id provided", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      :ok = Manager.write_file("test_write.txt", "written content", session_id: session.id)
+
+      # Verify the file was written
+      test_file = Path.join(tmp_dir, "test_write.txt")
+      assert File.read!(test_file) == "written content"
+    end
+
+    test "write_file/3 returns error for unknown session_id" do
+      assert {:error, :not_found} =
+               Manager.write_file("test.txt", "content", session_id: "non_existent")
+    end
+
+    test "list_dir/2 delegates to Session.Manager when session_id provided", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      # Create a test subdirectory with files
+      subdir = Path.join(tmp_dir, "subdir")
+      File.mkdir_p!(subdir)
+      File.write!(Path.join(subdir, "file1.txt"), "")
+      File.write!(Path.join(subdir, "file2.txt"), "")
+
+      {:ok, entries} = Manager.list_dir("subdir", session_id: session.id)
+      assert Enum.sort(entries) == ["file1.txt", "file2.txt"]
+    end
+
+    test "list_dir/2 returns error for unknown session_id" do
+      assert {:error, :not_found} = Manager.list_dir(".", session_id: "non_existent")
+    end
+  end
+
+  describe "deprecation warnings" do
+    test "logs warning when using global manager without session_id" do
+      # Temporarily enable warnings
+      Application.put_env(:jido_code, :suppress_global_manager_warnings, false)
+
+      log =
+        capture_log(fn ->
+          Manager.project_root()
+        end)
+
+      assert log =~ "Global manager usage is deprecated"
+      assert log =~ "session_id"
+    end
+
+    test "suppresses warning when configured" do
+      Application.put_env(:jido_code, :suppress_global_manager_warnings, true)
+
+      log =
+        capture_log(fn ->
+          Manager.project_root()
+        end)
+
+      refute log =~ "Global manager usage is deprecated"
+    end
+
+    test "does not log warning when session_id provided", %{} do
+      # Need a session for this test
+      tmp_dir = System.tmp_dir!()
+      {:ok, session} = Session.new(project_path: tmp_dir, name: "warning-test")
+
+      {:ok, supervisor_pid} =
+        Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:warning_test, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      # Enable warnings
+      Application.put_env(:jido_code, :suppress_global_manager_warnings, false)
+
+      log =
+        capture_log(fn ->
+          Manager.project_root(session_id: session.id)
+        end)
+
+      refute log =~ "Global manager usage is deprecated"
     end
   end
 end

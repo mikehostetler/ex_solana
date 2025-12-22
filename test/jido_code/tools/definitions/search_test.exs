@@ -8,7 +8,10 @@ defmodule JidoCode.Tools.Definitions.SearchTest do
   @moduletag :tmp_dir
 
   setup %{tmp_dir: tmp_dir} do
-    # Clear and set up registry for each test
+    # Ensure application is started (Manager and registries)
+    Application.ensure_all_started(:jido_code)
+
+    # Clear registry for each test (persistent_term requires explicit clear)
     Registry.clear()
 
     # Register all search tools

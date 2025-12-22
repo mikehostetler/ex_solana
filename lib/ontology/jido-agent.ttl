@@ -1,0 +1,105 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoAgentOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Agent Ontology" ;
+    rdfs:comment "Ontology module defining agents, sub-agents, roles, capabilities, and delegation for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Agent Hierarchy
+#################################################################
+
+jido:PrimaryAgent a owl:Class ;
+    rdfs:subClassOf jido:Agent ;
+    rdfs:label "Primary Agent" ;
+    rdfs:comment "Top-level coordinating agent for a session or project." .
+
+jido:SubAgent a owl:Class ;
+    rdfs:subClassOf jido:Agent ;
+    rdfs:label "Sub-Agent" ;
+    rdfs:comment "Delegated specialized agent spawned by another agent." .
+
+#################################################################
+# Agent Roles
+#################################################################
+
+jido:AgentRole a owl:Class ;
+    rdfs:label "Agent Role" ;
+    rdfs:comment "Functional responsibility of an agent." .
+
+jido:Planner a owl:NamedIndividual, jido:AgentRole .
+jido:Architect a owl:NamedIndividual, jido:AgentRole .
+jido:Implementer a owl:NamedIndividual, jido:AgentRole .
+jido:Reviewer a owl:NamedIndividual, jido:AgentRole .
+jido:Debugger a owl:NamedIndividual, jido:AgentRole .
+jido:MemoryWriter a owl:NamedIndividual, jido:AgentRole .
+jido:MemoryReader a owl:NamedIndividual, jido:AgentRole .
+
+#################################################################
+# Agent Capabilities
+#################################################################
+
+jido:Capability a owl:Class ;
+    rdfs:label "Capability" ;
+    rdfs:comment "An operational or cognitive ability of an agent." .
+
+jido:CanPlan a owl:NamedIndividual, jido:Capability .
+jido:CanWriteCode a owl:NamedIndividual, jido:Capability .
+jido:CanReviewCode a owl:NamedIndividual, jido:Capability .
+jido:CanDebug a owl:NamedIndividual, jido:Capability .
+jido:CanWriteMemory a owl:NamedIndividual, jido:Capability .
+jido:CanQueryMemory a owl:NamedIndividual, jido:Capability .
+
+#################################################################
+# Agent Delegation & Authority
+#################################################################
+
+jido:spawnedSubAgent a owl:ObjectProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range jido:SubAgent ;
+    rdfs:label "spawned sub-agent" .
+
+jido:reportsTo a owl:ObjectProperty ;
+    rdfs:domain jido:SubAgent ;
+    rdfs:range jido:Agent ;
+    rdfs:label "reports to" .
+
+jido:hasRole a owl:ObjectProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range jido:AgentRole ;
+    rdfs:label "has role" .
+
+jido:hasCapability a owl:ObjectProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range jido:Capability ;
+    rdfs:label "has capability" .
+
+#################################################################
+# Agent Identity Properties
+#################################################################
+
+jido:agentName a owl:DatatypeProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent name" .
+
+jido:agentVersion a owl:DatatypeProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent version" .
+
+jido:agentDescription a owl:DatatypeProperty ;
+    rdfs:domain jido:Agent ;
+    rdfs:range xsd:string ;
+    rdfs:label "agent description" .

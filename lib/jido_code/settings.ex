@@ -4,7 +4,7 @@ defmodule JidoCode.Settings do
 
   Settings are stored in two locations:
   - **Global**: `~/.jido_code/settings.json` - applies to all projects
-  - **Local**: `./jido_code/settings.json` - project-specific overrides
+  - **Local**: `./.jido_code/settings.json` - project-specific overrides
 
   ## Settings Schema
 
@@ -48,7 +48,7 @@ defmodule JidoCode.Settings do
       #=> "/home/user/.jido_code/settings.json"
 
       JidoCode.Settings.local_path()
-      #=> "/path/to/project/jido_code/settings.json"
+      #=> "/path/to/project/.jido_code/settings.json"
 
       # Validate settings
       JidoCode.Settings.validate(%{"provider" => "anthropic"})
@@ -66,7 +66,7 @@ defmodule JidoCode.Settings do
   alias JidoCode.Settings.Cache
 
   @global_dir_name ".jido_code"
-  @local_dir_name "jido_code"
+  @local_dir_name ".jido_code"
   @settings_file "settings.json"
 
   # Current schema version - increment when making breaking changes
@@ -133,7 +133,7 @@ defmodule JidoCode.Settings do
   ## Example
 
       iex> JidoCode.Settings.local_dir()
-      "/path/to/project/jido_code"
+      "/path/to/project/.jido_code"
   """
   @spec local_dir() :: String.t()
   def local_dir do
@@ -146,7 +146,7 @@ defmodule JidoCode.Settings do
   ## Example
 
       iex> JidoCode.Settings.local_path()
-      "/path/to/project/jido_code/settings.json"
+      "/path/to/project/.jido_code/settings.json"
   """
   @spec local_path() :: String.t()
   def local_path do
@@ -291,7 +291,7 @@ defmodule JidoCode.Settings do
   @doc """
   Ensures the local settings directory exists.
 
-  Creates `./jido_code/` if it doesn't exist.
+  Creates `./.jido_code/` if it doesn't exist.
 
   ## Returns
 
@@ -366,7 +366,7 @@ defmodule JidoCode.Settings do
   Loads and merges settings from global and local files.
 
   Settings are loaded with the following precedence (highest to lowest):
-  1. Local settings (`./jido_code/settings.json`)
+  1. Local settings (`./.jido_code/settings.json`)
   2. Global settings (`~/.jido_code/settings.json`)
 
   Results are cached in memory. Use `reload/0` to force a fresh load.

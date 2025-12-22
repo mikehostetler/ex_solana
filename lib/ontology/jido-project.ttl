@@ -1,0 +1,93 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoProjectOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Project Ontology" ;
+    rdfs:comment "Ontology module defining project structure, repositories, modules, and project-scoped metadata for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Project Structure Classes
+#################################################################
+
+jido:Repository a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Repository" ;
+    rdfs:comment "A source control repository associated with a project." .
+
+jido:Module a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Module" ;
+    rdfs:comment "A logical code module within a project." .
+
+jido:Domain a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Domain" ;
+    rdfs:comment "A business or technical domain within a project." .
+
+#################################################################
+# Project Relationships
+#################################################################
+
+jido:hasRepository a owl:ObjectProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range jido:Repository ;
+    rdfs:label "has repository" .
+
+jido:hasModule a owl:ObjectProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range jido:Module ;
+    rdfs:label "has module" .
+
+jido:hasDomain a owl:ObjectProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range jido:Domain ;
+    rdfs:label "has domain" .
+
+jido:partOfProject a owl:ObjectProperty ;
+    rdfs:domain jido:Entity ;
+    rdfs:range jido:Project ;
+    rdfs:label "part of project" .
+
+#################################################################
+# Repository Metadata
+#################################################################
+
+jido:repoUrl a owl:DatatypeProperty ;
+    rdfs:domain jido:Repository ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "repository URL" .
+
+jido:repoBranch a owl:DatatypeProperty ;
+    rdfs:domain jido:Repository ;
+    rdfs:range xsd:string ;
+    rdfs:label "repository branch" .
+
+#################################################################
+# Project Metadata
+#################################################################
+
+jido:projectName a owl:DatatypeProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "project name" .
+
+jido:projectVersion a owl:DatatypeProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "project version" .
+
+jido:projectDescription a owl:DatatypeProperty ;
+    rdfs:domain jido:Project ;
+    rdfs:range xsd:string ;
+    rdfs:label "project description" .

@@ -1,0 +1,118 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoTaskOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Task Ontology" ;
+    rdfs:comment "Ontology module defining tasks, milestones, execution state, dependencies, and planning structure for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Task Planning Classes
+#################################################################
+
+jido:Task a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Task" ;
+    rdfs:comment "An actionable unit of work." .
+
+jido:Milestone a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Milestone" ;
+    rdfs:comment "A significant checkpoint composed of multiple tasks." .
+
+jido:Plan a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Plan" ;
+    rdfs:comment "A structured collection of tasks and milestones." .
+
+#################################################################
+# Task State Modeling
+#################################################################
+
+jido:TaskStatus a owl:Class ;
+    rdfs:label "Task Status" ;
+    rdfs:comment "Execution state of a task." .
+
+jido:Planned a owl:NamedIndividual, jido:TaskStatus .
+jido:InProgress a owl:NamedIndividual, jido:TaskStatus .
+jido:Blocked a owl:NamedIndividual, jido:TaskStatus .
+jido:Completed a owl:NamedIndividual, jido:TaskStatus .
+jido:Abandoned a owl:NamedIndividual, jido:TaskStatus .
+
+#################################################################
+# Task Dependency Relationships
+#################################################################
+
+jido:dependsOn a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Task ;
+    rdfs:label "depends on" ;
+    rdfs:comment "Indicates that one task depends on the completion of another." .
+
+jido:blockedBy a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Task ;
+    rdfs:label "blocked by" ;
+    rdfs:comment "Indicates that one task is blocked by another." .
+
+jido:partOfMilestone a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Milestone ;
+    rdfs:label "part of milestone" .
+
+jido:partOfPlan a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Plan ;
+    rdfs:label "part of plan" .
+
+#################################################################
+# Task Ownership & Assignment
+#################################################################
+
+jido:assignedTo a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Agent ;
+    rdfs:label "assigned to" .
+
+jido:createdBy a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:Agent ;
+    rdfs:label "created by" .
+
+#################################################################
+# Task Temporal Properties
+#################################################################
+
+jido:taskCreatedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "task created at" .
+
+jido:taskStartedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "task started at" .
+
+jido:taskCompletedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "task completed at" .
+
+#################################################################
+# Task State Property
+#################################################################
+
+jido:hasTaskStatus a owl:ObjectProperty ;
+    rdfs:domain jido:Task ;
+    rdfs:range jido:TaskStatus ;
+    rdfs:label "has task status" .

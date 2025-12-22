@@ -1,0 +1,97 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoSessionOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Session Ontology" ;
+    rdfs:comment "Ontology module defining work sessions, timelines, continuity, and session state for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Session State & Phase Modeling
+#################################################################
+
+jido:SessionStatus a owl:Class ;
+    rdfs:label "Session Status" ;
+    rdfs:comment "High-level lifecycle state of a work session." .
+
+jido:Active a owl:NamedIndividual, jido:SessionStatus .
+jido:Paused a owl:NamedIndividual, jido:SessionStatus .
+jido:Closed a owl:NamedIndividual, jido:SessionStatus .
+jido:Abandoned a owl:NamedIndividual, jido:SessionStatus .
+
+jido:SessionPhase a owl:Class ;
+    rdfs:label "Session Phase" ;
+    rdfs:comment "Logical phase within a work session lifecycle." .
+
+jido:PlanningPhase a owl:NamedIndividual, jido:SessionPhase .
+jido:ImplementationPhase a owl:NamedIndividual, jido:SessionPhase .
+jido:DebuggingPhase a owl:NamedIndividual, jido:SessionPhase .
+jido:ReviewPhase a owl:NamedIndividual, jido:SessionPhase .
+
+#################################################################
+# Session-to-Session Continuity
+#################################################################
+
+jido:continuesSession a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:WorkSession ;
+    rdfs:label "continues session" ;
+    rdfs:comment "Indicates that this session explicitly continues a previous session." .
+
+jido:hasPreviousSession a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:WorkSession ;
+    rdfs:label "has previous session" .
+
+#################################################################
+# Agent Participation in Sessions
+#################################################################
+
+jido:hasParticipatingAgent a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:Agent ;
+    rdfs:label "has participating agent" .
+
+jido:hasPrimaryAgent a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:Agent ;
+    rdfs:label "has primary agent" ;
+    rdfs:comment "The main coordinating agent for a work session." .
+
+#################################################################
+# Session Temporal Properties
+#################################################################
+
+jido:startedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "started at" .
+
+jido:endedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "ended at" .
+
+#################################################################
+# Session State Properties
+#################################################################
+
+jido:hasStatus a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:SessionStatus ;
+    rdfs:label "has status" .
+
+jido:hasPhase a owl:ObjectProperty ;
+    rdfs:domain jido:WorkSession ;
+    rdfs:range jido:SessionPhase ;
+    rdfs:label "has phase" .

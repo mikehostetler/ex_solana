@@ -15,11 +15,27 @@ defmodule JidoCode.Tools.Executor do
   4. Delegate execution to the configured executor function
   5. Handle timeouts and format results for LLM consumption
 
+  ## Session Context
+
+  Tool execution requires a session context that includes:
+
+  - `:session_id` - Session identifier for security boundary enforcement
+  - `:project_root` - Project root path (auto-populated from Session.Manager)
+  - `:timeout` - Optional timeout override
+
+  Use `build_context/2` to create a context from a session ID:
+
+      {:ok, context} = Executor.build_context(session_id)
+      {:ok, results} = Executor.execute_batch(tool_calls, context: context)
+
   ## Usage
+
+      # Build context from session ID
+      {:ok, context} = Executor.build_context(session_id)
 
       # Parse and execute tool calls from LLM response
       {:ok, tool_calls} = Executor.parse_tool_calls(llm_response)
-      {:ok, results} = Executor.execute_batch(tool_calls)
+      {:ok, results} = Executor.execute_batch(tool_calls, context: context)
 
       # Convert results to LLM messages
       messages = Result.to_llm_messages(results)
@@ -38,21 +54,30 @@ defmodule JidoCode.Tools.Executor do
 
   - `:executor` - Function `(tool, args, context) -> {:ok, result} | {:error, reason}`
   - `:timeout` - Execution timeout in milliseconds (default: 30_000)
-  - `:context` - Additional context passed to the executor
-  - `:session_id` - Optional session ID for PubSub topic routing
+  - `:context` - Execution context with session_id and project_root
+  - `:session_id` - (deprecated) Use context.session_id instead
 
   ## PubSub Events
 
-  When a session_id is provided, the executor broadcasts events to the
+  When a session_id is provided in context, the executor broadcasts events to the
   `"tui.events.{session_id}"` topic. Without a session_id, events go to
   `"tui.events"`.
 
   Events broadcast:
-  - `{:tool_call, tool_name, params, call_id}` - When tool execution starts
-  - `{:tool_result, result}` - When tool execution completes (Result struct)
+  - `{:tool_call, tool_name, params, call_id, session_id}` - When tool execution starts
+  - `{:tool_result, result, session_id}` - When tool execution completes (Result struct)
+
+  The session_id in the payload allows consumers on the global topic to identify
+  which session the event originated from. The session_id may be nil if no session
+  context was provided.
   """
 
+  require Logger
+
+  alias JidoCode.PubSubHelpers
+  alias JidoCode.Session
   alias JidoCode.Tools.{Registry, Result, Tool}
+  alias JidoCode.Utils.UUID, as: UUIDUtils
 
   @default_timeout 30_000
 
@@ -66,12 +91,43 @@ defmodule JidoCode.Tools.Executor do
         }
 
   @typedoc """
+  Execution context passed to tool handlers.
+
+  ## Required Fields
+
+  - `:session_id` - Session identifier for security boundary enforcement
+
+  ## Auto-populated Fields
+
+  - `:project_root` - Project root path (fetched from Session.Manager if not provided)
+
+  ## Optional Fields
+
+  - `:timeout` - Execution timeout override in milliseconds
+
+  ## Usage
+
+  Use `build_context/2` to create a context from a session ID:
+
+      {:ok, context} = Executor.build_context(session_id)
+
+  Or create manually:
+
+      context = %{session_id: session_id, project_root: "/path/to/project"}
+  """
+  @type context :: %{
+          required(:session_id) => String.t(),
+          optional(:project_root) => String.t(),
+          optional(:timeout) => pos_integer()
+        }
+
+  @typedoc """
   Options for tool execution.
   """
   @type execute_opts :: [
-          executor: (Tool.t(), map(), map() -> {:ok, term()} | {:error, term()}),
+          executor: (Tool.t(), map(), context() -> {:ok, term()} | {:error, term()}),
           timeout: pos_integer(),
-          context: map(),
+          context: context(),
           session_id: String.t() | nil
         ]
 
@@ -138,6 +194,104 @@ defmodule JidoCode.Tools.Executor do
   def parse_tool_calls(_), do: {:error, :no_tool_calls}
 
   # ============================================================================
+  # Context Building
+  # ============================================================================
+
+  @doc """
+  Builds an execution context from a session ID.
+
+  Fetches the project_root from Session.Manager and constructs a complete
+  context map suitable for tool execution. Tool handlers use this context
+  for security boundary enforcement.
+
+  ## Parameters
+
+  - `session_id` - The session identifier (must be a valid UUID)
+  - `opts` - Optional keyword list
+
+  ## Options
+
+  - `:timeout` - Execution timeout in milliseconds (default: #{@default_timeout})
+
+  ## Returns
+
+  - `{:ok, context}` - Complete context with session_id and project_root
+  - `{:error, :not_found}` - Session not found in Registry
+  - `{:error, :invalid_session_id}` - Invalid session ID format
+
+  ## Examples
+
+      # Build context for a session
+      {:ok, context} = Executor.build_context("550e8400-e29b-41d4-a716-446655440000")
+      # => {:ok, %{session_id: "550e8400-...", project_root: "/path/to/project", timeout: 30000}}
+
+      # With custom timeout
+      {:ok, context} = Executor.build_context(session_id, timeout: 60_000)
+
+      # Invalid session
+      {:error, :not_found} = Executor.build_context("unknown-session-id")
+  """
+  @spec build_context(String.t(), keyword()) ::
+          {:ok, context()} | {:error, :not_found | :invalid_session_id}
+  def build_context(session_id, opts \\ []) when is_binary(session_id) do
+    # Validate UUID format for defense-in-depth
+    if valid_uuid?(session_id) do
+      timeout = Keyword.get(opts, :timeout, @default_timeout)
+      base_context = %{session_id: session_id, timeout: timeout}
+
+      # Delegate to enrich_context to avoid duplication
+      enrich_context(base_context)
+    else
+      {:error, :invalid_session_id}
+    end
+  end
+
+  @doc """
+  Enriches an existing context with project_root from Session.Manager.
+
+  If the context already has a project_root, it is returned unchanged.
+  If the context has a session_id but no project_root, the project_root
+  is fetched from Session.Manager.
+
+  ## Parameters
+
+  - `context` - Existing context map (may be empty or partial)
+
+  ## Returns
+
+  - `{:ok, enriched_context}` - Context with project_root populated
+  - `{:error, :missing_session_id}` - No session_id in context
+  - `{:error, :not_found}` - Session not found
+
+  ## Examples
+
+      # Enrich context with just session_id
+      {:ok, enriched} = Executor.enrich_context(%{session_id: "abc123"})
+
+      # Context already complete - returned unchanged
+      {:ok, same} = Executor.enrich_context(%{session_id: "abc", project_root: "/path"})
+  """
+  @spec enrich_context(map()) :: {:ok, map()} | {:error, :missing_session_id | :not_found}
+  def enrich_context(%{session_id: session_id, project_root: _} = context)
+      when is_binary(session_id) do
+    {:ok, context}
+  end
+
+  def enrich_context(%{session_id: session_id} = context) when is_binary(session_id) do
+    case Session.Manager.project_root(session_id) do
+      {:ok, project_root} ->
+        {:ok, Map.put(context, :project_root, project_root)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def enrich_context(%{} = _context) do
+    {:error, :missing_session_id}
+  end
+
+  # ============================================================================
   # Single Execution
   # ============================================================================
 
@@ -156,7 +310,18 @@ defmodule JidoCode.Tools.Executor do
 
   - `:executor` - Custom executor function (default: calls handler directly)
   - `:timeout` - Execution timeout in ms (default: 30000)
-  - `:context` - Additional context for the executor
+  - `:context` - Execution context with session_id and project_root
+
+  ## Context
+
+  The context should include:
+  - `:session_id` - Session identifier for security boundaries
+  - `:project_root` - Project root path (auto-populated from Session.Manager if not provided)
+
+  Use `build_context/2` to create a context:
+
+      {:ok, context} = Executor.build_context(session_id)
+      {:ok, result} = Executor.execute(tool_call, context: context)
 
   ## Returns
 
@@ -165,8 +330,12 @@ defmodule JidoCode.Tools.Executor do
 
   ## Examples
 
-      tool_call = %{id: "call_123", name: "read_file", arguments: %{"path" => "/tmp/test.txt"}}
-      {:ok, result} = Executor.execute(tool_call)
+      # With session context (recommended)
+      {:ok, context} = Executor.build_context(session_id)
+      {:ok, result} = Executor.execute(tool_call, context: context)
+
+      # Legacy usage (deprecated - will log warning)
+      {:ok, result} = Executor.execute(tool_call, session_id: session_id)
   """
   @spec execute(tool_call() | map(), execute_opts()) :: {:ok, Result.t()} | {:error, term()}
   def execute(tool_call, opts \\ [])
@@ -175,7 +344,15 @@ defmodule JidoCode.Tools.Executor do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     context = Keyword.get(opts, :context, %{})
     executor = Keyword.get(opts, :executor, &default_executor/3)
-    session_id = Keyword.get(opts, :session_id)
+
+    # Support legacy :session_id option (deprecated)
+    legacy_session_id = Keyword.get(opts, :session_id)
+
+    # Determine session_id: prefer context.session_id, fall back to legacy option
+    session_id = get_session_id(context, legacy_session_id)
+
+    # Enrich context with project_root if session_id present but project_root missing
+    enriched_context = maybe_enrich_context(context, session_id)
 
     start_time = System.monotonic_time(:millisecond)
 
@@ -184,7 +361,17 @@ defmodule JidoCode.Tools.Executor do
       # Broadcast tool call start
       broadcast_tool_call(session_id, name, args, id)
 
-      result = execute_with_timeout(id, name, tool, args, context, executor, timeout, start_time)
+      result =
+        execute_with_timeout(
+          id,
+          name,
+          tool,
+          args,
+          enriched_context,
+          executor,
+          timeout,
+          start_time
+        )
 
       # Broadcast tool result
       case result do
@@ -294,6 +481,52 @@ defmodule JidoCode.Tools.Executor do
   # ============================================================================
   # Private Functions
   # ============================================================================
+
+  # Validate UUID v4 format
+  defp valid_uuid?(session_id) do
+    UUIDUtils.valid?(session_id)
+  end
+
+  # Extract session_id from context or legacy option
+  defp get_session_id(%{session_id: session_id}, _legacy) when is_binary(session_id) do
+    session_id
+  end
+
+  defp get_session_id(_context, legacy_session_id) when is_binary(legacy_session_id) do
+    # Log deprecation warning for legacy usage (suppressible for tests)
+    unless Application.get_env(:jido_code, :suppress_executor_deprecation_warnings, false) do
+      Logger.warning(
+        "Executor: Using :session_id option is deprecated. " <>
+          "Use context: %{session_id: id} instead."
+      )
+    end
+
+    legacy_session_id
+  end
+
+  defp get_session_id(_context, _legacy), do: nil
+
+  # Enrich context with project_root if missing but session_id present
+  defp maybe_enrich_context(%{project_root: _} = context, _session_id), do: context
+
+  defp maybe_enrich_context(context, session_id) when is_binary(session_id) do
+    case Session.Manager.project_root(session_id) do
+      {:ok, project_root} ->
+        context
+        |> Map.put(:session_id, session_id)
+        |> Map.put(:project_root, project_root)
+
+      {:error, reason} ->
+        # Session not found - return context unchanged (don't add invalid session_id)
+        Logger.warning(
+          "Executor: Failed to enrich context for session #{session_id}: #{inspect(reason)}"
+        )
+
+        context
+    end
+  end
+
+  defp maybe_enrich_context(context, _session_id), do: context
 
   defp parse_tool_call_list(nil), do: {:error, :no_tool_calls}
   defp parse_tool_call_list([]), do: {:error, :no_tool_calls}
@@ -433,7 +666,9 @@ defmodule JidoCode.Tools.Executor do
 
   ## Events
 
-  Broadcasts `{:tool_call, tool_name, params, call_id}` to the topic.
+  Broadcasts `{:tool_call, tool_name, params, call_id, session_id}` to the topic.
+  The session_id is included in the message payload so consumers on the global
+  topic can identify which session the event originated from.
 
   ## ARCH-2 Fix
 
@@ -443,8 +678,8 @@ defmodule JidoCode.Tools.Executor do
   """
   @spec broadcast_tool_call(String.t() | nil, String.t(), map(), String.t()) :: :ok
   def broadcast_tool_call(session_id, tool_name, params, call_id) do
-    message = {:tool_call, tool_name, params, call_id}
-    broadcast_to_topics(session_id, message)
+    message = {:tool_call, tool_name, params, call_id, session_id}
+    PubSubHelpers.broadcast(session_id, message)
   end
 
   @doc """
@@ -457,7 +692,9 @@ defmodule JidoCode.Tools.Executor do
 
   ## Events
 
-  Broadcasts `{:tool_result, result}` to the topic.
+  Broadcasts `{:tool_result, result, session_id}` to the topic.
+  The session_id is included in the message payload so consumers on the global
+  topic can identify which session the event originated from.
 
   ## ARCH-2 Fix
 
@@ -466,25 +703,14 @@ defmodule JidoCode.Tools.Executor do
   """
   @spec broadcast_tool_result(String.t() | nil, Result.t()) :: :ok
   def broadcast_tool_result(session_id, result) do
-    message = {:tool_result, result}
-    broadcast_to_topics(session_id, message)
-  end
-
-  # ARCH-2 Fix: Broadcast to both session-specific and global topics
-  defp broadcast_to_topics(nil, message) do
-    # No session ID - just broadcast to global topic
-    Phoenix.PubSub.broadcast(JidoCode.PubSub, "tui.events", message)
-  end
-
-  defp broadcast_to_topics(session_id, message) when is_binary(session_id) do
-    # Session ID provided - broadcast to both session-specific AND global topics
-    # This ensures PubSubBridge (global subscriber) receives the message
-    Phoenix.PubSub.broadcast(JidoCode.PubSub, "tui.events.#{session_id}", message)
-    Phoenix.PubSub.broadcast(JidoCode.PubSub, "tui.events", message)
+    message = {:tool_result, result, session_id}
+    PubSubHelpers.broadcast(session_id, message)
   end
 
   @doc """
   Returns the PubSub topic for a given session ID.
+
+  Delegates to `PubSubHelpers.session_topic/1`.
 
   ## Parameters
 
@@ -496,6 +722,5 @@ defmodule JidoCode.Tools.Executor do
   - `"tui.events"` if session_id is nil
   """
   @spec pubsub_topic(String.t() | nil) :: String.t()
-  def pubsub_topic(nil), do: "tui.events"
-  def pubsub_topic(session_id) when is_binary(session_id), do: "tui.events.#{session_id}"
+  def pubsub_topic(session_id), do: PubSubHelpers.session_topic(session_id)
 end

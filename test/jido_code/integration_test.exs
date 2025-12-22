@@ -405,9 +405,11 @@ defmodule JidoCode.IntegrationTest do
       tool_call = %{id: "call_1", name: "pubsub_broadcast_test", arguments: %{"value" => "test"}}
       {:ok, _result} = Executor.execute(tool_call)
 
-      # Should receive events
-      assert_receive {:tool_call, "pubsub_broadcast_test", %{"value" => "test"}, "call_1"}, 1000
-      assert_receive {:tool_result, %Result{}}, 1000
+      # Should receive events (with nil session_id since none provided)
+      assert_receive {:tool_call, "pubsub_broadcast_test", %{"value" => "test"}, "call_1", nil},
+                     1000
+
+      assert_receive {:tool_result, %Result{}, nil}, 1000
     end
 
     test "session-specific topics isolate messages" do
@@ -433,8 +435,8 @@ defmodule JidoCode.IntegrationTest do
       tool_call = %{id: "call_b", name: "isolation_test", arguments: %{}}
       {:ok, _} = Executor.execute(tool_call, session_id: session_b)
 
-      # Should NOT receive on session A
-      refute_receive {:tool_call, "isolation_test", _, _}, 200
+      # Should NOT receive on session A (session_id in 5th position)
+      refute_receive {:tool_call, "isolation_test", _, _, _}, 200
     end
   end
 

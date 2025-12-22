@@ -1,0 +1,160 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Project Long-Term Memory Template
+#
+# This file is intended to be copied per project and customized.
+# It assumes the JidoMemoryOntology hub and all imported modules
+# are available in the reasoner.
+#################################################################
+
+<https://jido.ai/memory/projects/TemplateProject>
+    a owl:Ontology ;
+    rdfs:label "Template Project Memory Graph" ;
+    rdfs:comment "Canonical template for a JidoCode project long-term memory TTL file." ;
+    owl:imports jido:JidoMemoryOntology ;
+    owl:versionInfo "0.1.0-template" .
+
+#################################################################
+# Project Definition
+#################################################################
+
+jido:Project_TemplateProject
+    a jido:Project ;
+    jido:projectName "Template Project" ;
+    jido:projectVersion "0.1.0" ;
+    jido:projectDescription "Replace this description with your project's summary." .
+
+#################################################################
+# Repository (Optional Example)
+#################################################################
+
+jido:Repo_Template
+    a jido:Repository ;
+    jido:repoUrl "https://github.com/your-org/your-repo"^^xsd:anyURI ;
+    jido:repoBranch "main" ;
+    jido:partOfProject jido:Project_TemplateProject ;
+    rdfs:comment "Update with real repository information or remove if unused." .
+
+#################################################################
+# Example Agents
+#################################################################
+
+jido:Agent_Primary
+    a jido:PrimaryAgent ;
+    jido:agentName "Primary Coding Assistant" ;
+    jido:agentDescription "Top-level coordinator agent for this project." ;
+    jido:agentVersion "1.0.0" ;
+    jido:hasRole jido:Planner, jido:Architect ;
+    jido:hasCapability jido:CanPlan, jido:CanWriteCode, jido:CanQueryMemory .
+
+jido:Agent_MemoryWriter
+    a jido:SubAgent ;
+    jido:agentName "Memory Writer Agent" ;
+    jido:agentDescription "Authoritative writer for long-term memory updates." ;
+    jido:agentVersion "1.0.0" ;
+    jido:hasRole jido:MemoryWriter ;
+    jido:hasCapability jido:CanWriteMemory ;
+    jido:reportsTo jido:Agent_Primary .
+
+#################################################################
+# Example Session
+#################################################################
+
+jido:Session_InitialSetup
+    a jido:WorkSession ;
+    jido:belongsTo jido:Project_TemplateProject ;
+    jido:startedAt "2025-01-01T10:00:00Z"^^xsd:dateTime ;
+    jido:hasStatus jido:Active ;
+    jido:hasPhase jido:PlanningPhase ;
+    jido:hasPrimaryAgent jido:Agent_Primary ;
+    jido:hasParticipatingAgent jido:Agent_MemoryWriter ;
+    rdfs:comment "Replace timestamps and session identifiers as needed." .
+
+#################################################################
+# Example Architectural Decision
+#################################################################
+
+jido:Decision_OntologyBasedMemory
+    a jido:ArchitecturalDecision ;
+    jido:appliesToProject jido:Project_TemplateProject ;
+    jido:summary "Use ontology-based long-term memory instead of vector store." ;
+    jido:detailedExplanation "Long-term memory will be represented using OWL ontologies and Turtle files, enabling deterministic, explainable, and diffable project memory." ;
+    jido:rationale "Supports strong auditability, CI validation, and explicit conflict resolution between agents." ;
+    jido:assertedBy jido:Agent_Primary ;
+    jido:assertedIn jido:Session_InitialSetup ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2025-01-01T10:15:00Z"^^xsd:dateTime ;
+    jido:decisionStatus "accepted" ;
+    jido:impactLevel "critical" .
+
+#################################################################
+# Example Coding Convention
+#################################################################
+
+jido:Convention_TTLPerProject
+    a jido:ArchitecturalConvention ;
+    jido:appliesToProject jido:Project_TemplateProject ;
+    jido:conventionName "One Primary TTL File Per Project" ;
+    jido:conventionDescription "Each project maintains exactly one primary long-term memory TTL file, with optional archival files for historical snapshots." ;
+    jido:hasConventionScope jido:ProjectScope ;
+    jido:hasEnforcementLevel jido:Required ;
+    jido:assertedBy jido:Agent_Primary ;
+    jido:assertedIn jido:Session_InitialSetup ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2025-01-01T10:20:00Z"^^xsd:dateTime .
+
+#################################################################
+# Example Task & Link to Project
+#################################################################
+
+jido:Task_SetupMemoryPipeline
+    a jido:Task ;
+    jido:appliesToProject jido:Project_TemplateProject ;
+    jido:summary "Implement MemoryWriter pipeline and CI validation for TTL files." ;
+    jido:assignedTo jido:Agent_Primary ;
+    jido:createdBy jido:Agent_Primary ;
+    jido:hasTaskStatus jido:Planned ;
+    jido:taskCreatedAt "2025-01-01T10:30:00Z"^^xsd:dateTime .
+
+#################################################################
+# Example Error & Lesson Learned
+#################################################################
+
+jido:Error_MemoryConflict_001
+    a jido:Bug ;
+    jido:appliesToProject jido:Project_TemplateProject ;
+    jido:summary "Conflicting decisions about memory strategy were written without supersession links." ;
+    jido:severityLevel "medium" ;
+    jido:hasErrorStatus jido:Resolved ;
+    jido:hasTimestamp "2025-01-02T12:00:00Z"^^xsd:dateTime .
+
+jido:RootCause_MissingSupersessionRule
+    a jido:RootCause ;
+    jido:summary "MemoryWriter agent allowed decisions of the same type without enforcing supersededBy relationships." ;
+    jido:hasTimestamp "2025-01-02T13:00:00Z"^^xsd:dateTime .
+
+jido:Lesson_MemorySupersessionRequired
+    a jido:LessonLearned ;
+    jido:summary "All new decisions of the same category must either supersede a previous decision or explicitly coexist with clear scope." ;
+    jido:detailedExplanation "The MemoryWriter must enforce linking of new decisions to prior ones to prevent ambiguous project state." ;
+    jido:hasTimestamp "2025-01-02T13:30:00Z"^^xsd:dateTime .
+
+jido:Error_MemoryConflict_001
+    jido:hasRootCause jido:RootCause_MissingSupersessionRule ;
+    jido:producedLesson jido:Lesson_MemorySupersessionRequired .
+
+#################################################################
+# Template Notes
+#
+# 1. Replace Project_TemplateProject with a project-specific IRI.
+# 2. Duplicate and adapt example patterns for real decisions,
+#    conventions, tasks, errors, lessons, etc.
+# 3. All agents writing to this file should go through the
+#    MemoryWriter pipeline to maintain consistency.
+#################################################################
