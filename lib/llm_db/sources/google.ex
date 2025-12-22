@@ -240,7 +240,7 @@ defmodule LLMDB.Sources.Google do
         next_page_token = Map.get(body, "nextPageToken")
         new_acc = acc ++ models
 
-        if next_page_token && length(models) > 0 do
+        if next_page_token && not Enum.empty?(models) do
           req_opts =
             Keyword.put(req_opts, :params, pageSize: page_size, pageToken: next_page_token)
 
