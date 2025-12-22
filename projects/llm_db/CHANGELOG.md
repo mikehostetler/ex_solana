@@ -7,6 +7,51 @@ This project uses [Calendar Versioning](https://calver.org/) with the format `YY
 
 <!-- changelog -->
 
+## [2025.12.3](https://github.com/agentjido/llm_db/compare/v2025.12.3...2025.12.3) (2025-12-22)
+
+
+
+
+### Features:
+
+* add wire.protocol and constraints metadata fields (#59) by mikehostetler
+
+* add hex_dry_run option and version bump commit to release workflow by mikehostetler
+
+* sort JSON keys for deterministic output (#51) by mikehostetler
+
+* sort JSON keys for deterministic output by mikehostetler
+
+* add git_hooks integration for code quality enforcement (#42) by mikehostetler
+
+### Bug Fixes:
+
+* update model metadata for 12 provider(s) (#61) by github-actions[bot]
+
+* inherit custom config from app env in Runtime.compile/1 (#58) by Nils
+
+* update model metadata for 51 provider(s) (#57) by github-actions[bot]
+
+* round cost values to six decimal places in OpenRouter by mikehostetler
+
+* update model metadata for 5 provider(s) (#55) by github-actions[bot]
+
+* add fetch-tags option and debug output to release workflow by mikehostetler
+
+* fetch tags explicitly in release workflow by mikehostetler
+
+* update model metadata for 69 provider(s) (#50) by github-actions[bot]
+
+* disable git hooks in CI workflow by mikehostetler
+
+* use commit-message instead of invalid commit-message-path by mikehostetler
+
+* restrict llm_db.build and llm_db.pull tasks to llm_db project only (#49) by mikehostetler
+
+### Improvements:
+
+* Add gemini-2.5-flash-image and gemini-2.5-flash-lite (#60) by Victor
+
 ## [2025.12.2](https://github.com/agentjido/llm_db/compare/v2025.12.2...2025.12.2) (2025-12-17)
 
 

@@ -1,0 +1,60 @@
+id = "gemini-2.5-flash-lite"
+name = "Gemini 2.5 Flash-Lite"
+provider = "google"
+release_date = "2025-07-22"
+last_updated = "2025-06-17"
+knowledge = "2025-01"
+deprecated = false
+
+[limits]
+context = 1048576
+output = 65536
+
+[cost]
+input = 0.1
+output = 0.4
+cache_read = 0.025
+image = 0.0
+reasoning = 0.0
+request = 0.0
+
+[modalities]
+input = ["text", "image", "audio", "video", "pdf"]
+output = ["text"]
+
+[capabilities]
+chat = true
+embeddings = false
+
+[capabilities.json]
+native = false
+schema = false
+strict = false
+
+[capabilities.reasoning]
+enabled = false
+
+[capabilities.streaming]
+text = true
+tool_calls = false
+
+[capabilities.tools]
+enabled = true
+parallel = false
+streaming = false
+strict = false
+
+[extra]
+attachment = true
+description = "Stable version of Gemini 2.5 Flash-Lite, released in July of 2025"
+family = "gemini-flash-lite"
+hugging_face_id = ""
+max_temperature = 2
+open_weights = false
+structured_output = true
+temperature = 1
+thinking = true
+top_k = 64
+top_p = 0.95
+version = "001"
+supported_generation_methods = ["generateContent", "countTokens", "createCachedContent", "batchGenerateContent"]

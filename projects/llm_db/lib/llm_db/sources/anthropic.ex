@@ -195,7 +195,7 @@ defmodule LLMDB.Sources.Anthropic do
         has_more = Map.get(body, "has_more", false)
         new_acc = acc ++ data
 
-        if has_more and length(data) > 0 do
+        if has_more and not Enum.empty?(data) do
           fetch_all_pages(url, req_opts, limit, new_acc)
         else
           {:ok, new_acc}

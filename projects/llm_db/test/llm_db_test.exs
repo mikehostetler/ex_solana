@@ -129,7 +129,7 @@ defmodule LLMDBTest do
       providers = LLMDB.providers()
 
       assert is_list(providers)
-      assert length(providers) > 0
+      refute Enum.empty?(providers)
       assert Enum.all?(providers, &is_struct(&1, LLMDB.Provider))
       provider_ids = Enum.map(providers, & &1.id)
       assert provider_ids == Enum.sort(provider_ids)

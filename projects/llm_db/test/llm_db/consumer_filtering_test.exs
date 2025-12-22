@@ -39,7 +39,7 @@ defmodule LLMDB.ConsumerFilteringTest do
       # Check anthropic provider
       anthropic_models = LLMDB.models(:anthropic)
 
-      if length(anthropic_models) > 0 do
+      unless Enum.empty?(anthropic_models) do
         # Should only contain haiku models
         assert Enum.all?(anthropic_models, fn model ->
                  String.contains?(model.id, "haiku") or String.contains?(model.id, "Haiku")
@@ -49,7 +49,7 @@ defmodule LLMDB.ConsumerFilteringTest do
       # Check openrouter provider
       openrouter_models = LLMDB.models(:openrouter)
 
-      if length(openrouter_models) > 0 do
+      unless Enum.empty?(openrouter_models) do
         # Should only contain haiku models
         assert Enum.all?(openrouter_models, fn model ->
                  String.contains?(model.id, "haiku") or String.contains?(model.id, "Haiku")
@@ -58,7 +58,7 @@ defmodule LLMDB.ConsumerFilteringTest do
 
       # OpenAI models should not be visible (provider not in allow)
       openai_models = LLMDB.models(:openai)
-      assert length(openai_models) == 0
+      assert Enum.empty?(openai_models)
     end
 
     test "filters with string provider keys" do
@@ -154,7 +154,7 @@ defmodule LLMDB.ConsumerFilteringTest do
       # Only Haiku models visible
       anthropic_models = LLMDB.models(:anthropic)
 
-      if length(anthropic_models) > 0 do
+      unless Enum.empty?(anthropic_models) do
         assert Enum.all?(anthropic_models, fn model ->
                  String.contains?(model.id, "haiku") or String.contains?(model.id, "Haiku")
                end)
@@ -177,7 +177,7 @@ defmodule LLMDB.ConsumerFilteringTest do
       # Now Opus/Sonnet visible, Haiku not
       anthropic_models = LLMDB.models(:anthropic)
 
-      if length(anthropic_models) > 0 do
+      unless Enum.empty?(anthropic_models) do
         refute Enum.any?(anthropic_models, fn model ->
                  String.contains?(model.id, "haiku") or String.contains?(model.id, "Haiku")
                end)
