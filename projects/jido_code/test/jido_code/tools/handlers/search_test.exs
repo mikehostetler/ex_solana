@@ -13,6 +13,98 @@ defmodule JidoCode.Tools.Handlers.SearchTest do
   end
 
   # ============================================================================
+  # Session Context Tests
+  # ============================================================================
+
+  describe "session-aware context" do
+    setup %{tmp_dir: tmp_dir} do
+      # Set dummy API key for test
+      System.put_env("ANTHROPIC_API_KEY", "test-key-search-handler")
+
+      on_exit(fn ->
+        System.delete_env("ANTHROPIC_API_KEY")
+      end)
+
+      # Start required registries if not already started
+      unless Process.whereis(JidoCode.SessionProcessRegistry) do
+        start_supervised!({Registry, keys: :unique, name: JidoCode.SessionProcessRegistry})
+      end
+
+      # Create a session
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "search-session-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:search_session_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session}
+    end
+
+    test "Grep uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      # Create test file
+      File.write!(Path.join(tmp_dir, "session_grep.ex"), "defmodule Test do\nend")
+
+      # Use session_id context
+      context = %{session_id: session.id}
+      {:ok, json} = Grep.execute(%{"pattern" => "defmodule", "path" => ""}, context)
+
+      results = Jason.decode!(json)
+      assert length(results) == 1
+      assert hd(results)["file"] == "session_grep.ex"
+    end
+
+    test "FindFiles uses session_id for path validation", %{tmp_dir: tmp_dir, session: session} do
+      # Create test file
+      File.write!(Path.join(tmp_dir, "session_find.ex"), "")
+
+      # Use session_id context
+      context = %{session_id: session.id}
+      {:ok, json} = FindFiles.execute(%{"pattern" => "session_find.ex"}, context)
+
+      results = Jason.decode!(json)
+      assert results == ["session_find.ex"]
+    end
+
+    test "session_id context rejects path traversal in Grep", %{session: session} do
+      context = %{session_id: session.id}
+
+      {:error, error} = Grep.execute(%{"pattern" => "test", "path" => "../../../etc"}, context)
+      assert error =~ "Security error"
+    end
+
+    test "session_id context rejects path traversal in FindFiles", %{session: session} do
+      context = %{session_id: session.id}
+
+      {:error, error} =
+        FindFiles.execute(%{"pattern" => "*.ex", "path" => "../../../etc"}, context)
+
+      assert error =~ "Security error"
+    end
+
+    test "invalid session_id returns error in Grep" do
+      context = %{session_id: "not-a-valid-uuid"}
+      {:error, error} = Grep.execute(%{"pattern" => "test", "path" => ""}, context)
+      assert error =~ "invalid_session_id" or error =~ "Invalid session ID"
+    end
+
+    test "invalid session_id returns error in FindFiles" do
+      context = %{session_id: "not-a-valid-uuid"}
+      {:error, error} = FindFiles.execute(%{"pattern" => "*.ex"}, context)
+      assert error =~ "invalid_session_id" or error =~ "Invalid session ID"
+    end
+  end
+
+  # ============================================================================
   # Grep Tests
   # ============================================================================
 

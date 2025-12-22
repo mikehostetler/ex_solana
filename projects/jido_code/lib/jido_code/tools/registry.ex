@@ -1,19 +1,17 @@
 defmodule JidoCode.Tools.Registry do
   @moduledoc """
-  Registry for tool registration and lookup.
+  Registry for tool registration and lookup using :persistent_term.
 
-  This GenServer maintains a registry of available tools that can be invoked
-  by the LLM agent. Tools are stored in an ETS table for fast concurrent reads,
-  with the GenServer handling writes and ensuring consistency.
+  This module provides a simple, fast registry for tools using Erlang's
+  :persistent_term storage. This is ideal for our use case where ~100 tools
+  are registered once at startup and read thousands of times during execution.
 
-  ## Starting the Registry
+  ## Why :persistent_term?
 
-  The registry is started as part of the application supervision tree:
-
-      children = [
-        JidoCode.Tools.Registry,
-        # ...
-      ]
+  - **Faster reads**: Constant-time lookups, faster than ETS
+  - **No process overhead**: No GenServer bottleneck for concurrent access
+  - **Simpler**: No process supervision or ETS table management
+  - **Perfect for our pattern**: Write-once-read-many with ~100 tools
 
   ## Usage
 
@@ -33,30 +31,22 @@ defmodule JidoCode.Tools.Registry do
 
   Attempting to register a tool with a name that already exists will return
   an error. Use `unregister/1` first if you need to replace a tool.
-  """
 
-  use GenServer
+  ## Performance Characteristics
+
+  - **Reads**: Extremely fast, constant time, no locks
+  - **Writes**: Triggers global GC (acceptable for startup-only writes)
+  - **Concurrency**: Perfect for concurrent reads, avoid concurrent writes
+  """
 
   alias JidoCode.Tools.Tool
 
-  @table_name :jido_code_tools_registry
+  @prefix {:jido_code_tools_registry}
+  @all_tools_key {@prefix, :all_tools}
 
   # ============================================================================
   # Client API
   # ============================================================================
-
-  @doc """
-  Starts the Registry GenServer.
-
-  ## Options
-
-  - `:name` - GenServer name (default: `__MODULE__`)
-  """
-  @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts \\ []) do
-    name = Keyword.get(opts, :name, __MODULE__)
-    GenServer.start_link(__MODULE__, opts, name: name)
-  end
 
   @doc """
   Registers a tool in the registry.
@@ -80,8 +70,18 @@ defmodule JidoCode.Tools.Registry do
       {:error, :already_registered} = Registry.register(tool)
   """
   @spec register(Tool.t()) :: :ok | {:error, :already_registered | :invalid_tool}
-  def register(%Tool{} = tool) do
-    GenServer.call(__MODULE__, {:register, tool})
+  def register(%Tool{name: name} = tool) do
+    key = {@prefix, name}
+
+    case :persistent_term.get(key, nil) do
+      nil ->
+        :persistent_term.put(key, tool)
+        add_to_tools_list(name)
+        :ok
+
+      _existing ->
+        {:error, :already_registered}
+    end
   end
 
   def register(_), do: {:error, :invalid_tool}
@@ -104,7 +104,17 @@ defmodule JidoCode.Tools.Registry do
   """
   @spec unregister(String.t()) :: :ok | {:error, :not_found}
   def unregister(name) when is_binary(name) do
-    GenServer.call(__MODULE__, {:unregister, name})
+    key = {@prefix, name}
+
+    case :persistent_term.get(key, nil) do
+      nil ->
+        {:error, :not_found}
+
+      _existing ->
+        :persistent_term.erase(key)
+        remove_from_tools_list(name)
+        :ok
+    end
   end
 
   @doc """
@@ -121,12 +131,13 @@ defmodule JidoCode.Tools.Registry do
   """
   @spec list() :: [Tool.t()]
   def list do
-    @table_name
-    |> :ets.tab2list()
-    |> Enum.map(fn {_name, tool} -> tool end)
+    @all_tools_key
+    |> :persistent_term.get([])
+    |> Enum.map(fn name ->
+      {:ok, tool} = get(name)
+      tool
+    end)
     |> Enum.sort_by(& &1.name)
-  rescue
-    ArgumentError -> []
   end
 
   @doc """
@@ -148,12 +159,12 @@ defmodule JidoCode.Tools.Registry do
   """
   @spec get(String.t()) :: {:ok, Tool.t()} | {:error, :not_found}
   def get(name) when is_binary(name) do
-    case :ets.lookup(@table_name, name) do
-      [{^name, tool}] -> {:ok, tool}
-      [] -> {:error, :not_found}
+    key = {@prefix, name}
+
+    case :persistent_term.get(key, nil) do
+      nil -> {:error, :not_found}
+      tool -> {:ok, tool}
     end
-  rescue
-    ArgumentError -> {:error, :not_found}
   end
 
   @doc """
@@ -180,19 +191,28 @@ defmodule JidoCode.Tools.Registry do
   """
   @spec count() :: non_neg_integer()
   def count do
-    :ets.info(@table_name, :size)
-  rescue
-    ArgumentError -> 0
+    @all_tools_key
+    |> :persistent_term.get([])
+    |> length()
   end
 
   @doc """
   Clears all registered tools.
 
+  **WARNING**: This triggers a global garbage collection! Only use in tests.
+
   Primarily useful for testing.
   """
   @spec clear() :: :ok
   def clear do
-    GenServer.call(__MODULE__, :clear)
+    # Get all tool names and erase them
+    for name <- :persistent_term.get(@all_tools_key, []) do
+      :persistent_term.erase({@prefix, name})
+    end
+
+    # Clear the tools list
+    :persistent_term.erase(@all_tools_key)
+    :ok
   end
 
   @doc """
@@ -250,49 +270,21 @@ defmodule JidoCode.Tools.Registry do
   end
 
   # ============================================================================
-  # GenServer Callbacks
-  # ============================================================================
-
-  @impl true
-  def init(_opts) do
-    # Create ETS table for fast reads
-    table = :ets.new(@table_name, [:named_table, :set, :protected, read_concurrency: true])
-    {:ok, %{table: table}}
-  end
-
-  @impl true
-  def handle_call({:register, %Tool{name: name} = tool}, _from, state) do
-    case :ets.lookup(@table_name, name) do
-      [] ->
-        :ets.insert(@table_name, {name, tool})
-        {:reply, :ok, state}
-
-      [_existing] ->
-        {:reply, {:error, :already_registered}, state}
-    end
-  end
-
-  @impl true
-  def handle_call({:unregister, name}, _from, state) do
-    case :ets.lookup(@table_name, name) do
-      [] ->
-        {:reply, {:error, :not_found}, state}
-
-      [_existing] ->
-        :ets.delete(@table_name, name)
-        {:reply, :ok, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:clear, _from, state) do
-    :ets.delete_all_objects(@table_name)
-    {:reply, :ok, state}
-  end
-
-  # ============================================================================
   # Private Functions
   # ============================================================================
+
+  defp add_to_tools_list(name) do
+    current_tools = :persistent_term.get(@all_tools_key, [])
+
+    unless name in current_tools do
+      :persistent_term.put(@all_tools_key, [name | current_tools])
+    end
+  end
+
+  defp remove_from_tools_list(name) do
+    current_tools = :persistent_term.get(@all_tools_key, [])
+    :persistent_term.put(@all_tools_key, List.delete(current_tools, name))
+  end
 
   defp format_tool_description(%Tool{} = tool) do
     params_desc = format_params_description(tool.parameters)

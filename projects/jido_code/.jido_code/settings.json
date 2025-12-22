@@ -1,0 +1,10 @@
+{
+  "model": "claude-3-5-haiku-20241022",
+  "models": {
+    "ollama": [
+      "qwen3:32b"
+    ]
+  },
+  "provider": "anthropic",
+  "theme": "dark"
+}

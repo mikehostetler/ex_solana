@@ -271,7 +271,12 @@ defmodule JidoCode.Tools.Bridge do
 
           {[stat_table], state}
         else
-          {:error, reason} when reason in [:path_escapes_boundary, :path_outside_boundary, :symlink_escapes_boundary] ->
+          {:error, reason}
+          when reason in [
+                 :path_escapes_boundary,
+                 :path_outside_boundary,
+                 :symlink_escapes_boundary
+               ] ->
             {[nil, format_security_error(reason, path)], state}
 
           {:error, reason} ->
@@ -285,7 +290,14 @@ defmodule JidoCode.Tools.Bridge do
 
   defp format_datetime({{year, month, day}, {hour, minute, second}}) do
     # Format as ISO 8601
-    :io_lib.format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B", [year, month, day, hour, minute, second])
+    :io_lib.format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B", [
+      year,
+      month,
+      day,
+      hour,
+      minute,
+      second
+    ])
     |> IO.iodata_to_binary()
   end
 
@@ -374,7 +386,12 @@ defmodule JidoCode.Tools.Bridge do
              :ok <- File.rm(safe_path) do
           {[true], state}
         else
-          {:error, reason} when reason in [:path_escapes_boundary, :path_outside_boundary, :symlink_escapes_boundary] ->
+          {:error, reason}
+          when reason in [
+                 :path_escapes_boundary,
+                 :path_outside_boundary,
+                 :symlink_escapes_boundary
+               ] ->
             {[nil, format_security_error(reason, path)], state}
 
           {:error, reason} ->
@@ -407,7 +424,12 @@ defmodule JidoCode.Tools.Bridge do
              :ok <- File.mkdir_p(safe_path) do
           {[true], state}
         else
-          {:error, reason} when reason in [:path_escapes_boundary, :path_outside_boundary, :symlink_escapes_boundary] ->
+          {:error, reason}
+          when reason in [
+                 :path_escapes_boundary,
+                 :path_outside_boundary,
+                 :symlink_escapes_boundary
+               ] ->
             {[nil, format_security_error(reason, path)], state}
 
           {:error, reason} ->
@@ -482,31 +504,48 @@ defmodule JidoCode.Tools.Bridge do
   end
 
   defp execute_validated_shell(command, cmd_args, opts, project_root, state) do
-    _timeout = Keyword.get(opts, :timeout, @default_shell_timeout)
+    timeout = Keyword.get(opts, :timeout, @default_shell_timeout)
 
-    try do
-      {output, exit_code} =
-        System.cmd(command, cmd_args,
-          cd: project_root,
-          stderr_to_stdout: false,
-          into: "",
-          env: []
-        )
+    # Wrap System.cmd in a Task to enforce timeout
+    # System.cmd doesn't support timeout directly, so we use Task.async with Task.yield
+    task =
+      Task.async(fn ->
+        try do
+          {output, exit_code} =
+            System.cmd(command, cmd_args,
+              cd: project_root,
+              stderr_to_stdout: false,
+              into: "",
+              env: []
+            )
 
-      # Return as list of tuples - luerl will convert inline to Lua table
-      result = [
-        {"exit_code", exit_code},
-        {"stdout", output},
-        {"stderr", ""}
-      ]
+          {:ok, exit_code, output}
+        catch
+          :error, :enoent ->
+            {:error, "Command not found: #{command}"}
 
-      {[result], state}
-    catch
-      :error, :enoent ->
-        {[nil, "Command not found: #{command}"], state}
+          kind, reason ->
+            {:error, "Shell error: #{kind} - #{inspect(reason)}"}
+        end
+      end)
 
-      kind, reason ->
-        {[nil, "Shell error: #{kind} - #{inspect(reason)}"], state}
+    case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, exit_code, output}} ->
+        # Return as list of tuples - luerl will convert inline to Lua table
+        result = [
+          {"exit_code", exit_code},
+          {"stdout", output},
+          {"stderr", ""}
+        ]
+
+        {[result], state}
+
+      {:ok, {:error, message}} ->
+        {[nil, message], state}
+
+      nil ->
+        # Task timed out
+        {[nil, "Command timed out after #{timeout}ms"], state}
     end
   end
 

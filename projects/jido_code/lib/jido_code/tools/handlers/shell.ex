@@ -5,14 +5,20 @@ defmodule JidoCode.Tools.Handlers.Shell do
   This module contains the RunCommand handler for executing shell commands in a
   controlled environment with security validation, timeout enforcement, and output capture.
 
-  All shell operations go through the Lua sandbox via Manager API.
+  ## Session Context
+
+  Handlers use `HandlerHelpers.get_project_root/1` for session-aware working directory:
+
+  1. `session_id` present → Uses `Session.Manager.project_root/1`
+  2. `project_root` present → Uses provided project root (legacy)
+  3. Neither → Falls back to global `Tools.Manager` (deprecated)
 
   ## Security Considerations
 
   - **Command allowlist**: Only pre-approved commands can be executed
   - **Shell interpreter blocking**: bash, sh, zsh, etc. are blocked to prevent bypass
   - **Path argument validation**: Arguments containing path traversal are blocked
-  - **Directory containment**: Commands run in project directory (enforced via sandbox)
+  - **Directory containment**: Commands run in session's project directory
   - **Timeout enforcement**: Prevents hanging commands
   - **Output truncation**: Prevents memory exhaustion from large outputs
 
@@ -20,19 +26,22 @@ defmodule JidoCode.Tools.Handlers.Shell do
 
   This handler is invoked by the Executor when the LLM calls shell tools:
 
+      # Via Executor with session context
+      {:ok, context} = Executor.build_context(session_id)
       Executor.execute(%{
         id: "call_123",
         name: "run_command",
         arguments: %{"command" => "mix", "args" => ["test"]}
-      })
+      }, context: context)
 
   ## Context
 
   The context map should contain:
-  - `:project_root` - Base directory for command execution
+  - `:session_id` - Session ID for project root lookup (preferred)
+  - `:project_root` - Base directory for command execution (legacy)
   """
 
-  alias JidoCode.Tools.{HandlerHelpers, Manager}
+  alias JidoCode.Tools.HandlerHelpers
 
   # ============================================================================
   # Constants
@@ -65,6 +74,9 @@ defmodule JidoCode.Tools.Handlers.Shell do
   defdelegate get_project_root(context), to: HandlerHelpers
 
   @doc false
+  defdelegate validate_path(path, context), to: HandlerHelpers
+
+  @doc false
   @spec format_error(atom() | {atom(), term()} | String.t(), String.t()) :: String.t()
   def format_error(:enoent, command), do: "Command not found: #{command}"
   def format_error(:eacces, command), do: "Permission denied: #{command}"
@@ -74,10 +86,19 @@ defmodule JidoCode.Tools.Handlers.Shell do
   def format_error(:shell_interpreter_blocked, command),
     do: "Shell interpreters are blocked: #{command}"
 
+  def format_error(:timeout, command),
+    do: "Command timed out: #{command}"
+
   def format_error(:path_traversal_blocked, arg),
     do: "Path traversal not allowed in argument: #{arg}"
 
   def format_error(:absolute_path_blocked, arg),
+    do: "Absolute paths outside project not allowed: #{arg}"
+
+  def format_error({:path_traversal_blocked, arg}, _command),
+    do: "Path traversal not allowed in argument: #{arg}"
+
+  def format_error({:absolute_path_blocked, arg}, _command),
     do: "Absolute paths outside project not allowed: #{arg}"
 
   def format_error({kind, reason}, command),
@@ -121,11 +142,10 @@ defmodule JidoCode.Tools.Handlers.Shell do
     Executes shell commands in the project directory with security validation,
     timeout enforcement, and output size limits.
 
-    All shell operations go through the Lua sandbox via Manager API.
+    Uses session-aware project root via `HandlerHelpers.get_project_root/1`.
     """
 
     alias JidoCode.Tools.Handlers.Shell
-    alias JidoCode.Tools.Manager
 
     @default_timeout 25_000
     @max_output_size 1_048_576
@@ -138,6 +158,11 @@ defmodule JidoCode.Tools.Handlers.Shell do
     - `"command"` - Command to execute (must be in allowlist)
     - `"args"` - Command arguments (optional, default: [])
     - `"timeout"` - Timeout in milliseconds (optional, default: 25000)
+
+    ## Context
+
+    - `:session_id` - Session ID for project root lookup (preferred)
+    - `:project_root` - Direct project root path (legacy)
 
     ## Returns
 
@@ -153,14 +178,14 @@ defmodule JidoCode.Tools.Handlers.Shell do
     - Output is truncated at 1MB to prevent memory exhaustion
     """
     @spec execute(map(), map()) :: {:ok, String.t()} | {:error, String.t()}
-    def execute(%{"command" => command} = args, _context) when is_binary(command) do
-      # Note: Command validation is also done in Bridge.lua_shell, but we
-      # validate here as well for early failure and clear error messages
+    def execute(%{"command" => command} = args, context) when is_binary(command) do
       with {:ok, _valid_command} <- Shell.validate_command(command),
+           {:ok, project_root} <- Shell.get_project_root(context),
            raw_args <- Map.get(args, "args", []),
-           cmd_args <- parse_args(raw_args) do
-        _timeout = Map.get(args, "timeout", @default_timeout)
-        run_command_via_sandbox(command, cmd_args)
+           cmd_args <- parse_args(raw_args),
+           :ok <- validate_path_args(cmd_args, project_root) do
+        timeout = Map.get(args, "timeout", @default_timeout)
+        run_command(command, cmd_args, project_root, timeout)
       else
         {:error, reason} when is_atom(reason) ->
           {:error, Shell.format_error(reason, command)}
@@ -180,26 +205,101 @@ defmodule JidoCode.Tools.Handlers.Shell do
 
     defp parse_args(_args), do: []
 
-    defp run_command_via_sandbox(command, args) do
-      case Manager.shell(command, args) do
-        {:ok, result} when is_map(result) ->
-          # Truncate output if needed
-          stdout = Map.get(result, "stdout", "") |> maybe_truncate()
+    # Validate path-like arguments against project boundary
+    defp validate_path_args(args, project_root) do
+      Enum.reduce_while(args, :ok, fn arg, _acc ->
+        case validate_single_arg(arg, project_root) do
+          :ok -> {:cont, :ok}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+    end
+
+    # Special system paths that are always allowed
+    @allowed_system_paths ~w(/dev/null /dev/stdin /dev/stdout /dev/stderr /dev/zero /dev/random /dev/urandom)
+
+    # Check for path traversal patterns including URL-encoded variants
+    defp contains_path_traversal?(arg) do
+      lower = String.downcase(arg)
+
+      String.contains?(arg, "../") or
+        String.contains?(lower, "%2e%2e%2f") or
+        String.contains?(lower, "%2e%2e/") or
+        String.contains?(lower, "..%2f") or
+        String.contains?(lower, "%2e%2e%5c") or
+        String.contains?(lower, "..%5c")
+    end
+
+    defp validate_single_arg(arg, project_root) do
+      cond do
+        # Check for path traversal patterns (literal and URL-encoded)
+        contains_path_traversal?(arg) ->
+          {:error, {:path_traversal_blocked, arg}}
+
+        # Allow special system paths
+        arg in @allowed_system_paths ->
+          :ok
+
+        # Check absolute paths - must be within project
+        String.starts_with?(arg, "/") ->
+          expanded = Path.expand(arg)
+
+          if String.starts_with?(expanded, project_root) do
+            :ok
+          else
+            {:error, {:absolute_path_blocked, arg}}
+          end
+
+        # Relative paths and non-path args are OK
+        true ->
+          :ok
+      end
+    end
+
+    defp run_command(command, args, project_root, timeout) do
+      # Use Task.async with yield/shutdown to enforce timeout
+      task =
+        Task.async(fn ->
+          try do
+            System.cmd(command, args,
+              cd: project_root,
+              stderr_to_stdout: true,
+              env: []
+            )
+          rescue
+            e in ErlangError -> {:error, e.original}
+          catch
+            :exit, reason -> {:error, {:exit, reason}}
+          end
+        end)
+
+      case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+        {:ok, {:error, :enoent}} ->
+          {:error, Shell.format_error(:enoent, command)}
+
+        {:ok, {:error, :eacces}} ->
+          {:error, Shell.format_error(:eacces, command)}
+
+        {:ok, {:error, {:exit, reason}}} ->
+          {:error, Shell.format_error({:exit, reason}, command)}
+
+        {:ok, {:error, reason}} ->
+          {:error, Shell.format_error({:system_error, reason}, command)}
+
+        {:ok, {output, exit_code}} ->
+          stdout = maybe_truncate(output)
 
           formatted = %{
-            exit_code: Map.get(result, "exit_code", 0),
+            exit_code: exit_code,
             stdout: stdout,
-            stderr: Map.get(result, "stderr", "")
+            stderr: ""
           }
 
           {:ok, Jason.encode!(formatted)}
 
-        {:ok, result} ->
-          # Handle other result formats
-          {:ok, Jason.encode!(%{exit_code: 0, stdout: inspect(result), stderr: ""})}
-
-        {:error, reason} ->
-          {:error, reason}
+        nil ->
+          # Timeout - task was killed
+          {:error, Shell.format_error(:timeout, command)}
       end
     end
 

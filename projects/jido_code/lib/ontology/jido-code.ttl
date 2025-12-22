@@ -1,0 +1,118 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoCodeOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Code Ontology" ;
+    rdfs:comment "Ontology module defining code-level concepts such as Elixir modules, Ash resources, commands, events, projections, and DSLs." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoProjectOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Code Concepts
+#################################################################
+
+jido:CodeConcept a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Code Concept" ;
+    rdfs:comment "Abstract base for any code-level construct." .
+
+jido:SourceFile a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Source File" ;
+    rdfs:comment "A physical source file in a project repository." .
+
+#################################################################
+# Elixir & Ash Modeling
+#################################################################
+
+jido:ElixirModule a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "Elixir Module" ;
+    rdfs:comment "An Elixir module." .
+
+jido:AshResource a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "Ash Resource" ;
+    rdfs:comment "An Ash Framework resource definition." .
+
+jido:DSL a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "DSL" ;
+    rdfs:comment "A domain-specific language construct." .
+
+#################################################################
+# CQRS / Event Sourcing Modeling
+#################################################################
+
+jido:Command a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "Command" ;
+    rdfs:comment "A command in a CQRS system." .
+
+jido:Event a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "Event" ;
+    rdfs:comment "A domain event in an event-sourced system." .
+
+jido:Projection a owl:Class ;
+    rdfs:subClassOf jido:CodeConcept ;
+    rdfs:label "Projection" ;
+    rdfs:comment "A read-side projection derived from events." .
+
+#################################################################
+# Code Relationships
+#################################################################
+
+jido:definedInFile a owl:ObjectProperty ;
+    rdfs:domain jido:CodeConcept ;
+    rdfs:range jido:SourceFile ;
+    rdfs:label "defined in file" .
+
+jido:partOfModule a owl:ObjectProperty ;
+    rdfs:domain jido:CodeConcept ;
+    rdfs:range jido:ElixirModule ;
+    rdfs:label "part of module" .
+
+jido:implementsDSL a owl:ObjectProperty ;
+    rdfs:domain jido:ElixirModule ;
+    rdfs:range jido:DSL ;
+    rdfs:label "implements DSL" .
+
+jido:emitsEvent a owl:ObjectProperty ;
+    rdfs:domain jido:Command ;
+    rdfs:range jido:Event ;
+    rdfs:label "emits event" .
+
+jido:handledByProjection a owl:ObjectProperty ;
+    rdfs:domain jido:Event ;
+    rdfs:range jido:Projection ;
+    rdfs:label "handled by projection" .
+
+#################################################################
+# Code Metadata
+#################################################################
+
+jido:moduleName a owl:DatatypeProperty ;
+    rdfs:domain jido:ElixirModule ;
+    rdfs:range xsd:string ;
+    rdfs:label "module name" .
+
+jido:filePath a owl:DatatypeProperty ;
+    rdfs:domain jido:SourceFile ;
+    rdfs:range xsd:string ;
+    rdfs:label "file path" .
+
+jido:codeSummary a owl:DatatypeProperty ;
+    rdfs:domain jido:CodeConcept ;
+    rdfs:range xsd:string ;
+    rdfs:label "code summary" .

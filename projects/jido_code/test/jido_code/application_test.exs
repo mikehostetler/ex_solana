@@ -41,20 +41,27 @@ defmodule JidoCode.ApplicationTest do
       # Verify all expected children are present
       children = Supervisor.which_children(JidoCode.Supervisor)
 
-      # Should have 8 children: Settings.Cache, TermUI.Theme, PubSub, AgentRegistry,
-      # Tools.Registry, Tools.Manager, TaskSupervisor (ARCH-1 fix), AgentSupervisor
-      assert length(children) == 8
+      # Should have 11 children:
+      # - Settings.Cache, Jido.AI.Model.Registry.Cache, TermUI.Theme
+      # - PubSub, AgentRegistry, SessionProcessRegistry
+      # - Tools.Registry, Tools.Manager, TaskSupervisor
+      # - AgentSupervisor, SessionSupervisor
+      assert length(children) == 11
 
       # Extract child ids
       child_ids = Enum.map(children, fn {id, _pid, _type, _modules} -> id end)
 
       # Settings.Cache starts first
       assert JidoCode.Settings.Cache in child_ids
+      # Model registry cache for Jido.AI
+      assert Jido.AI.Model.Registry.Cache in child_ids
       # Theme server for TUI styling
       assert TermUI.Theme in child_ids
       # PubSub registers as Phoenix.PubSub.Supervisor internally
       assert Phoenix.PubSub.Supervisor in child_ids
       assert JidoCode.AgentRegistry in child_ids
+      # SessionProcessRegistry for session process lookup
+      assert JidoCode.SessionProcessRegistry in child_ids
       # Tools.Registry for LLM function calling
       assert JidoCode.Tools.Registry in child_ids
       # TaskSupervisor for monitored async tasks (ARCH-1 fix)
@@ -62,6 +69,23 @@ defmodule JidoCode.ApplicationTest do
       # Tools.Manager for Lua sandbox
       assert JidoCode.Tools.Manager in child_ids
       assert JidoCode.AgentSupervisor in child_ids
+      # SessionSupervisor for session processes
+      assert JidoCode.SessionSupervisor in child_ids
+    end
+
+    # Task 1.5.1 Integration Tests (B1 fix)
+
+    test "SessionSupervisor is running after application start" do
+      assert Process.whereis(JidoCode.SessionSupervisor) != nil
+    end
+
+    test "SessionProcessRegistry is running after application start" do
+      # Registry doesn't use whereis, check it's queryable
+      assert Registry.lookup(JidoCode.SessionProcessRegistry, :nonexistent) == []
+    end
+
+    test "SessionRegistry ETS table exists after application start" do
+      assert JidoCode.SessionRegistry.table_exists?()
     end
   end
 

@@ -1,7 +1,7 @@
 defmodule JidoCode.Livebook.ParserTest do
   use ExUnit.Case, async: true
 
-  alias JidoCode.Livebook.{Parser, Notebook, Cell}
+  alias JidoCode.Livebook.{Cell, Notebook, Parser}
 
   describe "parse/1" do
     test "parses simple markdown" do

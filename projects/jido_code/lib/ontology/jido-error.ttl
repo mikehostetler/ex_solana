@@ -1,0 +1,114 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoErrorOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Error Ontology" ;
+    rdfs:comment "Ontology module defining errors, bugs, failures, root causes, and post-mortem knowledge for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoKnowledgeOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Error & Incident Classes
+#################################################################
+
+jido:Error a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Error" ;
+    rdfs:comment "A general error encountered during development or execution." .
+
+jido:Bug a owl:Class ;
+    rdfs:subClassOf jido:Error ;
+    rdfs:label "Bug" ;
+    rdfs:comment "A defect in code causing incorrect behavior." .
+
+jido:Failure a owl:Class ;
+    rdfs:subClassOf jido:Error ;
+    rdfs:label "Failure" ;
+    rdfs:comment "A system-level failure or outage." .
+
+jido:Incident a owl:Class ;
+    rdfs:subClassOf jido:Error ;
+    rdfs:label "Incident" ;
+    rdfs:comment "An operational or runtime incident affecting the system." .
+
+#################################################################
+# Root Cause & Lessons
+#################################################################
+
+jido:RootCause a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Root Cause" ;
+    rdfs:comment "The underlying cause of an error, bug, or failure." .
+
+jido:LessonLearned a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Lesson Learned" ;
+    rdfs:comment "Actionable knowledge derived from resolving an error or failure." .
+
+#################################################################
+# Error State Modeling
+#################################################################
+
+jido:ErrorStatus a owl:Class ;
+    rdfs:label "Error Status" ;
+    rdfs:comment "Current lifecycle state of an error or incident." .
+
+jido:Reported a owl:NamedIndividual, jido:ErrorStatus .
+jido:Investigating a owl:NamedIndividual, jido:ErrorStatus .
+jido:Resolved a owl:NamedIndividual, jido:ErrorStatus .
+jido:Deferred a owl:NamedIndividual, jido:ErrorStatus .
+
+#################################################################
+# Error & Post-mortem Relationships
+#################################################################
+
+jido:hasRootCause a owl:ObjectProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range jido:RootCause ;
+    rdfs:label "has root cause" .
+
+jido:producedLesson a owl:ObjectProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range jido:LessonLearned ;
+    rdfs:label "produced lesson" .
+
+jido:relatedError a owl:ObjectProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range jido:Error ;
+    rdfs:label "related error" ;
+    rdfs:comment "Links related or cascading errors." .
+
+#################################################################
+# Error Code & Severity
+#################################################################
+
+jido:severityLevel a owl:DatatypeProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity level" ;
+    rdfs:comment "Qualitative severity such as low, medium, high, or critical." .
+
+jido:errorCode a owl:DatatypeProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range xsd:string ;
+    rdfs:label "error code" ;
+    rdfs:comment "Optional machine-readable error or incident code." .
+
+#################################################################
+# Error State Property
+#################################################################
+
+jido:hasErrorStatus a owl:ObjectProperty ;
+    rdfs:domain jido:Error ;
+    rdfs:range jido:ErrorStatus ;
+    rdfs:label "has error status" .

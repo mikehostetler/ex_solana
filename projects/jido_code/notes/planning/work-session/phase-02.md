@@ -9,13 +9,13 @@ This phase implements the per-session security sandbox. Each session gets its ow
 Create the per-session Manager GenServer that handles security and sandbox isolation.
 
 ### 2.1.1 Manager Module Structure
-- [ ] **Task 2.1.1**
+- [x] **Task 2.1.1** ✅ COMPLETE
 
 Create the Session.Manager module with GenServer behavior.
 
-- [ ] 2.1.1.1 Create `lib/jido_code/session/manager.ex` with module documentation
-- [ ] 2.1.1.2 Add `use GenServer`
-- [ ] 2.1.1.3 Define `@type state()`:
+- [x] 2.1.1.1 Create `lib/jido_code/session/manager.ex` with module documentation
+- [x] 2.1.1.2 Add `use GenServer`
+- [x] 2.1.1.3 Define `@type state()`:
   ```elixir
   @type state :: %{
     session_id: String.t(),
@@ -23,21 +23,21 @@ Create the Session.Manager module with GenServer behavior.
     lua_state: :luerl.state()
   }
   ```
-- [ ] 2.1.1.4 Implement `start_link/1` with session option
-- [ ] 2.1.1.5 Implement `via/1` helper for Registry naming:
+- [x] 2.1.1.4 Implement `start_link/1` with session option
+- [x] 2.1.1.5 Implement `via/1` helper for Registry naming:
   ```elixir
   defp via(session_id) do
     {:via, Registry, {JidoCode.Registry, {:session_manager, session_id}}}
   end
   ```
-- [ ] 2.1.1.6 Write unit tests for manager startup
+- [x] 2.1.1.6 Write unit tests for manager startup
 
 ### 2.1.2 Manager Initialization
-- [ ] **Task 2.1.2**
+- [x] **Task 2.1.2** ✅ COMPLETE
 
 Implement GenServer init with Lua sandbox setup.
 
-- [ ] 2.1.2.1 Implement `init/1` callback:
+- [x] 2.1.2.1 Implement `init/1` callback:
   ```elixir
   def init(session) do
     {:ok, lua_state} = :luerl.init()
@@ -50,78 +50,78 @@ Implement GenServer init with Lua sandbox setup.
     }}
   end
   ```
-- [ ] 2.1.2.2 Log manager initialization with session ID and project path
-- [ ] 2.1.2.3 Handle Lua initialization errors
-- [ ] 2.1.2.4 Write unit tests for initialization
+- [x] 2.1.2.2 Log manager initialization with session ID and project path
+- [x] 2.1.2.3 Handle Lua initialization errors
+- [x] 2.1.2.4 Write unit tests for initialization
 
 ### 2.1.3 Project Root Access
-- [ ] **Task 2.1.3**
+- [x] **Task 2.1.3** ✅ COMPLETE (implemented in Task 2.1.1)
 
 Implement API for accessing project root.
 
-- [ ] 2.1.3.1 Implement `project_root/1` client function:
+- [x] 2.1.3.1 Implement `project_root/1` client function:
   ```elixir
   def project_root(session_id) do
     GenServer.call(via(session_id), :project_root)
   end
   ```
-- [ ] 2.1.3.2 Implement `handle_call(:project_root, _, state)`:
+- [x] 2.1.3.2 Implement `handle_call(:project_root, _, state)`:
   ```elixir
   def handle_call(:project_root, _from, state) do
     {:reply, {:ok, state.project_root}, state}
   end
   ```
-- [ ] 2.1.3.3 Handle case where manager not found
-- [ ] 2.1.3.4 Write unit tests for project_root access
+- [x] 2.1.3.3 Handle case where manager not found
+- [x] 2.1.3.4 Write unit tests for project_root access
 
 ### 2.1.4 Path Validation API
-- [ ] **Task 2.1.4**
+- [x] **Task 2.1.4** ✅ COMPLETE
 
 Implement session-scoped path validation.
 
-- [ ] 2.1.4.1 Implement `validate_path/2` client function:
+- [x] 2.1.4.1 Implement `validate_path/2` client function:
   ```elixir
   def validate_path(session_id, path) do
     GenServer.call(via(session_id), {:validate_path, path})
   end
   ```
-- [ ] 2.1.4.2 Implement `handle_call({:validate_path, path}, _, state)`:
+- [x] 2.1.4.2 Implement `handle_call({:validate_path, path}, _, state)`:
   ```elixir
   def handle_call({:validate_path, path}, _from, state) do
     result = JidoCode.Tools.Security.validate_path(path, state.project_root)
     {:reply, result, state}
   end
   ```
-- [ ] 2.1.4.3 Delegate to existing Security module
-- [ ] 2.1.4.4 Write unit tests for path validation through Manager
+- [x] 2.1.4.3 Delegate to existing Security module
+- [x] 2.1.4.4 Write unit tests for path validation through Manager
 
 ### 2.1.5 File Operations API
-- [ ] **Task 2.1.5**
+- [x] **Task 2.1.5** ✅ COMPLETE
 
 Implement session-scoped file operations (mirroring Tools.Manager).
 
-- [ ] 2.1.5.1 Implement `read_file/2` client function
-- [ ] 2.1.5.2 Implement `handle_call({:read_file, path}, _, state)`
-- [ ] 2.1.5.3 Validate path before reading
-- [ ] 2.1.5.4 Implement `write_file/3` client function
-- [ ] 2.1.5.5 Implement `handle_call({:write_file, path, content}, _, state)`
-- [ ] 2.1.5.6 Validate path before writing
-- [ ] 2.1.5.7 Implement `list_dir/2` client function
-- [ ] 2.1.5.8 Implement `handle_call({:list_dir, path}, _, state)`
-- [ ] 2.1.5.9 Write unit tests for file operations
+- [x] 2.1.5.1 Implement `read_file/2` client function
+- [x] 2.1.5.2 Implement `handle_call({:read_file, path}, _, state)`
+- [x] 2.1.5.3 Validate path before reading
+- [x] 2.1.5.4 Implement `write_file/3` client function
+- [x] 2.1.5.5 Implement `handle_call({:write_file, path, content}, _, state)`
+- [x] 2.1.5.6 Validate path before writing
+- [x] 2.1.5.7 Implement `list_dir/2` client function
+- [x] 2.1.5.8 Implement `handle_call({:list_dir, path}, _, state)`
+- [x] 2.1.5.9 Write unit tests for file operations
 
 ### 2.1.6 Lua Script Execution
-- [ ] **Task 2.1.6**
+- [x] **Task 2.1.6** ✅ COMPLETE
 
 Implement session-scoped Lua script execution.
 
-- [ ] 2.1.6.1 Implement `run_lua/2` client function:
+- [x] 2.1.6.1 Implement `run_lua/2` client function:
   ```elixir
   def run_lua(session_id, script) do
     GenServer.call(via(session_id), {:run_lua, script}, 30_000)
   end
   ```
-- [ ] 2.1.6.2 Implement `handle_call({:run_lua, script}, _, state)`:
+- [x] 2.1.6.2 Implement `handle_call({:run_lua, script}, _, state)`:
   ```elixir
   def handle_call({:run_lua, script}, _from, state) do
     case :luerl.do(script, state.lua_state) do
@@ -132,8 +132,8 @@ Implement session-scoped Lua script execution.
     end
   end
   ```
-- [ ] 2.1.6.3 Handle Lua execution timeout
-- [ ] 2.1.6.4 Write unit tests for Lua execution
+- [x] 2.1.6.3 Handle Lua execution timeout
+- [x] 2.1.6.4 Write unit tests for Lua execution
 
 **Unit Tests for Section 2.1:**
 - Test Manager starts with valid session
@@ -155,13 +155,13 @@ Implement session-scoped Lua script execution.
 Create the per-session State GenServer for conversation and UI state management.
 
 ### 2.2.1 State Module Structure
-- [ ] **Task 2.2.1**
+- [x] **Task 2.2.1** ✅ COMPLETE
 
 Create the Session.State module with GenServer behavior.
 
-- [ ] 2.2.1.1 Create `lib/jido_code/session/state.ex` with module documentation
-- [ ] 2.2.1.2 Add `use GenServer`
-- [ ] 2.2.1.3 Define `@type state()`:
+- [x] 2.2.1.1 Create `lib/jido_code/session/state.ex` with module documentation
+- [x] 2.2.1.2 Add `use GenServer`
+- [x] 2.2.1.3 Define `@type state()`:
   ```elixir
   @type state :: %{
     session_id: String.t(),
@@ -174,16 +174,16 @@ Create the Session.State module with GenServer behavior.
     is_streaming: boolean()
   }
   ```
-- [ ] 2.2.1.4 Implement `start_link/1` with session option
-- [ ] 2.2.1.5 Implement `via/1` helper for Registry naming
-- [ ] 2.2.1.6 Write unit tests for state startup
+- [x] 2.2.1.4 Implement `start_link/1` with session option
+- [x] 2.2.1.5 Implement `via/1` helper for Registry naming (uses ProcessRegistry)
+- [x] 2.2.1.6 Write unit tests for state startup
 
 ### 2.2.2 State Initialization
-- [ ] **Task 2.2.2**
+- [x] **Task 2.2.2** ✅ COMPLETE (implemented in Task 2.2.1)
 
 Implement GenServer init with empty conversation state.
 
-- [ ] 2.2.2.1 Implement `init/1` callback:
+- [x] 2.2.2.1 Implement `init/1` callback:
   ```elixir
   def init(session) do
     {:ok, %{
@@ -198,75 +198,75 @@ Implement GenServer init with empty conversation state.
     }}
   end
   ```
-- [ ] 2.2.2.2 Log state initialization with session ID
-- [ ] 2.2.2.3 Write unit tests for initialization
+- [x] 2.2.2.2 Log state initialization with session ID
+- [x] 2.2.2.3 Write unit tests for initialization
 
 ### 2.2.3 State Access API
-- [ ] **Task 2.2.3**
+- [x] **Task 2.2.3**
 
 Implement functions for reading state.
 
-- [ ] 2.2.3.1 Implement `get_state/1` returning full state:
+- [x] 2.2.3.1 Implement `get_state/1` returning full state:
   ```elixir
   def get_state(session_id) do
     GenServer.call(via(session_id), :get_state)
   end
   ```
-- [ ] 2.2.3.2 Implement `get_messages/1` returning messages list
-- [ ] 2.2.3.3 Implement `get_reasoning_steps/1` returning reasoning steps
-- [ ] 2.2.3.4 Implement `get_todos/1` returning todo list
-- [ ] 2.2.3.5 Write unit tests for state access
+- [x] 2.2.3.2 Implement `get_messages/1` returning messages list
+- [x] 2.2.3.3 Implement `get_reasoning_steps/1` returning reasoning steps
+- [x] 2.2.3.4 Implement `get_todos/1` returning todo list
+- [x] 2.2.3.5 Write unit tests for state access
 
 ### 2.2.4 Message Management API
-- [ ] **Task 2.2.4**
+- [x] **Task 2.2.4**
 
 Implement functions for managing conversation messages.
 
-- [ ] 2.2.4.1 Implement `append_message/2`:
+- [x] 2.2.4.1 Implement `append_message/2`:
   ```elixir
   def append_message(session_id, message) do
     GenServer.call(via(session_id), {:append_message, message})
   end
   ```
-- [ ] 2.2.4.2 Implement `handle_call({:append_message, message}, _, state)`
-- [ ] 2.2.4.3 Add message to end of messages list
-- [ ] 2.2.4.4 Implement `clear_messages/1` for clearing history
-- [ ] 2.2.4.5 Write unit tests for message management
+- [x] 2.2.4.2 Implement `handle_call({:append_message, message}, _, state)`
+- [x] 2.2.4.3 Add message to end of messages list
+- [x] 2.2.4.4 Implement `clear_messages/1` for clearing history
+- [x] 2.2.4.5 Write unit tests for message management
 
 ### 2.2.5 Streaming API
-- [ ] **Task 2.2.5**
+- [x] **Task 2.2.5**
 
 Implement functions for streaming message updates.
 
-- [ ] 2.2.5.1 Implement `start_streaming/2` accepting session_id and message_id:
+- [x] 2.2.5.1 Implement `start_streaming/2` accepting session_id and message_id:
   ```elixir
   def start_streaming(session_id, message_id) do
     GenServer.call(via(session_id), {:start_streaming, message_id})
   end
   ```
-- [ ] 2.2.5.2 Set `is_streaming: true` and `streaming_message: ""`
-- [ ] 2.2.5.3 Implement `update_streaming/2` for appending chunks (cast):
+- [x] 2.2.5.2 Set `is_streaming: true` and `streaming_message: ""`
+- [x] 2.2.5.3 Implement `update_streaming/2` for appending chunks (cast):
   ```elixir
   def update_streaming(session_id, chunk) do
     GenServer.cast(via(session_id), {:streaming_chunk, chunk})
   end
   ```
-- [ ] 2.2.5.4 Implement `end_streaming/1` to finalize streaming
-- [ ] 2.2.5.5 Move streaming_message content to messages list
-- [ ] 2.2.5.6 Set `is_streaming: false` and `streaming_message: nil`
-- [ ] 2.2.5.7 Write unit tests for streaming lifecycle
+- [x] 2.2.5.4 Implement `end_streaming/1` to finalize streaming
+- [x] 2.2.5.5 Move streaming_message content to messages list
+- [x] 2.2.5.6 Set `is_streaming: false` and `streaming_message: nil`
+- [x] 2.2.5.7 Write unit tests for streaming lifecycle
 
 ### 2.2.6 Scroll and UI State
-- [ ] **Task 2.2.6**
+- [x] **Task 2.2.6**
 
 Implement functions for UI state management.
 
-- [ ] 2.2.6.1 Implement `set_scroll_offset/2`
-- [ ] 2.2.6.2 Implement `update_todos/2` for task list updates
-- [ ] 2.2.6.3 Implement `add_reasoning_step/2`
-- [ ] 2.2.6.4 Implement `clear_reasoning_steps/1`
-- [ ] 2.2.6.5 Implement `add_tool_call/2`
-- [ ] 2.2.6.6 Write unit tests for UI state management
+- [x] 2.2.6.1 Implement `set_scroll_offset/2`
+- [x] 2.2.6.2 Implement `update_todos/2` for task list updates
+- [x] 2.2.6.3 Implement `add_reasoning_step/2`
+- [x] 2.2.6.4 Implement `clear_reasoning_steps/1`
+- [x] 2.2.6.5 Implement `add_tool_call/2`
+- [x] 2.2.6.6 Write unit tests for UI state management
 
 **Unit Tests for Section 2.2:**
 - Test State starts with empty messages
@@ -287,21 +287,21 @@ Implement functions for UI state management.
 Create per-session settings loader that respects project-local configuration.
 
 ### 2.3.1 Settings Module Structure
-- [ ] **Task 2.3.1**
+- [x] **Task 2.3.1** ✅ COMPLETE
 
 Create the Session.Settings module for per-project settings.
 
-- [ ] 2.3.1.1 Create `lib/jido_code/session/settings.ex` with module documentation
-- [ ] 2.3.1.2 Define settings file path pattern: `{project_path}/jido_code/settings.json`
-- [ ] 2.3.1.3 Document merge priority: global < local
-- [ ] 2.3.1.4 Write module spec
+- [x] 2.3.1.1 Create `lib/jido_code/session/settings.ex` with module documentation
+- [x] 2.3.1.2 Define settings file path pattern: `{project_path}/.jido_code/settings.json`
+- [x] 2.3.1.3 Document merge priority: global < local
+- [x] 2.3.1.4 Write module spec
 
 ### 2.3.2 Settings Loading
-- [ ] **Task 2.3.2**
+- [x] **Task 2.3.2** ✅ COMPLETE
 
 Implement settings loading for a project path.
 
-- [ ] 2.3.2.1 Implement `load/1` accepting project_path:
+- [x] 2.3.2.1 Implement `load/1` accepting project_path:
   ```elixir
   def load(project_path) do
     global = JidoCode.Settings.load_global()
@@ -309,31 +309,31 @@ Implement settings loading for a project path.
     Map.merge(global, local)
   end
   ```
-- [ ] 2.3.2.2 Implement `load_local/1` for project-specific settings
-- [ ] 2.3.2.3 Handle missing local settings file (return empty map)
-- [ ] 2.3.2.4 Handle malformed JSON (log warning, return empty map)
-- [ ] 2.3.2.5 Write unit tests for settings loading
+- [x] 2.3.2.2 Implement `load_local/1` for project-specific settings
+- [x] 2.3.2.3 Handle missing local settings file (return empty map)
+- [x] 2.3.2.4 Handle malformed JSON (log warning, return empty map)
+- [x] 2.3.2.5 Write unit tests for settings loading
 
 ### 2.3.3 Settings Path Functions
-- [ ] **Task 2.3.3**
+- [x] **Task 2.3.3** ✅ COMPLETE
 
 Implement helper functions for settings paths.
 
-- [ ] 2.3.3.1 Implement `local_path/1` returning settings file path for project
-- [ ] 2.3.3.2 Implement `local_dir/1` returning settings directory for project
-- [ ] 2.3.3.3 Implement `ensure_local_dir/1` creating directory if missing
-- [ ] 2.3.3.4 Write unit tests for path functions
+- [x] 2.3.3.1 Implement `local_path/1` returning settings file path for project (done in 2.3.1)
+- [x] 2.3.3.2 Implement `local_dir/1` returning settings directory for project (done in 2.3.1)
+- [x] 2.3.3.3 Implement `ensure_local_dir/1` creating directory if missing
+- [x] 2.3.3.4 Write unit tests for path functions
 
 ### 2.3.4 Settings Saving
-- [ ] **Task 2.3.4**
+- [x] **Task 2.3.4** ✅ COMPLETE
 
 Implement settings saving for session-specific overrides.
 
-- [ ] 2.3.4.1 Implement `save/2` accepting project_path and settings map
-- [ ] 2.3.4.2 Create settings directory if it doesn't exist
-- [ ] 2.3.4.3 Write settings to JSON file atomically
-- [ ] 2.3.4.4 Implement `set/3` for updating individual keys
-- [ ] 2.3.4.5 Write unit tests for settings saving
+- [x] 2.3.4.1 Implement `save/2` accepting project_path and settings map
+- [x] 2.3.4.2 Create settings directory if it doesn't exist
+- [x] 2.3.4.3 Write settings to JSON file atomically
+- [x] 2.3.4.4 Implement `set/3` for updating individual keys
+- [x] 2.3.4.5 Write unit tests for settings saving
 
 **Unit Tests for Section 2.3:**
 - Test `load/1` merges global and local settings
@@ -352,23 +352,23 @@ Implement settings saving for session-specific overrides.
 Update the global Tools.Manager to delegate to session-scoped managers.
 
 ### 2.4.1 Manager Compatibility Layer
-- [ ] **Task 2.4.1**
+- [x] **Task 2.4.1** ✅ COMPLETE
 
 Add session awareness to global Tools.Manager.
 
-- [ ] 2.4.1.1 Update `Tools.Manager` to accept optional `session_id` in context
-- [ ] 2.4.1.2 When `session_id` present, delegate to `Session.Manager`
-- [ ] 2.4.1.3 When `session_id` absent, use global project_root (backwards compat)
-- [ ] 2.4.1.4 Add deprecation warning when using global manager
-- [ ] 2.4.1.5 Document migration path in module doc
-- [ ] 2.4.1.6 Write tests for compatibility layer
+- [x] 2.4.1.1 Update `Tools.Manager` to accept optional `session_id` in context
+- [x] 2.4.1.2 When `session_id` present, delegate to `Session.Manager`
+- [x] 2.4.1.3 When `session_id` absent, use global project_root (backwards compat)
+- [x] 2.4.1.4 Add deprecation warning when using global manager
+- [x] 2.4.1.5 Document migration path in module doc
+- [x] 2.4.1.6 Write tests for compatibility layer
 
 ### 2.4.2 Handler Helpers Update
-- [ ] **Task 2.4.2**
+- [x] **Task 2.4.2** ✅ COMPLETE
 
 Update HandlerHelpers to prefer session context.
 
-- [ ] 2.4.2.1 Update `get_project_root/1` to check for session_id first:
+- [x] 2.4.2.1 Update `get_project_root/1` to check for session_id first:
   ```elixir
   def get_project_root(context) do
     cond do
@@ -381,14 +381,87 @@ Update HandlerHelpers to prefer session context.
     end
   end
   ```
-- [ ] 2.4.2.2 Update `validate_path/2` to use session manager when available
-- [ ] 2.4.2.3 Write tests for session-aware helpers
+- [x] 2.4.2.2 Update `validate_path/2` to use session manager when available
+- [x] 2.4.2.3 Write tests for session-aware helpers
+
+### 2.4.3 Review Fixes (Post-Review)
+- [x] **Task 2.4.3** ✅ COMPLETE
+
+Address review findings from Section 2.4 review.
+
+- [x] 2.4.3.1 Add UUID format validation for session_id in HandlerHelpers
+- [x] 2.4.3.2 Add deprecation logging when falling back to global manager
+- [x] 2.4.3.3 Make deprecation warnings suppressible via application config
+- [x] 2.4.3.4 Add format_common_error/2 clause for :invalid_session_id
+- [x] 2.4.3.5 Add edge case tests for UUID validation
+- [x] 2.4.3.6 Add tests for deprecation warning logging
 
 **Unit Tests for Section 2.4:**
 - Test Tools.Manager works with session_id in context
 - Test Tools.Manager works without session_id (backwards compat)
 - Test HandlerHelpers.get_project_root uses session manager
 - Test HandlerHelpers.get_project_root falls back to global
+- Test invalid session_id format returns :invalid_session_id error
+- Test deprecation warnings logged when using global fallback
+- Test deprecation warnings can be suppressed
+
+---
+
+## 2.5 Phase 2 Integration Tests
+
+Comprehensive integration tests verifying all Phase 2 components work together correctly.
+
+### 2.5.1 Manager-State Integration
+- [x] **Task 2.5.1** ✅ COMPLETE
+
+Test Session.Manager and Session.State work together within a session.
+
+- [x] 2.5.1.1 Create `test/jido_code/integration/session_phase2_test.exs`
+- [x] 2.5.1.2 Test: Create session → Manager and State both start → both accessible via helpers
+- [x] 2.5.1.3 Test: Manager validates path → State stores result metadata
+- [x] 2.5.1.4 Test: Manager Lua execution → State tracks tool call
+- [x] 2.5.1.5 Test: Session restart → Manager and State both restart with correct session context
+- [x] 2.5.1.6 Write all Manager-State integration tests (7 tests)
+
+### 2.5.2 Settings Integration
+- [x] **Task 2.5.2** ✅ COMPLETE
+
+Test Session.Settings integrates correctly with session creation.
+
+- [x] 2.5.2.1 Test: Create session → Settings loaded from project path
+- [x] 2.5.2.2 Test: Local settings override global settings in session config
+- [x] 2.5.2.3 Test: Missing local settings → falls back to global only
+- [x] 2.5.2.4 Test: Save settings → reload session → settings persisted
+- [x] 2.5.2.5 Write all Settings integration tests (5 tests)
+
+### 2.5.3 Multi-Session Isolation
+- [x] **Task 2.5.3** ✅ COMPLETE
+
+Test multiple sessions have isolated Manager and State instances.
+
+- [x] 2.5.3.1 Test: Create 2 sessions → each has own Manager with different project_root
+- [x] 2.5.3.2 Test: Create 2 sessions → each has own State with independent messages
+- [x] 2.5.3.3 Test: Create 2 sessions → each has own Lua sandbox (isolated state)
+- [x] 2.5.3.4 Test: Streaming in session A → session B State unaffected
+- [x] 2.5.3.5 Test: Path validation in session A → uses session A's project_root only
+- [x] 2.5.3.6 Write all isolation integration tests (6 tests)
+
+### 2.5.4 Backwards Compatibility
+- [x] **Task 2.5.4** ✅ COMPLETE
+
+Test global Tools.Manager compatibility layer works correctly.
+
+- [x] 2.5.4.1 Test: HandlerHelpers.get_project_root with session_id → uses Session.Manager
+- [x] 2.5.4.2 Test: HandlerHelpers.get_project_root without session_id → uses global project_root
+- [x] 2.5.4.3 Test: HandlerHelpers prefer session context when available
+- [x] 2.5.4.4 Test: HandlerHelpers.validate_path with both session and global context
+- [x] 2.5.4.5 Write all compatibility integration tests (7 tests)
+
+**Integration Tests for Section 2.5:** (25 total tests)
+- Manager and State coordinate correctly within session
+- Settings load and merge correctly for sessions
+- Multiple sessions have complete isolation
+- Backwards compatibility maintained
 
 ---
 
@@ -404,6 +477,7 @@ Update HandlerHelpers to prefer session context.
 8. **Session.Settings**: Per-project settings load and merge with global
 9. **Backwards Compatibility**: Global Tools.Manager still works for non-session code
 10. **Test Coverage**: Minimum 80% coverage for phase 2 code
+11. **Integration Tests**: All Phase 2 components work together correctly (Section 2.5)
 
 ---
 
@@ -416,6 +490,7 @@ Update HandlerHelpers to prefer session context.
 - `test/jido_code/session/manager_test.exs`
 - `test/jido_code/session/state_test.exs`
 - `test/jido_code/session/settings_test.exs`
+- `test/jido_code/integration/session_phase2_test.exs`
 
 **Modified Files:**
 - `lib/jido_code/tools/manager.ex` - Add session delegation

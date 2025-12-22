@@ -5,7 +5,13 @@ import Config
 # General application configuration
 config :jido_code,
   # PubSub configuration
-  pubsub: [name: JidoCode.PubSub, adapter: Phoenix.PubSub.PG2]
+  pubsub: [name: JidoCode.PubSub, adapter: Phoenix.PubSub.PG2],
+  # Session file signing salt (change per release for security)
+  signing_salt: "jido_code_session_v1_2025",
+  # Rate limiting configuration
+  rate_limits: %{
+    resume: %{limit: 5, window_seconds: 60}
+  }
 
 # Logger configuration
 config :logger, :console,

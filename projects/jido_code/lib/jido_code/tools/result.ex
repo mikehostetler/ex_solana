@@ -1,4 +1,6 @@
 defmodule JidoCode.Tools.Result do
+  alias JidoCode.ErrorFormatter
+
   @moduledoc """
   Represents the result of a tool execution.
 
@@ -110,7 +112,7 @@ defmodule JidoCode.Tools.Result do
       tool_call_id: tool_call_id,
       tool_name: tool_name,
       status: :error,
-      content: format_error(reason),
+      content: ErrorFormatter.format(reason),
       duration_ms: duration_ms
     }
   end
@@ -216,13 +218,4 @@ defmodule JidoCode.Tools.Result do
   defp format_content(content) when is_map(content), do: Jason.encode!(content)
   defp format_content(content) when is_list(content), do: Jason.encode!(content)
   defp format_content(content), do: inspect(content)
-
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason) when is_atom(reason), do: Atom.to_string(reason)
-
-  defp format_error({:error, reason}), do: format_error(reason)
-
-  defp format_error(%{message: message}) when is_binary(message), do: message
-
-  defp format_error(reason), do: inspect(reason)
 end

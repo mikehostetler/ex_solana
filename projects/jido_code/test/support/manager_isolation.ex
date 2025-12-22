@@ -45,7 +45,9 @@ defmodule JidoCode.TestHelpers.ManagerIsolation do
     # Get current project root (or use cwd if Manager isn't running)
     original_root =
       case Process.whereis(Manager) do
-        nil -> File.cwd!()
+        nil ->
+          File.cwd!()
+
         _pid ->
           {:ok, root} = Manager.project_root()
           root
@@ -66,7 +68,9 @@ defmodule JidoCode.TestHelpers.ManagerIsolation do
 
   defp stop_manager do
     case Process.whereis(Manager) do
-      nil -> :ok
+      nil ->
+        :ok
+
       pid when is_pid(pid) ->
         ref = Process.monitor(pid)
 

@@ -8,6 +8,32 @@ defmodule JidoCode.Tools.Manager do
   - Arbitrary file loading (loadfile, dofile, require)
   - Module system access (package)
 
+  ## Deprecation Notice
+
+  **The global Tools.Manager is deprecated.** For new code, use session-scoped
+  managers via `JidoCode.Session.Manager` instead.
+
+  All API functions now accept an optional `:session_id` option. When provided,
+  the call is delegated to `Session.Manager` for that session. When omitted,
+  the global manager is used with a deprecation warning.
+
+  ### Migration Path
+
+  **Before (deprecated):**
+
+      {:ok, path} = Tools.Manager.project_root()
+      {:ok, content} = Tools.Manager.read_file("src/file.ex")
+
+  **After (recommended):**
+
+      {:ok, path} = Tools.Manager.project_root(session_id: session.id)
+      {:ok, content} = Tools.Manager.read_file("src/file.ex", session_id: session.id)
+
+  Or use `Session.Manager` directly:
+
+      {:ok, path} = Session.Manager.project_root(session.id)
+      {:ok, content} = Session.Manager.read_file(session.id, "src/file.ex")
+
   ## Usage
 
   The Manager is started as part of the application supervision tree with
@@ -16,7 +42,10 @@ defmodule JidoCode.Tools.Manager do
       # Via supervision tree (automatic)
       JidoCode.Tools.Manager.execute("my_tool", %{"arg" => "value"})
 
-      # Get project root
+      # Get project root (session-aware)
+      {:ok, path} = JidoCode.Tools.Manager.project_root(session_id: "abc123")
+
+      # Get project root (global, deprecated)
       {:ok, path} = JidoCode.Tools.Manager.project_root()
 
   ## Sandboxed File Operations
@@ -24,11 +53,11 @@ defmodule JidoCode.Tools.Manager do
   All file and shell operations should go through the Manager API to ensure
   they are executed within the Lua sandbox with proper security validation:
 
-      # Read a file through the sandbox
-      {:ok, content} = JidoCode.Tools.Manager.read_file("src/main.ex")
+      # Read a file through the sandbox (session-aware)
+      {:ok, content} = JidoCode.Tools.Manager.read_file("src/main.ex", session_id: id)
 
       # Write a file through the sandbox
-      :ok = JidoCode.Tools.Manager.write_file("output.txt", "Hello")
+      :ok = JidoCode.Tools.Manager.write_file("output.txt", "Hello", session_id: id)
 
       # Execute a shell command through the sandbox
       {:ok, result} = JidoCode.Tools.Manager.shell("mix", ["test"])
@@ -54,6 +83,8 @@ defmodule JidoCode.Tools.Manager do
 
   use GenServer
 
+  alias JidoCode.ErrorFormatter
+  alias JidoCode.Session
   alias JidoCode.Tools.{Bridge, Security}
 
   require Logger
@@ -131,13 +162,34 @@ defmodule JidoCode.Tools.Manager do
   @doc """
   Gets the project root path.
 
+  ## Options
+
+  - `:session_id` - When provided, delegates to `Session.Manager.project_root/1`
+    for the specified session. When omitted, uses the global manager (deprecated).
+
   ## Returns
 
   - `{:ok, path}` - The project root path
+  - `{:error, :not_found}` - Session manager not found (when using session_id)
+
+  ## Examples
+
+      # Session-aware (preferred)
+      {:ok, path} = Manager.project_root(session_id: "abc123")
+
+      # Global (deprecated)
+      {:ok, path} = Manager.project_root()
   """
-  @spec project_root() :: {:ok, String.t()}
-  def project_root do
-    GenServer.call(__MODULE__, :project_root)
+  @spec project_root(keyword()) :: {:ok, String.t()} | {:error, :not_found}
+  def project_root(opts \\ []) do
+    case Keyword.get(opts, :session_id) do
+      nil ->
+        warn_global_usage(:project_root)
+        GenServer.call(__MODULE__, :project_root)
+
+      session_id ->
+        Session.Manager.project_root(session_id)
+    end
   end
 
   @doc """
@@ -149,21 +201,37 @@ defmodule JidoCode.Tools.Manager do
   ## Parameters
 
   - `path` - The path to validate (relative or absolute)
-  - `opts` - Options passed to Security.validate_path/3
+  - `opts` - Options:
+    - `:session_id` - When provided, delegates to `Session.Manager.validate_path/2`
+    - Other options are passed to Security.validate_path/3
 
   ## Returns
 
   - `{:ok, resolved_path}` - Path is valid and resolved
   - `{:error, reason}` - Path violates security boundary
+  - `{:error, :not_found}` - Session manager not found (when using session_id)
 
   ## Examples
 
+      # Session-aware (preferred)
+      {:ok, safe_path} = Manager.validate_path("src/file.ex", session_id: "abc123")
+
+      # Global (deprecated)
       {:ok, safe_path} = Manager.validate_path("src/file.ex")
       {:error, :path_escapes_boundary} = Manager.validate_path("../../../etc/passwd")
   """
   @spec validate_path(String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def validate_path(path, opts \\ []) do
-    GenServer.call(__MODULE__, {:validate_path, path, opts})
+    {session_id, security_opts} = Keyword.pop(opts, :session_id)
+
+    case session_id do
+      nil ->
+        warn_global_usage(:validate_path)
+        GenServer.call(__MODULE__, {:validate_path, path, security_opts})
+
+      session_id ->
+        Session.Manager.validate_path(session_id, path)
+    end
   end
 
   @doc """
@@ -195,15 +263,33 @@ defmodule JidoCode.Tools.Manager do
   ## Parameters
 
   - `path` - Path to the file (relative or absolute)
+  - `opts` - Options:
+    - `:session_id` - When provided, delegates to `Session.Manager.read_file/2`
 
   ## Returns
 
   - `{:ok, content}` - File contents as string
   - `{:error, reason}` - Error message
+  - `{:error, :not_found}` - Session manager not found (when using session_id)
+
+  ## Examples
+
+      # Session-aware (preferred)
+      {:ok, content} = Manager.read_file("src/file.ex", session_id: "abc123")
+
+      # Global (deprecated)
+      {:ok, content} = Manager.read_file("src/file.ex")
   """
-  @spec read_file(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def read_file(path) do
-    GenServer.call(__MODULE__, {:sandbox_read_file, path})
+  @spec read_file(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t() | :not_found}
+  def read_file(path, opts \\ []) do
+    case Keyword.get(opts, :session_id) do
+      nil ->
+        warn_global_usage(:read_file)
+        GenServer.call(__MODULE__, {:sandbox_read_file, path})
+
+      session_id ->
+        Session.Manager.read_file(session_id, path)
+    end
   end
 
   @doc """
@@ -215,15 +301,33 @@ defmodule JidoCode.Tools.Manager do
 
   - `path` - Path to the file (relative or absolute)
   - `content` - Content to write
+  - `opts` - Options:
+    - `:session_id` - When provided, delegates to `Session.Manager.write_file/3`
 
   ## Returns
 
   - `:ok` - File written successfully
   - `{:error, reason}` - Error message
+  - `{:error, :not_found}` - Session manager not found (when using session_id)
+
+  ## Examples
+
+      # Session-aware (preferred)
+      :ok = Manager.write_file("output.txt", "Hello", session_id: "abc123")
+
+      # Global (deprecated)
+      :ok = Manager.write_file("output.txt", "Hello")
   """
-  @spec write_file(String.t(), String.t()) :: :ok | {:error, String.t()}
-  def write_file(path, content) do
-    GenServer.call(__MODULE__, {:sandbox_write_file, path, content})
+  @spec write_file(String.t(), String.t(), keyword()) :: :ok | {:error, String.t() | :not_found}
+  def write_file(path, content, opts \\ []) do
+    case Keyword.get(opts, :session_id) do
+      nil ->
+        warn_global_usage(:write_file)
+        GenServer.call(__MODULE__, {:sandbox_write_file, path, content})
+
+      session_id ->
+        Session.Manager.write_file(session_id, path, content)
+    end
   end
 
   @doc """
@@ -234,15 +338,33 @@ defmodule JidoCode.Tools.Manager do
   ## Parameters
 
   - `path` - Path to the directory (relative or absolute)
+  - `opts` - Options:
+    - `:session_id` - When provided, delegates to `Session.Manager.list_dir/2`
 
   ## Returns
 
   - `{:ok, entries}` - List of directory entry names
   - `{:error, reason}` - Error message
+  - `{:error, :not_found}` - Session manager not found (when using session_id)
+
+  ## Examples
+
+      # Session-aware (preferred)
+      {:ok, entries} = Manager.list_dir("src", session_id: "abc123")
+
+      # Global (deprecated)
+      {:ok, entries} = Manager.list_dir("src")
   """
-  @spec list_dir(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
-  def list_dir(path) do
-    GenServer.call(__MODULE__, {:sandbox_list_dir, path})
+  @spec list_dir(String.t(), keyword()) :: {:ok, [String.t()]} | {:error, String.t() | :not_found}
+  def list_dir(path, opts \\ []) do
+    case Keyword.get(opts, :session_id) do
+      nil ->
+        warn_global_usage(:list_dir)
+        GenServer.call(__MODULE__, {:sandbox_list_dir, path})
+
+      session_id ->
+        Session.Manager.list_dir(session_id, path)
+    end
   end
 
   @doc """
@@ -297,8 +419,8 @@ defmodule JidoCode.Tools.Manager do
   - `{:ok, is_file}` - Boolean indicating if path is a regular file
   - `{:error, reason}` - Error message (security violation)
   """
-  @spec is_file?(String.t()) :: {:ok, boolean()} | {:error, String.t()}
-  def is_file?(path) do
+  @spec file?(String.t()) :: {:ok, boolean()} | {:error, String.t()}
+  def file?(path) do
     GenServer.call(__MODULE__, {:sandbox_is_file, path})
   end
 
@@ -316,8 +438,8 @@ defmodule JidoCode.Tools.Manager do
   - `{:ok, is_dir}` - Boolean indicating if path is a directory
   - `{:error, reason}` - Error message (security violation)
   """
-  @spec is_dir?(String.t()) :: {:ok, boolean()} | {:error, String.t()}
-  def is_dir?(path) do
+  @spec directory?(String.t()) :: {:ok, boolean()} | {:error, String.t()}
+  def directory?(path) do
     GenServer.call(__MODULE__, {:sandbox_is_dir, path})
   end
 
@@ -461,23 +583,6 @@ defmodule JidoCode.Tools.Manager do
     end
   end
 
-  # Parse ISO 8601 datetime string to erlang datetime tuple
-  defp parse_mtime(nil), do: {{1970, 1, 1}, {0, 0, 0}}
-  defp parse_mtime(""), do: {{1970, 1, 1}, {0, 0, 0}}
-
-  defp parse_mtime(mtime_str) when is_binary(mtime_str) do
-    case Regex.run(~r/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/, mtime_str) do
-      [_, year, month, day, hour, minute, second] ->
-        {{String.to_integer(year), String.to_integer(month), String.to_integer(day)},
-         {String.to_integer(hour), String.to_integer(minute), String.to_integer(second)}}
-
-      _ ->
-        {{1970, 1, 1}, {0, 0, 0}}
-    end
-  end
-
-  defp parse_mtime(_), do: {{1970, 1, 1}, {0, 0, 0}}
-
   @impl true
   def handle_call({:sandbox_file_exists, path}, _from, state) do
     result = call_bridge_function(state.lua_state, "file_exists", [path])
@@ -530,12 +635,26 @@ defmodule JidoCode.Tools.Manager do
   # Private Functions
   # ============================================================================
 
+  # Parse ISO 8601 datetime string to erlang datetime tuple
+  defp parse_mtime(nil), do: {{1970, 1, 1}, {0, 0, 0}}
+  defp parse_mtime(""), do: {{1970, 1, 1}, {0, 0, 0}}
+
+  defp parse_mtime(mtime_str) when is_binary(mtime_str) do
+    case Regex.run(~r/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/, mtime_str) do
+      [_, year, month, day, hour, minute, second] ->
+        {{String.to_integer(year), String.to_integer(month), String.to_integer(day)},
+         {String.to_integer(hour), String.to_integer(minute), String.to_integer(second)}}
+
+      _ ->
+        {{1970, 1, 1}, {0, 0, 0}}
+    end
+  end
+
+  defp parse_mtime(_), do: {{1970, 1, 1}, {0, 0, 0}}
+
   defp call_bridge_function(lua_state, func_name, args) do
     # Build Lua call: jido.func_name(args...)
-    args_str =
-      args
-      |> Enum.map(&lua_encode_arg/1)
-      |> Enum.join(", ")
+    args_str = Enum.map_join(args, ", ", &lua_encode_arg/1)
 
     script = "return jido.#{func_name}(#{args_str})"
 
@@ -550,7 +669,7 @@ defmodule JidoCode.Tools.Manager do
         {:ok, nil}
 
       {:error, reason, _state} ->
-        {:error, format_error(reason)}
+        {:error, ErrorFormatter.format(reason)}
     end
   rescue
     e ->
@@ -582,12 +701,10 @@ defmodule JidoCode.Tools.Manager do
   defp lua_encode_arg(arg) when is_list(arg) do
     # Encode as Lua table
     items =
-      arg
-      |> Enum.map(fn
+      Enum.map_join(arg, ", ", fn
         {k, v} when is_integer(k) -> "[#{k}] = #{lua_encode_arg(v)}"
         {k, v} -> "[\"#{k}\"] = #{lua_encode_arg(v)}"
       end)
-      |> Enum.join(", ")
 
     "{#{items}}"
   end
@@ -636,7 +753,7 @@ defmodule JidoCode.Tools.Manager do
         {:ok, result}
 
       {:error, reason, _state} ->
-        {:error, format_error(reason)}
+        {:error, ErrorFormatter.format(reason)}
     end
   rescue
     e ->
@@ -740,12 +857,20 @@ defmodule JidoCode.Tools.Manager do
   defp to_int_key(k) when is_float(k), do: trunc(k)
   defp to_int_key(_), do: nil
 
-  defp format_error(reason) when is_binary(reason), do: reason
-  defp format_error(reason) when is_atom(reason), do: Atom.to_string(reason)
+  # ============================================================================
+  # Deprecation Warning
+  # ============================================================================
 
-  defp format_error({:lua_error, error, _stack}) do
-    format_error(error)
+  # Warns about using the global manager without a session_id.
+  # The warning can be suppressed by setting :suppress_global_manager_warnings
+  # in the :jido_code application config.
+  defp warn_global_usage(function_name) do
+    unless Application.get_env(:jido_code, :suppress_global_manager_warnings, false) do
+      Logger.warning(
+        "Tools.Manager.#{function_name}/1 called without session_id. " <>
+          "Global manager usage is deprecated. " <>
+          "Pass session_id: your_session_id or use Session.Manager directly."
+      )
+    end
   end
-
-  defp format_error(reason), do: inspect(reason)
 end

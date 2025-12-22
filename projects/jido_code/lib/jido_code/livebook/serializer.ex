@@ -12,7 +12,7 @@ defmodule JidoCode.Livebook.Serializer do
       File.write!("notebook.livemd", livemd_content)
   """
 
-  alias JidoCode.Livebook.{Notebook, Cell}
+  alias JidoCode.Livebook.{Cell, Notebook}
 
   @doc """
   Serializes a `%Notebook{}` struct to .livemd string format.

@@ -154,7 +154,8 @@ defmodule JidoCode.Tools.Definitions.FileSystem do
         %{
           name: "replace_all",
           type: :boolean,
-          description: "Replace all occurrences instead of requiring exactly one match (default: false)",
+          description:
+            "Replace all occurrences instead of requiring exactly one match (default: false)",
           required: false
         }
       ]

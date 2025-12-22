@@ -24,10 +24,13 @@ defmodule JidoCode.Tools.ExecutorTest do
   end
 
   setup do
-    # Clear and set up registry for each test
+    # Ensure application is started (Manager and registries)
+    Application.ensure_all_started(:jido_code)
+
+    # Clear registry for each test
     Registry.clear()
 
-    # Register test tools
+    # Register test tools (idempotent - will skip if already registered)
     {:ok, read_file} =
       Tool.new(%{
         name: "read_file",
@@ -69,10 +72,11 @@ defmodule JidoCode.Tools.ExecutorTest do
         ]
       })
 
-    :ok = Registry.register(read_file)
-    :ok = Registry.register(write_file)
-    :ok = Registry.register(error_tool)
-    :ok = Registry.register(slow_tool)
+    # Register tools, ignoring if already registered
+    _ = Registry.register(read_file)
+    _ = Registry.register(write_file)
+    _ = Registry.register(error_tool)
+    _ = Registry.register(slow_tool)
 
     :ok
   end
@@ -434,8 +438,9 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_pubsub_1", name: "read_file", arguments: %{"path" => "/test.txt"}}
       {:ok, _result} = Executor.execute(tool_call)
 
-      # Should receive tool_call event
-      assert_receive {:tool_call, "read_file", %{"path" => "/test.txt"}, "call_pubsub_1"}, 1000
+      # Should receive tool_call event with session_id (nil when not provided)
+      assert_receive {:tool_call, "read_file", %{"path" => "/test.txt"}, "call_pubsub_1", nil},
+                     1000
     end
 
     test "broadcasts tool_result event when executing" do
@@ -445,8 +450,8 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_pubsub_2", name: "read_file", arguments: %{"path" => "/result.txt"}}
       {:ok, _result} = Executor.execute(tool_call)
 
-      # Should receive tool_result event
-      assert_receive {:tool_result, result}, 1000
+      # Should receive tool_result event with session_id (nil when not provided)
+      assert_receive {:tool_result, result, nil}, 1000
       assert result.tool_call_id == "call_pubsub_2"
       assert result.tool_name == "read_file"
       assert result.status == :ok
@@ -460,9 +465,9 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_session_1", name: "read_file", arguments: %{"path" => "/test.txt"}}
       {:ok, _result} = Executor.execute(tool_call, session_id: session_id)
 
-      # Should receive events on session topic
-      assert_receive {:tool_call, "read_file", _, "call_session_1"}, 1000
-      assert_receive {:tool_result, _result}, 1000
+      # Should receive events on session topic with session_id in payload
+      assert_receive {:tool_call, "read_file", _, "call_session_1", ^session_id}, 1000
+      assert_receive {:tool_result, _result, ^session_id}, 1000
     end
 
     test "broadcasts to BOTH global and session topic when session_id provided (ARCH-2 fix)" do
@@ -474,9 +479,9 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_isolated", name: "read_file", arguments: %{"path" => "/test.txt"}}
       {:ok, _result} = Executor.execute(tool_call, session_id: session_id)
 
-      # ARCH-2: Should NOW receive events on global topic (for PubSubBridge)
-      assert_receive {:tool_call, _, _, "call_isolated"}, 100
-      assert_receive {:tool_result, _}, 100
+      # ARCH-2: Should NOW receive events on global topic with session_id in payload
+      assert_receive {:tool_call, _, _, "call_isolated", ^session_id}, 100
+      assert_receive {:tool_result, _, ^session_id}, 100
     end
 
     test "broadcasts error result for non-existent tool" do
@@ -485,8 +490,8 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_error_1", name: "nonexistent", arguments: %{}}
       {:ok, _result} = Executor.execute(tool_call)
 
-      # Should receive error result
-      assert_receive {:tool_result, result}, 1000
+      # Should receive error result with nil session_id
+      assert_receive {:tool_result, result, nil}, 1000
       assert result.status == :error
       assert result.content =~ "not found"
     end
@@ -497,10 +502,34 @@ defmodule JidoCode.Tools.ExecutorTest do
       tool_call = %{id: "call_timeout_1", name: "slow_tool", arguments: %{"slow" => 500}}
       {:ok, _result} = Executor.execute(tool_call, timeout: 50)
 
-      # Should receive both call and timeout result
-      assert_receive {:tool_call, "slow_tool", _, "call_timeout_1"}, 1000
-      assert_receive {:tool_result, result}, 1000
+      # Should receive both call and timeout result with nil session_id
+      assert_receive {:tool_call, "slow_tool", _, "call_timeout_1", nil}, 1000
+      assert_receive {:tool_result, result, nil}, 1000
       assert result.status == :timeout
+    end
+
+    test "includes session_id in tool_call payload" do
+      session_id = "payload_test_session"
+      Phoenix.PubSub.subscribe(JidoCode.PubSub, "tui.events")
+
+      tool_call = %{id: "call_payload_1", name: "read_file", arguments: %{"path" => "/test.txt"}}
+      {:ok, _result} = Executor.execute(tool_call, session_id: session_id)
+
+      # Verify session_id is in the 5th position of the tuple
+      assert_receive {:tool_call, _name, _params, _call_id, received_session_id}, 1000
+      assert received_session_id == session_id
+    end
+
+    test "includes session_id in tool_result payload" do
+      session_id = "result_payload_session"
+      Phoenix.PubSub.subscribe(JidoCode.PubSub, "tui.events")
+
+      tool_call = %{id: "call_result_1", name: "read_file", arguments: %{"path" => "/test.txt"}}
+      {:ok, _result} = Executor.execute(tool_call, session_id: session_id)
+
+      # Verify session_id is in the 3rd position of the tuple
+      assert_receive {:tool_result, _result, received_session_id}, 1000
+      assert received_session_id == session_id
     end
   end
 
@@ -511,6 +540,249 @@ defmodule JidoCode.Tools.ExecutorTest do
 
     test "returns session-specific topic for session_id" do
       assert Executor.pubsub_topic("session_abc") == "tui.events.session_abc"
+    end
+  end
+
+  # ============================================================================
+  # Context Building Tests
+  # ============================================================================
+
+  describe "build_context/2" do
+    @describetag :tmp_dir
+
+    setup %{tmp_dir: tmp_dir} do
+      # Suppress deprecation warnings for tests
+      Application.put_env(:jido_code, :suppress_executor_deprecation_warnings, true)
+
+      # Create a session with a manager for testing
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "context-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:context_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        Application.delete_env(:jido_code, :suppress_executor_deprecation_warnings)
+
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session, tmp_dir: tmp_dir}
+    end
+
+    test "builds context with project_root from Session.Manager", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      {:ok, context} = Executor.build_context(session.id)
+
+      assert context.session_id == session.id
+      assert context.project_root == tmp_dir
+      assert context.timeout == 30_000
+    end
+
+    test "allows custom timeout", %{session: session, tmp_dir: tmp_dir} do
+      {:ok, context} = Executor.build_context(session.id, timeout: 60_000)
+
+      assert context.session_id == session.id
+      assert context.project_root == tmp_dir
+      assert context.timeout == 60_000
+    end
+
+    test "returns error for unknown session_id" do
+      # Use a valid UUID that doesn't exist
+      assert {:error, :not_found} =
+               Executor.build_context("550e8400-e29b-41d4-a716-446655440000")
+    end
+  end
+
+  describe "enrich_context/1" do
+    @describetag :tmp_dir
+
+    setup %{tmp_dir: tmp_dir} do
+      # Create a session with a manager for testing
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "enrich-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:enrich_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session, tmp_dir: tmp_dir}
+    end
+
+    test "returns context unchanged if project_root already present", %{session: session} do
+      context = %{session_id: session.id, project_root: "/custom/path"}
+      {:ok, enriched} = Executor.enrich_context(context)
+
+      assert enriched == context
+      assert enriched.project_root == "/custom/path"
+    end
+
+    test "adds project_root from Session.Manager", %{session: session, tmp_dir: tmp_dir} do
+      context = %{session_id: session.id}
+      {:ok, enriched} = Executor.enrich_context(context)
+
+      assert enriched.session_id == session.id
+      assert enriched.project_root == tmp_dir
+    end
+
+    test "returns error for missing session_id" do
+      assert {:error, :missing_session_id} = Executor.enrich_context(%{})
+      assert {:error, :missing_session_id} = Executor.enrich_context(%{other: "value"})
+    end
+
+    test "returns error for unknown session_id" do
+      context = %{session_id: "550e8400-e29b-41d4-a716-446655440000"}
+      assert {:error, :not_found} = Executor.enrich_context(context)
+    end
+  end
+
+  describe "execute/2 with context" do
+    @describetag :tmp_dir
+
+    setup %{tmp_dir: tmp_dir} do
+      # Suppress deprecation warnings for tests
+      Application.put_env(:jido_code, :suppress_executor_deprecation_warnings, true)
+
+      # Create a session with a manager for testing
+      {:ok, session} = JidoCode.Session.new(project_path: tmp_dir, name: "exec-context-test")
+
+      {:ok, supervisor_pid} =
+        JidoCode.Session.Supervisor.start_link(
+          session: session,
+          name: {:via, Registry, {JidoCode.Registry, {:exec_context_test_sup, session.id}}}
+        )
+
+      on_exit(fn ->
+        Application.delete_env(:jido_code, :suppress_executor_deprecation_warnings)
+
+        try do
+          if Process.alive?(supervisor_pid), do: Supervisor.stop(supervisor_pid, :normal, 100)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      %{session: session, tmp_dir: tmp_dir}
+    end
+
+    test "uses session_id from context", %{session: session, tmp_dir: tmp_dir} do
+      tool_call = %{id: "call_ctx_1", name: "read_file", arguments: %{"path" => "/test.txt"}}
+      context = %{session_id: session.id, project_root: tmp_dir}
+
+      {:ok, result} = Executor.execute(tool_call, context: context)
+
+      assert result.status == :ok
+      assert result.tool_call_id == "call_ctx_1"
+    end
+
+    test "auto-populates project_root when session_id present", %{session: session} do
+      tool_call = %{id: "call_ctx_2", name: "read_file", arguments: %{"path" => "/test.txt"}}
+      # Context with only session_id
+      context = %{session_id: session.id}
+
+      {:ok, result} = Executor.execute(tool_call, context: context)
+
+      assert result.status == :ok
+    end
+
+    test "prefers session_id from context over legacy option", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      tool_call = %{id: "call_ctx_3", name: "read_file", arguments: %{"path" => "/test.txt"}}
+      context = %{session_id: session.id, project_root: tmp_dir}
+
+      # Pass both context.session_id and legacy session_id option
+      {:ok, result} =
+        Executor.execute(tool_call,
+          context: context,
+          session_id: "other-session-id"
+        )
+
+      # Should use context.session_id
+      assert result.status == :ok
+    end
+  end
+
+  # ============================================================================
+  # Security Tests
+  # ============================================================================
+
+  describe "build_context/2 UUID validation" do
+    test "rejects non-UUID format strings" do
+      assert {:error, :invalid_session_id} = Executor.build_context("not-a-uuid")
+      assert {:error, :invalid_session_id} = Executor.build_context("abc123")
+      assert {:error, :invalid_session_id} = Executor.build_context("")
+    end
+
+    test "rejects malformed UUIDs" do
+      # Wrong length
+      assert {:error, :invalid_session_id} =
+               Executor.build_context("550e8400-e29b-41d4-a716")
+
+      # Missing dashes
+      assert {:error, :invalid_session_id} =
+               Executor.build_context("550e8400e29b41d4a716446655440000")
+
+      # Invalid characters
+      assert {:error, :invalid_session_id} =
+               Executor.build_context("550e8400-e29b-41d4-a716-44665544ZZZZ")
+    end
+
+    test "rejects session IDs with special characters" do
+      assert {:error, :invalid_session_id} = Executor.build_context("../../../etc/passwd")
+
+      assert {:error, :invalid_session_id} =
+               Executor.build_context("test<script>alert(1)</script>")
+
+      assert {:error, :invalid_session_id} = Executor.build_context("session\nid")
+      assert {:error, :invalid_session_id} = Executor.build_context("session\x00id")
+    end
+
+    test "rejects path traversal attempts" do
+      assert {:error, :invalid_session_id} = Executor.build_context("..%2F..%2F..%2Fetc%2Fpasswd")
+      assert {:error, :invalid_session_id} = Executor.build_context("....//....//etc/passwd")
+    end
+
+    test "accepts valid UUIDs" do
+      # Valid UUID v4 - will return :not_found since session doesn't exist
+      assert {:error, :not_found} =
+               Executor.build_context("550e8400-e29b-41d4-a716-446655440000")
+
+      # Valid UUID with uppercase
+      assert {:error, :not_found} =
+               Executor.build_context("550E8400-E29B-41D4-A716-446655440000")
+
+      # Mixed case
+      assert {:error, :not_found} =
+               Executor.build_context("550e8400-E29B-41d4-A716-446655440000")
+    end
+  end
+
+  describe "pubsub_topic/1 delegates to PubSubHelpers" do
+    test "returns global topic for nil" do
+      assert Executor.pubsub_topic(nil) == "tui.events"
+    end
+
+    test "returns session-specific topic for session_id" do
+      assert Executor.pubsub_topic("abc-123") == "tui.events.abc-123"
     end
   end
 end

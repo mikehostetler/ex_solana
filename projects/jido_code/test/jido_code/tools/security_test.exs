@@ -420,4 +420,137 @@ defmodule JidoCode.Tools.SecurityTest do
       end
     end
   end
+
+  describe "validate_path/3 - protected settings files" do
+    test "blocks access to .jido_code/settings.json in project root" do
+      assert {:error, :protected_settings_file} =
+               Security.validate_path(".jido_code/settings.json", @test_root,
+                 log_violations: false
+               )
+    end
+
+    test "blocks access to .jido_code/settings.json with absolute path" do
+      settings_path = Path.join(@test_root, ".jido_code/settings.json")
+
+      assert {:error, :protected_settings_file} =
+               Security.validate_path(settings_path, @test_root, log_violations: false)
+    end
+
+    test "blocks access to .jido_code/settings.json in subdirectory" do
+      subdir_settings = "src/.jido_code/settings.json"
+
+      assert {:error, :protected_settings_file} =
+               Security.validate_path(subdir_settings, @test_root, log_violations: false)
+    end
+
+    test "blocks access with path traversal to .jido_code/settings.json" do
+      traversal_path = "src/../.jido_code/settings.json"
+
+      assert {:error, :protected_settings_file} =
+               Security.validate_path(traversal_path, @test_root, log_violations: false)
+    end
+
+    test "allows access to other files in .jido_code directory" do
+      # Other files in .jido_code should be accessible
+      assert {:ok, _resolved} =
+               Security.validate_path(".jido_code/cache.json", @test_root, log_violations: false)
+
+      assert {:ok, _resolved} =
+               Security.validate_path(".jido_code/logs/app.log", @test_root,
+                 log_violations: false
+               )
+    end
+
+    test "allows access to files named settings.json elsewhere" do
+      # settings.json in other directories should be fine
+      assert {:ok, _resolved} =
+               Security.validate_path("config/settings.json", @test_root, log_violations: false)
+
+      assert {:ok, _resolved} =
+               Security.validate_path("src/settings.json", @test_root, log_violations: false)
+    end
+
+    test "allows access to directories named .jido_code" do
+      # Can access the .jido_code directory itself, just not settings.json in it
+      assert {:ok, _resolved} =
+               Security.validate_path(".jido_code", @test_root, log_violations: false)
+
+      assert {:ok, _resolved} =
+               Security.validate_path(".jido_code/", @test_root, log_violations: false)
+    end
+
+    test "logs violation when attempting to access protected settings" do
+      log =
+        capture_log(fn ->
+          Security.validate_path(".jido_code/settings.json", @test_root, log_violations: true)
+        end)
+
+      assert log =~ "Security violation: protected_settings_file"
+    end
+  end
+
+  describe "atomic_read/3 - protected settings files" do
+    setup do
+      # Create .jido_code directory and settings file for testing
+      jido_dir = Path.join(@test_root, ".jido_code")
+      File.mkdir_p!(jido_dir)
+      settings_file = Path.join(jido_dir, "settings.json")
+      File.write!(settings_file, ~s({"provider": "anthropic"}))
+
+      on_exit(fn ->
+        File.rm_rf!(jido_dir)
+      end)
+
+      {:ok, settings_file: settings_file}
+    end
+
+    test "blocks reading protected settings file", %{settings_file: settings_file} do
+      assert {:error, :protected_settings_file} =
+               Security.atomic_read(settings_file, @test_root, log_violations: false)
+    end
+
+    test "blocks reading protected settings file with relative path" do
+      assert {:error, :protected_settings_file} =
+               Security.atomic_read(".jido_code/settings.json", @test_root, log_violations: false)
+    end
+  end
+
+  describe "atomic_write/3 - protected settings files" do
+    test "blocks writing to protected settings file" do
+      content = ~s({"provider": "openai"})
+
+      assert {:error, :protected_settings_file} =
+               Security.atomic_write(
+                 ".jido_code/settings.json",
+                 content,
+                 @test_root,
+                 log_violations: false
+               )
+    end
+
+    test "blocks writing to protected settings file with absolute path" do
+      settings_path = Path.join(@test_root, ".jido_code/settings.json")
+      content = ~s({"provider": "openai"})
+
+      assert {:error, :protected_settings_file} =
+               Security.atomic_write(settings_path, content, @test_root, log_violations: false)
+    end
+
+    test "allows writing to other files in .jido_code directory" do
+      content = "cache data"
+
+      assert :ok =
+               Security.atomic_write(".jido_code/cache.json", content, @test_root,
+                 log_violations: false
+               )
+
+      # Verify file was written
+      cache_path = Path.join(@test_root, ".jido_code/cache.json")
+      assert File.exists?(cache_path)
+      assert File.read!(cache_path) == content
+
+      # Cleanup
+      File.rm!(cache_path)
+    end
+  end
 end

@@ -48,8 +48,8 @@ defmodule JidoCode.MixProject do
     [
       # Core dependencies
       {:jido, "~> 1.2"},
-      {:jido_ai, path: "../agentjido/jido_ai"},
-      {:term_ui, path: "../term_ui"},
+      {:jido_ai, path: "../jido_ai"},
+      {:term_ui, "~> 0.2.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:jason, "~> 1.4"},
 

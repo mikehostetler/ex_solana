@@ -1,0 +1,87 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoKnowledgeOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Knowledge Ontology" ;
+    rdfs:comment "Ontology module defining core long-term knowledge primitives such as facts, assumptions, hypotheses, and risks." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Knowledge Type Hierarchy
+#################################################################
+
+jido:Fact a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Fact" ;
+    rdfs:comment "A verified or strongly established piece of knowledge." .
+
+jido:Assumption a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Assumption" ;
+    rdfs:comment "An unverified belief held for working purposes." .
+
+jido:Hypothesis a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Hypothesis" ;
+    rdfs:comment "A testable theory or explanation." .
+
+jido:Discovery a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Discovery" ;
+    rdfs:comment "A newly uncovered piece of important information." .
+
+jido:Risk a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Risk" ;
+    rdfs:comment "A potential future negative outcome." .
+
+jido:Unknown a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Unknown" ;
+    rdfs:comment "Known unknown; an explicitly acknowledged gap in knowledge." .
+
+#################################################################
+# Knowledge Relationships
+#################################################################
+
+jido:refines a owl:ObjectProperty ;
+    rdfs:domain jido:Hypothesis ;
+    rdfs:range jido:Hypothesis ;
+    rdfs:label "refines" ;
+    rdfs:comment "Indicates a refinement relationship between hypotheses." .
+
+jido:confirms a owl:ObjectProperty ;
+    rdfs:domain jido:Evidence ;
+    rdfs:range jido:Fact ;
+    rdfs:label "confirms" .
+
+jido:contradicts a owl:ObjectProperty ;
+    rdfs:domain jido:Evidence ;
+    rdfs:range jido:MemoryItem ;
+    rdfs:label "contradicts" .
+
+#################################################################
+# Knowledge Evidence Strength
+#################################################################
+
+jido:EvidenceStrength a owl:Class ;
+    rdfs:label "Evidence Strength" .
+
+jido:WeakEvidence a owl:NamedIndividual, jido:EvidenceStrength .
+jido:ModerateEvidence a owl:NamedIndividual, jido:EvidenceStrength .
+jido:StrongEvidence a owl:NamedIndividual, jido:EvidenceStrength .
+
+jido:hasEvidenceStrength a owl:ObjectProperty ;
+    rdfs:domain jido:Evidence ;
+    rdfs:range jido:EvidenceStrength ;
+    rdfs:label "has evidence strength" .

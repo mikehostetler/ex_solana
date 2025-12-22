@@ -39,17 +39,17 @@ defmodule JidoCode.TUI do
   require Logger
 
   alias Jido.AI.Keyring
-  alias JidoCode.Agents.LLMAgent
-  alias JidoCode.AgentSupervisor
   alias JidoCode.Commands
+  alias JidoCode.Config.ProviderKeys
   alias JidoCode.PubSubTopics
-  alias JidoCode.Reasoning.QueryClassifier
+  alias JidoCode.Session
   alias JidoCode.Settings
   alias JidoCode.Tools.Result
   alias JidoCode.TUI.Clipboard
   alias JidoCode.TUI.MessageHandlers
   alias JidoCode.TUI.ViewHelpers
   alias JidoCode.TUI.Widgets.ConversationView
+  alias JidoCode.TUI.Widgets.MainLayout
   alias TermUI.Event
   alias TermUI.Renderer.Style
   alias TermUI.Widget.PickList
@@ -85,11 +85,11 @@ defmodule JidoCode.TUI do
           | {:config_change, map()}
           | {:reasoning_step, Model.reasoning_step()}
           | :clear_reasoning_steps
-          | {:tool_call, String.t(), map(), String.t()}
-          | {:tool_result, Result.t()}
+          | {:tool_call, String.t(), map(), String.t(), String.t() | nil}
+          | {:tool_result, Result.t(), String.t() | nil}
           | :toggle_tool_details
-          | {:stream_chunk, String.t()}
-          | {:stream_end, String.t()}
+          | {:stream_chunk, String.t(), String.t()}
+          | {:stream_end, String.t(), String.t()}
           | {:stream_error, term()}
 
   # Maximum number of messages to keep in the debug queue
@@ -102,6 +102,26 @@ defmodule JidoCode.TUI do
   defmodule Model do
     @moduledoc """
     The TUI application state.
+
+    ## Multi-Session Support
+
+    The Model supports multiple concurrent sessions via the session tracking fields:
+
+    - `sessions` - Map of session_id to Session.t() structs
+    - `session_order` - List of session_ids in tab display order
+    - `active_session_id` - Currently focused session
+
+    Per-session data (messages, reasoning_steps, tool_calls, streaming state) is
+    stored in Session.State and accessed via the active_session_id. The legacy
+    fields are retained for backwards compatibility during transition.
+
+    ## Focus States
+
+    The `focus` field controls keyboard navigation:
+
+    - `:input` - Text input has focus (default)
+    - `:conversation` - Conversation view has focus (for scrolling)
+    - `:tabs` - Tab bar has focus (for tab selection)
     """
 
     @type message :: %{
@@ -125,50 +145,942 @@ defmodule JidoCode.TUI do
 
     @type agent_status :: :idle | :processing | :error | :unconfigured
 
+    @typedoc """
+    Thinking mode sub-types representing JidoAI runners.
+
+    Maps to actual JidoAI runner implementations:
+    - `:chat` - Direct LLM call (no special reasoning)
+    - `:chain_of_thought` - Step-by-step reasoning (8-15% accuracy improvement)
+    - `:react` - Reasoning + Acting, interleaved with tool execution (+27.4% on HotpotQA)
+    - `:tree_of_thoughts` - Multi-branch reasoning exploration (+70% on complex tasks)
+    - `:self_consistency` - Multiple reasoning paths with voting (+17.9% on GSM8K)
+    - `:program_of_thought` - Generate programs to solve problems
+    - `:gepa` - Genetic-Pareto evolutionary prompt optimization/rewording
+    """
+    @type thinking_mode ::
+            :chat
+            | :chain_of_thought
+            | :react
+            | :tree_of_thoughts
+            | :self_consistency
+            | :program_of_thought
+            | :gepa
+
+    @typedoc """
+    Detailed agent activity status.
+
+    Provides granular tracking of what the agent is currently doing:
+    - `:idle` - Agent is ready for new requests
+    - `:unconfigured` - Agent not configured (no provider/model)
+    - `{:thinking, mode}` - LLM is processing with specified thinking mode (JidoAI runner)
+    - `{:tool_executing, tool_name}` - Executing a specific tool
+    - `{:error, reason}` - Error state with reason
+
+    ## Examples
+
+        :idle
+        {:thinking, :chat}
+        {:thinking, :chain_of_thought}
+        {:thinking, :react}
+        {:thinking, :tree_of_thoughts}
+        {:tool_executing, "read_file"}
+        {:error, :timeout}
+    """
+    @type agent_activity ::
+            :idle
+            | :unconfigured
+            | {:thinking, thinking_mode()}
+            | {:tool_executing, tool_name :: String.t()}
+            | {:error, reason :: term()}
+
+    @typedoc """
+    Indicates the session is blocked waiting for user input.
+
+    - `nil` - Not waiting for input, session can proceed
+    - `:clarification` - LLM asked a question, waiting for user response
+    - `:permission` - Tool execution requires user approval
+    - `:confirmation` - Action requires user confirmation before proceeding
+
+    This is tracked separately from `agent_activity` to allow both states:
+    e.g., agent is idle but awaiting clarification input.
+    """
+    @type awaiting_input :: nil | :clarification | :permission | :confirmation
+
     @type queued_message :: {term(), DateTime.t()}
 
-    @type t :: %__MODULE__{
-            text_input: map(),
-            messages: [message()],
-            agent_status: agent_status(),
-            config: %{provider: String.t() | nil, model: String.t() | nil},
+    @typedoc "Per-session UI state stored in the TUI process"
+    @type session_ui_state :: %{
+            text_input: map() | nil,
+            conversation_view: map() | nil,
+            accordion: JidoCode.TUI.Widgets.Accordion.t() | nil,
+            scroll_offset: non_neg_integer(),
+            streaming_message: String.t() | nil,
+            is_streaming: boolean(),
             reasoning_steps: [reasoning_step()],
             tool_calls: [tool_call_entry()],
-            show_tool_details: boolean(),
+            messages: [message()],
+            agent_activity: agent_activity(),
+            awaiting_input: awaiting_input()
+          }
+
+    @typedoc "Focus states for keyboard navigation"
+    @type focus :: :input | :conversation | :tabs | :sidebar
+
+    @typedoc "Map of session_id to Session struct"
+    @type session_map :: %{optional(String.t()) => JidoCode.Session.t()}
+
+    @type t :: %__MODULE__{
+            # Session management (multi-session support)
+            sessions: session_map(),
+            session_order: [String.t()],
+            active_session_id: String.t() | nil,
+
+            # UI state
+            text_input: map(),
+            tabs_widget: map() | nil,
+            focus: focus(),
             window: {non_neg_integer(), non_neg_integer()},
+            show_reasoning: boolean(),
+            show_tool_details: boolean(),
+            agent_status: agent_status(),
+            config: %{provider: String.t() | nil, model: String.t() | nil},
+
+            # Sidebar state (Phase 4.5)
+            sidebar_visible: boolean(),
+            sidebar_width: pos_integer(),
+            sidebar_expanded: MapSet.t(String.t()),
+            sidebar_selected_index: non_neg_integer(),
+
+            # Sidebar activity tracking (Phase 4.7.3)
+            streaming_sessions: MapSet.t(String.t()),
+            unread_counts: %{String.t() => non_neg_integer()},
+            active_tools: %{String.t() => non_neg_integer()},
+            last_activity: %{String.t() => DateTime.t()},
+
+            # Modals (shared across sessions)
+            shell_dialog: map() | nil,
+            shell_viewport: map() | nil,
+            pick_list: map() | nil,
+
+            # Main layout state (SplitPane with sidebar + tabs)
+            main_layout: JidoCode.TUI.Widgets.MainLayout.t() | nil,
+
+            # Legacy per-session fields (for backwards compatibility)
+            # These will be migrated to Session.State in Phase 4.2
+            messages: [message()],
+            reasoning_steps: [reasoning_step()],
+            tool_calls: [tool_call_entry()],
             message_queue: [queued_message()],
             scroll_offset: non_neg_integer(),
-            show_reasoning: boolean(),
             agent_name: atom(),
             streaming_message: String.t() | nil,
             is_streaming: boolean(),
             session_topic: String.t() | nil,
-            shell_dialog: map() | nil,
-            shell_viewport: map() | nil,
-            pick_list: map() | nil,
             conversation_view: map() | nil
           }
 
-    @enforce_keys []
-    defstruct text_input: nil,
-              messages: [],
-              agent_status: :unconfigured,
-              config: %{provider: nil, model: nil},
-              reasoning_steps: [],
-              tool_calls: [],
-              show_tool_details: false,
-              window: {80, 24},
-              message_queue: [],
-              scroll_offset: 0,
-              show_reasoning: false,
-              agent_name: :llm_agent,
-              streaming_message: nil,
-              is_streaming: false,
-              session_topic: nil,
-              shell_dialog: nil,
-              shell_viewport: nil,
-              pick_list: nil,
-              conversation_view: nil
+    # Maximum number of tabs supported (Ctrl+1 through Ctrl+9, plus Ctrl+0 for 10th)
+    @max_tabs 10
+
+    defstruct [
+      # Session management (multi-session support)
+      sessions: %{},
+      session_order: [],
+      active_session_id: nil,
+      # UI state
+      text_input: nil,
+      tabs_widget: nil,
+      # Focus state for keyboard navigation (used in Phase 4.5)
+      focus: :input,
+      window: {80, 24},
+      show_reasoning: false,
+      show_tool_details: false,
+      agent_status: :unconfigured,
+      config: %{provider: nil, model: nil},
+      # Sidebar state (Phase 4.5)
+      sidebar_visible: true,
+      sidebar_width: 20,
+      sidebar_expanded: MapSet.new(),
+      sidebar_selected_index: 0,
+      # Sidebar activity tracking (Phase 4.7.3)
+      streaming_sessions: MapSet.new(),
+      unread_counts: %{},
+      active_tools: %{},
+      last_activity: %{},
+      # Modals (shared across sessions)
+      shell_dialog: nil,
+      shell_viewport: nil,
+      pick_list: nil,
+      # Main layout state (SplitPane with sidebar + tabs)
+      main_layout: nil,
+      # Legacy per-session fields (for backwards compatibility)
+      # These will be migrated to Session.State in Phase 4.2
+      messages: [],
+      reasoning_steps: [],
+      tool_calls: [],
+      message_queue: [],
+      scroll_offset: 0,
+      agent_name: :llm_agent,
+      streaming_message: nil,
+      is_streaming: false,
+      session_topic: nil,
+      conversation_view: nil
+    ]
+
+    # =========================================================================
+    # Session Access Helpers
+    # =========================================================================
+
+    @doc """
+    Returns the currently active Session struct from the model.
+
+    Returns `nil` if no session is active (active_session_id is nil) or if
+    the active session is not found in the sessions map.
+
+    ## Examples
+
+        iex> model = %Model{sessions: %{"s1" => session}, active_session_id: "s1"}
+        iex> Model.get_active_session(model)
+        %Session{...}
+
+        iex> model = %Model{active_session_id: nil}
+        iex> Model.get_active_session(model)
+        nil
+    """
+    @spec get_active_session(t()) :: JidoCode.Session.t() | nil
+    def get_active_session(%__MODULE__{active_session_id: nil}), do: nil
+
+    def get_active_session(%__MODULE__{active_session_id: id, sessions: sessions}) do
+      Map.get(sessions, id)
+    end
+
+    @doc """
+    Fetches the active session's state from the Session.State GenServer.
+
+    This function looks up the active session and retrieves its conversation
+    state (messages, streaming state, etc.) from the Session.State process.
+
+    Returns `nil` if no session is active.
+
+    ## Examples
+
+        iex> model = %Model{active_session_id: "session-123"}
+        iex> Model.get_active_session_state(model)
+        %{messages: [...], streaming_message: nil, ...}
+    """
+    @spec get_active_session_state(t()) :: map() | nil
+    def get_active_session_state(%__MODULE__{active_session_id: nil}), do: nil
+
+    def get_active_session_state(%__MODULE__{active_session_id: id}) do
+      case JidoCode.Session.State.get_state(id) do
+        {:ok, state} -> state
+        {:error, :not_found} -> nil
+      end
+    end
+
+    @doc """
+    Returns the agent status for a session.
+
+    Queries Session.AgentAPI to determine if the session's agent is:
+    - `:idle` - Agent is ready for new requests
+    - `:processing` - Agent is actively processing a request
+    - `:error` - Agent is not responding or crashed
+    - `:unconfigured` - Session has no agent
+
+    ## Parameters
+    - `session_id` - The session identifier
+
+    ## Returns
+    - `agent_status()` atom
+
+    ## Examples
+
+        iex> Model.get_session_status("session-123")
+        :idle
+
+        iex> Model.get_session_status("nonexistent")
+        :unconfigured
+    """
+    @spec get_session_status(String.t()) :: agent_status()
+    def get_session_status(session_id) do
+      case JidoCode.Session.AgentAPI.get_status(session_id) do
+        {:ok, %{ready: true}} -> :idle
+        {:ok, %{ready: false}} -> :processing
+        {:error, :agent_not_found} -> :unconfigured
+        {:error, _} -> :error
+      end
+    end
+
+    @doc """
+    Returns the session at the given tab index (1-based).
+
+    Tab indices 1-9 correspond to Ctrl+1 through Ctrl+9.
+    Tab index 10 corresponds to Ctrl+0 (the 10th tab).
+
+    Returns `nil` if the index is out of range or if no sessions exist.
+
+    ## Examples
+
+        iex> model = %Model{session_order: ["s1", "s2", "s3"], sessions: %{...}}
+        iex> Model.get_session_by_index(model, 1)
+        %Session{id: "s1", ...}
+
+        iex> Model.get_session_by_index(model, 10)
+        nil  # Only 3 sessions exist
+    """
+    @spec get_session_by_index(t(), pos_integer()) :: JidoCode.Session.t() | nil
+    def get_session_by_index(%__MODULE__{session_order: []}, _index), do: nil
+
+    def get_session_by_index(%__MODULE__{session_order: order, sessions: sessions}, index)
+        when is_integer(index) and index >= 1 and index <= @max_tabs do
+      # Convert 1-based tab index to 0-based list index
+      list_index = index - 1
+
+      case Enum.at(order, list_index) do
+        nil -> nil
+        session_id -> Map.get(sessions, session_id)
+      end
+    end
+
+    def get_session_by_index(_model, _index), do: nil
+
+    # =========================================================================
+    # Session Modification Helpers
+    # =========================================================================
+
+    @doc """
+    Adds a session to the model and makes it the active session.
+
+    This function:
+    1. Adds the session to the sessions map
+    2. Appends the session ID to session_order
+    3. Sets the session as the active session
+
+    Returns the updated model.
+
+    ## Examples
+
+        iex> model = %Model{}
+        iex> session = %Session{id: "s1", name: "project"}
+        iex> model = Model.add_session(model, session)
+        iex> model.active_session_id
+        "s1"
+    """
+    @spec add_session(t(), JidoCode.Session.t()) :: t()
+    def add_session(%__MODULE__{} = model, %JidoCode.Session{} = session) do
+      # Subscribe to the new session's events
+      JidoCode.TUI.subscribe_to_session(session.id)
+
+      # Add UI state to the session data
+      session_with_ui = Map.put(session, :ui_state, default_ui_state(model.window))
+
+      %{
+        model
+        | sessions: Map.put(model.sessions, session.id, session_with_ui),
+          session_order: model.session_order ++ [session.id],
+          active_session_id: session.id
+      }
+    end
+
+    @doc """
+    Adds a session to the tab list without forcing it to be active.
+
+    This function differs from `add_session/2` in that it only sets the new
+    session as active if no other session is currently active. This is useful
+    when loading multiple sessions at startup or when creating background sessions.
+
+    ## Behavior
+
+    1. Adds the session to the sessions map
+    2. Appends the session ID to session_order
+    3. Sets as active ONLY if `active_session_id` is currently `nil`
+
+    ## Examples
+
+        # First session becomes active
+        iex> model = %Model{}
+        iex> session1 = %Session{id: "s1", name: "project1"}
+        iex> model = Model.add_session_to_tabs(model, session1)
+        iex> model.active_session_id
+        "s1"
+
+        # Second session does NOT become active
+        iex> session2 = %Session{id: "s2", name: "project2"}
+        iex> model = Model.add_session_to_tabs(model, session2)
+        iex> model.active_session_id
+        "s1"
+
+    ## See Also
+
+    - `add_session/2` - Always sets new session as active
+    - `switch_session/2` - Explicitly switch to a session
+    """
+    @spec add_session_to_tabs(t(), JidoCode.Session.t() | map()) :: t()
+    def add_session_to_tabs(%__MODULE__{} = model, session) when is_map(session) do
+      session_id = Map.get(session, :id) || Map.get(session, "id")
+
+      # Subscribe to the new session's events
+      JidoCode.TUI.subscribe_to_session(session_id)
+
+      # Add UI state to the session data
+      session_with_ui = Map.put(session, :ui_state, default_ui_state(model.window))
+
+      %{
+        model
+        | sessions: Map.put(model.sessions, session_id, session_with_ui),
+          session_order: model.session_order ++ [session_id],
+          active_session_id: model.active_session_id || session_id
+      }
+    end
+
+    @doc """
+    Removes a session from the tab list.
+
+    This is an alias for `remove_session/2` that follows the naming convention
+    from Phase 4.1.3 of the work-session plan.
+
+    See `remove_session/2` for full documentation.
+    """
+    @spec remove_session_from_tabs(t(), String.t()) :: t()
+    def remove_session_from_tabs(%__MODULE__{} = model, session_id) do
+      remove_session(model, session_id)
+    end
+
+    @doc """
+    Switches to a different session by ID.
+
+    Only switches if the session exists in the sessions map.
+    Returns the model unchanged if session ID is not found.
+
+    ## Examples
+
+        iex> model = %Model{sessions: %{"s1" => session}, active_session_id: nil}
+        iex> model = Model.switch_session(model, "s1")
+        iex> model.active_session_id
+        "s1"
+
+        iex> model = Model.switch_session(model, "unknown")
+        iex> model.active_session_id  # unchanged
+        "s1"
+    """
+    @spec switch_session(t(), String.t()) :: t()
+    def switch_session(%__MODULE__{sessions: sessions} = model, session_id) do
+      if Map.has_key?(sessions, session_id) do
+        %{model | active_session_id: session_id}
+      else
+        model
+      end
+    end
+
+    @doc """
+    Returns the number of sessions in the model.
+
+    ## Examples
+
+        iex> model = %Model{sessions: %{"s1" => s1, "s2" => s2}}
+        iex> Model.session_count(model)
+        2
+    """
+    @spec session_count(t()) :: non_neg_integer()
+    def session_count(%__MODULE__{sessions: sessions}), do: map_size(sessions)
+
+    @doc """
+    Removes a session from the model.
+
+    Removes the session from both the sessions map and session_order list.
+    If the removed session was active, switches to the previous session in order,
+    or the next session if it was first, or nil if it was the last session.
+
+    ## Examples
+
+        iex> model = %Model{sessions: %{"s1" => s1, "s2" => s2}, session_order: ["s1", "s2"], active_session_id: "s2"}
+        iex> model = Model.remove_session(model, "s2")
+        iex> model.active_session_id
+        "s1"
+
+        iex> model = Model.remove_session(model, "s1")
+        iex> model.active_session_id
+        nil
+    """
+    @spec remove_session(t(), String.t()) :: t()
+    def remove_session(%__MODULE__{} = model, session_id) do
+      # Unsubscribe from the session's events before removal
+      JidoCode.TUI.unsubscribe_from_session(session_id)
+
+      # Remove from sessions map
+      new_sessions = Map.delete(model.sessions, session_id)
+
+      # Remove from session_order
+      new_order = Enum.reject(model.session_order, &(&1 == session_id))
+
+      # Determine new active session if we're closing the active one
+      new_active_id =
+        if model.active_session_id == session_id do
+          # Find the index of the closed session in the original order
+          old_index = Enum.find_index(model.session_order, &(&1 == session_id)) || 0
+
+          cond do
+            # No sessions left
+            new_order == [] ->
+              nil
+
+            # Try previous session (go back one index)
+            old_index > 0 ->
+              Enum.at(new_order, old_index - 1)
+
+            # Otherwise take the first remaining session
+            true ->
+              List.first(new_order)
+          end
+        else
+          model.active_session_id
+        end
+
+      %{
+        model
+        | sessions: new_sessions,
+          session_order: new_order,
+          active_session_id: new_active_id
+      }
+    end
+
+    @doc """
+    Renames a session in the model.
+
+    Updates the session's name in the sessions map.
+
+    ## Parameters
+      - model: The current model state
+      - session_id: The ID of the session to rename
+      - new_name: The new name for the session
+
+    ## Returns
+      The updated model with the renamed session.
+
+    ## Examples
+
+        iex> session = %{id: "s1", name: "old-name", project_path: "/path"}
+        iex> model = %Model{sessions: %{"s1" => session}, session_order: ["s1"], active_session_id: "s1"}
+        iex> model = Model.rename_session(model, "s1", "new-name")
+        iex> model.sessions["s1"].name
+        "new-name"
+    """
+    @spec rename_session(t(), String.t(), String.t()) :: t()
+    def rename_session(%__MODULE__{} = model, session_id, new_name) do
+      case Map.get(model.sessions, session_id) do
+        nil ->
+          # Session not found, return unchanged
+          model
+
+        session ->
+          # Update the session name
+          updated_session = Map.put(session, :name, new_name)
+          new_sessions = Map.put(model.sessions, session_id, updated_session)
+          %{model | sessions: new_sessions}
+      end
+    end
+
+    # =========================================================================
+    # Per-Session UI State Helpers
+    # =========================================================================
+
+    @doc """
+    Creates default UI state for a new session.
+
+    ## Parameters
+      - window: Tuple of {width, height} for viewport sizing
+
+    ## Returns
+      A session_ui_state map with initialized fields.
+    """
+    @spec default_ui_state({non_neg_integer(), non_neg_integer()}) :: session_ui_state()
+    def default_ui_state({width, height}) do
+      # Create TextInput for this session
+      text_input_props =
+        TermUI.Widgets.TextInput.new(
+          placeholder: "Type a message...",
+          width: max(width - 4, 20),
+          enter_submits: false
+        )
+
+      {:ok, text_input_state} = TermUI.Widgets.TextInput.init(text_input_props)
+
+      # Create ConversationView for this session
+      # Available height: total height - 2 (borders) - 1 (status bar) - 3 (separators) - 1 (input bar) - 1 (help bar)
+      conversation_height = max(height - 8, 1)
+      conversation_width = max(width - 4, 1)
+
+      conversation_view_props =
+        JidoCode.TUI.Widgets.ConversationView.new(
+          messages: [],
+          viewport_width: conversation_width,
+          viewport_height: conversation_height,
+          on_copy: &JidoCode.TUI.Clipboard.copy_to_clipboard/1
+        )
+
+      {:ok, conversation_view_state} = JidoCode.TUI.Widgets.ConversationView.init(conversation_view_props)
+
+      # Create Accordion for this session's sidebar sections
+      accordion =
+        JidoCode.TUI.Widgets.Accordion.new(
+          sections: [
+            %{id: :info, title: "Info", content: []},
+            %{id: :files, title: "Files", content: []},
+            %{id: :tools, title: "Tools", content: []}
+          ],
+          active_ids: [:info]
+        )
+
+      %{
+        text_input: text_input_state,
+        conversation_view: conversation_view_state,
+        accordion: accordion,
+        scroll_offset: 0,
+        streaming_message: nil,
+        is_streaming: false,
+        reasoning_steps: [],
+        tool_calls: [],
+        messages: [],
+        agent_activity: :idle,
+        awaiting_input: nil
+      }
+    end
+
+    @doc """
+    Gets the UI state for a specific session.
+
+    Returns nil if the session doesn't exist or has no UI state.
+
+    ## Examples
+
+        iex> Model.get_session_ui_state(model, "session-123")
+        %{text_input: ..., conversation_view: ..., ...}
+    """
+    @spec get_session_ui_state(t(), String.t()) :: session_ui_state() | nil
+    def get_session_ui_state(%__MODULE__{sessions: sessions}, session_id) do
+      case Map.get(sessions, session_id) do
+        nil -> nil
+        session_data -> Map.get(session_data, :ui_state)
+      end
+    end
+
+    @doc """
+    Gets the UI state for the active session.
+
+    Returns nil if no active session or if the session has no UI state.
+
+    ## Examples
+
+        iex> Model.get_active_ui_state(model)
+        %{text_input: ..., conversation_view: ..., ...}
+    """
+    @spec get_active_ui_state(t()) :: session_ui_state() | nil
+    def get_active_ui_state(%__MODULE__{active_session_id: nil}), do: nil
+
+    def get_active_ui_state(%__MODULE__{active_session_id: id} = model) do
+      get_session_ui_state(model, id)
+    end
+
+    @doc """
+    Updates the UI state for a specific session.
+
+    Takes a function that receives the current UI state and returns the new UI state.
+    If the session doesn't exist, returns the model unchanged.
+
+    ## Examples
+
+        iex> Model.update_session_ui_state(model, "session-123", fn ui ->
+        ...>   %{ui | scroll_offset: ui.scroll_offset + 1}
+        ...> end)
+    """
+    @spec update_session_ui_state(t(), String.t(), (session_ui_state() -> session_ui_state())) ::
+            t()
+    def update_session_ui_state(%__MODULE__{sessions: sessions} = model, session_id, fun) do
+      case Map.get(sessions, session_id) do
+        nil ->
+          model
+
+        session_data ->
+          current_ui = Map.get(session_data, :ui_state) || default_ui_state(model.window)
+          new_ui = fun.(current_ui)
+          updated_session = Map.put(session_data, :ui_state, new_ui)
+          %{model | sessions: Map.put(sessions, session_id, updated_session)}
+      end
+    end
+
+    @doc """
+    Updates the UI state for the active session.
+
+    Convenience function that calls update_session_ui_state with the active session ID.
+    If no session is active, returns the model unchanged.
+
+    ## Examples
+
+        iex> Model.update_active_ui_state(model, fn ui ->
+        ...>   %{ui | is_streaming: true}
+        ...> end)
+    """
+    @spec update_active_ui_state(t(), (session_ui_state() -> session_ui_state())) :: t()
+    def update_active_ui_state(%__MODULE__{active_session_id: nil} = model, _fun), do: model
+
+    def update_active_ui_state(%__MODULE__{active_session_id: id} = model, fun) do
+      update_session_ui_state(model, id, fun)
+    end
+
+    @doc """
+    Gets the text input state for the active session.
+
+    Returns nil if no active session or if the session has no UI state.
+    """
+    @spec get_active_text_input(t()) :: map() | nil
+    def get_active_text_input(model) do
+      case get_active_ui_state(model) do
+        nil -> nil
+        ui_state -> ui_state.text_input
+      end
+    end
+
+    @doc """
+    Gets the conversation view for the active session.
+
+    Returns nil if no active session or if the session has no UI state.
+    """
+    @spec get_active_conversation_view(t()) :: map() | nil
+    def get_active_conversation_view(model) do
+      case get_active_ui_state(model) do
+        nil -> nil
+        ui_state -> ui_state.conversation_view
+      end
+    end
+
+    @doc """
+    Gets the accordion for the active session.
+
+    Returns nil if no active session or if the session has no UI state.
+    """
+    @spec get_active_accordion(t()) :: JidoCode.TUI.Widgets.Accordion.t() | nil
+    def get_active_accordion(model) do
+      case get_active_ui_state(model) do
+        nil -> nil
+        ui_state -> ui_state.accordion
+      end
+    end
+
+    @doc """
+    Gets the agent activity for the active session.
+
+    Returns `:idle` if no active session or if the session has no UI state.
+
+    ## Examples
+
+        Model.get_active_agent_activity(model)
+        # => :idle
+        # => {:thinking, :chat}
+        # => {:thinking, :chain_of_thought}
+        # => {:tool_executing, "read_file"}
+    """
+    @spec get_active_agent_activity(t()) :: agent_activity()
+    def get_active_agent_activity(model) do
+      case get_active_ui_state(model) do
+        nil -> :idle
+        ui_state -> ui_state.agent_activity || :idle
+      end
+    end
+
+    @doc """
+    Gets the agent activity for a specific session.
+
+    ## Examples
+
+        Model.get_session_agent_activity(model, session_id)
+        # => :idle
+        # => {:thinking, :chat}
+    """
+    @spec get_session_agent_activity(t(), String.t()) :: agent_activity()
+    def get_session_agent_activity(model, session_id) do
+      case get_session_ui_state(model, session_id) do
+        nil -> :idle
+        ui_state -> ui_state.agent_activity || :idle
+      end
+    end
+
+    @doc """
+    Sets the agent activity for the active session.
+
+    ## Examples
+
+        Model.set_active_agent_activity(model, {:thinking, :chat})
+        Model.set_active_agent_activity(model, {:tool_executing, "read_file"})
+        Model.set_active_agent_activity(model, :idle)
+    """
+    @spec set_active_agent_activity(t(), agent_activity()) :: t()
+    def set_active_agent_activity(model, activity) do
+      update_active_ui_state(model, fn ui ->
+        %{ui | agent_activity: activity}
+      end)
+    end
+
+    @doc """
+    Sets the agent activity for a specific session.
+
+    ## Examples
+
+        Model.set_session_agent_activity(model, session_id, {:thinking, :react})
+    """
+    @spec set_session_agent_activity(t(), String.t(), agent_activity()) :: t()
+    def set_session_agent_activity(model, session_id, activity) do
+      update_session_ui_state(model, session_id, fn ui ->
+        %{ui | agent_activity: activity}
+      end)
+    end
+
+    @doc """
+    Converts agent activity to a display icon and style for tab headers.
+
+    Returns `{icon, style}` tuple, or `{nil, nil}` for idle/unconfigured states.
+
+    ## Examples
+
+        Model.activity_icon_for(:idle)
+        # => {nil, nil}
+
+        Model.activity_icon_for({:thinking, :chat})
+        # => {"⚙", %Style{fg: :yellow}}
+
+        Model.activity_icon_for({:tool_executing, "read_file"})
+        # => {"⚙", %Style{fg: :cyan}}
+    """
+    @spec activity_icon_for(agent_activity()) :: {String.t() | nil, Style.t() | nil}
+    def activity_icon_for(:idle), do: {nil, nil}
+    def activity_icon_for(:unconfigured), do: {nil, nil}
+
+    def activity_icon_for({:thinking, _mode}) do
+      {"⚙", Style.new(fg: :yellow)}
+    end
+
+    def activity_icon_for({:tool_executing, _tool_name}) do
+      {"⚙", Style.new(fg: :cyan)}
+    end
+
+    def activity_icon_for({:error, _reason}) do
+      {"⚠", Style.new(fg: :red)}
+    end
+
+    def activity_icon_for(_), do: {nil, nil}
+
+    # -------------------------------------------------------------------------
+    # Awaiting Input Accessors
+    # -------------------------------------------------------------------------
+
+    @doc """
+    Gets the awaiting_input state for the active session.
+
+    ## Examples
+
+        Model.get_active_awaiting_input(model)
+        # => nil
+        # => :clarification
+        # => :permission
+    """
+    @spec get_active_awaiting_input(t()) :: awaiting_input()
+    def get_active_awaiting_input(model) do
+      case get_active_ui_state(model) do
+        nil -> nil
+        ui_state -> ui_state.awaiting_input
+      end
+    end
+
+    @doc """
+    Gets the awaiting_input state for a specific session.
+
+    ## Examples
+
+        Model.get_session_awaiting_input(model, session_id)
+        # => nil
+        # => :permission
+    """
+    @spec get_session_awaiting_input(t(), String.t()) :: awaiting_input()
+    def get_session_awaiting_input(model, session_id) do
+      case get_session_ui_state(model, session_id) do
+        nil -> nil
+        ui_state -> ui_state.awaiting_input
+      end
+    end
+
+    @doc """
+    Sets the awaiting_input state for the active session.
+
+    ## Examples
+
+        Model.set_active_awaiting_input(model, :clarification)
+        Model.set_active_awaiting_input(model, :permission)
+        Model.set_active_awaiting_input(model, nil)  # Clear waiting state
+    """
+    @spec set_active_awaiting_input(t(), awaiting_input()) :: t()
+    def set_active_awaiting_input(model, awaiting) do
+      update_active_ui_state(model, fn ui ->
+        %{ui | awaiting_input: awaiting}
+      end)
+    end
+
+    @doc """
+    Sets the awaiting_input state for a specific session.
+
+    ## Examples
+
+        Model.set_session_awaiting_input(model, session_id, :permission)
+    """
+    @spec set_session_awaiting_input(t(), String.t(), awaiting_input()) :: t()
+    def set_session_awaiting_input(model, session_id, awaiting) do
+      update_session_ui_state(model, session_id, fn ui ->
+        %{ui | awaiting_input: awaiting}
+      end)
+    end
+
+    @doc """
+    Converts awaiting_input state to a display icon and style for tab headers.
+
+    Returns `{icon, style}` tuple, or `{nil, nil}` when not waiting.
+    The awaiting icon takes precedence over activity icon when displayed.
+
+    ## Examples
+
+        Model.awaiting_input_icon_for(nil)
+        # => {nil, nil}
+
+        Model.awaiting_input_icon_for(:clarification)
+        # => {"?", %Style{fg: :magenta}}
+
+        Model.awaiting_input_icon_for(:permission)
+        # => {"⚡", %Style{fg: :yellow}}
+    """
+    @spec awaiting_input_icon_for(awaiting_input()) :: {String.t() | nil, Style.t() | nil}
+    def awaiting_input_icon_for(nil), do: {nil, nil}
+
+    def awaiting_input_icon_for(:clarification) do
+      {"?", Style.new(fg: :magenta, attrs: [:bold])}
+    end
+
+    def awaiting_input_icon_for(:permission) do
+      {"⚡", Style.new(fg: :yellow, attrs: [:bold])}
+    end
+
+    def awaiting_input_icon_for(:confirmation) do
+      {"!", Style.new(fg: :cyan, attrs: [:bold])}
+    end
+
+    @doc """
+    Checks if the active session is currently streaming.
+
+    Returns false if no active session.
+    """
+    @spec active_session_streaming?(t()) :: boolean()
+    def active_session_streaming?(model) do
+      case get_active_ui_state(model) do
+        nil -> false
+        ui_state -> ui_state.is_streaming
+      end
+    end
   end
 
   # ============================================================================
@@ -188,6 +1100,12 @@ defmodule JidoCode.TUI do
 
     # Subscribe to theme changes for live updates
     TermUI.Theme.subscribe()
+
+    # Load existing sessions from registry and subscribe to their topics
+    sessions = load_sessions_from_registry()
+    session_order = Enum.map(sessions, & &1.id)
+    active_id = List.first(session_order)
+    subscribe_to_all_sessions(sessions)
 
     # Load configuration from settings
     config = load_config()
@@ -217,7 +1135,8 @@ defmodule JidoCode.TUI do
     # Available height: total height - 2 (borders) - 1 (status bar) - 3 (separators) - 1 (input bar) - 1 (help bar)
     {width, height} = window
     conversation_height = max(height - 8, 1)
-    conversation_width = max(width - 2, 1)
+    # Content width excludes borders (2) and padding (2)
+    conversation_width = max(width - 4, 1)
 
     conversation_view_props =
       ConversationView.new(
@@ -227,9 +1146,21 @@ defmodule JidoCode.TUI do
         on_copy: &Clipboard.copy_to_clipboard/1
       )
 
-    conversation_view_state = ConversationView.init(conversation_view_props)
+    {:ok, conversation_view_state} = ConversationView.init(conversation_view_props)
+
+    # Add UI state to each loaded session
+    sessions_with_ui =
+      Map.new(sessions, fn session ->
+        session_with_ui = Map.put(session, :ui_state, Model.default_ui_state(window))
+        {session.id, session_with_ui}
+      end)
 
     %Model{
+      # Multi-session fields
+      sessions: sessions_with_ui,
+      session_order: session_order,
+      active_session_id: active_id,
+      # Existing fields
       text_input: text_input_state,
       messages: [],
       agent_status: status,
@@ -244,7 +1175,12 @@ defmodule JidoCode.TUI do
       agent_name: :llm_agent,
       streaming_message: nil,
       is_streaming: false,
-      conversation_view: conversation_view_state
+      conversation_view: conversation_view_state,
+      # Sidebar state (Phase 4.5)
+      sidebar_visible: true,
+      sidebar_width: 20,
+      sidebar_expanded: MapSet.new(),
+      sidebar_selected_index: 0
     }
   end
 
@@ -294,13 +1230,86 @@ defmodule JidoCode.TUI do
     end
   end
 
+  # Ctrl+S to toggle sidebar visibility
+  def event_to_msg(%Event.Key{key: "s", modifiers: modifiers} = event, _state) do
+    if :ctrl in modifiers do
+      {:msg, :toggle_sidebar}
+    else
+      {:msg, {:input_event, event}}
+    end
+  end
+
+  # Ctrl+W to close current session
+  def event_to_msg(%Event.Key{key: "w", modifiers: modifiers} = event, _state) do
+    if :ctrl in modifiers do
+      {:msg, :close_active_session}
+    else
+      {:msg, {:input_event, event}}
+    end
+  end
+
+  # Ctrl+N to create new session
+  def event_to_msg(%Event.Key{key: "n", modifiers: modifiers} = event, _state) do
+    if :ctrl in modifiers do
+      {:msg, :create_new_session}
+    else
+      {:msg, {:input_event, event}}
+    end
+  end
+
+  # Ctrl+1 through Ctrl+9 to switch to session by index
+  def event_to_msg(%Event.Key{key: key, modifiers: modifiers} = event, _state)
+      when key in ["1", "2", "3", "4", "5", "6", "7", "8", "9"] do
+    if :ctrl in modifiers do
+      index = String.to_integer(key)
+      {:msg, {:switch_to_session_index, index}}
+    else
+      {:msg, {:input_event, event}}
+    end
+  end
+
+  # Ctrl+0 to switch to session 10 (the 10th tab)
+  def event_to_msg(%Event.Key{key: "0", modifiers: modifiers} = event, _state) do
+    if :ctrl in modifiers do
+      {:msg, {:switch_to_session_index, 10}}
+    else
+      {:msg, {:input_event, event}}
+    end
+  end
+
+  # Up arrow when sidebar focused - navigate to previous session
+  def event_to_msg(%Event.Key{key: :up}, %Model{focus: :sidebar} = _state) do
+    {:msg, {:sidebar_nav, :up}}
+  end
+
+  # Down arrow when sidebar focused - navigate to next session
+  def event_to_msg(%Event.Key{key: :down}, %Model{focus: :sidebar} = _state) do
+    {:msg, {:sidebar_nav, :down}}
+  end
+
+  # Enter key when sidebar focused - toggle accordion section
+  def event_to_msg(%Event.Key{key: :enter}, %Model{focus: :sidebar} = state) do
+    if state.sidebar_selected_index < length(state.session_order) do
+      session_id = Enum.at(state.session_order, state.sidebar_selected_index)
+      {:msg, {:toggle_accordion, session_id}}
+    else
+      :ignore
+    end
+  end
+
   # Enter key - forward to modal if open, otherwise submit current input
   def event_to_msg(%Event.Key{key: :enter} = event, state) do
     cond do
-      state.pick_list -> {:msg, {:pick_list_event, event}}
-      state.shell_dialog -> {:msg, {:input_event, event}}
+      state.pick_list ->
+        {:msg, {:pick_list_event, event}}
+
+      state.shell_dialog ->
+        {:msg, {:input_event, event}}
+
       true ->
-        value = TextInput.get_value(state.text_input)
+        # Get value from active session's text input
+        text_input = Model.get_active_text_input(state)
+        value = if text_input, do: TextInput.get_value(text_input), else: ""
         {:msg, {:input_submitted, value}}
     end
   end
@@ -311,6 +1320,27 @@ defmodule JidoCode.TUI do
       state.pick_list -> {:msg, {:pick_list_event, event}}
       state.shell_dialog -> {:msg, {:input_event, event}}
       true -> {:msg, {:input_event, event}}
+    end
+  end
+
+  # Tab key - Ctrl+Tab cycles sessions, Tab/Shift+Tab cycles focus
+  def event_to_msg(%Event.Key{key: :tab, modifiers: modifiers}, _state) do
+    cond do
+      # Ctrl+Shift+Tab → previous session
+      :ctrl in modifiers and :shift in modifiers ->
+        {:msg, :prev_tab}
+
+      # Ctrl+Tab → next session
+      :ctrl in modifiers ->
+        {:msg, :next_tab}
+
+      # Shift+Tab → focus backward
+      :shift in modifiers ->
+        {:msg, {:cycle_focus, :backward}}
+
+      # Tab → focus forward
+      true ->
+        {:msg, {:cycle_focus, :forward}}
     end
   end
 
@@ -388,6 +1418,7 @@ defmodule JidoCode.TUI do
         case Viewport.handle_event(event, state.shell_viewport) do
           {:ok, new_viewport} ->
             {%{state | shell_viewport: new_viewport}, []}
+
           _ ->
             {state, []}
         end
@@ -413,10 +1444,23 @@ defmodule JidoCode.TUI do
     end
   end
 
-  # Forward keyboard events to TextInput widget
+  # Forward keyboard events to active session's TextInput widget
   def update({:input_event, event}, state) do
-    {:ok, new_text_input} = TextInput.handle_event(event, state.text_input)
-    {%{state | text_input: new_text_input}, []}
+    case Model.get_active_text_input(state) do
+      nil ->
+        # No active session, ignore input
+        {state, []}
+
+      text_input ->
+        {:ok, new_text_input} = TextInput.handle_event(event, text_input)
+
+        new_state =
+          Model.update_active_ui_state(state, fn ui ->
+            %{ui | text_input: new_text_input}
+          end)
+
+        {new_state, []}
+    end
   end
 
   # Handle submitted text from TextInput (via on_submit callback)
@@ -430,62 +1474,104 @@ defmodule JidoCode.TUI do
 
       # Command input - starts with /
       String.starts_with?(text, "/") ->
-        # Clear input after command and ensure it stays focused
-        new_text_input = state.text_input |> TextInput.clear() |> TextInput.set_focused(true)
-        do_handle_command(text, %{state | text_input: new_text_input})
+        # Clear active session's input after command and ensure it stays focused
+        cleared_state =
+          Model.update_active_ui_state(state, fn ui ->
+            new_text_input = ui.text_input |> TextInput.clear() |> TextInput.set_focused(true)
+            %{ui | text_input: new_text_input}
+          end)
+
+        do_handle_command(text, cleared_state)
 
       # Chat input - requires configured provider/model
       true ->
-        # Clear input after submit
-        new_text_input = TextInput.clear(state.text_input)
-        do_handle_chat_submit(text, %{state | text_input: new_text_input})
+        # Clear active session's input after submit
+        cleared_state =
+          Model.update_active_ui_state(state, fn ui ->
+            new_text_input = TextInput.clear(ui.text_input)
+            %{ui | text_input: new_text_input}
+          end)
+
+        do_handle_chat_submit(text, cleared_state)
     end
   end
 
   def update(:quit, state) do
+    # Clear terminal and disable mouse tracking before quitting
+    # This ensures clean exit even if Runtime cleanup is incomplete
+    IO.write("\e[?1006l\e[?1003l\e[?1002l\e[?1000l")  # Disable mouse modes
+    IO.write("\e[?25h")  # Show cursor
+    IO.write("\e[2J\e[H")  # Clear screen and move to top-left
     {state, [:quit]}
   end
 
   def update({:resize, width, height}, state) do
-    # Update TextInput width on resize
-    {cur_width, _} = state.window
-    new_width = max(width - 4, 20)
-
-    new_text_input =
-      if width != cur_width do
-        %{state.text_input | width: new_width}
-      else
-        state.text_input
-      end
-
-    # Update ConversationView dimensions on resize
+    {cur_width, cur_height} = state.window
+    new_input_width = max(width - 4, 20)
     conversation_height = max(height - 8, 1)
-    conversation_width = max(width - 2, 1)
+    conversation_width = max(width - 4, 1)
 
-    new_conversation_view =
-      if state.conversation_view do
-        ConversationView.set_viewport_size(state.conversation_view, conversation_width, conversation_height)
+    # Update all sessions' UI state if window size changed
+    new_sessions =
+      if width != cur_width or height != cur_height do
+        Map.new(state.sessions, fn {session_id, session} ->
+          case Map.get(session, :ui_state) do
+            nil ->
+              {session_id, session}
+
+            ui_state ->
+              # Update text input width
+              new_text_input =
+                if ui_state.text_input do
+                  %{ui_state.text_input | width: new_input_width}
+                else
+                  ui_state.text_input
+                end
+
+              # Update conversation view dimensions
+              new_conversation_view =
+                if ui_state.conversation_view do
+                  ConversationView.set_viewport_size(
+                    ui_state.conversation_view,
+                    conversation_width,
+                    conversation_height
+                  )
+                else
+                  ui_state.conversation_view
+                end
+
+              updated_ui = %{ui_state | text_input: new_text_input, conversation_view: new_conversation_view}
+              {session_id, Map.put(session, :ui_state, updated_ui)}
+          end
+        end)
       else
-        state.conversation_view
+        state.sessions
       end
 
-    {%{state | window: {width, height}, text_input: new_text_input, conversation_view: new_conversation_view}, []}
+    {%{state | window: {width, height}, sessions: new_sessions}, []}
   end
 
-  # ConversationView event handling - delegate keyboard and mouse events
-  def update({:conversation_event, event}, state) when state.conversation_view != nil do
-    case ConversationView.handle_event(event, state.conversation_view) do
-      {:ok, new_conversation_view} ->
-        {%{state | conversation_view: new_conversation_view}, []}
-
-      _ ->
+  # ConversationView event handling - delegate keyboard and mouse events to active session's view
+  def update({:conversation_event, event}, state) do
+    case Model.get_active_conversation_view(state) do
+      nil ->
+        # No active session or conversation view, ignore
         {state, []}
-    end
-  end
 
-  def update({:conversation_event, _event}, state) do
-    # No conversation_view initialized, ignore
-    {state, []}
+      conversation_view ->
+        case ConversationView.handle_event(event, conversation_view) do
+          {:ok, new_conversation_view} ->
+            new_state =
+              Model.update_active_ui_state(state, fn ui ->
+                %{ui | conversation_view: new_conversation_view}
+              end)
+
+            {new_state, []}
+
+          _ ->
+            {state, []}
+        end
+    end
   end
 
   # PubSub message handlers - delegated to MessageHandlers module
@@ -494,11 +1580,11 @@ defmodule JidoCode.TUI do
     do: MessageHandlers.handle_agent_response(content, state)
 
   # Streaming message handlers
-  def update({:stream_chunk, chunk}, state),
-    do: MessageHandlers.handle_stream_chunk(chunk, state)
+  def update({:stream_chunk, session_id, chunk}, state),
+    do: MessageHandlers.handle_stream_chunk(session_id, chunk, state)
 
-  def update({:stream_end, full_content}, state),
-    do: MessageHandlers.handle_stream_end(full_content, state)
+  def update({:stream_end, session_id, full_content}, state),
+    do: MessageHandlers.handle_stream_end(session_id, full_content, state)
 
   def update({:stream_error, reason}, state),
     do: MessageHandlers.handle_stream_error(reason, state)
@@ -529,13 +1615,246 @@ defmodule JidoCode.TUI do
   def update(:toggle_tool_details, state),
     do: MessageHandlers.handle_toggle_tool_details(state)
 
+  # Toggle sidebar visibility (Ctrl+S)
+  def update(:toggle_sidebar, state) do
+    new_state = %{state | sidebar_visible: not state.sidebar_visible}
+    {new_state, []}
+  end
+
+  # Navigate sidebar up/down
+  def update({:sidebar_nav, :up}, state) do
+    max_index = length(state.session_order) - 1
+
+    new_index =
+      if state.sidebar_selected_index == 0 do
+        max_index  # Wrap to bottom
+      else
+        state.sidebar_selected_index - 1
+      end
+
+    new_state = %{state | sidebar_selected_index: new_index}
+    {new_state, []}
+  end
+
+  def update({:sidebar_nav, :down}, state) do
+    max_index = length(state.session_order) - 1
+
+    new_index =
+      if state.sidebar_selected_index >= max_index do
+        0  # Wrap to top
+      else
+        state.sidebar_selected_index + 1
+      end
+
+    new_state = %{state | sidebar_selected_index: new_index}
+    {new_state, []}
+  end
+
+  # Toggle accordion section expansion
+  def update({:toggle_accordion, session_id}, state) do
+    expanded =
+      if MapSet.member?(state.sidebar_expanded, session_id) do
+        MapSet.delete(state.sidebar_expanded, session_id)
+      else
+        MapSet.put(state.sidebar_expanded, session_id)
+      end
+
+    new_state = %{state | sidebar_expanded: expanded}
+    {new_state, []}
+  end
+
+  # Cycle focus forward (Tab)
+  def update({:cycle_focus, :forward}, state) do
+    new_focus =
+      case state.focus do
+        :input -> :conversation
+        :conversation -> if state.sidebar_visible, do: :sidebar, else: :input
+        :sidebar -> :input
+        _ -> :input
+      end
+
+    # Update active session's text input focus state
+    focused = new_focus == :input
+
+    new_state =
+      Model.update_active_ui_state(%{state | focus: new_focus}, fn ui ->
+        new_text_input =
+          if ui.text_input do
+            TextInput.set_focused(ui.text_input, focused)
+          else
+            ui.text_input
+          end
+
+        %{ui | text_input: new_text_input}
+      end)
+
+    {new_state, []}
+  end
+
+  # Cycle focus backward (Shift+Tab)
+  def update({:cycle_focus, :backward}, state) do
+    new_focus =
+      case state.focus do
+        :input -> if state.sidebar_visible, do: :sidebar, else: :conversation
+        :conversation -> :input
+        :sidebar -> :conversation
+        _ -> :input
+      end
+
+    # Update active session's text input focus state
+    focused = new_focus == :input
+
+    new_state =
+      Model.update_active_ui_state(%{state | focus: new_focus}, fn ui ->
+        new_text_input =
+          if ui.text_input do
+            TextInput.set_focused(ui.text_input, focused)
+          else
+            ui.text_input
+          end
+
+        %{ui | text_input: new_text_input}
+      end)
+
+    {new_state, []}
+  end
+
+  # Close active session (Ctrl+W)
+  def update(:close_active_session, state) do
+    case state.active_session_id do
+      nil ->
+        # No active session to close
+        new_state = add_session_message(state, "No active session to close.")
+        {new_state, []}
+
+      session_id ->
+        # Get session name for the message
+        session = Map.get(state.sessions, session_id)
+        session_name = if session, do: session.name, else: session_id
+
+        final_state = do_close_session(state, session_id, session_name)
+        {final_state, []}
+    end
+  end
+
+  # Create new session (Ctrl+N)
+  def update(:create_new_session, state) do
+    # Get current working directory
+    case File.cwd() do
+      {:ok, _path} ->
+        # Use Commands.execute_session to create session for current directory
+        # Path: nil means use current directory (handled by resolve_session_path)
+        handle_session_command({:new, %{path: nil, name: nil}}, state)
+
+      {:error, reason} ->
+        # File.cwd() failure is rare but handle gracefully
+        new_state = add_session_message(state, "Failed to get current directory: #{inspect(reason)}")
+        {new_state, []}
+    end
+  end
+
+  # Switch to session by index (Ctrl+1 through Ctrl+0)
+  def update({:switch_to_session_index, index}, state) do
+    case Model.get_session_by_index(state, index) do
+      nil ->
+        # No session at that index
+        new_state = add_session_message(state, "No session at index #{index}.")
+        {new_state, []}
+
+      session ->
+        if session.id == state.active_session_id do
+          # Already on this session
+          {state, []}
+        else
+          new_state =
+            state
+            |> Model.switch_session(session.id)
+            |> refresh_conversation_view_for_session(session.id)
+            |> clear_session_activity(session.id)
+            |> focus_active_session_input()
+            |> add_session_message("Switched to: #{session.name}")
+
+          {new_state, []}
+        end
+    end
+  end
+
+  # Cycle to next session (Ctrl+Tab)
+  def update(:next_tab, state) do
+    case state.session_order do
+      # No sessions (should not happen in practice)
+      [] ->
+        {state, []}
+
+      # Single session - stay on current
+      [_single] ->
+        {state, []}
+
+      # Multiple sessions - cycle forward
+      order ->
+        case Enum.find_index(order, &(&1 == state.active_session_id)) do
+          nil ->
+            # Active session not in order list (should not happen)
+            {state, []}
+
+          current_idx ->
+            # Calculate next index with wrap-around
+            next_idx = rem(current_idx + 1, length(order))
+            next_id = Enum.at(order, next_idx)
+            next_session = Map.get(state.sessions, next_id)
+
+            new_state =
+              state
+              |> Model.switch_session(next_id)
+              |> refresh_conversation_view_for_session(next_id)
+              |> clear_session_activity(next_id)
+              |> focus_active_session_input()
+              |> add_session_message("Switched to: #{next_session.name}")
+
+            {new_state, []}
+        end
+    end
+  end
+
+  # Cycle to previous session (Ctrl+Shift+Tab)
+  def update(:prev_tab, state) do
+    case state.session_order do
+      [] -> {state, []}
+      [_single] -> {state, []}
+
+      order ->
+        case Enum.find_index(order, &(&1 == state.active_session_id)) do
+          nil -> {state, []}
+
+          current_idx ->
+            # Calculate previous index with wrap-around
+            # Add length before modulo to handle negative wrap
+            prev_idx = rem(current_idx - 1 + length(order), length(order))
+            prev_id = Enum.at(order, prev_idx)
+            prev_session = Map.get(state.sessions, prev_id)
+
+            new_state =
+              state
+              |> Model.switch_session(prev_id)
+              |> refresh_conversation_view_for_session(prev_id)
+              |> clear_session_activity(prev_id)
+              |> focus_active_session_input()
+              |> add_session_message("Switched to: #{prev_session.name}")
+
+            {new_state, []}
+        end
+    end
+  end
+
   # Tool call handling - add pending tool call to list
-  def update({:tool_call, tool_name, params, call_id}, state),
-    do: MessageHandlers.handle_tool_call(tool_name, params, call_id, state)
+  # The session_id in the message is for routing identification; we pass it through
+  def update({:tool_call, tool_name, params, call_id, session_id}, state),
+    do: MessageHandlers.handle_tool_call(session_id, tool_name, params, call_id, state)
 
   # Tool result handling - match result to pending call and update
-  def update({:tool_result, %Result{} = result}, state),
-    do: MessageHandlers.handle_tool_result(result, state)
+  # The session_id in the message is for routing identification; we pass it through
+  def update({:tool_result, %Result{} = result, session_id}, state),
+    do: MessageHandlers.handle_tool_result(session_id, result, state)
 
   # Theme change handling - triggers re-render with new theme colors
   def update({:theme_changed, _theme}, state) do
@@ -627,17 +1946,21 @@ defmodule JidoCode.TUI do
     case result do
       {:ok, message, new_config} ->
         system_msg = system_message(message)
+
         updated_config = %{
           provider: new_config[:provider] || state.config.provider,
           model: new_config[:model] || state.config.model
         }
+
         new_status = determine_status(updated_config)
+
         new_state = %{
           state
           | messages: [system_msg | state.messages],
             config: updated_config,
             agent_status: new_status
         }
+
         {new_state, cmds}
 
       {:error, error_message} ->
@@ -670,25 +1993,29 @@ defmodule JidoCode.TUI do
         # Determine new status based on config
         new_status = determine_status(updated_config)
 
-        # Sync system message to ConversationView
-        new_conversation_view =
-          if state.conversation_view do
-            ConversationView.add_message(state.conversation_view, %{
-              id: generate_message_id(),
-              role: :system,
-              content: message,
-              timestamp: DateTime.utc_now()
-            })
-          else
-            state.conversation_view
-          end
+        # Sync system message to active session's ConversationView
+        updated_state =
+          Model.update_active_ui_state(state, fn ui ->
+            if ui.conversation_view do
+              new_conversation_view =
+                ConversationView.add_message(ui.conversation_view, %{
+                  id: generate_message_id(),
+                  role: :system,
+                  content: message,
+                  timestamp: DateTime.utc_now()
+                })
+
+              %{ui | conversation_view: new_conversation_view}
+            else
+              ui
+            end
+          end)
 
         new_state = %{
-          state
-          | messages: [system_msg | state.messages],
+          updated_state
+          | messages: [system_msg | updated_state.messages],
             config: updated_config,
-            agent_status: new_status,
-            conversation_view: new_conversation_view
+            agent_status: new_status
         }
 
         {new_state, []}
@@ -713,6 +2040,7 @@ defmodule JidoCode.TUI do
           pick_list_type: pick_list_type,
           provider: provider
         }
+
         {:ok, pick_list_state} = PickList.init(pick_list_props)
 
         new_state = %{state | pick_list: pick_list_state}
@@ -734,13 +2062,16 @@ defmodule JidoCode.TUI do
 
         # Create viewport for scrollable content
         viewport_content = stack(:vertical, Enum.map(lines, &text(&1, nil)))
-        viewport_props = Viewport.new(
-          content: viewport_content,
-          content_height: content_height,
-          width: viewport_width,
-          height: viewport_height,
-          scroll_bars: :vertical
-        )
+
+        viewport_props =
+          Viewport.new(
+            content: viewport_content,
+            content_height: content_height,
+            width: viewport_width,
+            height: viewport_height,
+            scroll_bars: :vertical
+          )
+
         {:ok, viewport_state} = Viewport.init(viewport_props)
 
         # Create dialog state (we use a simple map, not the full Dialog widget)
@@ -752,21 +2083,203 @@ defmodule JidoCode.TUI do
       {:error, error_message} ->
         error_msg = system_message(error_message)
 
-        # Sync error message to ConversationView
-        new_conversation_view =
-          if state.conversation_view do
-            ConversationView.add_message(state.conversation_view, %{
+        # Sync error message to active session's ConversationView
+        updated_state =
+          Model.update_active_ui_state(state, fn ui ->
+            if ui.conversation_view do
+              new_conversation_view =
+                ConversationView.add_message(ui.conversation_view, %{
+                  id: generate_message_id(),
+                  role: :system,
+                  content: error_message,
+                  timestamp: DateTime.utc_now()
+                })
+
+              %{ui | conversation_view: new_conversation_view}
+            else
+              ui
+            end
+          end)
+
+        new_state = %{updated_state | messages: [error_msg | updated_state.messages]}
+        {new_state, []}
+
+      {:session, subcommand} ->
+        # Handle session commands by executing the subcommand
+        handle_session_command(subcommand, state)
+
+      {:resume, subcommand} ->
+        # Handle resume commands
+        handle_resume_command(subcommand, state)
+    end
+  end
+
+  # Handle session command execution and results
+  defp handle_session_command(subcommand, state) do
+    case Commands.execute_session(subcommand, state) do
+      {:session_action, {:add_session, session}} ->
+        # Add session to model and subscribe to its PubSub topic
+        new_state =
+          state
+          |> Model.add_session(session)
+          |> focus_active_session_input()
+
+        # Subscribe to session-specific events
+        Phoenix.PubSub.subscribe(JidoCode.PubSub, PubSubTopics.llm_stream(session.id))
+
+        final_state = add_session_message(new_state, "Created session: #{session.name}")
+        {final_state, []}
+
+      {:session_action, {:switch_session, session_id}} ->
+        # Switch to the specified session and refresh conversation view
+        new_state =
+          state
+          |> Model.switch_session(session_id)
+          |> refresh_conversation_view_for_session(session_id)
+          |> clear_session_activity(session_id)
+          |> focus_active_session_input()
+
+        # Get session name for the message
+        session = Map.get(new_state.sessions, session_id)
+        session_name = if session, do: session.name, else: session_id
+
+        final_state = add_session_message(new_state, "Switched to: #{session_name}")
+        {final_state, []}
+
+      {:session_action, {:close_session, session_id, session_name}} ->
+        final_state = do_close_session(state, session_id, session_name)
+        {final_state, []}
+
+      {:session_action, {:rename_session, session_id, new_name}} ->
+        new_state = Model.rename_session(state, session_id, new_name)
+        final_state = add_session_message(new_state, "Renamed session to: #{new_name}")
+        {final_state, []}
+
+      {:ok, message} ->
+        new_state = add_session_message(state, message)
+        {new_state, []}
+
+      {:error, error_message} ->
+        new_state = add_session_message(state, error_message)
+        {new_state, []}
+    end
+  end
+
+  # Handle resume command execution and results
+  defp handle_resume_command(subcommand, state) do
+    case Commands.execute_resume(subcommand, state) do
+      {:session_action, {:add_session, session}} ->
+        # Session resumed - add to model and subscribe
+        new_state =
+          state
+          |> Model.add_session(session)
+          |> focus_active_session_input()
+
+        # Subscribe to session-specific events
+        Phoenix.PubSub.subscribe(JidoCode.PubSub, PubSubTopics.llm_stream(session.id))
+
+        final_state = add_session_message(new_state, "Resumed session: #{session.name}")
+        {final_state, []}
+
+      {:ok, message} ->
+        # List output or informational message
+        new_state = add_session_message(state, message)
+        {new_state, []}
+
+      {:error, error_message} ->
+        # Error during resume
+        new_state = add_session_message(state, error_message)
+        {new_state, []}
+    end
+  end
+
+  # Helper to add a system message to both messages list and conversation view
+  defp add_session_message(state, content) do
+    msg = system_message(content)
+
+    # Add message to active session's conversation view
+    new_state =
+      Model.update_active_ui_state(state, fn ui ->
+        if ui.conversation_view do
+          new_conversation_view =
+            ConversationView.add_message(ui.conversation_view, %{
               id: generate_message_id(),
               role: :system,
-              content: error_message,
+              content: content,
               timestamp: DateTime.utc_now()
             })
+
+          %{ui | conversation_view: new_conversation_view}
+        else
+          ui
+        end
+      end)
+
+    %{new_state | messages: [msg | new_state.messages]}
+  end
+
+  # Helper to close a session with proper cleanup order
+  # Unsubscribes from PubSub BEFORE stopping the session to avoid race conditions
+  defp do_close_session(state, session_id, session_name) do
+    # Unsubscribe first to prevent receiving messages during teardown
+    Phoenix.PubSub.unsubscribe(JidoCode.PubSub, PubSubTopics.llm_stream(session_id))
+
+    # Stop the session process
+    JidoCode.SessionSupervisor.stop_session(session_id)
+
+    # Remove session from model
+    new_state = Model.remove_session(state, session_id)
+
+    # Add confirmation message
+    add_session_message(new_state, "Closed session: #{session_name}")
+  end
+
+  # Helper to refresh a session's conversation_view with messages from Session.State
+  # Used when switching sessions to ensure the messages are loaded
+  defp refresh_conversation_view_for_session(state, session_id) do
+    case Session.State.get_messages(session_id) do
+      {:ok, messages} ->
+        # Update the session's conversation view with its messages
+        Model.update_session_ui_state(state, session_id, fn ui ->
+          new_conversation_view =
+            if ui.conversation_view do
+              ConversationView.set_messages(ui.conversation_view, messages)
+            else
+              ui.conversation_view
+            end
+
+          %{ui | conversation_view: new_conversation_view, messages: messages}
+        end)
+
+      {:error, _reason} ->
+        # Couldn't fetch messages, keep existing view
+        # This shouldn't happen in normal operation
+        state
+    end
+  end
+
+  # Helper to clear session activity indicators when switching to a session
+  # Clears unread count since user is now viewing the session
+  defp clear_session_activity(state, session_id) do
+    %{state | unread_counts: Map.delete(state.unread_counts, session_id)}
+  end
+
+  # Helper to set focus on the active session's text input when focus is on input
+  # Used after switching sessions to ensure the new session's input is focused
+  defp focus_active_session_input(state) do
+    if state.focus == :input do
+      Model.update_active_ui_state(state, fn ui ->
+        new_text_input =
+          if ui.text_input do
+            TextInput.set_focused(ui.text_input, true)
           else
-            state.conversation_view
+            ui.text_input
           end
 
-        new_state = %{state | messages: [error_msg | state.messages], conversation_view: new_conversation_view}
-        {new_state, []}
+        %{ui | text_input: new_text_input}
+      end)
+    else
+      state
     end
   end
 
@@ -786,117 +2299,144 @@ defmodule JidoCode.TUI do
   end
 
   defp do_show_config_error(state) do
-    error_content = "Please configure a model first. Use /model <provider>:<model> or Ctrl+M to select."
+    error_content =
+      "Please configure a model first. Use /model <provider>:<model> or Ctrl+M to select."
+
     error_msg = system_message(error_content)
 
-    # Sync error message to ConversationView
-    new_conversation_view =
-      if state.conversation_view do
-        ConversationView.add_message(state.conversation_view, %{
-          id: generate_message_id(),
-          role: :system,
-          content: error_content,
-          timestamp: DateTime.utc_now()
-        })
-      else
-        state.conversation_view
-      end
+    # Sync error message to active session's ConversationView
+    updated_state =
+      Model.update_active_ui_state(state, fn ui ->
+        if ui.conversation_view do
+          new_conversation_view =
+            ConversationView.add_message(ui.conversation_view, %{
+              id: generate_message_id(),
+              role: :system,
+              content: error_content,
+              timestamp: DateTime.utc_now()
+            })
 
-    new_state = %{state | messages: [error_msg | state.messages], conversation_view: new_conversation_view}
+          %{ui | conversation_view: new_conversation_view}
+        else
+          ui
+        end
+      end)
+
+    new_state = %{updated_state | messages: [error_msg | updated_state.messages]}
     {new_state, []}
   end
 
   defp do_dispatch_to_agent(text, state) do
-    # Add user message to conversation
-    user_msg = user_message(text)
+    case state.active_session_id do
+      nil ->
+        do_show_no_session_error(state)
 
-    # Classify query for CoT (for future use)
-    _use_cot = QueryClassifier.should_use_cot?(text)
+      session_id ->
+        # Sync user message to active session's ConversationView for display
+        state_with_message =
+          Model.update_active_ui_state(state, fn ui ->
+            if ui.conversation_view do
+              new_conversation_view =
+                ConversationView.add_message(ui.conversation_view, %{
+                  id: generate_message_id(),
+                  role: :user,
+                  content: text,
+                  timestamp: DateTime.utc_now()
+                })
 
-    # Sync user message to ConversationView
-    new_conversation_view =
-      if state.conversation_view do
-        ConversationView.add_message(state.conversation_view, %{
-          id: generate_message_id(),
-          role: :user,
-          content: text,
-          timestamp: DateTime.utc_now()
-        })
-      else
-        state.conversation_view
-      end
+              %{ui | conversation_view: new_conversation_view}
+            else
+              ui
+            end
+          end)
 
-    # Look up and dispatch to agent with streaming
-    case AgentSupervisor.lookup_agent(state.agent_name) do
-      {:ok, agent_pid} ->
-        # Subscribe to session-specific topic if not already subscribed
-        new_state = ensure_session_subscription(state, agent_pid)
+        # Send message to active session's agent
+        # User message is stored in Session.State automatically by AgentAPI
+        case Session.AgentAPI.send_message_stream(session_id, text) do
+          :ok ->
+            # Update active session's UI state to show streaming
+            state_streaming =
+              Model.update_active_ui_state(state_with_message, fn ui ->
+                %{ui | streaming_message: "", is_streaming: true}
+              end)
 
-        # Dispatch async with streaming - agent will broadcast chunks via PubSub
-        LLMAgent.chat_stream(agent_pid, text)
+            # Update model-level state
+            updated_state = %{
+              state_streaming
+              | agent_status: :processing,
+                scroll_offset: 0
+            }
 
-        updated_state = %{
-          new_state
-          | messages: [user_msg | new_state.messages],
-            agent_status: :processing,
-            scroll_offset: 0,
-            streaming_message: "",
-            is_streaming: true,
-            conversation_view: new_conversation_view
-        }
+            {updated_state, []}
 
-        {updated_state, []}
-
-      {:error, :not_found} ->
-        error_msg =
-          system_message(
-            "LLM agent not running. Start with: JidoCode.AgentSupervisor.start_agent(%{name: :llm_agent, module: JidoCode.Agents.LLMAgent, args: []})"
-          )
-
-        # Also add error message to ConversationView
-        cv_with_error =
-          if new_conversation_view do
-            ConversationView.add_message(new_conversation_view, %{
-              id: generate_message_id(),
-              role: :system,
-              content: error_msg.content,
-              timestamp: DateTime.utc_now()
-            })
-          else
-            new_conversation_view
-          end
-
-        new_state = %{
-          state
-          | messages: [error_msg, user_msg | state.messages],
-            agent_status: :error,
-            conversation_view: cv_with_error
-        }
-
-        {new_state, []}
+          {:error, reason} ->
+            do_show_agent_error(state_with_message, reason)
+        end
     end
   end
 
-  # Subscribe to the agent's session-specific topic if not already subscribed
-  defp ensure_session_subscription(state, agent_pid) do
-    case LLMAgent.get_session_info(agent_pid) do
-      {:ok, _session_id, topic} ->
-        if state.session_topic != topic do
-          # Unsubscribe from old topic if we had one
-          if state.session_topic do
-            Phoenix.PubSub.unsubscribe(JidoCode.PubSub, state.session_topic)
-          end
+  defp do_show_no_session_error(state) do
+    error_content = """
+    No active session. Create a session first with:
+      /session new <path> --name="Session Name"
 
-          # Subscribe to new session topic
-          Phoenix.PubSub.subscribe(JidoCode.PubSub, topic)
-          %{state | session_topic: topic}
+    Or switch to an existing session with:
+      /session switch <index>
+    """
+
+    error_msg = system_message(error_content)
+
+    # Add to active session's ConversationView
+    updated_state =
+      Model.update_active_ui_state(state, fn ui ->
+        if ui.conversation_view do
+          new_conversation_view =
+            ConversationView.add_message(ui.conversation_view, %{
+              id: generate_message_id(),
+              role: :system,
+              content: error_content,
+              timestamp: DateTime.utc_now()
+            })
+
+          %{ui | conversation_view: new_conversation_view}
         else
-          state
+          ui
         end
+      end)
 
-      _ ->
-        state
-    end
+    new_state = %{updated_state | messages: [error_msg | updated_state.messages]}
+    {new_state, []}
+  end
+
+  defp do_show_agent_error(state, reason) do
+    error_content = "Failed to send message to session agent: #{inspect(reason)}"
+    error_msg = system_message(error_content)
+
+    # Add to active session's ConversationView
+    updated_state =
+      Model.update_active_ui_state(state, fn ui ->
+        if ui.conversation_view do
+          new_conversation_view =
+            ConversationView.add_message(ui.conversation_view, %{
+              id: generate_message_id(),
+              role: :system,
+              content: error_content,
+              timestamp: DateTime.utc_now()
+            })
+
+          %{ui | conversation_view: new_conversation_view}
+        else
+          ui
+        end
+      end)
+
+    new_state = %{
+      updated_state
+      | messages: [error_msg | updated_state.messages],
+        agent_status: :error
+    }
+
+    {new_state, []}
   end
 
   @doc """
@@ -926,77 +2466,108 @@ defmodule JidoCode.TUI do
   end
 
   defp render_main_view(state) do
-    {width, _height} = state.window
+    {width, height} = state.window
 
-    content =
-      if state.show_reasoning do
-        # Show reasoning panel
-        if width >= 100 do
-          # Wide terminal: side-by-side layout
-          render_main_content_with_sidebar(state)
+    # Use new MainLayout (SplitPane with sidebar + tabs)
+    layout = build_main_layout(state)
+    area = %{x: 0, y: 0, width: width, height: height}
+
+    # Render input bar and help bar to pass into tabs
+    input_view = ViewHelpers.render_input_bar(state)
+    help_view = ViewHelpers.render_help_bar(state)
+
+    # Render main layout with input/help inside tabs
+    MainLayout.render(layout, area,
+      input_view: input_view,
+      help_view: help_view
+    )
+  end
+
+  # Build MainLayout widget from model state
+  @doc false
+  @spec build_main_layout(Model.t()) :: MainLayout.t()
+  defp build_main_layout(state) do
+    # Convert sessions to MainLayout format
+    session_data =
+      Map.new(state.session_order, fn id ->
+        session = Map.get(state.sessions, id)
+
+        if session do
+          # Get the tab icon - awaiting_input takes precedence over activity
+          {icon, icon_style} = get_session_tab_icon(state, id)
+
+          {id,
+           %{
+             id: id,
+             name: session.name,
+             project_path: session.project_path,
+             created_at: session.created_at,
+             status: get_session_status(id),
+             message_count: get_message_count(id),
+             content: get_conversation_content(state, id),
+             activity_icon: icon,
+             activity_style: icon_style
+           }}
         else
-          # Narrow terminal: stacked layout with compact reasoning
-          render_main_content_with_drawer(state)
+          {id, %{id: id, name: "Unknown", project_path: "", created_at: DateTime.utc_now()}}
         end
-      else
-        # Standard layout without reasoning panel
-        # Layout: status bar | separator | main UI | separator | text input | separator | key controls
-        stack(:vertical, [
-          ViewHelpers.render_status_bar(state),
-          ViewHelpers.render_separator(state),
-          render_conversation_area(state),
-          ViewHelpers.render_separator(state),
-          ViewHelpers.render_input_bar(state),
-          ViewHelpers.render_separator(state),
-          ViewHelpers.render_help_bar(state)
-        ])
-      end
+      end)
 
-    ViewHelpers.render_with_border(state, content)
+    MainLayout.new(
+      sessions: session_data,
+      session_order: state.session_order,
+      active_session_id: state.active_session_id,
+      sidebar_expanded: state.sidebar_expanded,
+      sidebar_proportion: 0.20
+    )
   end
 
-  defp render_main_content_with_sidebar(state) do
-    # Side-by-side layout for wide terminals
-    stack(:vertical, [
-      ViewHelpers.render_status_bar(state),
-      ViewHelpers.render_separator(state),
-      stack(:horizontal, [
-        render_conversation_area(state),
-        ViewHelpers.render_reasoning(state)
-      ]),
-      ViewHelpers.render_separator(state),
-      ViewHelpers.render_input_bar(state),
-      ViewHelpers.render_separator(state),
-      ViewHelpers.render_help_bar(state)
-    ])
+  defp get_session_status(session_id) do
+    case Session.AgentAPI.get_status(session_id) do
+      {:ok, %{ready: true}} -> :idle
+      {:ok, %{ready: false}} -> :processing
+      {:error, _} -> :unconfigured
+    end
   end
 
-  defp render_main_content_with_drawer(state) do
-    # Stacked layout with reasoning drawer for narrow terminals
-    stack(:vertical, [
-      ViewHelpers.render_status_bar(state),
-      ViewHelpers.render_separator(state),
-      render_conversation_area(state),
-      ViewHelpers.render_reasoning_compact(state),
-      ViewHelpers.render_separator(state),
-      ViewHelpers.render_input_bar(state),
-      ViewHelpers.render_separator(state),
-      ViewHelpers.render_help_bar(state)
-    ])
+  defp get_message_count(session_id) do
+    case Session.State.get_messages(session_id, 0, 1) do
+      {:ok, _messages, %{total: total}} -> total
+      _ -> 0
+    end
   end
 
-  # Render conversation using ConversationView widget if available, otherwise fallback to ViewHelpers
-  defp render_conversation_area(state) do
-    if state.conversation_view do
-      {width, height} = state.window
-      # Available height: total height - 2 (borders) - 1 (status bar) - 3 (separators) - 1 (input bar) - 1 (help bar)
-      available_height = max(height - 8, 1)
-      content_width = max(width - 2, 1)
+  defp get_conversation_content(state, session_id) do
+    # Get the session's conversation view from its UI state
+    case Model.get_session_ui_state(state, session_id) do
+      nil ->
+        nil
 
-      area = %{x: 0, y: 0, width: content_width, height: available_height}
-      ConversationView.render(state.conversation_view, area)
-    else
-      ViewHelpers.render_conversation(state)
+      ui_state when ui_state.conversation_view != nil ->
+        {width, height} = state.window
+        available_height = max(height - 10, 1)
+        content_width = max(width - round(width * 0.20) - 5, 30)
+        area = %{x: 0, y: 0, width: content_width, height: available_height}
+        ConversationView.render(ui_state.conversation_view, area)
+
+      _ ->
+        nil
+    end
+  end
+
+  # Determines the tab icon for a session.
+  # awaiting_input takes precedence over agent_activity.
+  defp get_session_tab_icon(state, session_id) do
+    awaiting = Model.get_session_awaiting_input(state, session_id)
+
+    case Model.awaiting_input_icon_for(awaiting) do
+      {nil, nil} ->
+        # No awaiting input, fall back to activity icon
+        activity = Model.get_session_agent_activity(state, session_id)
+        Model.activity_icon_for(activity)
+
+      icon_and_style ->
+        icon_and_style
     end
   end
 
@@ -1012,19 +2583,21 @@ defmodule JidoCode.TUI do
     viewport_height = modal_height - 6
 
     # Render the viewport content
-    viewport_view = Viewport.render(state.shell_viewport, %{width: viewport_width, height: viewport_height})
+    viewport_view =
+      Viewport.render(state.shell_viewport, %{width: viewport_width, height: viewport_height})
 
     # Build dialog content with title, viewport, and footer
     title = text(state.shell_dialog.title, Style.new(fg: :cyan, attrs: [:bold]))
     footer = text("[Enter/Esc/q] Close  [↑↓/PgUp/PgDn] Scroll", Style.new(fg: :bright_black))
 
-    dialog_content = stack(:vertical, [
-      title,
-      text("", nil),
-      viewport_view,
-      text("", nil),
-      footer
-    ])
+    dialog_content =
+      stack(:vertical, [
+        title,
+        text("", nil),
+        viewport_view,
+        text("", nil),
+        footer
+      ])
 
     # Build the dialog box with border
     dialog_box = ViewHelpers.render_dialog_box(dialog_content, modal_width, modal_height)
@@ -1089,6 +2662,50 @@ defmodule JidoCode.TUI do
   # Private Helpers
   # ============================================================================
 
+  # Load all active sessions from SessionRegistry.
+  #
+  # Returns list of Session structs sorted by creation time (oldest first).
+  # If the registry is empty or not initialized, returns an empty list.
+  @spec load_sessions_from_registry() :: [Session.t()]
+  defp load_sessions_from_registry do
+    JidoCode.SessionRegistry.list_all()
+  end
+
+  # Subscribe to PubSub topic for a single session.
+  #
+  # Subscribes to the session's llm_stream topic to receive
+  # streaming messages, tool calls, and other session events.
+  #
+  # This function is public to be accessible from the nested Model module.
+  @spec subscribe_to_session(String.t()) :: :ok | {:error, term()}
+  def subscribe_to_session(session_id) do
+    topic = PubSubTopics.llm_stream(session_id)
+    Phoenix.PubSub.subscribe(JidoCode.PubSub, topic)
+  end
+
+  # Unsubscribe from PubSub topic for a single session.
+  #
+  # Unsubscribes from the session's llm_stream topic to stop
+  # receiving events from that session.
+  #
+  # This function is public to be accessible from the nested Model module.
+  @spec unsubscribe_from_session(String.t()) :: :ok
+  def unsubscribe_from_session(session_id) do
+    topic = PubSubTopics.llm_stream(session_id)
+    Phoenix.PubSub.unsubscribe(JidoCode.PubSub, topic)
+  end
+
+  # Subscribe to PubSub topics for all sessions.
+  #
+  # Subscribes to each session's llm_stream topic for receiving
+  # streaming messages, tool calls, and other session events.
+  @spec subscribe_to_all_sessions([Session.t()]) :: :ok
+  defp subscribe_to_all_sessions(sessions) do
+    Enum.each(sessions, fn session ->
+      subscribe_to_session(session.id)
+    end)
+  end
+
   @spec load_config() :: %{provider: String.t() | nil, model: String.t() | nil}
   defp load_config do
     {:ok, settings} = Settings.load()
@@ -1106,38 +2723,17 @@ defmodule JidoCode.TUI do
 
   # Check if API key is available for the provider
   defp has_api_key?(provider) do
-    key_name = provider_to_key_name(provider)
+    if ProviderKeys.local_provider?(provider) do
+      true
+    else
+      key_name = ProviderKeys.to_key_name(provider)
 
-    case Keyring.get(key_name) do
-      nil -> false
-      "" -> false
-      _key -> true
+      case Keyring.get(key_name) do
+        nil -> false
+        "" -> false
+        _key -> true
+      end
     end
-  end
-
-  # Known provider to API key name mapping
-  @provider_keys %{
-    "openai" => :openai_api_key,
-    "anthropic" => :anthropic_api_key,
-    "openrouter" => :openrouter_api_key,
-    "azure" => :azure_api_key,
-    "google" => :google_api_key,
-    "gemini" => :google_api_key,
-    "cohere" => :cohere_api_key,
-    "mistral" => :mistral_api_key,
-    "groq" => :groq_api_key,
-    "together" => :together_api_key,
-    "fireworks" => :fireworks_api_key,
-    "deepseek" => :deepseek_api_key,
-    "perplexity" => :perplexity_api_key,
-    "xai" => :xai_api_key,
-    "ollama" => :ollama_api_key,
-    "cerebras" => :cerebras_api_key,
-    "sambanova" => :sambanova_api_key
-  }
-
-  defp provider_to_key_name(provider) do
-    Map.get(@provider_keys, provider, :unknown_provider_api_key)
   end
 
   @doc false

@@ -1,0 +1,91 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoDecisionOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Decision Ontology" ;
+    rdfs:comment "Ontology module defining decisions, alternatives, trade-offs, and architectural commitments within JidoCode projects." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoKnowledgeOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Decision Hierarchy
+#################################################################
+
+jido:Decision a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Decision" ;
+    rdfs:comment "A committed choice that impacts the project." .
+
+jido:ArchitecturalDecision a owl:Class ;
+    rdfs:subClassOf jido:Decision ;
+    rdfs:label "Architectural Decision" ;
+    rdfs:comment "High-impact structural or architectural choice." .
+
+jido:ImplementationDecision a owl:Class ;
+    rdfs:subClassOf jido:Decision ;
+    rdfs:label "Implementation Decision" ;
+    rdfs:comment "Low-to-medium level implementation-specific choice." .
+
+#################################################################
+# Alternatives & Trade-offs
+#################################################################
+
+jido:Alternative a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Alternative" ;
+    rdfs:comment "A considered option that was not selected." .
+
+jido:TradeOff a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Trade-off" ;
+    rdfs:comment "A compromise relationship between competing goals." .
+
+#################################################################
+# Decision Relationships
+#################################################################
+
+jido:hasAlternative a owl:ObjectProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range jido:Alternative ;
+    rdfs:label "has alternative" .
+
+jido:selectedAlternative a owl:ObjectProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range jido:Alternative ;
+    rdfs:label "selected alternative" .
+
+jido:hasTradeOff a owl:ObjectProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range jido:TradeOff ;
+    rdfs:label "has trade-off" .
+
+jido:justifiedBy a owl:ObjectProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range jido:Justification ;
+    rdfs:label "justified by" .
+
+#################################################################
+# Decision Metadata
+#################################################################
+
+jido:decisionStatus a owl:DatatypeProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "decision status" ;
+    rdfs:comment "Status such as proposed, accepted, deprecated, or rejected." .
+
+jido:impactLevel a owl:DatatypeProperty ;
+    rdfs:domain jido:Decision ;
+    rdfs:range xsd:string ;
+    rdfs:label "impact level" ;
+    rdfs:comment "Qualitative impact rating such as low, medium, high, critical." .
