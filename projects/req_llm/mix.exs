@@ -1,7 +1,7 @@
 defmodule ReqLLM.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.1.0"
   @source_url "https://github.com/agentjido/req_llm"
 
   def project do
@@ -20,7 +20,8 @@ defmodule ReqLLM.MixProject do
       # Dialyzer configuration
       dialyzer: [
         plt_add_apps: [:mix],
-        ignore_warnings: ".dialyzer_ignore.exs"
+        ignore_warnings: ".dialyzer_ignore.exs",
+        exclude_paths: ["test/support"]
       ],
 
       # Package
@@ -170,7 +171,7 @@ defmodule ReqLLM.MixProject do
       {:uniq, "~> 0.6"},
       {:zoi, "~> 0.10"},
       {:jsv, "~> 0.11"},
-      {:llm_db, github: "agentjido/llm_db", branch: "main", override: true},
+      {:llm_db, "~> 2025.12"},
 
       # Dev/test dependencies
       {:bandit, "~> 1.8", only: :dev, runtime: false},
@@ -205,11 +206,12 @@ defmodule ReqLLM.MixProject do
 
   defp aliases do
     [
+      setup: ["deps.get", "git_hooks.install"],
       quality: [
         "format --check-formatted",
         "compile --warnings-as-errors",
-        "dialyzer",
-        "credo --min-priority higher"
+        "credo --min-priority higher",
+        "dialyzer"
       ],
       q: ["quality"],
       docs: ["docs --formatter html"],
