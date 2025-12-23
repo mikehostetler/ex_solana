@@ -1,22 +1,24 @@
-# Standardized CI workflow using central reusable workflows
-# See: https://github.com/agentjido/github-actions 
-
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  push:
+    branches:
+      - main
 
-permissions:
-  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     name: Lint
-    uses: agentjido/github-actions/.github/workflows/elixir-lint.yml@v1
+    uses: agentjido/github-actions/.github/workflows/elixir-lint.yml@v3
 
   test:
     name: Test
-    uses: agentjido/github-actions/.github/workflows/elixir-test.yml@v1
+    uses: agentjido/github-actions/.github/workflows/elixir-test.yml@v3
+    with:
+      otp_versions: '["27", "28"]'
+      elixir_versions: '["1.18", "1.19"]'
+      test_command: mix test
