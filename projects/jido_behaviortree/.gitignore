@@ -21,3 +21,7 @@ jido_behaviortree-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Dialyzer PLT files
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
