@@ -244,8 +244,8 @@ defmodule Jido.MixProject do
   defp deps do
     [
       # Jido Ecosystem
-      jido_dep(:jido_action, "../jido_action", "~> 1.3.0"),
-      jido_dep(:jido_signal, "../jido_signal", "~> 1.3.0"),
+      {:jido_action, "~> 1.0.0"},
+      {:jido_signal, "~> 1.1.0"},
 
       # Jido Deps
       {:backoff, "~> 1.1"},
@@ -267,7 +267,7 @@ defmodule Jido.MixProject do
       {:uniq, "~> 0.6.1"},
       # Skill & Action Dependencies for examples
 
-      {:req, "~> 0.5.10"},
+      {:req, "~> 0.5.16"},
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},
@@ -303,19 +303,5 @@ defmodule Jido.MixProject do
         "dialyzer"
       ]
     ]
-  end
-
-  defp jido_dep(app, rel_path, hex_req, extra_opts \\ []) do
-    path = Path.expand(rel_path, __DIR__)
-
-    if File.dir?(path) and File.exists?(Path.join(path, "mix.exs")) do
-      {app, Keyword.merge([path: rel_path, override: true], extra_opts)}
-    else
-      {app, hex_req, extra_opts}
-    end
-    |> case do
-      {app, opts} when is_list(opts) -> {app, opts}
-      {app, req, opts} -> {app, req, opts}
-    end
   end
 end

@@ -88,11 +88,20 @@ defmodule JidoTest.AgentCaseTest do
     end
 
     test "queues signals correctly" do
-      spawn_agent()
-      |> assert_queue_empty()
-      |> send_signal_async("test.signal", %{data: "value"})
-      # Signal should be queued
-      |> assert_queue_size(1)
+      context =
+        spawn_agent()
+        |> assert_queue_empty()
+        |> send_signal_async("test.signal", %{data: "value"})
+
+      # Signal should be queued - use assert_eventually to handle race condition
+      assert_eventually(
+        (
+          {:ok, state} = Jido.Agent.Server.state(context.server_pid)
+          :queue.len(state.pending_signals) == 1
+        ),
+        timeout: 500,
+        check_interval: 10
+      )
     end
 
     test "queues multiple signals" do
@@ -230,9 +239,24 @@ defmodule JidoTest.AgentCaseTest do
     end
 
     test "fails when queue has items" do
+      # Test that assert_queue_empty produces the correct error message
+      # by using :sys.replace_state to directly set the queue state.
+      # This avoids race conditions with signal processing.
       context = spawn_agent()
-      send_signal_async(context, "test.signal", %{})
 
+      # Verify queue starts empty
+      assert_queue_empty(context)
+
+      # Use :sys.replace_state to inject a signal into the queue directly
+      # This bypasses the normal signal flow and avoids timing issues
+      test_signal = Jido.Signal.new!(%{type: "test.signal", data: %{}})
+
+      :sys.replace_state(context.server_pid, fn state ->
+        {:ok, new_state} = Jido.Agent.Server.State.enqueue(state, test_signal)
+        new_state
+      end)
+
+      # Now the queue definitely has one item
       assert_raise ExUnit.AssertionError, ~r/Expected queue to be empty/, fn ->
         assert_queue_empty(context)
       end
