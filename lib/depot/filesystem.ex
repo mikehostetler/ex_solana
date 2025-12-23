@@ -41,9 +41,10 @@ defmodule Depot.Filesystem do
         :persistent_term.get(@key, init())
       end
 
-      if adapter.starts_processes() do
-        def child_spec(_) do
-          Supervisor.child_spec(__filesystem__(), %{})
+      if @adapter.starts_processes() do
+        def child_spec(init_arg) do
+          __filesystem__()
+          |> Supervisor.child_spec(init_arg)
         end
       end
 

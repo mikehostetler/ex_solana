@@ -14,7 +14,8 @@ defmodule Depot.MixProject do
       source_url: "https://github.com/elixir-depot/depot",
       docs: docs(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      aliases: aliases()
+      aliases: aliases(),
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 

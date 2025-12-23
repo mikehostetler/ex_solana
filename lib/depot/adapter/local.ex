@@ -311,7 +311,7 @@ defmodule Depot.Adapter.Local do
 
     path
     |> IO.chardata_to_string()
-    |> Path.join("/")
+    |> String.trim_trailing("/")
     |> do_mkdir_p(mode)
   end
 
