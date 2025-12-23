@@ -29,9 +29,22 @@ defmodule Jido.BehaviorTree.MixProject do
 
       # Coverage
       test_coverage: [
-        tool: ExCoveralls
+        tool: ExCoveralls,
+        summary: [threshold: 80],
+        export: "cov"
       ],
-      preferred_cli_env: [
+
+      # Dialyzer
+      dialyzer: [
+        plt_local_path: "priv/plts/project.plt",
+        plt_core_path: "priv/plts/core.plt"
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.github": :test,
         "coveralls.lcov": :test,
@@ -62,40 +75,17 @@ defmodule Jido.BehaviorTree.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       authors: ["Mike Hostetler <mike.hostetler@gmail.com>"],
-      groups_for_extras: [
-        "Getting Started": [
-          "guides/getting-started.md",
-          "guides/your-first-bt.md"
-        ],
-        "Core Concepts": [
-          "guides/behavior-trees.md",
-          "guides/nodes.md",
-          "guides/action-integration.md"
-        ],
-        "How-To Guides": [
-          "guides/custom-nodes.md",
-          "guides/ai-integration.md",
-          "guides/testing.md"
-        ],
-        "Help & Reference": [
-          "CHANGELOG.md",
-          "LICENSE.md"
-        ]
-      ],
       extras: [
         {"README.md", title: "Home"},
-        {"guides/getting-started.md", title: "Getting Started"},
-        {"guides/your-first-bt.md", title: "Your First Behavior Tree"},
-        {"guides/behavior-trees.md", title: "Behavior Trees"},
-        {"guides/nodes.md", title: "Nodes"},
-        {"guides/action-integration.md", title: "Action Integration"},
-        {"guides/custom-nodes.md", title: "Custom Nodes"},
-        {"guides/ai-integration.md", title: "AI Integration"},
-        {"guides/testing.md", title: "Testing"},
         {"CHANGELOG.md", title: "Changelog"},
-        {"LICENSE.md", title: "Apache 2.0 License"}
+        {"guides/getting-started.md", title: "Getting Started"},
+        {"guides/nodes.md", title: "Node Reference"},
+        {"guides/custom-nodes.md", title: "Creating Custom Nodes"}
       ],
       extra_section: "Guides",
+      groups_for_extras: [
+        Guides: ~r/guides\/.*/
+      ],
       formatters: ["html"],
       skip_undefined_reference_warnings_on: [
         "CHANGELOG.md",
@@ -108,23 +98,18 @@ defmodule Jido.BehaviorTree.MixProject do
           Jido.BehaviorTree.Tick,
           Jido.BehaviorTree.Blackboard,
           Jido.BehaviorTree.Node,
-          Jido.BehaviorTree.Tree
+          Jido.BehaviorTree.Tree,
+          Jido.BehaviorTree.Error
         ],
         "Composite Nodes": [
           Jido.BehaviorTree.Nodes.Sequence,
-          Jido.BehaviorTree.Nodes.Selector,
-          Jido.BehaviorTree.Nodes.Parallel,
-          Jido.BehaviorTree.Nodes.MemSequence,
-          Jido.BehaviorTree.Nodes.MemSelector
+          Jido.BehaviorTree.Nodes.Selector
         ],
         "Decorator Nodes": [
           Jido.BehaviorTree.Nodes.Inverter,
           Jido.BehaviorTree.Nodes.Succeeder,
           Jido.BehaviorTree.Nodes.Failer,
-          Jido.BehaviorTree.Nodes.Repeat,
-          Jido.BehaviorTree.Nodes.UntilSuccess,
-          Jido.BehaviorTree.Nodes.UntilFailure,
-          Jido.BehaviorTree.Nodes.Timeout
+          Jido.BehaviorTree.Nodes.Repeat
         ],
         "Leaf Nodes": [
           Jido.BehaviorTree.Nodes.Action,
@@ -141,12 +126,15 @@ defmodule Jido.BehaviorTree.MixProject do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README.md", "LICENSE.md"],
+      files: ["lib", "mix.exs", "README.md", "CHANGELOG.md", "usage-rules.md"],
       maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
+        "Changelog" => "https://hexdocs.pm/jido_behaviortree/changelog.html",
+        "Discord" => "https://agentjido.xyz/discord",
+        "Documentation" => "https://hexdocs.pm/jido_behaviortree",
         "GitHub" => @source_url,
-        "AgentJido.xyz" => "https://agentjido.xyz"
+        "Website" => "https://agentjido.xyz"
       }
     ]
   end
@@ -156,7 +144,6 @@ defmodule Jido.BehaviorTree.MixProject do
       # Core dependencies
       {:jido_action, path: "../jido_action"},
       {:telemetry, "~> 1.3"},
-      {:typed_struct, "~> 0.3.0"},
       {:jason, "~> 1.4"},
 
       # Development & Test Dependencies
@@ -168,7 +155,15 @@ defmodule Jido.BehaviorTree.MixProject do
       {:excoveralls, "~> 0.18.3", only: [:dev, :test]},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mimic, "~> 2.0", only: :test},
-      {:stream_data, "~> 1.0", only: [:dev, :test]}
+      {:stream_data, "~> 1.0", only: [:dev, :test]},
+
+      # Zoi and Splode
+      {:zoi, "~> 0.14"},
+      {:splode, "~> 0.2"},
+
+      # Git tooling
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:git_ops, "~> 2.9", only: :dev, runtime: false}
     ]
   end
 

@@ -10,12 +10,23 @@ defmodule Jido.BehaviorTree.Blackboard do
   common operations like getting, setting, and updating values.
   """
 
-  use TypedStruct
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              data:
+                Zoi.map(Zoi.any(), Zoi.any(), description: "Shared data for behavior tree nodes")
+                |> Zoi.default(%{})
+            },
+            coerce: true
+          )
 
-  typedstruct do
-    @typedoc "A blackboard containing shared data for behavior tree nodes"
-    field(:data, map(), default: %{})
-  end
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc "Returns the Zoi schema for this module"
+  def schema, do: @schema
 
   @doc """
   Creates a new blackboard with optional initial data.

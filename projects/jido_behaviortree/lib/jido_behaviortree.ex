@@ -70,10 +70,10 @@ defmodule Jido.BehaviorTree do
   ## Examples
 
       iex> defmodule TestNode do
-      ...>   use TypedStruct
-      ...>   typedstruct do
-      ...>     field(:data, term())
-      ...>   end
+      ...>   @schema Zoi.struct(__MODULE__, %{data: Zoi.any() |> Zoi.optional()}, coerce: true)
+      ...>   @type t :: unquote(Zoi.type_spec(@schema))
+      ...>   @enforce_keys Zoi.Struct.enforce_keys(@schema)
+      ...>   defstruct Zoi.Struct.struct_fields(@schema)
       ...>   @behaviour Jido.BehaviorTree.Node
       ...>   def tick(node_state, _tick), do: {:success, node_state}
       ...>   def halt(node_state), do: node_state

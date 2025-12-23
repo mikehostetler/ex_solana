@@ -30,12 +30,19 @@ defmodule Jido.BehaviorTree.Node do
   and implement the two required callbacks:
 
       defmodule MyNode do
-        use TypedStruct
+        @schema Zoi.struct(
+          __MODULE__,
+          %{
+            my_data: Zoi.any(description: "Custom node data") |> Zoi.optional()
+          },
+          coerce: true
+        )
 
-        typedstruct do
-          field(:my_data, term())
-          # other fields...
-        end
+        @type t :: unquote(Zoi.type_spec(@schema))
+        @enforce_keys Zoi.Struct.enforce_keys(@schema)
+        defstruct Zoi.Struct.struct_fields(@schema)
+
+        def schema, do: @schema
 
         @behaviour Jido.BehaviorTree.Node
 
@@ -64,7 +71,7 @@ defmodule Jido.BehaviorTree.Node do
       )
   """
 
-  alias Jido.BehaviorTree.{Status, Tick}
+  alias Jido.BehaviorTree.{Error, Status, Tick}
 
   @typedoc "Any struct that represents a behavior tree node"
   @type t :: struct()
@@ -174,7 +181,7 @@ defmodule Jido.BehaviorTree.Node do
           Map.merge(metadata, %{error: error, stacktrace: __STACKTRACE__})
         )
 
-        {{:error, error}, node_state}
+        {{:error, Error.node_error(Exception.message(error), node_module, %{original_error: error})}, node_state}
     end
   end
 

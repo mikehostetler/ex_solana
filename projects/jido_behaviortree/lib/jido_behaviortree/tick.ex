@@ -10,16 +10,26 @@ defmodule Jido.BehaviorTree.Tick do
   allowing nodes to access shared state and timing information.
   """
 
-  use TypedStruct
-
   alias Jido.BehaviorTree.Blackboard
 
-  typedstruct do
-    @typedoc "A single execution cycle of a behavior tree"
-    field(:blackboard, Blackboard.t(), enforce: true)
-    field(:timestamp, DateTime.t(), enforce: true)
-    field(:sequence, non_neg_integer(), enforce: true)
-  end
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              blackboard: Zoi.any(description: "The shared blackboard for the tick"),
+              timestamp: Zoi.any(description: "The timestamp when the tick was created"),
+              sequence: Zoi.integer(description: "The sequence number of the tick") |> Zoi.min(0)
+            },
+            coerce: true
+          )
+
+  @typedoc "A single execution cycle of a behavior tree"
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc "Returns the Zoi schema for this module"
+  def schema, do: @schema
 
   @doc """
   Creates a new tick with the given blackboard.

@@ -37,21 +37,38 @@ defmodule Jido.BehaviorTree.Skill do
       {:ok, result} = skill.run(%{user_id: 123, data: %{name: "John"}}, %{})
   """
 
-  use TypedStruct
+  alias Jido.BehaviorTree.{Tree, Agent, Blackboard, Error}
 
-  alias Jido.BehaviorTree.{Tree, Agent, Blackboard}
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              name: Zoi.string(description: "The name of the skill"),
+              description: Zoi.string(description: "Description of what the skill does") |> Zoi.default(""),
+              tree: Zoi.any(description: "The behavior tree to execute"),
+              schema:
+                Zoi.any(description: "Input parameter schema (NimbleOptions or Zoi)")
+                |> Zoi.default([]),
+              output_schema: Zoi.any(description: "Output validation schema") |> Zoi.default([]),
+              timeout:
+                Zoi.integer(description: "Execution timeout in milliseconds")
+                |> Zoi.min(0)
+                |> Zoi.default(30_000),
+              auto_mode: Zoi.boolean(description: "Whether to run in automatic mode") |> Zoi.default(false),
+              interval:
+                Zoi.integer(description: "Tick interval for auto mode")
+                |> Zoi.min(0)
+                |> Zoi.default(1000)
+            },
+            coerce: true
+          )
 
-  typedstruct do
-    @typedoc "A behavior tree skill definition"
-    field(:name, String.t(), enforce: true)
-    field(:description, String.t(), default: "")
-    field(:tree, Tree.t(), enforce: true)
-    field(:schema, keyword(), default: [])
-    field(:output_schema, keyword(), default: [])
-    field(:timeout, non_neg_integer(), default: 30_000)
-    field(:auto_mode, boolean(), default: false)
-    field(:interval, non_neg_integer(), default: 1000)
-  end
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc "Returns the Zoi schema for this module"
+  def schema, do: @schema
 
   @doc """
   Creates a new behavior tree skill.
@@ -116,7 +133,7 @@ defmodule Jido.BehaviorTree.Skill do
     %{
       "name" => skill.name,
       "description" => skill.description,
-      "parameters" => schema_to_json_schema(skill.schema)
+      "parameters" => Jido.Action.Schema.to_json_schema(skill.schema)
     }
   end
 
@@ -151,23 +168,21 @@ defmodule Jido.BehaviorTree.Skill do
 
   ## Private Functions
 
-  defp validate_params(%__MODULE__{schema: []}, params), do: {:ok, params}
-
   defp validate_params(%__MODULE__{schema: schema}, params) do
-    case NimbleOptions.validate(Map.to_list(params), schema) do
-      {:ok, validated_params} ->
-        {:ok, Map.new(validated_params)}
+    case Jido.Action.Schema.validate(schema, params) do
+      {:ok, validated} ->
+        result = if is_struct(validated), do: Map.from_struct(validated), else: validated
+        {:ok, result}
 
-      {:error, %NimbleOptions.ValidationError{} = error} ->
-        {:error, "Parameter validation failed: #{Exception.message(error)}"}
+      {:error, error} ->
+        formatted = Jido.Action.Schema.format_error(error, "Skill params", __MODULE__)
+        {:error, formatted}
     end
   end
 
   defp execute_tree(%__MODULE__{} = skill, params) do
-    # Create initial blackboard with input parameters
     initial_blackboard = Blackboard.new(params)
 
-    # Start the agent
     agent_opts = [
       tree: skill.tree,
       blackboard: Blackboard.to_map(initial_blackboard),
@@ -185,111 +200,64 @@ defmodule Jido.BehaviorTree.Skill do
               execute_manual_mode(agent, skill.timeout)
             end
 
-          # Get final blackboard
           final_blackboard = Agent.blackboard(agent)
 
-          # Stop the agent
           Agent.halt(agent)
           GenServer.stop(agent)
 
           {:ok, Blackboard.to_map(final_blackboard)}
         rescue
           error ->
-            # Ensure agent is stopped on error
             Agent.halt(agent)
             GenServer.stop(agent)
-            {:error, "Execution failed: #{Exception.message(error)}"}
+            {:error, Error.execution_error("Execution failed: #{Exception.message(error)}")}
         end
 
       {:error, reason} ->
-        {:error, "Failed to start agent: #{inspect(reason)}"}
+        {:error, Error.execution_error("Failed to start agent", %{reason: reason})}
     end
   end
 
   defp execute_auto_mode(_agent, timeout) do
-    # In auto mode, just wait for the specified timeout
-    # The agent will tick automatically
     Process.sleep(timeout)
     :ok
   end
 
   defp execute_manual_mode(agent, timeout) do
-    # In manual mode, tick until we get a final result or timeout
     end_time = System.monotonic_time(:millisecond) + timeout
     execute_manual_loop(agent, end_time)
   end
 
   defp execute_manual_loop(agent, end_time) do
     if System.monotonic_time(:millisecond) > end_time do
-      {:error, "Execution timed out"}
+      {:error, Error.execution_error("Execution timed out")}
     else
       case Agent.tick(agent) do
         :success ->
           :ok
 
         :failure ->
-          # Failure is a valid completion state, not an error
           :ok
 
         {:error, reason} ->
-          {:error, "Behavior tree error: #{inspect(reason)}"}
+          {:error, Error.execution_error("Behavior tree error", %{reason: reason})}
 
         :running ->
-          # Continue ticking
           Process.sleep(10)
           execute_manual_loop(agent, end_time)
       end
     end
   end
 
-  defp validate_output(%__MODULE__{output_schema: []}, result), do: {:ok, result}
-
   defp validate_output(%__MODULE__{output_schema: schema}, result) do
-    case NimbleOptions.validate(Map.to_list(result), schema) do
-      {:ok, validated_result} ->
-        {:ok, Map.new(validated_result)}
+    case Jido.Action.Schema.validate(schema, result) do
+      {:ok, validated} ->
+        output = if is_struct(validated), do: Map.from_struct(validated), else: validated
+        {:ok, output}
 
-      {:error, %NimbleOptions.ValidationError{} = error} ->
-        {:error, "Output validation failed: #{Exception.message(error)}"}
-    end
-  end
-
-  defp schema_to_json_schema([]), do: %{"type" => "object", "properties" => %{}}
-
-  defp schema_to_json_schema(schema) do
-    properties =
-      schema
-      |> Enum.map(fn {key, opts} ->
-        {to_string(key), nimble_option_to_json_property(opts)}
-      end)
-      |> Map.new()
-
-    required =
-      schema
-      |> Enum.filter(fn {_key, opts} -> Keyword.get(opts, :required, false) end)
-      |> Enum.map(fn {key, _opts} -> to_string(key) end)
-
-    %{
-      "type" => "object",
-      "properties" => properties,
-      "required" => required
-    }
-  end
-
-  defp nimble_option_to_json_property(opts) do
-    type = Keyword.get(opts, :type, :any)
-    doc = Keyword.get(opts, :doc, "")
-
-    base_property = %{"description" => doc}
-
-    case type do
-      :string -> Map.put(base_property, "type", "string")
-      :integer -> Map.put(base_property, "type", "integer")
-      :float -> Map.put(base_property, "type", "number")
-      :boolean -> Map.put(base_property, "type", "boolean")
-      :map -> Map.put(base_property, "type", "object")
-      {:list, _} -> Map.put(base_property, "type", "array")
-      _ -> Map.put(base_property, "type", "any")
+      {:error, error} ->
+        formatted = Jido.Action.Schema.format_error(error, "Skill output", __MODULE__)
+        {:error, formatted}
     end
   end
 end

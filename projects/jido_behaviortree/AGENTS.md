@@ -26,11 +26,16 @@ This is an Elixir library for **Jido native Behavior Trees** with integrated act
 ## Key Features
 
 ✅ **Core Foundation Complete**
-- Full behavior tree execution engine without external dependencies
-- Comprehensive test coverage (88 tests passing)
+- Full behavior tree execution engine
+- Comprehensive test coverage
 - Telemetry integration for monitoring and debugging
-- Type safety with TypedStruct and @spec annotations
+- Type safety with Zoi schemas and @spec annotations
 - Blackboard pattern for shared state between nodes
+
+✅ **Node Types Implemented**
+- Composite: Sequence, Selector
+- Decorators: Inverter, Succeeder, Failer, Repeat
+- Leaf: Action, Wait, SetBlackboard
 
 ✅ **Agent & Skill Integration**
 - GenServer-based Agent for stateful tree execution
@@ -38,88 +43,86 @@ This is an Elixir library for **Jido native Behavior Trees** with integrated act
 - AI-compatible Skill wrapper with OpenAI tool format conversion
 - Parameter validation and output formatting
 
-## Usage Examples
+## Zoi Schema Pattern
 
-### Basic Tree Creation and Execution
+All nodes use Zoi for type-safe struct definitions. Here's the standard pattern:
 
 ```elixir
-# Create a simple test node
-defmodule TestNode do
-  use TypedStruct
-  
-  typedstruct do
-    field(:data, term())
-  end
+defmodule Jido.BehaviorTree.Nodes.MyNode do
+  @moduledoc "Description of the node"
+
+  @schema Zoi.struct(
+    __MODULE__,
+    %{
+      # Required field
+      name: Zoi.string(description: "Node name"),
+      
+      # Optional field
+      timeout: Zoi.integer(description: "Timeout in ms") |> Zoi.optional(),
+      
+      # Field with default
+      retries: Zoi.integer(description: "Retry count") |> Zoi.default(3),
+      
+      # Child node reference
+      child: Zoi.any(description: "Child node") |> Zoi.optional(),
+      
+      # List of children
+      children: Zoi.list(Zoi.any(description: "Child node")) |> Zoi.default([])
+    },
+    coerce: true
+  )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  def schema, do: @schema
 
   @behaviour Jido.BehaviorTree.Node
 
-  def tick(node_state, _tick), do: {:success, node_state}
-  def halt(node_state), do: node_state
+  @impl true
+  def tick(%__MODULE__{} = state, tick) do
+    # Node logic here
+    {:success, state}
+  end
+
+  @impl true
+  def halt(%__MODULE__{} = state) do
+    state
+  end
 end
-
-# Create and execute a tree
-node = %TestNode{data: "test"}
-tree = Jido.BehaviorTree.new(node)
-tick = Jido.BehaviorTree.tick()
-
-{status, updated_tree} = Jido.BehaviorTree.tick(tree, tick)
-# => {:success, %Jido.BehaviorTree.Tree{...}}
 ```
 
-### Agent-based Execution
+### Zoi Type Reference
+
+Common Zoi types used in nodes:
 
 ```elixir
-# Start an agent for stateful execution
-{:ok, agent} = Jido.BehaviorTree.start_agent(
-  tree: tree,
-  blackboard: %{user_id: 123},
-  mode: :manual
-)
+# Basic types
+Zoi.string()
+Zoi.integer()
+Zoi.boolean()
+Zoi.atom()
+Zoi.any()
 
-# Execute ticks
-status = Jido.BehaviorTree.Agent.tick(agent)
+# With constraints
+Zoi.integer() |> Zoi.min(0)
+Zoi.string() |> Zoi.min_length(1)
 
-# Access blackboard
-Jido.BehaviorTree.Agent.put(agent, :result, "success")
-value = Jido.BehaviorTree.Agent.get(agent, :result)
+# Modifiers
+Zoi.integer() |> Zoi.optional()      # Can be nil
+Zoi.integer() |> Zoi.default(0)      # Default value
 
-# Switch to auto mode
-Jido.BehaviorTree.Agent.set_mode(agent, :auto)
-```
-
-### AI Skill Integration
-
-```elixir
-# Create a skill from a behavior tree
-skill = Jido.BehaviorTree.skill(
-  "process_data",
-  tree,
-  "Processes data using behavior tree logic",
-  schema: [
-    input_data: [type: :map, required: true],
-    user_id: [type: :integer, required: true]
-  ]
-)
-
-# Convert to AI tool format
-tool_def = Jido.BehaviorTree.Skill.to_tool(skill)
-# => %{
-#   "name" => "process_data",
-#   "description" => "Processes data using behavior tree logic",
-#   "parameters" => %{...}
-# }
-
-# Execute the skill
-{:ok, result} = Jido.BehaviorTree.Skill.run(skill, %{
-  input_data: %{name: "John"},
-  user_id: 123
-}, %{})
+# Complex types
+Zoi.list(Zoi.any())                  # List of items
+Zoi.map(%{key: Zoi.string()})        # Typed map
 ```
 
 ## Code Style Guidelines
 
 - Use `@moduledoc` for module documentation following existing patterns
-- TypeSpecs: Define `@type` for custom types, use strict typing throughout
+- All structs use Zoi schemas with the pattern above
+- TypeSpecs: Use `@type t :: unquote(Zoi.type_spec(@schema))`
 - Nodes use `@behaviour Jido.BehaviorTree.Node` and implement `tick/2` and `halt/1` callbacks
 - Error handling: Return `{:ok, result}` or `{:error, reason}` tuples consistently
 - Module organization: Core types in `lib/jido_behaviortree/`, nodes in `lib/jido_behaviortree/nodes/`
@@ -156,17 +159,10 @@ The package emits telemetry events for monitoring:
 - `[:jido_behaviortree, :agent, :tick, :start]` - Agent tick started  
 - `[:jido_behaviortree, :agent, :tick, :stop]` - Agent tick completed
 
-## Future Implementation
-
-🚧 **Planned Components** (not yet implemented):
-- Composite nodes (Sequence, Selector, Parallel)
-- Decorator nodes (Inverter, Repeat, Timeout)  
-- Action leaf nodes that execute Jido Actions
-- Integration with jido_action for seamless workflow composition
-
 ## Integration with Jido Action
 
-This package is designed to integrate seamlessly with `jido_action` from the same monorepo:
-- Shared patterns for parameter validation and error handling
+This package integrates with `jido_action` from the same monorepo:
+- Action node executes Jido Actions directly
+- Blackboard values can be passed as action parameters
 - Compatible with Jido's execution and instruction systems
 - Follows same code quality standards and testing approaches
