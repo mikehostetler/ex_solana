@@ -175,11 +175,11 @@ defmodule Jido.Action.Schema do
     end
   end
 
-  defp extract_zoi_keys(%{__struct__: Zoi.Types.Object, fields: fields}) when is_map(fields) do
+  defp extract_zoi_keys(%{__struct__: Zoi.Types.Map, fields: fields}) when is_map(fields) do
     Map.keys(fields)
   end
 
-  defp extract_zoi_keys(%{__struct__: Zoi.Types.Object, fields: fields}) when is_list(fields) do
+  defp extract_zoi_keys(%{__struct__: Zoi.Types.Map, fields: fields}) when is_list(fields) do
     Keyword.keys(fields)
   end
 
