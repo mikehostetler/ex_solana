@@ -73,6 +73,8 @@ defmodule Jido.Signal.Dispatch.Webhook do
 
   @behaviour Jido.Signal.Dispatch.Adapter
 
+  alias Jido.Signal.Dispatch.CircuitBreaker
+
   require Logger
 
   @default_signature_header "x-webhook-signature"
@@ -156,6 +158,14 @@ defmodule Jido.Signal.Dispatch.Webhook do
   """
   @spec deliver(Jido.Signal.t(), webhook_opts()) :: :ok | {:error, webhook_error()}
   def deliver(signal, opts) do
+    CircuitBreaker.install(:webhook)
+
+    CircuitBreaker.run(:webhook, fn ->
+      do_deliver(signal, opts)
+    end)
+  end
+
+  defp do_deliver(signal, opts) do
     # Prepare the payload
     payload = Jason.encode!(signal)
     timestamp = DateTime.utc_now() |> DateTime.to_unix()
@@ -170,9 +180,9 @@ defmodule Jido.Signal.Dispatch.Webhook do
     # Merge with existing headers
     headers = (Keyword.get(opts, :headers, []) ++ webhook_headers) |> Enum.uniq_by(&elem(&1, 0))
 
-    # Delegate to HTTP adapter
+    # Delegate to HTTP adapter - use do_deliver to avoid double circuit breaker
     opts = Keyword.put(opts, :headers, headers)
-    Jido.Signal.Dispatch.Http.deliver(signal, opts)
+    Jido.Signal.Dispatch.Http.do_deliver(signal, opts)
   end
 
   # Private Helpers

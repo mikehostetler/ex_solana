@@ -24,8 +24,20 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
     field(:client_pid, pid(), enforce: true)
     field(:checkpoint, non_neg_integer(), default: 0)
     field(:max_in_flight, pos_integer(), default: 1000)
+    field(:max_pending, pos_integer(), default: 10_000)
     field(:in_flight_signals, map(), default: %{})
     field(:pending_signals, map(), default: %{})
+
+    # Retry and DLQ
+    field(:max_attempts, pos_integer(), default: 5)
+    field(:attempts, %{String.t() => non_neg_integer()}, default: %{})
+    field(:retry_interval, pos_integer(), default: 100)
+    field(:retry_timer_ref, reference() | nil, default: nil)
+
+    # Journal persistence
+    field(:journal_adapter, module(), default: nil)
+    field(:journal_pid, pid(), default: nil)
+    field(:checkpoint_key, String.t())
   end
 
   # Client API
@@ -38,12 +50,13 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
   - bus_pid: PID of the bus this subscription belongs to (required)
   - path: Signal path pattern to subscribe to (required)
   - start_from: Where to start reading signals from (:origin, :current, or timestamp)
-  - max_in_flight: Maximum number of unacknowledged signals
+  - max_in_flight: Maximum number of unacknowledged signals (default: 1000)
+  - max_pending: Maximum number of pending signals before backpressure (default: 10_000)
   - client_pid: PID of the client process (required)
   - dispatch_opts: Additional dispatch options for the subscription
   """
   def start_link(opts) do
-    id = Jido.Signal.ID.generate!()
+    id = Keyword.get(opts, :id) || Jido.Signal.ID.generate!()
     opts = Keyword.put(opts, :id, id)
 
     # Validate start_from value and set default if invalid
@@ -73,17 +86,49 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
     # Extract the bus subscription
     bus_subscription = Keyword.fetch!(opts, :bus_subscription)
 
+    id = Keyword.fetch!(opts, :id)
+    journal_adapter = Keyword.get(opts, :journal_adapter)
+    journal_pid = Keyword.get(opts, :journal_pid)
+    bus_name = Keyword.get(opts, :bus_name, :unknown)
+
+    # Compute checkpoint key (unique per bus + subscription)
+    checkpoint_key = "#{bus_name}:#{id}"
+
+    # Load checkpoint from journal if adapter is configured
+    loaded_checkpoint =
+      if journal_adapter do
+        case journal_adapter.get_checkpoint(checkpoint_key, journal_pid) do
+          {:ok, cp} ->
+            cp
+
+          {:error, :not_found} ->
+            0
+
+          {:error, reason} ->
+            Logger.warning("Failed to load checkpoint for #{checkpoint_key}: #{inspect(reason)}")
+
+            0
+        end
+      else
+        Keyword.get(opts, :checkpoint, 0)
+      end
+
     state = %__MODULE__{
-      id: Keyword.fetch!(opts, :id),
+      id: id,
       bus_pid: Keyword.fetch!(opts, :bus_pid),
       bus_subscription: bus_subscription,
-
-      #
       client_pid: Keyword.get(opts, :client_pid),
-      checkpoint: Keyword.get(opts, :checkpoint, 0),
+      checkpoint: loaded_checkpoint,
       max_in_flight: Keyword.get(opts, :max_in_flight, 1000),
+      max_pending: Keyword.get(opts, :max_pending, 10_000),
+      max_attempts: Keyword.get(opts, :max_attempts, 5),
+      retry_interval: Keyword.get(opts, :retry_interval, 100),
       in_flight_signals: %{},
-      pending_signals: %{}
+      pending_signals: %{},
+      attempts: %{},
+      journal_adapter: journal_adapter,
+      journal_pid: journal_pid,
+      checkpoint_key: checkpoint_key
     }
 
     # Monitor the client process if specified
@@ -104,6 +149,9 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
 
     # Update checkpoint if this is a higher number
     new_checkpoint = max(state.checkpoint, timestamp)
+
+    # Persist checkpoint if journal adapter is configured
+    persist_checkpoint(state, new_checkpoint)
 
     # Update state
     new_state = %{state | in_flight_signals: new_in_flight, checkpoint: new_checkpoint}
@@ -131,6 +179,9 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
     # Update checkpoint if this is a higher number
     new_checkpoint = max(state.checkpoint, highest_timestamp)
 
+    # Persist checkpoint if journal adapter is configured
+    persist_checkpoint(state, new_checkpoint)
+
     # Update state
     new_state = %{state | in_flight_signals: new_in_flight, checkpoint: new_checkpoint}
 
@@ -147,28 +198,30 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
 
   @impl GenServer
   def handle_call({:signal, {signal_log_id, signal}}, _from, state) do
-    # Check if we can dispatch this signal immediately or need to queue it
-    if map_size(state.in_flight_signals) < state.max_in_flight do
-      # We have capacity, add to in-flight and dispatch
-      new_in_flight = Map.put(state.in_flight_signals, signal_log_id, signal)
+    cond do
+      # We have in-flight capacity - dispatch immediately
+      map_size(state.in_flight_signals) < state.max_in_flight ->
+        new_state = dispatch_signal(state, signal_log_id, signal)
+        {:reply, :ok, new_state}
 
-      # Dispatch according to subscription dispatch configuration
-      if state.bus_subscription.dispatch do
-        # Perform the actual dispatch
-        case Dispatch.dispatch(signal, state.bus_subscription.dispatch) do
-          :ok ->
-            :ok
+      # In-flight full, but pending has room - queue it
+      map_size(state.pending_signals) < state.max_pending ->
+        new_pending = Map.put(state.pending_signals, signal_log_id, signal)
+        {:reply, :ok, %{state | pending_signals: new_pending}}
 
-          {:error, _reason} ->
-            :error
-        end
-      end
+      # Both full - reject with backpressure
+      true ->
+        :telemetry.execute(
+          [:jido, :signal, :subscription, :backpressure],
+          %{},
+          %{
+            subscription_id: state.id,
+            in_flight: map_size(state.in_flight_signals),
+            pending: map_size(state.pending_signals)
+          }
+        )
 
-      {:reply, :ok, %{state | in_flight_signals: new_in_flight}}
-    else
-      # We're at capacity, add to pending signals
-      new_pending = Map.put(state.pending_signals, signal_log_id, signal)
-      {:reply, :ok, %{state | pending_signals: new_pending}}
+        {:reply, {:error, :queue_full}, state}
     end
   end
 
@@ -187,6 +240,9 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
 
     # Update checkpoint if this is a higher number
     new_checkpoint = max(state.checkpoint, timestamp)
+
+    # Persist checkpoint if journal adapter is configured
+    persist_checkpoint(state, new_checkpoint)
 
     # Update state
     new_state = %{state | in_flight_signals: new_in_flight, checkpoint: new_checkpoint}
@@ -224,28 +280,32 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
 
   @impl GenServer
   def handle_info({:signal, {signal_log_id, signal}}, state) do
-    # Check if we can dispatch this signal immediately or need to queue it
-    if map_size(state.in_flight_signals) < state.max_in_flight do
-      # We have capacity, add to in-flight and dispatch
-      new_in_flight = Map.put(state.in_flight_signals, signal_log_id, signal)
+    cond do
+      # We have in-flight capacity - dispatch immediately
+      map_size(state.in_flight_signals) < state.max_in_flight ->
+        new_state = dispatch_signal(state, signal_log_id, signal)
+        {:noreply, new_state}
 
-      # Dispatch according to subscription dispatch configuration
-      if state.bus_subscription.dispatch do
-        # Perform the actual dispatch
-        case Dispatch.dispatch(signal, state.bus_subscription.dispatch) do
-          :ok ->
-            :ok
+      # In-flight full, but pending has room - queue it
+      map_size(state.pending_signals) < state.max_pending ->
+        new_pending = Map.put(state.pending_signals, signal_log_id, signal)
+        {:noreply, %{state | pending_signals: new_pending}}
 
-          {:error, _reason} ->
-            :error
-        end
-      end
+      # Both full - drop the signal with backpressure telemetry
+      true ->
+        :telemetry.execute(
+          [:jido, :signal, :subscription, :backpressure],
+          %{},
+          %{
+            subscription_id: state.id,
+            in_flight: map_size(state.in_flight_signals),
+            pending: map_size(state.pending_signals)
+          }
+        )
 
-      {:noreply, %{state | in_flight_signals: new_in_flight}}
-    else
-      # We're at capacity, add to pending signals
-      new_pending = Map.put(state.pending_signals, signal_log_id, signal)
-      {:noreply, %{state | pending_signals: new_pending}}
+        Logger.warning("Dropping signal #{signal_log_id} - subscription #{state.id} queue full")
+
+        {:noreply, state}
     end
   end
 
@@ -255,6 +315,17 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
     # Client disconnected, but we keep the subscription alive
     # The client can reconnect later using the reconnect/2 function
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info(:retry_pending, state) do
+    # Clear the timer ref since we're handling it now
+    state = %{state | retry_timer_ref: nil}
+
+    # Process pending signals that need retry
+    new_state = process_pending_for_retry(state)
+
+    {:noreply, new_state}
   end
 
   def handle_info(_msg, state) do
@@ -312,38 +383,51 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
 
   # Private Helpers
 
+  # Persists checkpoint to journal if adapter is configured
+  @spec persist_checkpoint(t(), non_neg_integer()) :: :ok
+  defp persist_checkpoint(%{journal_adapter: nil}, _checkpoint), do: :ok
+
+  defp persist_checkpoint(state, checkpoint) do
+    case state.journal_adapter.put_checkpoint(state.checkpoint_key, checkpoint, state.journal_pid) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to persist checkpoint for #{state.checkpoint_key}: #{inspect(reason)}"
+        )
+
+        :ok
+    end
+  end
+
   # Helper function to process pending signals if we have capacity
+  # Only processes signals that haven't failed yet (no attempt count)
   @spec process_pending_signals(t()) :: t()
   defp process_pending_signals(state) do
     # Check if we have pending signals and space in the in-flight queue
     available_capacity = state.max_in_flight - map_size(state.in_flight_signals)
 
-    if available_capacity > 0 && map_size(state.pending_signals) > 0 do
+    # Find pending signals that haven't failed yet (no attempt count)
+    new_pending_signals =
+      Enum.filter(state.pending_signals, fn {id, _signal} ->
+        not Map.has_key?(state.attempts, id)
+      end)
+      |> Map.new()
+
+    if available_capacity > 0 && map_size(new_pending_signals) > 0 do
       # Get the first pending signal (using Enum.at to get the first key-value pair)
       {signal_id, signal} =
-        state.pending_signals
+        new_pending_signals
         |> Enum.sort_by(fn {id, _} -> id end)
         |> List.first()
 
-      # Remove from pending
+      # Remove from pending before dispatching
       new_pending = Map.delete(state.pending_signals, signal_id)
-
-      # Add to in-flight
-      new_in_flight = Map.put(state.in_flight_signals, signal_id, signal)
+      state = %{state | pending_signals: new_pending}
 
       # Dispatch the signal using the configured dispatch mechanism
-      if state.bus_subscription.dispatch do
-        case Dispatch.dispatch(signal, state.bus_subscription.dispatch) do
-          :ok ->
-            :ok
-
-          {:error, _reason} ->
-            :error
-        end
-      end
-
-      # Update state
-      new_state = %{state | in_flight_signals: new_in_flight, pending_signals: new_pending}
+      new_state = dispatch_signal(state, signal_id, signal)
 
       # Recursively process more pending signals if available
       process_pending_signals(new_state)
@@ -351,5 +435,135 @@ defmodule Jido.Signal.Bus.PersistentSubscription do
       # No change needed
       state
     end
+  end
+
+  # Process pending signals that are awaiting retry (have attempt counts)
+  @spec process_pending_for_retry(t()) :: t()
+  defp process_pending_for_retry(state) do
+    # Find all pending signals that have attempt counts (i.e., failed signals)
+    retry_signals =
+      Enum.filter(state.pending_signals, fn {id, _signal} ->
+        Map.has_key?(state.attempts, id)
+      end)
+
+    Enum.reduce(retry_signals, state, fn {signal_id, signal}, acc_state ->
+      # Only process if we have in-flight capacity
+      if map_size(acc_state.in_flight_signals) < acc_state.max_in_flight do
+        # Remove from pending before dispatching
+        new_pending = Map.delete(acc_state.pending_signals, signal_id)
+        acc_state = %{acc_state | pending_signals: new_pending}
+
+        # Dispatch the signal (this will handle success, failure, or DLQ)
+        dispatch_signal(acc_state, signal_id, signal)
+      else
+        # No capacity, stop processing
+        acc_state
+      end
+    end)
+  end
+
+  # Dispatches a signal and handles success/failure with retry tracking
+  @spec dispatch_signal(t(), String.t(), term()) :: t()
+  defp dispatch_signal(state, signal_log_id, signal) do
+    if state.bus_subscription.dispatch do
+      case Dispatch.dispatch(signal, state.bus_subscription.dispatch) do
+        :ok ->
+          # Success - clear attempts for this signal and add to in-flight
+          new_attempts = Map.delete(state.attempts, signal_log_id)
+          new_in_flight = Map.put(state.in_flight_signals, signal_log_id, signal)
+          %{state | in_flight_signals: new_in_flight, attempts: new_attempts}
+
+        {:error, reason} ->
+          # Failure - increment attempts
+          current_attempts = Map.get(state.attempts, signal_log_id, 0) + 1
+
+          if current_attempts >= state.max_attempts do
+            # Move to DLQ
+            handle_dlq(state, signal_log_id, signal, reason, current_attempts)
+          else
+            # Keep for retry - add to pending for later retry, update attempts
+            :telemetry.execute(
+              [:jido, :signal, :subscription, :dispatch, :retry],
+              %{attempt: current_attempts},
+              %{subscription_id: state.id, signal_id: signal.id}
+            )
+
+            new_attempts = Map.put(state.attempts, signal_log_id, current_attempts)
+            new_pending = Map.put(state.pending_signals, signal_log_id, signal)
+            state = %{state | pending_signals: new_pending, attempts: new_attempts}
+            schedule_retry(state)
+          end
+      end
+    else
+      # No dispatch configured - just add to in-flight
+      new_in_flight = Map.put(state.in_flight_signals, signal_log_id, signal)
+      %{state | in_flight_signals: new_in_flight}
+    end
+  end
+
+  # Schedules a retry timer if one is not already scheduled
+  @spec schedule_retry(t()) :: t()
+  defp schedule_retry(%{retry_timer_ref: nil} = state) do
+    timer_ref = Process.send_after(self(), :retry_pending, state.retry_interval)
+    %{state | retry_timer_ref: timer_ref}
+  end
+
+  defp schedule_retry(state) do
+    # Timer already scheduled
+    state
+  end
+
+  # Handles moving a signal to the Dead Letter Queue after max attempts
+  @spec handle_dlq(t(), String.t(), term(), term(), non_neg_integer()) :: t()
+  defp handle_dlq(state, signal_log_id, signal, reason, attempt_count) do
+    metadata = %{
+      attempt_count: attempt_count,
+      last_error: inspect(reason),
+      subscription_id: state.id,
+      signal_log_id: signal_log_id
+    }
+
+    if state.journal_adapter do
+      case state.journal_adapter.put_dlq_entry(
+             state.id,
+             signal,
+             reason,
+             metadata,
+             state.journal_pid
+           ) do
+        {:ok, dlq_id} ->
+          :telemetry.execute(
+            [:jido, :signal, :subscription, :dlq],
+            %{},
+            %{
+              subscription_id: state.id,
+              signal_id: signal.id,
+              dlq_id: dlq_id,
+              attempts: attempt_count
+            }
+          )
+
+          Logger.debug("Signal #{signal.id} moved to DLQ after #{attempt_count} attempts")
+
+        {:error, dlq_error} ->
+          Logger.error("Failed to write to DLQ for signal #{signal.id}: #{inspect(dlq_error)}")
+      end
+    else
+      Logger.warning(
+        "Signal #{signal.id} exhausted #{attempt_count} attempts but no DLQ configured"
+      )
+    end
+
+    # Remove from tracking - signal is now in DLQ (or dropped if no DLQ)
+    new_in_flight = Map.delete(state.in_flight_signals, signal_log_id)
+    new_pending = Map.delete(state.pending_signals, signal_log_id)
+    new_attempts = Map.delete(state.attempts, signal_log_id)
+
+    %{
+      state
+      | in_flight_signals: new_in_flight,
+        pending_signals: new_pending,
+        attempts: new_attempts
+    }
   end
 end

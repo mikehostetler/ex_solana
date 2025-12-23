@@ -19,13 +19,22 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
 
   use GenServer
 
-  defstruct [:signals_table, :causes_table, :effects_table, :conversations_table]
+  defstruct [
+    :signals_table,
+    :causes_table,
+    :effects_table,
+    :conversations_table,
+    :checkpoints_table,
+    :dlq_table
+  ]
 
   @type t :: %__MODULE__{
           signals_table: atom(),
           causes_table: atom(),
           effects_table: atom(),
-          conversations_table: atom()
+          conversations_table: atom(),
+          checkpoints_table: atom(),
+          dlq_table: atom()
         }
 
   # Client API
@@ -85,6 +94,41 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
     GenServer.call(pid, {:get_conversation, conversation_id})
   end
 
+  @impl Jido.Signal.Journal.Persistence
+  def put_checkpoint(subscription_id, checkpoint, pid) do
+    GenServer.call(pid, {:put_checkpoint, subscription_id, checkpoint})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def get_checkpoint(subscription_id, pid) do
+    GenServer.call(pid, {:get_checkpoint, subscription_id})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def delete_checkpoint(subscription_id, pid) do
+    GenServer.call(pid, {:delete_checkpoint, subscription_id})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def put_dlq_entry(subscription_id, signal, reason, metadata, pid) do
+    GenServer.call(pid, {:put_dlq_entry, subscription_id, signal, reason, metadata})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def get_dlq_entries(subscription_id, pid) do
+    GenServer.call(pid, {:get_dlq_entries, subscription_id})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def delete_dlq_entry(entry_id, pid) do
+    GenServer.call(pid, {:delete_dlq_entry, entry_id})
+  end
+
+  @impl Jido.Signal.Journal.Persistence
+  def clear_dlq(subscription_id, pid) do
+    GenServer.call(pid, {:clear_dlq, subscription_id})
+  end
+
   @doc """
   Gets all signals in the journal.
   """
@@ -130,7 +174,10 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
       effects_table:
         String.to_atom("#{prefix}effects_#{System.unique_integer([:positive, :monotonic])}"),
       conversations_table:
-        String.to_atom("#{prefix}conversations_#{System.unique_integer([:positive, :monotonic])}")
+        String.to_atom("#{prefix}conversations_#{System.unique_integer([:positive, :monotonic])}"),
+      checkpoints_table:
+        String.to_atom("#{prefix}checkpoints_#{System.unique_integer([:positive, :monotonic])}"),
+      dlq_table: String.to_atom("#{prefix}dlq_#{System.unique_integer([:positive, :monotonic])}")
     }
 
     # Create tables if they don't exist
@@ -138,7 +185,9 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
       {:signals, adapter.signals_table, [:set, :public, :named_table]},
       {:causes, adapter.causes_table, [:set, :public, :named_table]},
       {:effects, adapter.effects_table, [:set, :public, :named_table]},
-      {:conversations, adapter.conversations_table, [:set, :public, :named_table]}
+      {:conversations, adapter.conversations_table, [:set, :public, :named_table]},
+      {:checkpoints, adapter.checkpoints_table, [:set, :public, :named_table]},
+      {:dlq, adapter.dlq_table, [:set, :public, :named_table]}
     ]
 
     Enum.each(tables, fn {_name, table, opts} ->
@@ -266,6 +315,111 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
   end
 
   @impl GenServer
+  def handle_call({:put_checkpoint, subscription_id, checkpoint}, _from, adapter) do
+    :telemetry.execute(
+      [:jido, :signal, :journal, :checkpoint, :put],
+      %{},
+      %{subscription_id: subscription_id}
+    )
+
+    true = :ets.insert(adapter.checkpoints_table, {subscription_id, checkpoint})
+    {:reply, :ok, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:get_checkpoint, subscription_id}, _from, adapter) do
+    reply =
+      case :ets.lookup(adapter.checkpoints_table, subscription_id) do
+        [{^subscription_id, checkpoint}] ->
+          :telemetry.execute(
+            [:jido, :signal, :journal, :checkpoint, :get],
+            %{},
+            %{subscription_id: subscription_id, found: true}
+          )
+
+          {:ok, checkpoint}
+
+        [] ->
+          :telemetry.execute(
+            [:jido, :signal, :journal, :checkpoint, :get],
+            %{},
+            %{subscription_id: subscription_id, found: false}
+          )
+
+          {:error, :not_found}
+      end
+
+    {:reply, reply, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:delete_checkpoint, subscription_id}, _from, adapter) do
+    :ets.delete(adapter.checkpoints_table, subscription_id)
+    {:reply, :ok, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:put_dlq_entry, subscription_id, signal, reason, metadata}, _from, adapter) do
+    entry_id = Jido.Signal.ID.generate!()
+
+    entry = %{
+      id: entry_id,
+      subscription_id: subscription_id,
+      signal: signal,
+      reason: reason,
+      metadata: metadata,
+      inserted_at: DateTime.utc_now()
+    }
+
+    true = :ets.insert(adapter.dlq_table, {entry_id, entry})
+
+    :telemetry.execute(
+      [:jido, :signal, :journal, :dlq, :put],
+      %{},
+      %{subscription_id: subscription_id, entry_id: entry_id}
+    )
+
+    {:reply, {:ok, entry_id}, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:get_dlq_entries, subscription_id}, _from, adapter) do
+    entries =
+      :ets.tab2list(adapter.dlq_table)
+      |> Enum.map(fn {_id, entry} -> entry end)
+      |> Enum.filter(fn entry -> entry.subscription_id == subscription_id end)
+      |> Enum.sort_by(fn entry -> entry.inserted_at end, DateTime)
+
+    :telemetry.execute(
+      [:jido, :signal, :journal, :dlq, :get],
+      %{count: length(entries)},
+      %{subscription_id: subscription_id}
+    )
+
+    {:reply, {:ok, entries}, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:delete_dlq_entry, entry_id}, _from, adapter) do
+    :ets.delete(adapter.dlq_table, entry_id)
+    {:reply, :ok, adapter}
+  end
+
+  @impl GenServer
+  def handle_call({:clear_dlq, subscription_id}, _from, adapter) do
+    entries_to_delete =
+      :ets.tab2list(adapter.dlq_table)
+      |> Enum.filter(fn {_id, entry} -> entry.subscription_id == subscription_id end)
+      |> Enum.map(fn {id, _entry} -> id end)
+
+    Enum.each(entries_to_delete, fn id ->
+      :ets.delete(adapter.dlq_table, id)
+    end)
+
+    {:reply, :ok, adapter}
+  end
+
+  @impl GenServer
   def handle_call(:get_all_signals, _from, adapter) do
     signals =
       :ets.tab2list(adapter.signals_table)
@@ -280,7 +434,9 @@ defmodule Jido.Signal.Journal.Adapters.ETS do
       adapter.signals_table,
       adapter.causes_table,
       adapter.effects_table,
-      adapter.conversations_table
+      adapter.conversations_table,
+      adapter.checkpoints_table,
+      adapter.dlq_table
     ]
     |> Enum.each(fn table ->
       case :ets.whereis(table) do

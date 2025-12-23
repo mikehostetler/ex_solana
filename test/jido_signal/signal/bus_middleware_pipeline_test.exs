@@ -143,7 +143,7 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
   end
 
   describe "before_publish/3" do
-    test "executes middleware chain successfully" do
+    test "executes middleware chain successfully and returns updated configs" do
       {:ok, configs} =
         MiddlewarePipeline.init_middleware([
           {TestMiddleware1, []},
@@ -161,11 +161,15 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
 
       context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
 
-      assert {:ok, processed_signals} =
+      assert {:ok, processed_signals, updated_configs} =
                MiddlewarePipeline.before_publish(configs, signals, context)
 
       # Signal should be transformed by TransformMiddleware
       assert [%Signal{type: "test.signal-test"}] = processed_signals
+
+      # Verify updated configs are returned with state changes
+      assert [{TestMiddleware1, %{calls: [:before_publish], id: 1}}, {TransformMiddleware, _}] =
+               updated_configs
     end
 
     test "halts execution when middleware returns halt" do
@@ -186,7 +190,7 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
       context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
 
-      assert {:ok, ^signals} = MiddlewarePipeline.before_publish([], signals, context)
+      assert {:ok, ^signals, []} = MiddlewarePipeline.before_publish([], signals, context)
     end
 
     test "skips middleware that don't implement before_publish" do
@@ -215,26 +219,60 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
       context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
 
-      assert {:ok, ^signals} = MiddlewarePipeline.before_publish(configs, signals, context)
+      assert {:ok, ^signals, _updated_configs} =
+               MiddlewarePipeline.before_publish(configs, signals, context)
+    end
+
+    test "middleware state counter increments and persists across calls" do
+      defmodule CounterMiddleware do
+        use Jido.Signal.Bus.Middleware
+
+        @impl true
+        def init(_opts), do: {:ok, %{publish_count: 0}}
+
+        @impl true
+        def before_publish(signals, _context, state) do
+          {:cont, signals, %{state | publish_count: state.publish_count + 1}}
+        end
+      end
+
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{CounterMiddleware, []}])
+
+      signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
+      context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      # First call
+      {:ok, _, configs1} = MiddlewarePipeline.before_publish(configs, signals, context)
+      assert [{CounterMiddleware, %{publish_count: 1}}] = configs1
+
+      # Second call with updated configs
+      {:ok, _, configs2} = MiddlewarePipeline.before_publish(configs1, signals, context)
+      assert [{CounterMiddleware, %{publish_count: 2}}] = configs2
+
+      # Third call
+      {:ok, _, configs3} = MiddlewarePipeline.before_publish(configs2, signals, context)
+      assert [{CounterMiddleware, %{publish_count: 3}}] = configs3
     end
   end
 
   describe "after_publish/3" do
-    test "executes all middleware after_publish callbacks" do
+    test "executes all middleware after_publish callbacks and returns updated configs" do
       {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
 
       signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
       context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
 
-      # after_publish should always return :ok
-      assert :ok = MiddlewarePipeline.after_publish(configs, signals, context)
+      # after_publish should return updated configs
+      updated_configs = MiddlewarePipeline.after_publish(configs, signals, context)
+
+      assert [{TestMiddleware1, %{calls: [:after_publish], id: 1}}] = updated_configs
     end
 
     test "continues with empty middleware list" do
       signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
       context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
 
-      assert :ok = MiddlewarePipeline.after_publish([], signals, context)
+      assert [] = MiddlewarePipeline.after_publish([], signals, context)
     end
   end
 
@@ -254,7 +292,7 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       {:ok, subscriber: subscriber, signal: signal, context: context}
     end
 
-    test "executes middleware chain successfully", %{
+    test "executes middleware chain successfully and returns updated configs", %{
       subscriber: subscriber,
       signal: signal,
       context: context
@@ -265,11 +303,15 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
           {TransformMiddleware, suffix: "-dispatch"}
         ])
 
-      assert {:ok, processed_signal} =
+      assert {:ok, processed_signal, updated_configs} =
                MiddlewarePipeline.before_dispatch(configs, signal, subscriber, context)
 
       # Signal should be transformed by TransformMiddleware
       assert %Signal{source: "/test-dispatch"} = processed_signal
+
+      # Verify updated configs are returned with state changes
+      assert [{TestMiddleware1, %{calls: [:before_dispatch], id: 1}}, {TransformMiddleware, _}] =
+               updated_configs
     end
 
     test "returns skip when middleware skips", %{
@@ -308,7 +350,8 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       signal: signal,
       context: context
     } do
-      assert {:ok, ^signal} = MiddlewarePipeline.before_dispatch([], signal, subscriber, context)
+      assert {:ok, ^signal, []} =
+               MiddlewarePipeline.before_dispatch([], signal, subscriber, context)
     end
   end
 
@@ -328,7 +371,7 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       {:ok, subscriber: subscriber, signal: signal, context: context}
     end
 
-    test "executes all middleware after_dispatch callbacks", %{
+    test "executes all middleware after_dispatch callbacks and returns updated configs", %{
       subscriber: subscriber,
       signal: signal,
       context: context
@@ -337,9 +380,11 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
 
       result = :ok
 
-      # after_dispatch should always return :ok
-      assert :ok =
-               MiddlewarePipeline.after_dispatch(configs, signal, subscriber, result, context)
+      # after_dispatch should return updated configs
+      updated_configs =
+        MiddlewarePipeline.after_dispatch(configs, signal, subscriber, result, context)
+
+      assert [{TestMiddleware1, %{calls: [:after_dispatch], id: 1}}] = updated_configs
     end
 
     test "handles error results", %{subscriber: subscriber, signal: signal, context: context} do
@@ -347,8 +392,10 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
 
       result = {:error, :dispatch_failed}
 
-      assert :ok =
-               MiddlewarePipeline.after_dispatch(configs, signal, subscriber, result, context)
+      updated_configs =
+        MiddlewarePipeline.after_dispatch(configs, signal, subscriber, result, context)
+
+      assert [{TestMiddleware1, %{calls: [:after_dispatch], id: 1}}] = updated_configs
     end
 
     test "continues with empty middleware list", %{
@@ -358,7 +405,132 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
     } do
       result = :ok
 
-      assert :ok = MiddlewarePipeline.after_dispatch([], signal, subscriber, result, context)
+      assert [] = MiddlewarePipeline.after_dispatch([], signal, subscriber, result, context)
+    end
+  end
+
+  describe "middleware timeout protection" do
+    defmodule SlowMiddleware do
+      use Jido.Signal.Bus.Middleware
+
+      @impl true
+      def init(opts) do
+        {:ok, %{sleep_ms: Keyword.get(opts, :sleep_ms, 200)}}
+      end
+
+      @impl true
+      def before_publish(signals, _context, state) do
+        Process.sleep(state.sleep_ms)
+        {:cont, signals, state}
+      end
+
+      @impl true
+      def before_dispatch(signal, _subscriber, _context, state) do
+        Process.sleep(state.sleep_ms)
+        {:cont, signal, state}
+      end
+
+      @impl true
+      def after_publish(signals, _context, state) do
+        Process.sleep(state.sleep_ms)
+        {:cont, signals, state}
+      end
+
+      @impl true
+      def after_dispatch(_signal, _subscriber, _result, _context, state) do
+        Process.sleep(state.sleep_ms)
+        {:cont, state}
+      end
+    end
+
+    test "before_publish times out when middleware exceeds timeout" do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{SlowMiddleware, sleep_ms: 200}])
+
+      signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
+      context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      result = MiddlewarePipeline.before_publish(configs, signals, context, 50)
+
+      assert {:error, %Jido.Signal.Error.ExecutionFailureError{message: "Middleware timeout"}} =
+               result
+    end
+
+    test "before_publish succeeds when middleware is within timeout" do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{SlowMiddleware, sleep_ms: 10}])
+
+      signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
+      context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      result = MiddlewarePipeline.before_publish(configs, signals, context, 100)
+
+      assert {:ok, ^signals, _configs} = result
+    end
+
+    test "before_dispatch times out when middleware exceeds timeout" do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{SlowMiddleware, sleep_ms: 200}])
+
+      signal = %Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}
+
+      subscriber = %Subscriber{
+        id: "test-sub",
+        path: "test.signal",
+        dispatch: {:pid, target: self(), delivery_mode: :async},
+        persistent?: false,
+        persistence_pid: nil
+      }
+
+      context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      result = MiddlewarePipeline.before_dispatch(configs, signal, subscriber, context, 50)
+
+      assert {:error, %Jido.Signal.Error.ExecutionFailureError{message: "Middleware timeout"}} =
+               result
+    end
+
+    test "emits telemetry event on timeout" do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{SlowMiddleware, sleep_ms: 200}])
+
+      signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
+      # Use unique bus name to avoid interference from concurrent tests
+      unique_bus_name = :"test_bus_timeout_#{System.unique_integer([:positive])}"
+      context = %{bus_name: unique_bus_name, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      test_pid = self()
+      ref = make_ref()
+
+      :telemetry.attach(
+        "test-timeout-handler-#{inspect(ref)}",
+        [:jido, :signal, :middleware, :timeout],
+        fn event, measurements, metadata, _config ->
+          # Only forward events for our specific bus to avoid cross-test interference
+          if metadata.bus_name == unique_bus_name do
+            send(test_pid, {:telemetry_event, event, measurements, metadata})
+          end
+        end,
+        nil
+      )
+
+      _result = MiddlewarePipeline.before_publish(configs, signals, context, 50)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :timeout], measurements,
+                      metadata}
+
+      assert measurements.timeout_ms == 50
+      assert metadata.module == SlowMiddleware
+      assert metadata.bus_name == unique_bus_name
+
+      :telemetry.detach("test-timeout-handler-#{inspect(ref)}")
+    end
+
+    test "normal middleware works when within timeout" do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
+
+      signals = [%Signal{id: "test-1", type: "test.signal", source: "/test", data: %{}}]
+      context = %{bus_name: :test, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      result = MiddlewarePipeline.before_publish(configs, signals, context, 100)
+
+      assert {:ok, ^signals, [{TestMiddleware1, %{calls: [:before_publish], id: 1}}]} = result
     end
   end
 
@@ -399,6 +571,214 @@ defmodule JidoTest.Signal.Bus.MiddlewarePipeline do
       assert_receive {:middleware_called, :first, :before_publish}
       assert_receive {:middleware_called, :second, :before_publish}
       assert_receive {:middleware_called, :third, :before_publish}
+    end
+  end
+
+  describe "middleware telemetry events" do
+    setup do
+      test_pid = self()
+      ref = make_ref()
+      # Use unique bus name to avoid cross-test interference
+      unique_bus_name = :"telemetry_test_bus_#{System.unique_integer([:positive])}"
+
+      handler_id = "test-telemetry-handler-#{inspect(ref)}"
+
+      :telemetry.attach_many(
+        handler_id,
+        [
+          [:jido, :signal, :middleware, :before_publish, :start],
+          [:jido, :signal, :middleware, :before_publish, :stop],
+          [:jido, :signal, :middleware, :before_publish, :exception],
+          [:jido, :signal, :middleware, :after_publish, :stop],
+          [:jido, :signal, :middleware, :before_dispatch, :start],
+          [:jido, :signal, :middleware, :before_dispatch, :stop],
+          [:jido, :signal, :middleware, :before_dispatch, :skip],
+          [:jido, :signal, :middleware, :after_dispatch, :stop]
+        ],
+        fn event, measurements, metadata, config ->
+          # Only forward events for our specific bus to avoid cross-test interference
+          if metadata[:bus_name] == config.bus_name do
+            send(config.test_pid, {:telemetry_event, event, measurements, metadata})
+          end
+        end,
+        %{test_pid: test_pid, bus_name: unique_bus_name}
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      subscriber = %Subscriber{
+        id: "test-subscription-#{:erlang.unique_integer([:positive])}",
+        path: "test.signal",
+        dispatch: {:pid, target: self(), delivery_mode: :async},
+        persistent?: false,
+        persistence_pid: nil
+      }
+
+      signal = %Signal{id: "test-signal-1", type: "test.signal", source: "/test", data: %{}}
+      context = %{bus_name: unique_bus_name, timestamp: DateTime.utc_now(), metadata: %{}}
+
+      {:ok, subscriber: subscriber, signal: signal, context: context, bus_name: unique_bus_name}
+    end
+
+    test "emits start and stop events for before_publish", %{
+      signal: signal,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
+
+      {:ok, _, _} = MiddlewarePipeline.before_publish(configs, [signal], context)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_publish, :start],
+                      measurements, metadata}
+
+      assert is_integer(measurements.system_time)
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signals_count == 1
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_publish, :stop],
+                      measurements, metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert measurements.duration_us >= 0
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signals_count == 1
+    end
+
+    test "emits exception event when before_publish times out", %{
+      signal: signal,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} =
+        MiddlewarePipeline.init_middleware([
+          {JidoTest.Signal.Bus.MiddlewarePipeline.SlowMiddleware, sleep_ms: 200}
+        ])
+
+      _result = MiddlewarePipeline.before_publish(configs, [signal], context, 50)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_publish, :start], _,
+                      _}
+
+      assert_receive {:telemetry_event,
+                      [:jido, :signal, :middleware, :before_publish, :exception], measurements,
+                      metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert metadata.bus_name == bus_name
+      assert metadata.module == JidoTest.Signal.Bus.MiddlewarePipeline.SlowMiddleware
+    end
+
+    test "emits stop event for after_publish", %{
+      signal: signal,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
+
+      _updated = MiddlewarePipeline.after_publish(configs, [signal], context)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :after_publish, :stop],
+                      measurements, metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert measurements.duration_us >= 0
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signals_count == 1
+    end
+
+    test "emits start and stop events for before_dispatch", %{
+      signal: signal,
+      subscriber: subscriber,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
+
+      {:ok, _, _} = MiddlewarePipeline.before_dispatch(configs, signal, subscriber, context)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_dispatch, :start],
+                      measurements, metadata}
+
+      assert is_integer(measurements.system_time)
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signal_id == "test-signal-1"
+      assert is_binary(metadata.subscription_id)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_dispatch, :stop],
+                      measurements, metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert measurements.duration_us >= 0
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signal_id == "test-signal-1"
+      assert is_binary(metadata.subscription_id)
+    end
+
+    test "emits skip event when middleware returns :skip", %{
+      signal: signal,
+      subscriber: subscriber,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{SkipMiddleware, []}])
+
+      :skip = MiddlewarePipeline.before_dispatch(configs, signal, subscriber, context)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_dispatch, :start],
+                      _, _}
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_dispatch, :skip],
+                      measurements, metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert measurements.duration_us >= 0
+      assert metadata.bus_name == bus_name
+      assert metadata.module == SkipMiddleware
+      assert metadata.signal_id == "test-signal-1"
+      assert is_binary(metadata.subscription_id)
+    end
+
+    test "emits stop event for after_dispatch", %{
+      signal: signal,
+      subscriber: subscriber,
+      context: context,
+      bus_name: bus_name
+    } do
+      {:ok, configs} = MiddlewarePipeline.init_middleware([{TestMiddleware1, []}])
+
+      _updated =
+        MiddlewarePipeline.after_dispatch(configs, signal, subscriber, :ok, context)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :after_dispatch, :stop],
+                      measurements, metadata}
+
+      assert is_integer(measurements.duration_us)
+      assert measurements.duration_us >= 0
+      assert metadata.bus_name == bus_name
+      assert metadata.module == TestMiddleware1
+      assert metadata.signal_id == "test-signal-1"
+      assert is_binary(metadata.subscription_id)
+    end
+
+    test "duration_us is properly calculated", %{signal: signal, context: context} do
+      {:ok, configs} =
+        MiddlewarePipeline.init_middleware([
+          {JidoTest.Signal.Bus.MiddlewarePipeline.SlowMiddleware, sleep_ms: 10}
+        ])
+
+      {:ok, _, _} = MiddlewarePipeline.before_publish(configs, [signal], context, 100)
+
+      assert_receive {:telemetry_event, [:jido, :signal, :middleware, :before_publish, :stop],
+                      measurements, _metadata}
+
+      # Use a more lenient threshold to avoid flaky tests
+      assert measurements.duration_us >= 5_000
     end
   end
 end

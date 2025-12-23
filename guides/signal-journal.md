@@ -30,6 +30,7 @@ The Journal uses a behavior-based adapter pattern for storage:
 
 - **InMemory**: Fast in-process storage using Agent (default)
 - **ETS**: Shared ETS tables for cross-process access
+- **Mnesia**: Durable distributed storage using Memento; survives restarts
 - **Custom**: Implement `Jido.Signal.Journal.Persistence` for databases, files, etc.
 
 ## Getting Started
@@ -112,6 +113,70 @@ journal = %Jido.Signal.Journal{
 - Higher memory usage than InMemory
 - Automatic table cleanup on termination
 
+### Mnesia Adapter
+
+Best for: Production systems, durable persistence, distributed/clustered deployments
+
+```elixir
+# One-time setup (run once per node)
+:mnesia.create_schema([node()])
+:mnesia.start()
+
+# Initialize tables
+:ok = Jido.Signal.Journal.Adapters.Mnesia.init()
+
+# Create journal with Mnesia adapter
+journal = Jido.Signal.Journal.new(Jido.Signal.Journal.Adapters.Mnesia)
+```
+
+**Characteristics:**
+- Durable storage that survives process and node restarts
+- Distributed replication across Erlang cluster nodes
+- Full support for checkpoints and DLQ (for persistent subscriptions)
+- Higher latency than ETS but provides durability guarantees
+- Uses Memento tables: Signal, Cause, Effect, Conversation, Checkpoint, DLQ
+
+## Checkpoints and Dead Letter Queue
+
+The persistence behavior includes callbacks for subscription checkpoints and DLQ, used by `Jido.Signal.Bus.PersistentSubscription` for reliable message delivery.
+
+### Checkpoint Callbacks
+
+Checkpoints track per-subscription progress through the signal log:
+
+```elixir
+@callback put_checkpoint(subscription_id(), checkpoint(), pid() | nil) :: :ok | error()
+@callback get_checkpoint(subscription_id(), pid() | nil) ::
+          {:ok, checkpoint()} | {:error, :not_found} | error()
+@callback delete_checkpoint(subscription_id(), pid() | nil) :: :ok | error()
+```
+
+The `checkpoint` is a non-negative integer, typically a Unix timestamp derived from UUID7 signal log IDs.
+
+### DLQ Callbacks
+
+The Dead Letter Queue stores signals that failed delivery after all retry attempts:
+
+```elixir
+@type dlq_entry :: %{
+  id: String.t(),
+  subscription_id: String.t(),
+  signal: Signal.t(),
+  reason: term(),
+  metadata: map(),
+  inserted_at: DateTime.t()
+}
+
+@callback put_dlq_entry(subscription_id(), Signal.t(), term(), map(), pid() | nil) ::
+          {:ok, String.t()} | error()
+@callback get_dlq_entries(subscription_id(), pid() | nil) ::
+          {:ok, [dlq_entry()]} | error()
+@callback delete_dlq_entry(String.t(), pid() | nil) :: :ok | error()
+@callback clear_dlq(subscription_id(), pid() | nil) :: :ok | error()
+```
+
+When you configure a journal adapter on the Bus, persistent subscriptions automatically use these APIs for reliability and recovery.
+
 ### Custom Adapters
 
 Implement the `Jido.Signal.Journal.Persistence` behavior for custom storage:
@@ -173,11 +238,53 @@ defmodule MyApp.Journal.DatabaseAdapter do
     # Return all stored signals (required for query support)
     {:ok, signals_list}
   end
+
+  # Checkpoint callbacks (required for persistent subscriptions)
+  @impl true
+  def put_checkpoint(subscription_id, checkpoint, connection) do
+    # Store checkpoint for subscription
+    :ok
+  end
+
+  @impl true
+  def get_checkpoint(subscription_id, connection) do
+    # Retrieve checkpoint
+    {:ok, 0}  # or {:error, :not_found}
+  end
+
+  @impl true
+  def delete_checkpoint(subscription_id, connection) do
+    :ok
+  end
+
+  # DLQ callbacks (required for persistent subscriptions)
+  @impl true
+  def put_dlq_entry(subscription_id, signal, reason, metadata, connection) do
+    # Store failed signal in DLQ
+    {:ok, "entry_id"}
+  end
+
+  @impl true
+  def get_dlq_entries(subscription_id, connection) do
+    {:ok, []}
+  end
+
+  @impl true
+  def delete_dlq_entry(entry_id, connection) do
+    :ok
+  end
+
+  @impl true
+  def clear_dlq(subscription_id, connection) do
+    :ok
+  end
 end
 
 # Use custom adapter
 journal = Jido.Signal.Journal.new(MyApp.Journal.DatabaseAdapter)
 ```
+
+> **Note:** To support persistent subscriptions, custom adapters must implement the checkpoint and DLQ callbacks. If you don't need persistent subscriptions, these callbacks can return stub values.
 
 ## API Reference
 
@@ -329,9 +436,10 @@ user_signals = Enum.filter(all_signals, &String.starts_with?(&1.type, "user."))
 
 ### Adapter Selection
 
-- **InMemory**: < 10,000 signals, single process
-- **ETS**: < 100,000 signals, multi-process sharing needed
-- **Custom Database**: > 100,000 signals, persistence across restarts
+- **InMemory**: < 10,000 signals, single process, no durability needed
+- **ETS**: < 100,000 signals, multi-process sharing, survives process crashes
+- **Mnesia**: Production workloads, persistent subscriptions, cluster deployments
+- **Custom Database**: > 100,000 signals, complex queries, external storage requirements
 
 ## Usage Examples
 
@@ -504,6 +612,7 @@ end
 6. **Index Queries**: For custom adapters, optimize common query patterns
 7. **Batch Operations**: Record multiple signals efficiently when possible
 8. **Clean Up Resources**: Properly terminate adapters to prevent resource leaks
+9. **Use durable adapters for persistent subscriptions**: ETS or Mnesia ensure checkpoints and DLQ entries survive process crashes
 
 The Signal Journal provides the foundation for sophisticated event-driven architectures with complete traceability and powerful analysis capabilities. Combined with the Bus, it enables robust, observable, and maintainable signal processing systems.
 

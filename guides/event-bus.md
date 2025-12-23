@@ -94,27 +94,88 @@ Start bus with middleware:
 )
 ```
 
+Middleware callbacks are executed by `Jido.Signal.Bus.MiddlewarePipeline` with per-callback timeouts (`middleware_timeout_ms`, default 100ms). Each callback can:
+- `{:cont, ...}` - Continue processing
+- `{:skip, state}` - Skip this subscriber (for `before_dispatch` only)
+- `{:halt, reason, state}` - Stop processing and fail the operation
+
 ## Persistent Subscriptions
 
-> **Note:** Persistent subscriptions are partially implemented. The `persistent: true` flag and acknowledgment tracking work, but checkpoint-based replay on reconnection is not yet fully implemented.
-
-Create persistent subscriptions that survive client disconnections:
+Persistent subscriptions provide reliable message delivery with acknowledgments, checkpointing, and automatic retry with Dead Letter Queue (DLQ) support.
 
 ```elixir
-# Create persistent subscription
+# Create persistent subscription with reliability options
 {:ok, sub_id} = Jido.Signal.Bus.subscribe(:my_bus, "order.*",
   persistent: true,
-  dispatch: {:pid, target: self(), delivery_mode: :async}
+  dispatch: {:pid, target: self(), delivery_mode: :async},
+  max_in_flight: 500,      # Max unacknowledged signals (default: 1000)
+  max_pending: 5_000,      # Max queued signals before backpressure (default: 10_000)
+  max_attempts: 5,         # Retry attempts before moving to DLQ (default: 5)
+  retry_interval: 500      # Milliseconds between retry waves (default: 100)
 )
 
 # Acknowledge processed signals
 :ok = Jido.Signal.Bus.ack(:my_bus, sub_id, signal_id)
 
-# Reconnect after disconnection
-{:ok, last_timestamp} = Jido.Signal.Bus.reconnect(:my_bus, sub_id, self())
+# Batch acknowledgment
+:ok = Jido.Signal.Bus.ack(:my_bus, sub_id, [signal_id_1, signal_id_2, signal_id_3])
+
+# Reconnect after client disconnect (subscription survives)
+{:ok, last_checkpoint} = Jido.Signal.Bus.reconnect(:my_bus, sub_id, self())
 ```
 
-Persistent subscriptions track acknowledgments. Full checkpoint-based replay is planned for a future release.
+Persistent subscriptions require a journal adapter to persist checkpoints across restarts:
+
+```elixir
+{:ok, _pid} = Jido.Signal.Bus.start_link(
+  name: :my_bus,
+  journal_adapter: Jido.Signal.Journal.Adapters.ETS
+)
+```
+
+When configured, checkpoints are automatically persisted and restored on reconnection.
+
+## Dead Letter Queue (DLQ)
+
+When a persistent subscription exhausts all retry attempts (`max_attempts`), failed signals are moved to the Dead Letter Queue for later inspection and reprocessing.
+
+```elixir
+# List DLQ entries for a subscription
+{:ok, entries} = Jido.Signal.Bus.get_dlq_entries(:my_bus, sub_id)
+# Each entry: %{id, subscription_id, signal, reason, metadata, inserted_at}
+
+# Redrive (re-dispatch) DLQ messages
+{:ok, %{succeeded: count, failed: failures}} = 
+  Jido.Signal.Bus.redrive_dlq(:my_bus, sub_id, limit: 100)
+
+# Clear all DLQ entries for a subscription
+:ok = Jido.Signal.Bus.clear_dlq(:my_bus, sub_id)
+```
+
+DLQ requires a journal adapter that implements the DLQ callbacks. Both ETS and Mnesia adapters support DLQ out of the box.
+
+## Horizontal Scaling with Partitions
+
+For high-throughput scenarios, the bus can distribute dispatch across multiple partition workers:
+
+```elixir
+{:ok, _pid} = Jido.Signal.Bus.start_link(
+  name: :my_bus,
+  partition_count: 4,                    # Number of partition workers
+  partition_rate_limit_per_sec: 10_000,  # Rate limit per partition
+  partition_burst_size: 1_000,           # Token bucket burst size
+  middleware: [
+    {Jido.Signal.Bus.Middleware.Logger, [level: :info]}
+  ],
+  journal_adapter: Jido.Signal.Journal.Adapters.ETS
+)
+```
+
+With partitions enabled:
+- Non-persistent subscriptions are sharded across partitions based on subscription ID
+- Each partition has independent rate limiting using a token bucket algorithm
+- Persistent subscriptions are handled by the main bus process to honor backpressure
+- Rate-limited signals emit telemetry: `[:jido, :signal, :bus, :rate_limited]`
 
 ## Snapshots and Replay
 
@@ -166,7 +227,11 @@ Persistent subscription options:
 ```elixir
 {:ok, sub_id} = Jido.Signal.Bus.subscribe(:my_bus, "events.*",
   persistent: true,
+  dispatch: {:pid, target: self(), delivery_mode: :async},
   max_in_flight: 100,    # Max unacknowledged signals
+  max_pending: 5_000,    # Max pending before backpressure
+  max_attempts: 5,       # Attempts before DLQ
+  retry_interval: 500,   # Retry interval in ms
   start_from: :origin    # :origin, :current, or timestamp
 )
 ```

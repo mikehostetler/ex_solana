@@ -1,0 +1,295 @@
+defmodule Jido.Signal.Bus.Partition do
+  @moduledoc """
+  A partition handles a subset of subscriptions and their dispatch.
+
+  Partitions are used to distribute the load of signal dispatch across multiple processes.
+  Each partition manages its own set of subscriptions based on a hash of the subscription ID.
+  """
+  use GenServer
+  use TypedStruct
+
+  alias Jido.Signal.Bus.MiddlewarePipeline
+  alias Jido.Signal.Bus.Subscriber
+  alias Jido.Signal.Dispatch
+  alias Jido.Signal.Router
+
+  require Logger
+
+  typedstruct do
+    field(:partition_id, non_neg_integer(), enforce: true)
+    field(:bus_name, atom(), enforce: true)
+    field(:bus_pid, pid(), enforce: true)
+    field(:subscriptions, %{String.t() => Subscriber.t()}, default: %{})
+    field(:middleware, [MiddlewarePipeline.middleware_config()], default: [])
+    field(:middleware_timeout_ms, pos_integer(), default: 100)
+    field(:journal_adapter, module())
+    field(:journal_pid, pid())
+    field(:rate_limit_per_sec, pos_integer(), default: 10_000)
+    field(:burst_size, pos_integer(), default: 1_000)
+    field(:tokens, float(), default: 1_000.0)
+    field(:last_refill, integer())
+  end
+
+  @doc """
+  Starts a partition worker linked to the calling process.
+
+  ## Options
+
+    * `:partition_id` - The partition number (required)
+    * `:bus_name` - The name of the parent bus (required)
+    * `:bus_pid` - The PID of the parent bus (required)
+    * `:middleware` - Middleware configurations (optional)
+    * `:middleware_timeout_ms` - Timeout for middleware execution (default: 100)
+    * `:journal_adapter` - Journal adapter module (optional)
+    * `:journal_pid` - Journal adapter PID (optional)
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts) do
+    partition_id = Keyword.fetch!(opts, :partition_id)
+    bus_name = Keyword.fetch!(opts, :bus_name)
+    GenServer.start_link(__MODULE__, opts, name: via_tuple(bus_name, partition_id))
+  end
+
+  @doc """
+  Returns a via tuple for looking up a partition by bus name and partition ID.
+  """
+  @spec via_tuple(atom(), non_neg_integer()) :: {:via, Registry, {module(), tuple()}}
+  def via_tuple(bus_name, partition_id) do
+    {:via, Registry, {Jido.Signal.Registry, {:partition, bus_name, partition_id}}}
+  end
+
+  @doc """
+  Determines which partition a subscription should be routed to.
+  """
+  @spec partition_for(String.t(), pos_integer()) :: non_neg_integer()
+  def partition_for(subscription_id, partition_count) when partition_count > 1 do
+    :erlang.phash2(subscription_id, partition_count)
+  end
+
+  def partition_for(_subscription_id, _partition_count), do: 0
+
+  @impl GenServer
+  def init(opts) do
+    burst_size = Keyword.get(opts, :burst_size, 1_000)
+
+    state = %__MODULE__{
+      partition_id: Keyword.fetch!(opts, :partition_id),
+      bus_name: Keyword.fetch!(opts, :bus_name),
+      bus_pid: Keyword.fetch!(opts, :bus_pid),
+      middleware: Keyword.get(opts, :middleware, []),
+      middleware_timeout_ms: Keyword.get(opts, :middleware_timeout_ms, 100),
+      journal_adapter: Keyword.get(opts, :journal_adapter),
+      journal_pid: Keyword.get(opts, :journal_pid),
+      rate_limit_per_sec: Keyword.get(opts, :rate_limit_per_sec, 10_000),
+      burst_size: burst_size,
+      tokens: burst_size * 1.0,
+      last_refill: System.monotonic_time(:millisecond)
+    }
+
+    {:ok, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:dispatch, signals, uuid_signal_pairs, context}, state) do
+    state = refill_tokens(state)
+    signal_count = length(signals)
+
+    case consume_tokens(state, signal_count) do
+      {:ok, new_state} ->
+        dispatch_to_subscriptions(new_state, signals, uuid_signal_pairs, context)
+        {:noreply, new_state}
+
+      {:error, :rate_limited} ->
+        :telemetry.execute(
+          [:jido, :signal, :bus, :rate_limited],
+          %{dropped_count: signal_count},
+          %{
+            bus_name: state.bus_name,
+            partition_id: state.partition_id,
+            available_tokens: state.tokens,
+            requested: signal_count
+          }
+        )
+
+        Logger.warning(
+          "Partition #{state.partition_id} rate limited: dropping #{signal_count} signals " <>
+            "(available: #{Float.round(state.tokens, 1)}, limit: #{state.rate_limit_per_sec}/s)"
+        )
+
+        {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:add_subscription, subscription_id, subscription}, _from, state) do
+    new_subscriptions = Map.put(state.subscriptions, subscription_id, subscription)
+    {:reply, :ok, %{state | subscriptions: new_subscriptions}}
+  end
+
+  @impl GenServer
+  def handle_call({:remove_subscription, subscription_id}, _from, state) do
+    new_subscriptions = Map.delete(state.subscriptions, subscription_id)
+    {:reply, :ok, %{state | subscriptions: new_subscriptions}}
+  end
+
+  @impl GenServer
+  def handle_call(:get_subscriptions, _from, state) do
+    {:reply, {:ok, state.subscriptions}, state}
+  end
+
+  @impl GenServer
+  def handle_call({:update_middleware, middleware}, _from, state) do
+    {:reply, :ok, %{state | middleware: middleware}}
+  end
+
+  defp dispatch_to_subscriptions(state, signals, uuid_signal_pairs, context) do
+    Enum.each(signals, fn signal ->
+      Enum.each(state.subscriptions, fn {subscription_id, subscription} ->
+        # Skip persistent subscriptions - they are handled by the main bus for backpressure
+        if not subscription.persistent? and Router.matches?(signal.type, subscription.path) do
+          :telemetry.execute(
+            [:jido, :signal, :bus, :before_dispatch],
+            %{timestamp: System.monotonic_time(:microsecond)},
+            %{
+              bus_name: state.bus_name,
+              signal_id: signal.id,
+              signal_type: signal.type,
+              subscription_id: subscription_id,
+              subscription_path: subscription.path,
+              signal: signal,
+              subscription: subscription,
+              partition_id: state.partition_id
+            }
+          )
+
+          case MiddlewarePipeline.before_dispatch(
+                 state.middleware,
+                 signal,
+                 subscription,
+                 context,
+                 state.middleware_timeout_ms
+               ) do
+            {:ok, processed_signal, _new_configs} ->
+              result =
+                dispatch_to_subscription(
+                  processed_signal,
+                  subscription,
+                  subscription_id,
+                  uuid_signal_pairs
+                )
+
+              :telemetry.execute(
+                [:jido, :signal, :bus, :after_dispatch],
+                %{timestamp: System.monotonic_time(:microsecond)},
+                %{
+                  bus_name: state.bus_name,
+                  signal_id: processed_signal.id,
+                  signal_type: processed_signal.type,
+                  subscription_id: subscription_id,
+                  subscription_path: subscription.path,
+                  dispatch_result: result,
+                  signal: processed_signal,
+                  subscription: subscription,
+                  partition_id: state.partition_id
+                }
+              )
+
+              MiddlewarePipeline.after_dispatch(
+                state.middleware,
+                processed_signal,
+                subscription,
+                result,
+                context,
+                state.middleware_timeout_ms
+              )
+
+            :skip ->
+              :telemetry.execute(
+                [:jido, :signal, :bus, :dispatch_skipped],
+                %{timestamp: System.monotonic_time(:microsecond)},
+                %{
+                  bus_name: state.bus_name,
+                  signal_id: signal.id,
+                  signal_type: signal.type,
+                  subscription_id: subscription_id,
+                  subscription_path: subscription.path,
+                  reason: :middleware_skip,
+                  signal: signal,
+                  subscription: subscription,
+                  partition_id: state.partition_id
+                }
+              )
+
+              :ok
+
+            {:error, reason} ->
+              :telemetry.execute(
+                [:jido, :signal, :bus, :dispatch_error],
+                %{timestamp: System.monotonic_time(:microsecond)},
+                %{
+                  bus_name: state.bus_name,
+                  signal_id: signal.id,
+                  signal_type: signal.type,
+                  subscription_id: subscription_id,
+                  subscription_path: subscription.path,
+                  error: reason,
+                  signal: signal,
+                  subscription: subscription,
+                  partition_id: state.partition_id
+                }
+              )
+
+              Logger.warning(
+                "Middleware halted dispatch for signal #{signal.id}: #{inspect(reason)}"
+              )
+
+              :ok
+          end
+        end
+      end)
+    end)
+  end
+
+  defp dispatch_to_subscription(signal, subscription, _subscription_id, uuid_signal_pairs) do
+    if subscription.persistent? and subscription.persistence_pid do
+      uuid = find_signal_uuid(signal, uuid_signal_pairs)
+
+      try do
+        GenServer.call(subscription.persistence_pid, {:signal, {uuid, signal}})
+      catch
+        :exit, {:noproc, _} ->
+          {:error, :subscription_not_available}
+
+        :exit, {:timeout, _} ->
+          {:error, :timeout}
+      end
+    else
+      Dispatch.dispatch(signal, subscription.dispatch)
+    end
+  end
+
+  defp find_signal_uuid(signal, uuid_signal_pairs) do
+    case Enum.find(uuid_signal_pairs, fn {_uuid, s} -> s.id == signal.id end) do
+      {uuid, _} -> uuid
+      nil -> signal.id
+    end
+  end
+
+  defp refill_tokens(state) do
+    now = System.monotonic_time(:millisecond)
+    elapsed_ms = now - state.last_refill
+    tokens_to_add = elapsed_ms / 1000.0 * state.rate_limit_per_sec
+
+    new_tokens = min(state.burst_size * 1.0, state.tokens + tokens_to_add)
+
+    %{state | tokens: new_tokens, last_refill: now}
+  end
+
+  defp consume_tokens(state, count) do
+    if state.tokens >= count do
+      {:ok, %{state | tokens: state.tokens - count}}
+    else
+      {:error, :rate_limited}
+    end
+  end
+end

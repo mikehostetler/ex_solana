@@ -103,6 +103,58 @@ case Task.yield(task, 5000) do
 end
 ```
 
+### Persistent Subscriptions, Retries, and DLQ
+
+For reliable message delivery, persistent subscriptions provide:
+
+- **Bounded queues**: `max_in_flight` and `max_pending` prevent unbounded memory growth
+- **Automatic retries**: Failed dispatches retry up to `max_attempts` times with `retry_interval` delay
+- **Dead Letter Queue**: Exhausted messages are preserved for inspection and reprocessing
+
+```elixir
+# Configure for aggressive retry
+{:ok, sub_id} = Bus.subscribe(:my_bus, "critical.*",
+  persistent: true,
+  dispatch: {:pid, target: self()},
+  max_in_flight: 50,
+  max_attempts: 10,
+  retry_interval: 1000
+)
+
+# Configure for fail-fast with DLQ review
+{:ok, sub_id} = Bus.subscribe(:my_bus, "batch.*",
+  persistent: true,
+  dispatch: {:pid, target: self()},
+  max_in_flight: 1000,
+  max_attempts: 2,
+  retry_interval: 100
+)
+```
+
+See [Event Bus guide](event-bus.md) for DLQ management APIs.
+
+### Circuit Breaker for External Services
+
+Combine circuit breakers with dispatch for fault isolation:
+
+```elixir
+alias Jido.Signal.Dispatch.CircuitBreaker
+
+# Install once at startup
+:ok = CircuitBreaker.install(:webhook)
+
+# Use in dispatch
+case CircuitBreaker.run(:webhook, fn ->
+       Dispatch.dispatch(signal, {:http, [url: webhook_url]})
+     end) do
+  :ok -> :ok
+  {:error, :circuit_open} -> queue_for_later(signal)
+  {:error, reason} -> handle_error(reason)
+end
+```
+
+See [Signals and Dispatch guide](signals-and-dispatch.md) for full circuit breaker documentation.
+
 ## Testing Approaches
 
 ### Mock Adapters
@@ -241,6 +293,23 @@ subscriptions = Enum.map(patterns, fn pattern ->
   Bus.subscribe(bus, pattern, dispatch: {:pid, target: self(), delivery_mode: :async})
 end)
 ```
+
+### Horizontal Scaling with Partitions
+
+For high-throughput scenarios, enable partitioned dispatch:
+
+```elixir
+{:ok, _pid} = Bus.start_link(
+  name: :high_volume_bus,
+  partition_count: System.schedulers_online(),
+  partition_rate_limit_per_sec: 50_000,
+  partition_burst_size: 5_000
+)
+```
+
+Partitions distribute non-persistent subscriptions across workers, each with independent rate limiting. Monitor partition health via telemetry:
+
+- `[:jido, :signal, :bus, :rate_limited]` - Partition dropping signals due to rate limit
 
 ## Next Steps
 

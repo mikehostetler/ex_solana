@@ -272,5 +272,232 @@ defmodule JidoTest.Signal.Bus.PersistentSubscriptionTest do
       assert Map.has_key?(state_after_ack.in_flight_signals, Enum.at(signal_log_ids, 3))
       refute Map.has_key?(state_after_ack.in_flight_signals, Enum.at(signal_log_ids, 4))
     end
+
+    test "returns {:error, :queue_full} when both in_flight and pending are full via handle_call",
+         %{bus_pid: bus_pid, test_pid: test_pid} do
+      dispatch_config = [{:pid, [target: test_pid]}]
+
+      opts = [
+        bus_pid: bus_pid,
+        path: "test/path",
+        client_pid: test_pid,
+        max_in_flight: 2,
+        max_pending: 2,
+        bus_subscription: %Subscriber{
+          id: ID.generate!(),
+          path: "test/path",
+          dispatch: dispatch_config
+        }
+      ]
+
+      {:ok, pid} = PersistentSubscription.start_link(opts)
+
+      # Send 4 signals (2 in-flight + 2 pending = at capacity)
+      for i <- 1..4 do
+        signal = Signal.new!(%{type: "test-#{i}", source: "/test", data: %{i: i}})
+        signal_log_id = ID.generate!()
+        result = GenServer.call(pid, {:signal, {signal_log_id, signal}})
+        assert result == :ok
+      end
+
+      # Verify state
+      state = :sys.get_state(pid)
+      assert map_size(state.in_flight_signals) == 2
+      assert map_size(state.pending_signals) == 2
+
+      # Fifth signal should be rejected
+      signal5 = Signal.new!(%{type: "test-5", source: "/test", data: %{i: 5}})
+      signal_log_id5 = ID.generate!()
+      result = GenServer.call(pid, {:signal, {signal_log_id5, signal5}})
+      assert result == {:error, :queue_full}
+
+      # State should not have changed
+      state_after = :sys.get_state(pid)
+      assert map_size(state_after.in_flight_signals) == 2
+      assert map_size(state_after.pending_signals) == 2
+    end
+
+    test "drops signal when queue full via handle_info", %{bus_pid: bus_pid, test_pid: test_pid} do
+      dispatch_config = [{:pid, [target: test_pid]}]
+
+      opts = [
+        bus_pid: bus_pid,
+        path: "test/path",
+        client_pid: test_pid,
+        max_in_flight: 1,
+        max_pending: 1,
+        bus_subscription: %Subscriber{
+          id: ID.generate!(),
+          path: "test/path",
+          dispatch: dispatch_config
+        }
+      ]
+
+      {:ok, pid} = PersistentSubscription.start_link(opts)
+
+      # Send 2 signals via handle_info (1 in-flight + 1 pending)
+      for i <- 1..2 do
+        signal = Signal.new!(%{type: "test-#{i}", source: "/test", data: %{i: i}})
+        signal_log_id = ID.generate!()
+        send(pid, {:signal, {signal_log_id, signal}})
+      end
+
+      # Allow messages to be processed
+      Process.sleep(50)
+
+      state = :sys.get_state(pid)
+      assert map_size(state.in_flight_signals) == 1
+      assert map_size(state.pending_signals) == 1
+
+      # Third signal should be dropped (handle_info can't return error)
+      signal3 = Signal.new!(%{type: "test-3", source: "/test", data: %{i: 3}})
+      signal_log_id3 = ID.generate!()
+      send(pid, {:signal, {signal_log_id3, signal3}})
+
+      Process.sleep(50)
+
+      # State should not have changed
+      state_after = :sys.get_state(pid)
+      assert map_size(state_after.in_flight_signals) == 1
+      assert map_size(state_after.pending_signals) == 1
+    end
+
+    @tag :capture_log
+    test "emits telemetry event on backpressure", %{bus_pid: bus_pid, test_pid: test_pid} do
+      dispatch_config = [{:pid, [target: test_pid]}]
+
+      opts = [
+        bus_pid: bus_pid,
+        path: "test/path",
+        client_pid: test_pid,
+        max_in_flight: 1,
+        max_pending: 1,
+        bus_subscription: %Subscriber{
+          id: ID.generate!(),
+          path: "test/path",
+          dispatch: dispatch_config
+        }
+      ]
+
+      {:ok, pid} = PersistentSubscription.start_link(opts)
+
+      # Attach telemetry handler
+      test_pid = self()
+      handler_id = "test-backpressure-handler-#{System.unique_integer()}"
+
+      :telemetry.attach(
+        handler_id,
+        [:jido, :signal, :subscription, :backpressure],
+        fn event, measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      # Fill up in-flight and pending
+      for i <- 1..2 do
+        signal = Signal.new!(%{type: "test-#{i}", source: "/test", data: %{i: i}})
+        signal_log_id = ID.generate!()
+        GenServer.call(pid, {:signal, {signal_log_id, signal}})
+      end
+
+      # Trigger backpressure
+      signal3 = Signal.new!(%{type: "test-3", source: "/test", data: %{i: 3}})
+      signal_log_id3 = ID.generate!()
+      {:error, :queue_full} = GenServer.call(pid, {:signal, {signal_log_id3, signal3}})
+
+      # Verify telemetry was emitted
+      assert_receive {:telemetry_event, [:jido, :signal, :subscription, :backpressure], %{},
+                      metadata},
+                     500
+
+      assert metadata.in_flight == 1
+      assert metadata.pending == 1
+      assert is_binary(metadata.subscription_id)
+
+      :telemetry.detach(handler_id)
+    end
+
+    test "accepts more signals after ack drains queue", %{bus_pid: bus_pid, test_pid: test_pid} do
+      dispatch_config = [{:pid, [target: test_pid]}]
+
+      opts = [
+        bus_pid: bus_pid,
+        path: "test/path",
+        client_pid: test_pid,
+        max_in_flight: 1,
+        max_pending: 1,
+        bus_subscription: %Subscriber{
+          id: ID.generate!(),
+          path: "test/path",
+          dispatch: dispatch_config
+        }
+      ]
+
+      {:ok, pid} = PersistentSubscription.start_link(opts)
+
+      # Fill up the queue
+      signal1 = Signal.new!(%{type: "test-1", source: "/test", data: %{i: 1}})
+      signal_log_id1 = ID.generate!()
+      :ok = GenServer.call(pid, {:signal, {signal_log_id1, signal1}})
+
+      signal2 = Signal.new!(%{type: "test-2", source: "/test", data: %{i: 2}})
+      signal_log_id2 = ID.generate!()
+      :ok = GenServer.call(pid, {:signal, {signal_log_id2, signal2}})
+
+      # Queue is full now
+      signal3 = Signal.new!(%{type: "test-3", source: "/test", data: %{i: 3}})
+      signal_log_id3 = ID.generate!()
+      assert {:error, :queue_full} = GenServer.call(pid, {:signal, {signal_log_id3, signal3}})
+
+      # Acknowledge first signal
+      :ok = GenServer.call(pid, {:ack, signal_log_id1})
+
+      # Now pending should move to in-flight, leaving room in pending
+      state = :sys.get_state(pid)
+      assert map_size(state.in_flight_signals) == 1
+      assert map_size(state.pending_signals) == 0
+
+      # Should be able to add more signals now
+      signal4 = Signal.new!(%{type: "test-4", source: "/test", data: %{i: 4}})
+      signal_log_id4 = ID.generate!()
+      assert :ok = GenServer.call(pid, {:signal, {signal_log_id4, signal4}})
+    end
+
+    test "signals within limits are accepted", %{bus_pid: bus_pid, test_pid: test_pid} do
+      dispatch_config = [{:pid, [target: test_pid]}]
+
+      opts = [
+        bus_pid: bus_pid,
+        path: "test/path",
+        client_pid: test_pid,
+        max_in_flight: 5,
+        max_pending: 5,
+        bus_subscription: %Subscriber{
+          id: ID.generate!(),
+          path: "test/path",
+          dispatch: dispatch_config
+        }
+      ]
+
+      {:ok, pid} = PersistentSubscription.start_link(opts)
+
+      # Send 10 signals (5 in-flight + 5 pending = exactly at capacity)
+      for i <- 1..10 do
+        signal = Signal.new!(%{type: "test-#{i}", source: "/test", data: %{i: i}})
+        signal_log_id = ID.generate!()
+        result = GenServer.call(pid, {:signal, {signal_log_id, signal}})
+        assert result == :ok, "Signal #{i} should be accepted"
+      end
+
+      state = :sys.get_state(pid)
+      assert map_size(state.in_flight_signals) == 5
+      assert map_size(state.pending_signals) == 5
+
+      # 11th signal should fail
+      signal11 = Signal.new!(%{type: "test-11", source: "/test", data: %{i: 11}})
+      signal_log_id11 = ID.generate!()
+      assert {:error, :queue_full} = GenServer.call(pid, {:signal, {signal_log_id11, signal11}})
+    end
   end
 end

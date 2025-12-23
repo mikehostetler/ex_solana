@@ -21,6 +21,13 @@ defmodule Jido.Signal.Bus.State do
     field(:subscriptions, %{String.t() => Jido.Signal.Bus.Subscriber.t()}, default: %{})
     field(:child_supervisor, pid())
     field(:middleware, [Jido.Signal.Bus.MiddlewarePipeline.middleware_config()], default: [])
+    field(:middleware_timeout_ms, pos_integer(), default: 100)
+    field(:journal_adapter, module(), default: nil)
+    field(:journal_pid, pid(), default: nil)
+    field(:partition_count, pos_integer(), default: 1)
+    field(:partition_pids, [pid()], default: [])
+    field(:max_log_size, pos_integer(), default: 100_000)
+    field(:log_ttl_ms, pos_integer() | nil, default: nil)
   end
 
   @doc """
@@ -37,7 +44,7 @@ defmodule Jido.Signal.Bus.State do
     - `{:error, reason}` if there was an error processing the signals
   """
   @spec append_signals(t(), [Jido.Signal.t() | {:ok, Jido.Signal.t()} | map()]) ::
-          {:ok, t(), [Signal.t()]} | {:error, term()}
+          {:ok, t(), [{String.t(), Signal.t()}]} | {:error, term()}
   def append_signals(%__MODULE__{} = state, signals) when is_list(signals) do
     if signals == [] do
       {:ok, state, []}
@@ -45,15 +52,36 @@ defmodule Jido.Signal.Bus.State do
       try do
         {uuids, _timestamp} = Jido.Signal.ID.generate_batch(length(signals))
 
+        # Create list of {uuid, signal} tuples
+        uuid_signal_pairs = Enum.zip(uuids, signals)
+
         new_log =
-          uuids
-          |> Enum.zip(signals)
+          uuid_signal_pairs
           |> Enum.reduce(state.log, fn {uuid, signal}, acc ->
             # Use the UUID as the key for the signal
             Map.put(acc, uuid, signal)
           end)
 
-        {:ok, %{state | log: new_log}, signals}
+        # Auto-truncate if exceeds max size
+        {final_log, truncated_count} =
+          if map_size(new_log) > state.max_log_size do
+            truncated = truncate_to_size(new_log, state.max_log_size)
+            {truncated, map_size(new_log) - state.max_log_size}
+          else
+            {new_log, 0}
+          end
+
+        # Emit telemetry if truncation occurred
+        if truncated_count > 0 do
+          :telemetry.execute(
+            [:jido, :signal, :bus, :log_truncated],
+            %{removed_count: truncated_count},
+            %{bus_name: state.name, new_size: state.max_log_size}
+          )
+        end
+
+        # Return the uuid -> signal pairs so callers can build their own mappings
+        {:ok, %{state | log: final_log}, uuid_signal_pairs}
       rescue
         e in KeyError ->
           {:error, "Invalid signal format: #{Exception.message(e)}"}
@@ -62,6 +90,14 @@ defmodule Jido.Signal.Bus.State do
           {:error, "Error processing signals: #{Exception.message(e)}"}
       end
     end
+  end
+
+  # Truncates log to max_size, keeping the most recent entries (UUID7 is time-ordered)
+  defp truncate_to_size(log, max_size) do
+    log
+    |> Enum.sort_by(fn {key, _signal} -> key end)
+    |> Enum.take(-max_size)
+    |> Map.new()
   end
 
   @doc """

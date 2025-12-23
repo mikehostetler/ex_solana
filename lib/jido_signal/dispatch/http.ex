@@ -50,6 +50,8 @@ defmodule Jido.Signal.Dispatch.Http do
 
   @behaviour Jido.Signal.Dispatch.Adapter
 
+  alias Jido.Signal.Dispatch.CircuitBreaker
+
   require Logger
 
   @default_timeout 5000
@@ -143,6 +145,16 @@ defmodule Jido.Signal.Dispatch.Http do
   """
   @spec deliver(Jido.Signal.t(), delivery_opts()) :: :ok | {:error, delivery_error()}
   def deliver(signal, opts) do
+    CircuitBreaker.install(:http)
+
+    CircuitBreaker.run(:http, fn ->
+      do_deliver(signal, opts)
+    end)
+  end
+
+  @doc false
+  @spec do_deliver(Jido.Signal.t(), delivery_opts()) :: :ok | {:error, delivery_error()}
+  def do_deliver(signal, opts) do
     url = Keyword.fetch!(opts, :url)
     method = Keyword.fetch!(opts, :method)
     headers = Keyword.fetch!(opts, :headers)
