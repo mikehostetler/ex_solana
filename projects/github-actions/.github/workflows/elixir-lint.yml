@@ -18,12 +18,12 @@ on:
         description: 'Elixir version'
         required: false
         type: string
-        default: '1.18'
+        default: '1.19'
       mix_env:
         description: 'MIX_ENV for compilation'
         required: false
         type: string
-        default: 'test'
+        default: 'dev'
       lint_command:
         description: 'Command to run for linting'
         required: false
