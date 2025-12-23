@@ -91,7 +91,7 @@ config :jido_workspace,
     },
     %{
       name: "jido_character",
-      upstream_url: "git@github.com:epic-creative/jido_character.git",
+      upstream_url: "git@github.com:agentjido/jido_character.git",
       branch: "main",
       type: :library,
       path: "projects/jido_character"
