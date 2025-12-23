@@ -1,5 +1,5 @@
 # Reusable Elixir Test Workflow
-# Usage: uses: agentjido/github-actions/.github/workflows/elixir-test.yml@v1
+# Usage: uses: agentjido/github-actions/.github/workflows/elixir-test.yml@main
 #
 # Supports version matrix testing via otp_versions and elixir_versions inputs (JSON arrays)
 
