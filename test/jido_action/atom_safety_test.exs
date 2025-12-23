@@ -4,13 +4,27 @@ defmodule Jido.Action.AtomSafetyTest do
 
   This test suite ensures that user input cannot cause unbounded atom creation,
   which could lead to atom table exhaustion DoS attacks.
+
+  Note: async: false is required because :erlang.system_info(:atom_count) is a
+  global counter. Running async would cause interference from other tests
+  creating atoms concurrently.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Jido.Action.Tool
   alias Jido.Exec
 
   @moduletag :atom_safety
+
+  setup_all do
+    # Warm up modules and schemas so their one-time atom creation
+    # is not counted in the per-test measurements.
+    _ = Exec.normalize_params(%{"warmup" => "1"})
+    _ = Tool.convert_params_using_schema(%{"warmup" => "1"}, warmup: [type: :string])
+    schema = Zoi.object(%{warmup: Zoi.string()}, coerce: true)
+    _ = Tool.convert_params_using_schema(%{"warmup" => "1"}, schema)
+    :ok
+  end
 
   describe "normalize_params atom safety" do
     test "does not create new atoms from string keys" do
@@ -139,8 +153,9 @@ defmodule Jido.Action.AtomSafetyTest do
 
       atom_count_after = :erlang.system_info(:atom_count)
 
-      # Should not create 10,000 atoms - allow for some test framework overhead
-      assert atom_count_after - atom_count_before < 100,
+      # Should not create 10,000 atoms - allow for framework/library overhead
+      # The key property is "far less than 10,000" - we're detecting per-key leaks
+      assert atom_count_after - atom_count_before < 500,
              "Potential atom leak: #{atom_count_after - atom_count_before} atoms created from 10,000 string keys"
 
       # Result should still be a map with string keys
@@ -164,8 +179,8 @@ defmodule Jido.Action.AtomSafetyTest do
 
       atom_count_after = :erlang.system_info(:atom_count)
 
-      # Should not create thousands of atoms
-      assert atom_count_after - atom_count_before < 100,
+      # Should not create thousands of atoms - allow for framework/library overhead
+      assert atom_count_after - atom_count_before < 500,
              "Potential atom leak: #{atom_count_after - atom_count_before} atoms created from 5,000 malicious keys"
 
       # Only schema keys should be present
@@ -174,7 +189,7 @@ defmodule Jido.Action.AtomSafetyTest do
 
     test "large params map with Zoi schema" do
       # Test with Zoi schema as well
-      schema = Zoi.object(%{legit: Zoi.string()})
+      schema = Zoi.object(%{legit: Zoi.string()}, coerce: true)
 
       atom_count_before = :erlang.system_info(:atom_count)
 

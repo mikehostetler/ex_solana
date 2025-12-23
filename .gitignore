@@ -24,3 +24,6 @@ jido_action-*.tar
 
 # Elixir LS
 .elixir_ls/
+
+# Dialyzer PLT files
+/priv/plts/
