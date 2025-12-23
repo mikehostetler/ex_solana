@@ -81,6 +81,51 @@ defmodule ReqLLM.Response do
   end
 
   @doc """
+  Extract image content parts from the response message.
+
+  Returns a list of `ReqLLM.Message.ContentPart` where `type` is `:image` or `:image_url`.
+  """
+  @spec images(t()) :: [ReqLLM.Message.ContentPart.t()]
+  def images(%__MODULE__{message: nil}), do: []
+
+  def images(%__MODULE__{message: %Message{content: content}}) do
+    content
+    |> Enum.filter(&(&1.type in [:image, :image_url]))
+  end
+
+  @doc """
+  Returns the first image content part (or nil if none).
+  """
+  @spec image(t()) :: ReqLLM.Message.ContentPart.t() | nil
+  def image(%__MODULE__{} = response) do
+    response
+    |> images()
+    |> List.first()
+  end
+
+  @doc """
+  Returns the binary data of the first `:image` part (or nil).
+  """
+  @spec image_data(t()) :: binary() | nil
+  def image_data(%__MODULE__{} = response) do
+    case response |> images() |> Enum.find(&(&1.type == :image)) do
+      nil -> nil
+      part -> part.data
+    end
+  end
+
+  @doc """
+  Returns the URL of the first `:image_url` part (or nil).
+  """
+  @spec image_url(t()) :: String.t() | nil
+  def image_url(%__MODULE__{} = response) do
+    case response |> images() |> Enum.find(&(&1.type == :image_url)) do
+      nil -> nil
+      part -> part.url
+    end
+  end
+
+  @doc """
   Extract thinking/reasoning content from the response message.
 
   Returns the concatenated thinking content if the message contains thinking parts, empty string otherwise.

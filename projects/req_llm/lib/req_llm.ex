@@ -70,7 +70,7 @@ defmodule ReqLLM do
       provider.generate_text(model, messages, opts)
   """
 
-  alias ReqLLM.{Embedding, Generation, Schema, Tool}
+  alias ReqLLM.{Embedding, Generation, Images, Schema, Tool}
 
   # ===========================================================================
   # Configuration API
@@ -461,6 +461,37 @@ defmodule ReqLLM do
 
   """
   defdelegate generate_object!(model_spec, messages, schema, opts \\ []), to: Generation
+
+  # ===========================================================================
+  # Image Generation API - Delegated to ReqLLM.Images
+  # ===========================================================================
+
+  @doc """
+  Generates images using an AI model with full response metadata.
+
+  Returns a canonical `ReqLLM.Response` where images are represented as message content parts.
+  """
+  @spec generate_image(
+          String.t() | {atom(), keyword()} | struct(),
+          String.t() | list() | ReqLLM.Context.t(),
+          keyword()
+        ) :: {:ok, ReqLLM.Response.t()} | {:error, term()}
+  defdelegate generate_image(model_spec, prompt_or_messages, opts \\ []), to: Images
+
+  @doc """
+  Generates images using an AI model, raising on error.
+  """
+  @spec generate_image!(
+          String.t() | {atom(), keyword()} | struct(),
+          String.t() | list() | ReqLLM.Context.t(),
+          keyword()
+        ) :: ReqLLM.Response.t() | no_return()
+  def generate_image!(model_spec, prompt_or_messages, opts \\ []) do
+    case generate_image(model_spec, prompt_or_messages, opts) do
+      {:ok, response} -> response
+      {:error, error} -> raise error
+    end
+  end
 
   @doc """
   Streams structured data generation using an AI model with schema validation.

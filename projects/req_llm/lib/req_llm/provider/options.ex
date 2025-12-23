@@ -233,7 +233,7 @@ defmodule ReqLLM.Provider.Options do
     user_opts = normalize_legacy_options(user_opts)
 
     # Extract model options (e.g. max_tokens) if present
-    user_opts = extract_model_options(model, user_opts)
+    user_opts = maybe_extract_model_options(operation, model, user_opts)
 
     # Check for key collisions before schema validation
     check_provider_key_collisions!(provider_mod, user_opts)
@@ -244,7 +244,7 @@ defmodule ReqLLM.Provider.Options do
     # Apply pre-validation normalization (allows providers to filter/map unsupported options)
     user_opts = apply_pre_validation(provider_mod, operation, model, user_opts)
 
-    schema = compose_schema_internal(@generation_options_schema, provider_mod)
+    schema = compose_schema_internal(base_schema_for_operation(operation), provider_mod)
     validated_opts = NimbleOptions.validate!(user_opts, schema)
 
     {provider_options, standard_opts} = Keyword.pop(validated_opts, :provider_options, [])
@@ -277,6 +277,9 @@ defmodule ReqLLM.Provider.Options do
   def all_generation_keys do
     @generation_options_schema.schema |> Keyword.keys()
   end
+
+  defp base_schema_for_operation(:image), do: ReqLLM.Images.schema()
+  defp base_schema_for_operation(_operation), do: @generation_options_schema
 
   @doc """
   Extracts provider-specific options from a mixed options list.
@@ -460,6 +463,11 @@ defmodule ReqLLM.Provider.Options do
         opts
     end
   end
+
+  defp maybe_extract_model_options(:image, _model, opts), do: opts
+
+  defp maybe_extract_model_options(_operation, model, opts),
+    do: extract_model_options(model, opts)
 
   defp normalize_stop_sequences(opts) do
     case Keyword.pop(opts, :stop_sequences) do
