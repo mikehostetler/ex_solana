@@ -61,11 +61,11 @@ config :jido_workspace,
       path: "projects/jido_workbench"
     },
     %{
-      name: "depot",
-      upstream_url: "git@github.com:agentjido/depot.git",
-      branch: "master",
+      name: "hako",
+      upstream_url: "git@github.com:agentjido/hako.git",
+      branch: "main",
       type: :library,
-      path: "projects/depot"
+      path: "projects/hako"
     },
     # EXPERIMENTAL - Behavior tree implementation
     %{
