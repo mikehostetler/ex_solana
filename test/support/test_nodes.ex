@@ -6,12 +6,20 @@ defmodule Jido.BehaviorTree.Test.Nodes do
   defmodule SimpleNode do
     @moduledoc "A simple test node that always succeeds"
 
-    use TypedStruct
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                data: Zoi.any(description: "Test data") |> Zoi.optional(),
+                tick_count: Zoi.integer(description: "Number of ticks") |> Zoi.min(0) |> Zoi.default(0)
+              },
+              coerce: true
+            )
 
-    typedstruct do
-      field(:data, term(), default: nil)
-      field(:tick_count, non_neg_integer(), default: 0)
-    end
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
 
     @behaviour Jido.BehaviorTree.Node
 
@@ -34,11 +42,19 @@ defmodule Jido.BehaviorTree.Test.Nodes do
   defmodule FailureNode do
     @moduledoc "A test node that always fails"
 
-    use TypedStruct
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                reason: Zoi.any(description: "Failure reason") |> Zoi.default("test failure")
+              },
+              coerce: true
+            )
 
-    typedstruct do
-      field(:reason, term(), default: "test failure")
-    end
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
 
     @behaviour Jido.BehaviorTree.Node
 
@@ -60,12 +76,23 @@ defmodule Jido.BehaviorTree.Test.Nodes do
   defmodule RunningNode do
     @moduledoc "A test node that stays running until tick count reaches threshold"
 
-    use TypedStruct
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                threshold:
+                  Zoi.integer(description: "Tick threshold before success")
+                  |> Zoi.min(0)
+                  |> Zoi.default(3),
+                tick_count: Zoi.integer(description: "Current tick count") |> Zoi.min(0) |> Zoi.default(0)
+              },
+              coerce: true
+            )
 
-    typedstruct do
-      field(:threshold, non_neg_integer(), default: 3)
-      field(:tick_count, non_neg_integer(), default: 0)
-    end
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
 
     @behaviour Jido.BehaviorTree.Node
 
@@ -93,11 +120,19 @@ defmodule Jido.BehaviorTree.Test.Nodes do
   defmodule ErrorNode do
     @moduledoc "A test node that throws an error"
 
-    use TypedStruct
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                error_message: Zoi.string(description: "Error message to return") |> Zoi.default("test error")
+              },
+              coerce: true
+            )
 
-    typedstruct do
-      field(:error_message, String.t(), default: "test error")
-    end
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
 
     @behaviour Jido.BehaviorTree.Node
 
@@ -119,13 +154,21 @@ defmodule Jido.BehaviorTree.Test.Nodes do
   defmodule BlackboardNode do
     @moduledoc "A test node that reads/writes to blackboard"
 
-    use TypedStruct
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                read_key: Zoi.atom(description: "Key to read from blackboard") |> Zoi.optional(),
+                write_key: Zoi.atom(description: "Key to write to blackboard") |> Zoi.optional(),
+                write_value: Zoi.any(description: "Value to write") |> Zoi.optional()
+              },
+              coerce: true
+            )
 
-    typedstruct do
-      field(:read_key, atom())
-      field(:write_key, atom())
-      field(:write_value, term())
-    end
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
 
     @behaviour Jido.BehaviorTree.Node
 

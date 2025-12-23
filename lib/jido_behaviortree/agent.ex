@@ -90,7 +90,9 @@ defmodule Jido.BehaviorTree.Agent do
       tick_count: 0
     }
 
-    GenServer.start_link(__MODULE__, initial_state, opts)
+    # Filter out custom options, keeping only GenServer-compatible ones
+    genserver_opts = Keyword.drop(opts, [:tree, :blackboard, :mode, :interval])
+    GenServer.start_link(__MODULE__, initial_state, genserver_opts)
   end
 
   @doc """

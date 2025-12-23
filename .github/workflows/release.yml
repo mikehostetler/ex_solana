@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no publish)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    name: Release
+    uses: agentjido/github-actions/.github/workflows/elixir-release.yml@main
+    with:
+      otp_version: '28'
+      elixir_version: '1.18'
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit

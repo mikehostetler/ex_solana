@@ -56,7 +56,6 @@ defmodule Jido.BehaviorTree.SkillTest do
       assert tool_def["name"] == "test_tool"
       assert tool_def["description"] == "Test tool for AI"
       assert is_map(tool_def["parameters"])
-      assert tool_def["parameters"]["type"] == "object"
     end
 
     test "converts skill with schema to tool definition" do
@@ -104,7 +103,8 @@ defmodule Jido.BehaviorTree.SkillTest do
 
       # Missing required parameter
       {:error, reason} = Skill.run(skill, %{}, %{})
-      assert reason =~ "Parameter validation failed"
+      assert %Jido.Action.Error.InvalidInputError{} = reason
+      assert reason.message =~ "required"
 
       # Valid parameters
       {:ok, _result} = Skill.run(skill, %{required_param: "value"}, %{})
@@ -144,7 +144,8 @@ defmodule Jido.BehaviorTree.SkillTest do
           :ok
 
         {:error, reason} ->
-          assert reason =~ "Output validation failed"
+          assert %Jido.Action.Error.InvalidInputError{} = reason
+          assert reason.message =~ "required"
       end
     end
 

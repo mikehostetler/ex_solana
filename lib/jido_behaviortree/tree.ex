@@ -28,14 +28,24 @@ defmodule Jido.BehaviorTree.Tree do
   progress between ticks.
   """
 
-  use TypedStruct
-
   alias Jido.BehaviorTree.{Node, Status, Tick}
 
-  typedstruct do
-    @typedoc "A behavior tree with execution state"
-    field(:root, Node.t(), enforce: true)
-  end
+  @typedoc "A behavior tree with execution state"
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              root: Zoi.any(description: "The root node of the behavior tree")
+            },
+            coerce: true
+          )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc "Returns the Zoi schema for this module"
+  def schema, do: @schema
 
   @doc """
   Creates a new behavior tree with the given root node.
