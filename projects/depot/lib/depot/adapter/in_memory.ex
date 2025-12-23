@@ -29,22 +29,22 @@ defmodule Depot.Adapter.InMemory do
     defstruct config: nil, path: nil, chunk_size: 1024
 
     defimpl Enumerable do
-      def reduce(%{config: config, path: path, chunk_size: chunk_size}, a, b) do
+      def reduce(%{config: config, path: path, chunk_size: chunk_size} = stream, a, b) do
         case Depot.Adapter.InMemory.read(config, path) do
           {:ok, contents} ->
             contents
             |> Depot.chunk(chunk_size)
-            |> reduce(a, b)
+            |> reduce_list(stream, a, b)
 
           _ ->
             {:halted, []}
         end
       end
 
-      def reduce(_list, {:halt, acc}, _fun), do: {:halted, acc}
-      def reduce(list, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(list, &1, fun)}
-      def reduce([], {:cont, acc}, _fun), do: {:done, acc}
-      def reduce([head | tail], {:cont, acc}, fun), do: reduce(tail, fun.(head, acc), fun)
+      defp reduce_list(_list, _stream, {:halt, acc}, _fun), do: {:halted, acc}
+      defp reduce_list(list, stream, {:suspend, acc}, fun), do: {:suspended, acc, &reduce_list(list, stream, &1, fun)}
+      defp reduce_list([], _stream, {:cont, acc}, _fun), do: {:done, acc}
+      defp reduce_list([head | tail], stream, {:cont, acc}, fun), do: reduce_list(tail, stream, fun.(head, acc), fun)
 
       def count(_), do: {:error, __MODULE__}
       def slice(_), do: {:error, __MODULE__}
