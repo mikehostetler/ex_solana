@@ -384,6 +384,7 @@ defmodule ReqLLM.Provider.Defaults do
         :tools,
         :tool_choice,
         :req_http_options,
+        :stream,
         :frequency_penalty,
         :system_prompt,
         :top_p,

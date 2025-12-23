@@ -1,0 +1,55 @@
+{
+  "provider": "google",
+  "model_spec": "google:gemini-2.0-flash-exp-image-generation",
+  "request": {
+    "method": "POST",
+    "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent",
+    "headers": [],
+    "canonical_json": {
+      "model": "gemini-2.0-flash-exp-image-generation",
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "A simple blue square"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "responseModalities": ["IMAGE"]
+      }
+    },
+    "body": {
+      "b64": "eyJtb2RlbCI6ImdlbWluaS0yLjAtZmxhc2gtZXhwLWltYWdlLWdlbmVyYXRpb24iLCJjb250ZW50cyI6W3sicm9sZSI6InVzZXIiLCJwYXJ0cyI6W3sidGV4dCI6IkEgc2ltcGxlIGJsdWUgc3F1YXJlIn1dfV0sImdlbmVyYXRpb25Db25maWciOnsicmVzcG9uc2VNb2RhbGl0aWVzIjpbIklNQUdFIl19fQ=="
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "inlineData": {
+                  "mimeType": "image/png",
+                  "data": "eHl6"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "usageMetadata": {
+        "promptTokenCount": 1,
+        "candidatesTokenCount": 1,
+        "totalTokenCount": 2
+      }
+    }
+  }
+}

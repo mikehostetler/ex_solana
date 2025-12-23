@@ -284,7 +284,8 @@ defmodule ReqLLM.Schema do
     inject_zoi_metadata(schema, base)
   end
 
-  defp inject_zoi_metadata(%Zoi.Types.Object{meta: meta, fields: fields}, json) do
+  defp inject_zoi_metadata(%Zoi.Types.Map{meta: meta, fields: fields}, json)
+       when is_list(fields) do
     properties = Map.get(json, :properties) || Map.get(json, "properties") || %{}
 
     updated_props =
@@ -297,6 +298,7 @@ defmodule ReqLLM.Schema do
     json
     |> maybe_put_description(meta)
     |> Map.put("properties", updated_props)
+    |> Map.put("additionalProperties", false)
   end
 
   defp inject_zoi_metadata(%Zoi.Types.Array{meta: meta, inner: inner}, json) do

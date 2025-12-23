@@ -583,6 +583,15 @@ This is the first stable 1.0 release of ReqLLM, marking production readiness wit
 
 <!-- changelog -->
 
+## [v1.2.0](https://github.com/agentjido/req_llm/compare/v1.1.0...v1.2.0) (2025-12-23)
+
+
+
+
+### Features:
+
+* add image generation support (#293) by Victor
+
 ## [v1.1.0](https://github.com/agentjido/req_llm/compare/v1.0.0...v1.1.0) (2025-12-21)
 
 

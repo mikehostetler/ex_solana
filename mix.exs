@@ -1,7 +1,7 @@
 defmodule ReqLLM.MixProject do
   use Mix.Project
 
-  @version "1.1.0"
+  @version "1.2.0"
   @source_url "https://github.com/agentjido/req_llm"
 
   def project do
@@ -169,7 +169,7 @@ defmodule ReqLLM.MixProject do
       {:splode, "~> 0.2.3"},
       {:typedstruct, "~> 0.5"},
       {:uniq, "~> 0.6"},
-      {:zoi, "~> 0.10"},
+      {:zoi, "~> 0.14"},
       {:jsv, "~> 0.11"},
       {:llm_db, "~> 2025.12"},
 

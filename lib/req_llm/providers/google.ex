@@ -404,10 +404,103 @@ defmodule ReqLLM.Providers.Google do
     end
   end
 
+  def prepare_request(:image, model_spec, prompt, opts) do
+    with {:ok, model} <- ReqLLM.model(model_spec),
+         :ok <- validate_image_n(model, opts),
+         {:ok, context} <- image_context(prompt, opts),
+         opts_with_context = Keyword.put(opts, :context, context),
+         {:ok, processed_opts0} <-
+           ReqLLM.Provider.Options.process(__MODULE__, :image, model, opts_with_context),
+         :ok <- validate_version_feature_compat(processed_opts0) do
+      processed_opts =
+        Keyword.put(processed_opts0, :base_url, effective_base_url(processed_opts0))
+
+      processed_opts =
+        Keyword.put(processed_opts, :image_n_provided, Keyword.has_key?(opts, :n))
+
+      http_opts = Keyword.get(processed_opts, :req_http_options, [])
+
+      timeout =
+        Keyword.get(
+          processed_opts,
+          :receive_timeout,
+          Application.get_env(:req_llm, :image_receive_timeout, 120_000)
+        )
+
+      req_keys =
+        __MODULE__.supported_provider_options() ++
+          [
+            :context,
+            :operation,
+            :model,
+            :n,
+            :size,
+            :aspect_ratio,
+            :output_format,
+            :response_format,
+            :quality,
+            :style,
+            :seed,
+            :negative_prompt,
+            :user,
+            :provider_options,
+            :base_url,
+            :image_n_provided
+          ]
+
+      request =
+        Req.new(
+          [
+            url: "/models/#{model.id}:generateContent",
+            method: :post,
+            receive_timeout: timeout
+          ] ++ http_opts
+        )
+        |> Req.Request.register_options(req_keys)
+        |> Req.Request.merge_options(
+          Keyword.take(processed_opts, req_keys) ++
+            [
+              operation: :image,
+              model: model.id,
+              context: context,
+              base_url: processed_opts[:base_url]
+            ]
+        )
+        |> attach(model, processed_opts)
+
+      {:ok, request}
+    end
+  end
+
   # Delegate all other operations to defaults (which will return appropriate errors)
   def prepare_request(operation, model_spec, input, opts) do
     ReqLLM.Provider.Defaults.prepare_request(__MODULE__, operation, model_spec, input, opts)
   end
+
+  defp image_context(prompt, opts) do
+    case Keyword.get(opts, :context) do
+      %ReqLLM.Context{} = context -> {:ok, context}
+      _ -> ReqLLM.Context.normalize(prompt, opts)
+    end
+  end
+
+  defp validate_image_n(%LLMDB.Model{} = model, opts) do
+    if Keyword.has_key?(opts, :n) and image_n_forbidden?(model) do
+      {:error,
+       ReqLLM.Error.Invalid.Parameter.exception(
+         parameter:
+           "n is not supported for gemini-2.5-flash-image or gemini-3-pro-image-preview; specify the image count in the prompt"
+       )}
+    else
+      :ok
+    end
+  end
+
+  defp image_n_forbidden?(%LLMDB.Model{provider: :google, id: id}) do
+    id in ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"]
+  end
+
+  defp image_n_forbidden?(_), do: false
 
   @impl ReqLLM.Provider
   def attach(%Req.Request{} = request, model_input, user_opts) do
@@ -440,6 +533,14 @@ defmodule ReqLLM.Providers.Google do
         :tools,
         :tool_choice,
         :n,
+        :prompt,
+        :size,
+        :aspect_ratio,
+        :output_format,
+        :response_format,
+        :quality,
+        :style,
+        :negative_prompt,
         :top_p,
         :top_k,
         :frequency_penalty,
@@ -547,6 +648,28 @@ defmodule ReqLLM.Providers.Google do
   defp translate_reasoning_effort_to_budget(_unknown, _model), do: 8_192
 
   @impl ReqLLM.Provider
+  def translate_options(:image, _model, opts) do
+    opts =
+      case {Keyword.get(opts, :aspect_ratio), Keyword.get(opts, :size)} do
+        {ratio, _} when is_binary(ratio) and ratio != "" ->
+          opts
+
+        {nil, {w, h}} when is_integer(w) and is_integer(h) ->
+          Keyword.put(opts, :aspect_ratio, infer_aspect_ratio(w, h))
+
+        {nil, size_str} when is_binary(size_str) ->
+          case parse_size(size_str) do
+            {:ok, {w, h}} -> Keyword.put(opts, :aspect_ratio, infer_aspect_ratio(w, h))
+            :error -> opts
+          end
+
+        _ ->
+          opts
+      end
+
+    {opts, []}
+  end
+
   def translate_options(_operation, _model, opts) do
     {reasoning_budget, opts} = Keyword.pop(opts, :reasoning_token_budget)
     {reasoning_effort, opts} = Keyword.pop(opts, :reasoning_effort)
@@ -585,6 +708,9 @@ defmodule ReqLLM.Providers.Google do
         :embedding ->
           encode_embedding_body(request)
 
+        :image ->
+          encode_image_body(request)
+
         :object ->
           encode_object_body(request)
 
@@ -602,6 +728,86 @@ defmodule ReqLLM.Providers.Google do
       error ->
         reraise error, __STACKTRACE__
     end
+  end
+
+  defp encode_image_body(request) do
+    {system_instruction, contents} =
+      case request.options[:context] do
+        %ReqLLM.Context{} = ctx ->
+          model_name = request.options[:model]
+          encoded = ReqLLM.Provider.Defaults.encode_context_to_openai_format(ctx, model_name)
+          messages = encoded[:messages] || encoded["messages"] || []
+          split_messages_for_gemini(messages)
+
+        _ ->
+          split_messages_for_gemini(request.options[:messages] || [])
+      end
+
+    # Note: We intentionally keep the role field in contents.
+    # Experiments show that including "role": "user" improves multi-image
+    # generation success rate (70% vs 50% for well-phrased prompts).
+
+    generation_config =
+      %{}
+      |> maybe_put_google_aspect_ratio(request.options[:aspect_ratio])
+      |> maybe_put(:candidateCount, image_candidate_count(request.options))
+
+    generation_config = if generation_config != %{}, do: generation_config
+
+    %{}
+    |> maybe_put(:systemInstruction, system_instruction)
+    |> Map.put(:contents, contents)
+    |> maybe_put(:generationConfig, generation_config)
+  end
+
+  defp image_candidate_count(opts) when is_list(opts) do
+    if Keyword.get(opts, :image_n_provided, false) do
+      case Keyword.fetch(opts, :n) do
+        {:ok, value} -> value
+        :error -> nil
+      end
+    end
+  end
+
+  defp image_candidate_count(opts) when is_map(opts) do
+    if Map.get(opts, :image_n_provided, false) and Map.has_key?(opts, :n) do
+      Map.get(opts, :n)
+    end
+  end
+
+  defp image_candidate_count(_), do: nil
+
+  defp maybe_put_google_aspect_ratio(config, nil), do: config
+
+  defp maybe_put_google_aspect_ratio(config, ratio) when is_binary(ratio) do
+    Map.put(
+      config,
+      "imageConfig",
+      Map.put(Map.get(config, "imageConfig", %{}), "aspectRatio", ratio)
+    )
+  end
+
+  defp maybe_put_google_aspect_ratio(config, _), do: config
+
+  defp parse_size(size) when is_binary(size) do
+    case String.split(size, "x") do
+      [w, h] ->
+        with {w_i, ""} <- Integer.parse(w),
+             {h_i, ""} <- Integer.parse(h),
+             true <- w_i > 0 and h_i > 0 do
+          {:ok, {w_i, h_i}}
+        else
+          _ -> :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp infer_aspect_ratio(w, h) when is_integer(w) and is_integer(h) and w > 0 and h > 0 do
+    gcd = Integer.gcd(w, h)
+    "#{div(w, gcd)}:#{div(h, gcd)}"
   end
 
   defp encode_chat_body(request) do
@@ -860,6 +1066,12 @@ defmodule ReqLLM.Providers.Google do
             normalized = normalize_embedding_response(body)
             {req, %{resp | body: normalized}}
 
+          :image when not is_streaming ->
+            model_name = req.options[:model]
+            body = ensure_parsed_body(resp.body)
+            merged_response = decode_image_response(req, model_name, body)
+            {req, %{resp | body: merged_response}}
+
           :object when not is_streaming ->
             model_name = req.options[:model]
             model = %LLMDB.Model{id: model_name, provider: :google}
@@ -935,6 +1147,78 @@ defmodule ReqLLM.Providers.Google do
 
         {req, err}
     end
+  end
+
+  defp decode_image_response(req, model_name, %{} = body) do
+    parts = extract_candidate_parts(body)
+
+    content_parts =
+      parts
+      |> Enum.map(&decode_image_part/1)
+      |> Enum.reject(&is_nil/1)
+
+    message = %ReqLLM.Message{role: :assistant, content: content_parts}
+
+    usage =
+      case Map.get(body, "usageMetadata") do
+        usage_metadata when is_map(usage_metadata) -> normalize_google_usage(usage_metadata)
+        _ -> nil
+      end
+
+    base_response = %ReqLLM.Response{
+      id: image_response_id(),
+      model: model_name,
+      context: req.options[:context] || %ReqLLM.Context{messages: []},
+      message: message,
+      object: nil,
+      stream?: false,
+      stream: nil,
+      usage: usage,
+      finish_reason: :stop,
+      provider_meta: %{"google" => Map.delete(body, "candidates")},
+      error: nil
+    }
+
+    ReqLLM.Context.merge_response(base_response.context, base_response)
+  end
+
+  defp extract_candidate_parts(%{"candidates" => candidates}) when is_list(candidates) do
+    Enum.flat_map(candidates, fn
+      %{"content" => %{"parts" => parts}} when is_list(parts) -> parts
+      _ -> []
+    end)
+  end
+
+  defp extract_candidate_parts(_), do: []
+
+  defp decode_image_part(%{"text" => text}) when is_binary(text) and text != "" do
+    %ReqLLM.Message.ContentPart{type: :text, text: text}
+  end
+
+  defp decode_image_part(%{"inlineData" => inline}) when is_map(inline) do
+    decode_inline_data(inline)
+  end
+
+  defp decode_image_part(%{"inline_data" => inline}) when is_map(inline) do
+    decode_inline_data(inline)
+  end
+
+  defp decode_image_part(_), do: nil
+
+  defp decode_inline_data(%{"data" => b64, "mimeType" => mime_type})
+       when is_binary(b64) and is_binary(mime_type) do
+    %ReqLLM.Message.ContentPart{type: :image, data: Base.decode64!(b64), media_type: mime_type}
+  end
+
+  defp decode_inline_data(%{"data" => b64, "mime_type" => mime_type})
+       when is_binary(b64) and is_binary(mime_type) do
+    %ReqLLM.Message.ContentPart{type: :image, data: Base.decode64!(b64), media_type: mime_type}
+  end
+
+  defp decode_inline_data(_), do: nil
+
+  defp image_response_id do
+    "img_" <> (:crypto.strong_rand_bytes(12) |> Base.url_encode64(padding: false))
   end
 
   # Helper to build Google toolConfig from OpenAI-style tool_choice

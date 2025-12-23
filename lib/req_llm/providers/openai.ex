@@ -1,6 +1,6 @@
 defmodule ReqLLM.Providers.OpenAI do
   @moduledoc """
-  OpenAI provider implementation with dual-driver architecture for Chat and Responses APIs.
+  OpenAI provider implementation with multi-driver architecture for Chat, Responses, and Images APIs.
 
   ## Architecture
 
@@ -13,9 +13,13 @@ defmodule ReqLLM.Providers.OpenAI do
   - **ResponsesAPI** (`ReqLLM.Providers.OpenAI.ResponsesAPI`) - Handles `/v1/responses` endpoint
     for reasoning models (o1, o3, o4, GPT-4.1, GPT-5) with extended thinking capabilities.
 
-  The provider automatically routes requests based on the `"api"` field in model metadata:
-  - `"api": "chat"` → uses ChatAPI driver (default)
-  - `"api": "responses"` → uses ResponsesAPI driver
+  - **ImagesAPI** (`ReqLLM.Providers.OpenAI.ImagesAPI`) - Handles `/v1/images/generations` endpoint
+    for image generation models (DALL-E 2, DALL-E 3, gpt-image-*).
+
+  The provider automatically routes requests based on the operation type and model metadata:
+  - `:image` operations → uses ImagesAPI driver
+  - `:chat` operations with `"api": "responses"` → uses ResponsesAPI driver
+  - `:chat` operations (default) → uses ChatAPI driver
 
   ## Capabilities
 
@@ -34,9 +38,17 @@ defmodule ReqLLM.Providers.OpenAI do
   - Tool calling with responses-specific format
   - Enhanced usage metrics including `:reasoning_tokens`
 
+  ### Images API (ImagesAPI)
+  - Image generation with DALL-E and gpt-image-* models
+  - Multiple output formats: PNG, JPEG, WebP (gpt-image-* only)
+  - Size and aspect ratio control
+  - Quality and style options (DALL-E 3)
+  - Returns images as `ReqLLM.Message.ContentPart` with `:image` or `:image_url` type
+  - Streaming not supported
+
   ## Usage Normalization
 
-  Both drivers normalize usage metrics to provide consistent field names:
+  Chat and Responses drivers normalize usage metrics to provide consistent field names:
 
   - `:reasoning_tokens` - Primary field for reasoning token count (ResponsesAPI)
   - `:reasoning` - Backward-compatibility alias (deprecated, use `:reasoning_tokens`)
@@ -80,6 +92,18 @@ defmodule ReqLLM.Providers.OpenAI do
         "openai:gpt-5",
         "Hard problem",
         reasoning_effort: :high
+      )
+
+      # Image generation (ImagesAPI)
+      {:ok, response} = ReqLLM.generate_image("openai:gpt-image-1", "A futuristic city at sunset")
+
+      # DALL-E with options
+      {:ok, response} = ReqLLM.generate_image(
+        "openai:dall-e-3",
+        "A watercolor painting of a forest",
+        size: {1792, 1024},
+        quality: :hd,
+        style: :natural
       )
   """
 
@@ -144,9 +168,23 @@ defmodule ReqLLM.Providers.OpenAI do
     end
   end
 
-  defp get_timeout_for_model(api_mod, opts) do
+  defp get_timeout_for_operation(:image, opts) do
+    Keyword.get(
+      opts,
+      :receive_timeout,
+      Application.get_env(:req_llm, :image_receive_timeout, 120_000)
+    )
+  end
+
+  defp get_timeout_for_operation(_operation, opts) do
     user_timeout = Keyword.get(opts, :receive_timeout)
     default_timeout = Application.get_env(:req_llm, :receive_timeout, 30_000)
+
+    user_timeout || default_timeout
+  end
+
+  defp get_timeout_for_model(api_mod, opts) do
+    user_timeout = Keyword.get(opts, :receive_timeout)
     thinking_timeout = Application.get_env(:req_llm, :thinking_timeout, 300_000)
 
     cond do
@@ -157,17 +195,81 @@ defmodule ReqLLM.Providers.OpenAI do
         thinking_timeout
 
       true ->
-        default_timeout
+        get_timeout_for_operation(:chat, opts)
     end
   end
 
   @impl ReqLLM.Provider
   @doc """
-  Custom prepare_request to route reasoning models to /v1/responses endpoint.
+  Custom prepare_request to route requests to appropriate API endpoints.
 
-  - :chat operations detect model type and route to appropriate endpoint
+  - :image operations route to `/v1/images/generations` via ImagesAPI
+  - :chat operations detect model type and route to ChatAPI or ResponsesAPI
   - :object operations maintain OpenAI-specific token handling
   """
+  def prepare_request(:image, model_spec, prompt_or_messages, opts) do
+    with {:ok, model} <- ReqLLM.model(model_spec),
+         {:ok, context, prompt} <- image_context(prompt_or_messages, opts),
+         opts_with_context = Keyword.put(opts, :context, context),
+         http_opts = Keyword.get(opts, :req_http_options, []),
+         {:ok, processed_opts} <-
+           ReqLLM.Provider.Options.process(__MODULE__, :image, model, opts_with_context) do
+      api_mod = ReqLLM.Providers.OpenAI.ImagesAPI
+      path = api_mod.path()
+
+      req_keys =
+        supported_provider_options() ++
+          [
+            :context,
+            :operation,
+            :model,
+            :prompt,
+            :n,
+            :size,
+            :aspect_ratio,
+            :output_format,
+            :response_format,
+            :quality,
+            :style,
+            :seed,
+            :negative_prompt,
+            :user,
+            :provider_options,
+            :req_http_options,
+            :api_mod,
+            :base_url
+          ]
+
+      timeout = get_timeout_for_operation(:image, processed_opts)
+
+      request =
+        Req.new(
+          [
+            url: path,
+            method: :post,
+            receive_timeout: timeout,
+            pool_timeout: timeout,
+            connect_options: [timeout: timeout]
+          ] ++ http_opts
+        )
+        |> Req.Request.register_options(req_keys)
+        |> Req.Request.merge_options(
+          Keyword.take(processed_opts, req_keys) ++
+            [
+              operation: :image,
+              model: model.id,
+              prompt: prompt,
+              context: context,
+              base_url: Keyword.get(processed_opts, :base_url, base_url()),
+              api_mod: api_mod
+            ]
+        )
+        |> attach(model, processed_opts)
+
+      {:ok, request}
+    end
+  end
+
   def prepare_request(:chat, model_spec, prompt, opts) do
     with {:ok, model} <- ReqLLM.model(model_spec),
          {:ok, context} <- ReqLLM.Context.normalize(prompt, opts),
@@ -242,6 +344,53 @@ defmodule ReqLLM.Providers.OpenAI do
 
       result ->
         result
+    end
+  end
+
+  defp image_context(prompt_or_messages, opts) do
+    context_result =
+      case Keyword.get(opts, :context) do
+        %ReqLLM.Context{} = context -> {:ok, context}
+        _ -> ReqLLM.Context.normalize(prompt_or_messages, opts)
+      end
+
+    with {:ok, context} <- context_result,
+         {:ok, prompt} <- extract_image_prompt(context) do
+      {:ok, context, prompt}
+    end
+  end
+
+  defp extract_image_prompt(%ReqLLM.Context{messages: messages}) do
+    last_user =
+      messages
+      |> Enum.reverse()
+      |> Enum.find(&(&1.role == :user))
+
+    prompt =
+      case last_user do
+        nil ->
+          ""
+
+        %ReqLLM.Message{content: content} when is_list(content) ->
+          content
+          |> Enum.filter(&(&1.type == :text))
+          |> Enum.map_join("", & &1.text)
+
+        %ReqLLM.Message{content: content} when is_binary(content) ->
+          content
+
+        _ ->
+          ""
+      end
+      |> String.trim()
+
+    if prompt == "" do
+      {:error,
+       ReqLLM.Error.Invalid.Parameter.exception(
+         parameter: "image generation requires a non-empty user text prompt"
+       )}
+    else
+      {:ok, prompt}
     end
   end
 
@@ -332,6 +481,11 @@ defmodule ReqLLM.Providers.OpenAI do
   `{translated_opts, warnings}` where warnings is a list of transformation messages.
   """
   @impl ReqLLM.Provider
+  def translate_options(:image, %LLMDB.Model{}, opts) do
+    # Image generation has no special parameter translations
+    {opts, []}
+  end
+
   def translate_options(op, %LLMDB.Model{} = model, opts) do
     steps = ReqLLM.Providers.OpenAI.ParamProfiles.steps_for(op, model)
     {opts1, warns} = ReqLLM.ParamTransform.apply(opts, steps)
