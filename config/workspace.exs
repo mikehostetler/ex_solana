@@ -62,7 +62,7 @@ config :jido_workspace,
     },
     %{
       name: "depot",
-      upstream_url: "git@github.com:mikehostetler/depot.git",
+      upstream_url: "git@github.com:agentjido/depot.git",
       branch: "master",
       type: :library,
       path: "projects/depot"
@@ -149,20 +149,20 @@ config :jido_workspace,
       path: "projects/kaizen"
     },
     %{
-       name: "jido_hub",
-       upstream_url: "git@github.com:mikehostetler/jido_hub.git",
-       branch: "main",
-       type: :library,
-       path: "projects/jido_hub"
-     },
+      name: "jido_hub",
+      upstream_url: "git@github.com:mikehostetler/jido_hub.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_hub"
+    },
     %{
-       name: "jido_code",
-       upstream_url: "git@github.com:agentjido/jido_code.git",
-       branch: "main",
-       type: :library,
-       path: "projects/jido_code"
-     }
-    ],
+      name: "jido_code",
+      upstream_url: "git@github.com:agentjido/jido_code.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_code"
+    }
+  ],
   hex_packages: [
     # Core packages - publish together as version train
     %{
@@ -215,5 +215,4 @@ config :jido_workspace,
       type: :library,
       path: "projects/github-actions"
     }
-
   ]
