@@ -61,7 +61,12 @@ defmodule Jido.Character.SchemaTest do
       assert result.description == "A curious research assistant"
       assert result.identity.age == 30
       assert result.identity.role == "Researcher"
-      assert result.personality.traits == ["curious", %{name: "patient", intensity: 0.8}]
+
+      assert result.personality.traits == [
+               "curious",
+               %Jido.Character.Schema.Trait{name: "patient", intensity: 0.8}
+             ]
+
       assert result.voice.tone == :warm
       assert result.memory.capacity == 50
       assert length(result.memory.entries) == 1
@@ -134,7 +139,10 @@ defmodule Jido.Character.SchemaTest do
       }
 
       assert {:ok, result} = Zoi.parse(Schema.character(), input)
-      assert result.personality.traits == [%{name: "curious", intensity: 0.9}]
+
+      assert result.personality.traits == [
+               %Jido.Character.Schema.Trait{name: "curious", intensity: 0.9}
+             ]
     end
 
     test "mixed traits (string and map)" do
@@ -144,7 +152,11 @@ defmodule Jido.Character.SchemaTest do
       }
 
       assert {:ok, result} = Zoi.parse(Schema.character(), input)
-      assert result.personality.traits == ["patient", %{name: "curious", intensity: 0.9}]
+
+      assert result.personality.traits == [
+               "patient",
+               %Jido.Character.Schema.Trait{name: "curious", intensity: 0.9}
+             ]
     end
 
     test "intensity defaults to 0.5" do
@@ -154,7 +166,10 @@ defmodule Jido.Character.SchemaTest do
       }
 
       assert {:ok, result} = Zoi.parse(Schema.character(), input)
-      assert result.personality.traits == [%{name: "curious", intensity: 0.5}]
+
+      assert result.personality.traits == [
+               %Jido.Character.Schema.Trait{name: "curious", intensity: 0.5}
+             ]
     end
 
     test "rejects intensity > 1" do
@@ -363,14 +378,14 @@ defmodule Jido.Character.SchemaTest do
       assert hd(result.knowledge).importance == 0.5
     end
 
-    test "category is optional" do
+    test "category is optional (defaults to nil)" do
       input = %{
         id: "test",
         knowledge: [%{content: "Knows things"}]
       }
 
       assert {:ok, result} = Zoi.parse(Schema.character(), input)
-      refute Map.has_key?(hd(result.knowledge), :category)
+      assert hd(result.knowledge).category == nil
     end
 
     test "rejects empty content" do

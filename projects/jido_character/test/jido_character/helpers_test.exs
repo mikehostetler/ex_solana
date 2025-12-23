@@ -154,13 +154,13 @@ defmodule Jido.Character.HelpersTest do
     test "adds trait with intensity", %{char: char} do
       {:ok, updated} = Character.add_trait(char, "analytical", intensity: 0.9)
 
-      assert %{name: "analytical", intensity: 0.9} in updated.personality.traits
+      assert %Jido.Character.Schema.Trait{name: "analytical", intensity: 0.9} in updated.personality.traits
     end
 
     test "adds trait map", %{char: char} do
       {:ok, updated} = Character.add_trait(char, %{name: "patient", intensity: 0.7})
 
-      assert %{name: "patient", intensity: 0.7} in updated.personality.traits
+      assert %Jido.Character.Schema.Trait{name: "patient", intensity: 0.7} in updated.personality.traits
     end
 
     test "adds multiple traits", %{char: char} do

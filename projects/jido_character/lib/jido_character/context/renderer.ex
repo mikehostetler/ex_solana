@@ -20,12 +20,12 @@ defmodule Jido.Character.Context.Renderer do
   def to_system_prompt(%{} = char, _opts \\ []) do
     sections = [
       render_header(char),
-      render_identity(Map.get(char, :identity)),
-      render_personality(Map.get(char, :personality)),
-      render_voice(Map.get(char, :voice)),
-      render_memory(Map.get(char, :memory)),
-      render_knowledge(Map.get(char, :knowledge, [])),
-      render_instructions(Map.get(char, :instructions, []))
+      render_identity(get_field(char, :identity)),
+      render_personality(get_field(char, :personality)),
+      render_voice(get_field(char, :voice)),
+      render_memory(get_field(char, :memory)),
+      render_knowledge(get_field(char, :knowledge, [])),
+      render_instructions(get_field(char, :instructions, []))
     ]
 
     sections
@@ -42,9 +42,19 @@ defmodule Jido.Character.Context.Renderer do
     Context.new([system(prompt)])
   end
 
+  defp get_field(struct_or_map, key, default \\ nil)
+
+  defp get_field(%{__struct__: _} = struct, key, default) do
+    Map.get(struct, key, default)
+  end
+
+  defp get_field(map, key, default) when is_map(map) do
+    Map.get(map, key, default)
+  end
+
   defp render_header(char) do
-    name = Map.get(char, :name, "Unnamed Character")
-    desc = Map.get(char, :description)
+    name = get_field(char, :name, "Unnamed Character")
+    desc = get_field(char, :description)
 
     header = "# Character: #{name}"
 
@@ -61,13 +71,18 @@ defmodule Jido.Character.Context.Renderer do
   defp render_identity(identity) do
     lines = []
 
-    lines = if identity[:role], do: lines ++ ["- Role: #{identity[:role]}"], else: lines
-    lines = if identity[:age], do: lines ++ ["- Age: #{identity[:age]}"], else: lines
+    lines =
+      if get_field(identity, :role), do: lines ++ ["- Role: #{get_field(identity, :role)}"], else: lines
 
     lines =
-      if identity[:background], do: lines ++ ["- Background: #{identity[:background]}"], else: lines
+      if get_field(identity, :age), do: lines ++ ["- Age: #{get_field(identity, :age)}"], else: lines
 
-    facts = Map.get(identity, :facts, [])
+    lines =
+      if get_field(identity, :background),
+        do: lines ++ ["- Background: #{get_field(identity, :background)}"],
+        else: lines
+
+    facts = get_field(identity, :facts, [])
     lines = lines ++ Enum.map(facts, &"- #{&1}")
 
     if lines == [] do
@@ -83,7 +98,7 @@ defmodule Jido.Character.Context.Renderer do
   defp render_personality(personality) do
     parts = []
 
-    traits = Map.get(personality, :traits, [])
+    traits = get_field(personality, :traits, [])
 
     parts =
       if traits != [] do
@@ -93,7 +108,7 @@ defmodule Jido.Character.Context.Renderer do
         parts
       end
 
-    values = Map.get(personality, :values, [])
+    values = get_field(personality, :values, [])
 
     parts =
       if values != [] do
@@ -102,7 +117,7 @@ defmodule Jido.Character.Context.Renderer do
         parts
       end
 
-    quirks = Map.get(personality, :quirks, [])
+    quirks = get_field(personality, :quirks, [])
 
     parts =
       if quirks != [] do
@@ -143,29 +158,29 @@ defmodule Jido.Character.Context.Renderer do
     parts = []
 
     parts =
-      if voice[:tone] do
-        tone = voice[:tone] |> to_string() |> String.capitalize()
+      if get_field(voice, :tone) do
+        tone = get_field(voice, :tone) |> to_string() |> String.capitalize()
         parts ++ ["Tone: #{tone}"]
       else
         parts
       end
 
     parts =
-      if voice[:style] do
-        parts ++ ["Style: #{voice[:style]}"]
+      if get_field(voice, :style) do
+        parts ++ ["Style: #{get_field(voice, :style)}"]
       else
         parts
       end
 
     parts =
-      if voice[:vocabulary] do
-        vocab = voice[:vocabulary] |> to_string() |> String.capitalize()
+      if get_field(voice, :vocabulary) do
+        vocab = get_field(voice, :vocabulary) |> to_string() |> String.capitalize()
         parts ++ ["Vocabulary: #{vocab}"]
       else
         parts
       end
 
-    expressions = Map.get(voice, :expressions, [])
+    expressions = get_field(voice, :expressions, [])
 
     parts =
       if expressions != [] do
@@ -187,7 +202,7 @@ defmodule Jido.Character.Context.Renderer do
   defp render_memory(%{entries: entries}) when is_list(entries) do
     important =
       entries
-      |> Enum.filter(&(Map.get(&1, :importance, 0.5) >= 0.5))
+      |> Enum.filter(&(get_field(&1, :importance, 0.5) >= 0.5))
       |> Enum.take(10)
 
     if important == [] do
@@ -195,7 +210,7 @@ defmodule Jido.Character.Context.Renderer do
     else
       memory_lines =
         Enum.map(important, fn entry ->
-          "- #{entry[:content] || entry["content"]}"
+          "- #{get_field(entry, :content) || entry["content"]}"
         end)
 
       "## Recent Memories\n\n" <> Enum.join(memory_lines, "\n")
@@ -209,8 +224,8 @@ defmodule Jido.Character.Context.Renderer do
   defp render_knowledge(knowledge) do
     lines =
       Enum.map(knowledge, fn item ->
-        content = item[:content] || item["content"]
-        category = item[:category] || item["category"]
+        content = get_field(item, :content) || get_string_key(item, "content")
+        category = get_field(item, :category) || get_string_key(item, "category")
 
         if category do
           "- #{content} (#{category})"
@@ -221,6 +236,12 @@ defmodule Jido.Character.Context.Renderer do
 
     "## Knowledge\n\n" <> Enum.join(lines, "\n")
   end
+
+  defp get_string_key(map, key) when is_map(map) and not is_struct(map) do
+    Map.get(map, key)
+  end
+
+  defp get_string_key(_, _), do: nil
 
   defp render_instructions([]), do: nil
 

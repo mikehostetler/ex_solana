@@ -213,10 +213,15 @@ defmodule Jido.Character do
 
   defp deep_merge(map1, map2) when is_map(map1) and is_map(map2) do
     Map.merge(map1, map2, fn _k, v1, v2 ->
-      if is_map(v1) and is_map(v2) and not is_struct(v1) and not is_struct(v2) do
-        deep_merge(v1, v2)
-      else
-        v2
+      cond do
+        is_struct(v1) and is_map(v2) and not is_struct(v2) ->
+          struct(v1.__struct__, deep_merge(Map.from_struct(v1), v2))
+
+        is_map(v1) and is_map(v2) and not is_struct(v1) and not is_struct(v2) ->
+          deep_merge(v1, v2)
+
+        true ->
+          v2
       end
     end)
   end
