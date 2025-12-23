@@ -253,6 +253,56 @@ By default, dispatch returns raw error atoms. Structured errors (`Jido.Signal.Er
 # errors = [{index, reason}, ...]
 ```
 
+## Circuit Breaker
+
+The `Jido.Signal.Dispatch.CircuitBreaker` module provides fault isolation for dispatch adapters using the `:fuse` library. Circuits are per-adapter-type, providing bulk protection without per-endpoint overhead.
+
+### Configuration
+
+Default settings:
+- 5 failures in 10 seconds triggers the circuit to open
+- 30 second reset time before allowing requests again
+
+### Usage
+
+```elixir
+alias Jido.Signal.Dispatch.CircuitBreaker
+
+# Install circuit breaker (once at application startup)
+:ok = CircuitBreaker.install(:http, 
+  strategy: {:standard, 5, 10_000},  # 5 failures in 10 seconds
+  refresh: 30_000                     # 30 second reset
+)
+
+# Wrap dispatch calls with circuit breaker protection
+case CircuitBreaker.run(:http, fn ->
+       Jido.Signal.Dispatch.dispatch(signal, {:http, [url: "https://api.example.com/events"]})
+     end) do
+  :ok -> 
+    :ok
+  {:error, :circuit_open} -> 
+    # Circuit is open, degrade gracefully
+    Logger.warning("HTTP circuit open, queuing for retry")
+    {:error, :circuit_open}
+  {:error, reason} -> 
+    {:error, reason}
+end
+
+# Check circuit status
+:ok = CircuitBreaker.status(:http)    # Circuit closed (healthy)
+:blown = CircuitBreaker.status(:http) # Circuit open (failing)
+
+# Manually reset circuit
+:ok = CircuitBreaker.reset(:http)
+```
+
+### Telemetry Events
+
+The circuit breaker emits telemetry events:
+- `[:jido, :dispatch, :circuit, :melt]` - Failure recorded
+- `[:jido, :dispatch, :circuit, :rejected]` - Request rejected (circuit open)
+- `[:jido, :dispatch, :circuit, :reset]` - Circuit reset
+
 ## Next Steps
 
 - [Event Bus](event-bus.md) - Publish/subscribe messaging with middleware hooks and persistent subscriptions

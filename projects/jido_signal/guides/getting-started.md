@@ -139,4 +139,6 @@ config = {:pid, [target: dead_pid, delivery_mode: :async]}
 
 ## Next Steps
 
-- [Signals and Dispatch](signals-and-dispatch.md) - Deep dive into signal structure, dispatch adapters, and custom signal types
+- [Signals and Dispatch](signals-and-dispatch.md) - Deep dive into signal structure, dispatch adapters, circuit breakers, and custom signal types
+- [Event Bus](event-bus.md) - Pub/sub messaging, persistent subscriptions, Dead Letter Queue, and horizontal scaling with partitions
+- [Signal Journal](signal-journal.md) - Persistence adapters (ETS, Mnesia), checkpointing, and causality tracking

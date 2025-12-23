@@ -57,9 +57,10 @@ Jido.Signal transforms Elixir's message passing into a sophisticated communicati
 
 ### **High-Performance Signal Bus**
 - In-memory GenServer-based pub/sub system
-- Persistent subscriptions with acknowledgment
-- Middleware pipeline for cross-cutting concerns
+- Persistent subscriptions with checkpointing, retry, and Dead Letter Queue (DLQ)
+- Middleware pipeline for cross-cutting concerns with timeout protection
 - Complete signal history with replay capabilities
+- Partitioned dispatch with rate limiting for horizontal scaling
 
 ### **Advanced Routing Engine**
 - Trie-based pattern matching for optimal performance
@@ -72,6 +73,7 @@ Jido.Signal transforms Elixir's message passing into a sophisticated communicati
 - Synchronous and asynchronous delivery modes
 - Batch processing for high-throughput scenarios
 - Configurable timeout and retry mechanisms
+- Circuit breaker wrapper for fault isolation (using `:fuse`)
 
 ### **Causality & Conversation Tracking**
 - Complete signal relationship graphs
@@ -275,13 +277,15 @@ dispatch_configs = [
 
 Track signal acknowledgments for reliable processing:
 
-> **Note:** Persistent subscriptions track acknowledgments. Full checkpoint-based replay on reconnection is planned for a future release.
-
 ```elixir
-# Create persistent subscription
-{:ok, sub_id} = Bus.subscribe(:my_app_bus, "payment.*", 
-  persistent: true, 
-  dispatch: {:pid, target: self()}
+# Create persistent subscription with full options
+{:ok, sub_id} = Bus.subscribe(:my_app_bus, "payment.*",
+  persistent: true,
+  dispatch: {:pid, target: self()},
+  max_in_flight: 100,      # Max unacknowledged signals
+  max_pending: 5_000,      # Max queued signals before backpressure
+  max_attempts: 5,         # Retry attempts before DLQ
+  retry_interval: 500      # Milliseconds between retries
 )
 
 # Receive and acknowledge signals
@@ -289,10 +293,13 @@ receive do
   {:signal, signal} ->
     # Process the signal
     process_payment(signal)
-    
+
     # Acknowledge successful processing
     Bus.ack(:my_app_bus, sub_id, signal.id)
 end
+
+# After max_attempts failures, signals move to Dead Letter Queue
+# See Event Bus guide for DLQ management
 ```
 
 ### Middleware Pipeline
@@ -317,6 +324,8 @@ middleware = [
   middleware: middleware
 )
 ```
+
+Middleware callbacks (`before_publish`, `after_publish`, `before_dispatch`, `after_dispatch`) are executed with timeout protection (default 100ms, configurable via `middleware_timeout_ms`). Slow middleware is terminated and the operation continues. See `Jido.Signal.Bus.Middleware.Logger` for a complete implementation example.
 
 ### Causality Tracking
 

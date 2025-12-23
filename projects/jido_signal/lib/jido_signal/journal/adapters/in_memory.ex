@@ -14,7 +14,9 @@ defmodule Jido.Signal.Journal.Adapters.InMemory do
              signals: %{},
              causes: %{},
              effects: %{},
-             conversations: %{}
+             conversations: %{},
+             checkpoints: %{},
+             dlq: %{}
            }
          end) do
       {:ok, pid} -> {:ok, pid}
@@ -89,6 +91,128 @@ defmodule Jido.Signal.Journal.Adapters.InMemory do
      Agent.get(target, fn state ->
        get_in(state, [:conversations, conversation_id]) || MapSet.new()
      end)}
+  end
+
+  @impl true
+  def put_checkpoint(subscription_id, checkpoint, pid \\ nil) do
+    target = pid || __MODULE__
+
+    :telemetry.execute(
+      [:jido, :signal, :journal, :checkpoint, :put],
+      %{},
+      %{subscription_id: subscription_id}
+    )
+
+    Agent.update(target, fn state ->
+      put_in(state, [:checkpoints, subscription_id], checkpoint)
+    end)
+  end
+
+  @impl true
+  def get_checkpoint(subscription_id, pid \\ nil) do
+    target = pid || __MODULE__
+
+    case Agent.get(target, fn state -> get_in(state, [:checkpoints, subscription_id]) end) do
+      nil ->
+        :telemetry.execute(
+          [:jido, :signal, :journal, :checkpoint, :get],
+          %{},
+          %{subscription_id: subscription_id, found: false}
+        )
+
+        {:error, :not_found}
+
+      checkpoint ->
+        :telemetry.execute(
+          [:jido, :signal, :journal, :checkpoint, :get],
+          %{},
+          %{subscription_id: subscription_id, found: true}
+        )
+
+        {:ok, checkpoint}
+    end
+  end
+
+  @impl true
+  def delete_checkpoint(subscription_id, pid \\ nil) do
+    target = pid || __MODULE__
+
+    Agent.update(target, fn state ->
+      {_, new_state} = pop_in(state, [:checkpoints, subscription_id])
+      new_state
+    end)
+  end
+
+  @impl true
+  def put_dlq_entry(subscription_id, signal, reason, metadata, pid \\ nil) do
+    target = pid || __MODULE__
+    entry_id = Jido.Signal.ID.generate!()
+
+    entry = %{
+      id: entry_id,
+      subscription_id: subscription_id,
+      signal: signal,
+      reason: reason,
+      metadata: metadata,
+      inserted_at: DateTime.utc_now()
+    }
+
+    Agent.update(target, fn state ->
+      put_in(state, [:dlq, entry_id], entry)
+    end)
+
+    :telemetry.execute(
+      [:jido, :signal, :journal, :dlq, :put],
+      %{},
+      %{subscription_id: subscription_id, entry_id: entry_id}
+    )
+
+    {:ok, entry_id}
+  end
+
+  @impl true
+  def get_dlq_entries(subscription_id, pid \\ nil) do
+    target = pid || __MODULE__
+
+    entries =
+      Agent.get(target, fn state ->
+        state.dlq
+        |> Map.values()
+        |> Enum.filter(fn entry -> entry.subscription_id == subscription_id end)
+        |> Enum.sort_by(fn entry -> entry.inserted_at end, DateTime)
+      end)
+
+    :telemetry.execute(
+      [:jido, :signal, :journal, :dlq, :get],
+      %{count: length(entries)},
+      %{subscription_id: subscription_id}
+    )
+
+    {:ok, entries}
+  end
+
+  @impl true
+  def delete_dlq_entry(entry_id, pid \\ nil) do
+    target = pid || __MODULE__
+
+    Agent.update(target, fn state ->
+      {_, new_state} = pop_in(state, [:dlq, entry_id])
+      new_state
+    end)
+  end
+
+  @impl true
+  def clear_dlq(subscription_id, pid \\ nil) do
+    target = pid || __MODULE__
+
+    Agent.update(target, fn state ->
+      new_dlq =
+        state.dlq
+        |> Enum.reject(fn {_id, entry} -> entry.subscription_id == subscription_id end)
+        |> Map.new()
+
+      %{state | dlq: new_dlq}
+    end)
   end
 
   @doc """

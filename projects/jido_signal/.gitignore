@@ -26,3 +26,10 @@ jido_signal-*.tar
 .elixir_ls/
 
 .tool-versions
+
+# Dialyzer PLT files
+/priv/plts/
+
+# Mnesia data files
+Mnesia.*
+MnesiaCore.*

@@ -57,10 +57,16 @@ defmodule Jido.Signal.Bus.Subscriber do
         persistent_sub_opts = [
           id: subscription_id,
           bus_pid: self(),
+          bus_name: state.name,
           bus_subscription: subscription,
           start_from: opts[:start_from] || :origin,
           max_in_flight: opts[:max_in_flight] || 1000,
-          client_pid: client_pid
+          max_pending: opts[:max_pending] || 10_000,
+          max_attempts: opts[:max_attempts] || 5,
+          retry_interval: opts[:retry_interval] || 100,
+          client_pid: client_pid,
+          journal_adapter: state.journal_adapter,
+          journal_pid: state.journal_pid
         ]
 
         case DynamicSupervisor.start_child(

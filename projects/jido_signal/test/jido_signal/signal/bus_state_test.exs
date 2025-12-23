@@ -18,15 +18,14 @@ defmodule JidoTest.Signal.Bus.StateTest do
         Signal.new!(type: "test.signal", source: "test.source", data: "data2")
       ]
 
-      assert {:ok, new_state, returned_signals} = State.append_signals(state, signals)
+      assert {:ok, new_state, uuid_signal_pairs} = State.append_signals(state, signals)
       assert map_size(new_state.log) == 2
 
-      # Check that the signals are in the log
-      Enum.each(returned_signals, fn signal ->
-        # The signal itself should be a value in the log
-        assert Enum.any?(new_state.log, fn {_uuid, log_signal} ->
-                 log_signal.data == signal.data
-               end)
+      # Check that the signals are in the log with correct UUIDs
+      Enum.each(uuid_signal_pairs, fn {uuid, signal} ->
+        # The signal should be in the log under the returned UUID
+        assert Map.has_key?(new_state.log, uuid)
+        assert new_state.log[uuid].data == signal.data
       end)
     end
 
@@ -388,6 +387,102 @@ defmodule JidoTest.Signal.Bus.StateTest do
 
     test "get_subscription returns nil for non-existent id", %{state: state} do
       assert State.get_subscription(state, "missing") == nil
+    end
+  end
+
+  describe "auto truncation on append" do
+    setup do
+      state = %State{name: :test_bus, max_log_size: 10}
+      {:ok, state: state}
+    end
+
+    test "auto-truncates when log exceeds max_log_size", %{state: state} do
+      signals =
+        for i <- 1..15 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "data#{i}")
+        end
+
+      {:ok, new_state, _} = State.append_signals(state, signals)
+
+      # Should be truncated to max_log_size
+      assert map_size(new_state.log) == 10
+    end
+
+    test "keeps most recent signals after truncation", %{state: state} do
+      # First batch - older signals
+      signals1 =
+        for i <- 1..8 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "old#{i}")
+        end
+
+      {:ok, state, _} = State.append_signals(state, signals1)
+
+      # Wait to ensure different timestamp
+      Process.sleep(2)
+
+      # Second batch - newer signals that will trigger truncation
+      signals2 =
+        for i <- 1..7 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "new#{i}")
+        end
+
+      {:ok, new_state, _} = State.append_signals(state, signals2)
+
+      # Should have exactly 10 signals
+      assert map_size(new_state.log) == 10
+
+      # All new signals should be present
+      signals_list = State.log_to_list(new_state)
+      new_signals = Enum.filter(signals_list, &String.starts_with?(&1.data, "new"))
+      assert length(new_signals) == 7
+
+      # Only 3 old signals should remain
+      old_signals = Enum.filter(signals_list, &String.starts_with?(&1.data, "old"))
+      assert length(old_signals) == 3
+    end
+
+    test "preserves ordering after auto-truncation", %{state: state} do
+      signals =
+        for i <- 1..15 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "data#{i}")
+        end
+
+      {:ok, new_state, _} = State.append_signals(state, signals)
+
+      # Get log keys in sorted order
+      sorted_keys = Map.keys(new_state.log) |> Enum.sort()
+
+      # Extract timestamps from the keys
+      timestamps = Enum.map(sorted_keys, &ID.extract_timestamp/1)
+
+      # Verify timestamps are in ascending order
+      assert timestamps == Enum.sort(timestamps)
+    end
+
+    test "no truncation when under limit", %{state: state} do
+      signals =
+        for i <- 1..5 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "data#{i}")
+        end
+
+      {:ok, new_state, _} = State.append_signals(state, signals)
+
+      # Should have all 5 signals
+      assert map_size(new_state.log) == 5
+    end
+
+    test "respects max_log_size from state config" do
+      # Create state with custom max_log_size
+      state = %State{name: :test_bus, max_log_size: 3}
+
+      signals =
+        for i <- 1..10 do
+          Signal.new!(type: "test.signal", source: "test.source", data: "data#{i}")
+        end
+
+      {:ok, new_state, _} = State.append_signals(state, signals)
+
+      assert map_size(new_state.log) == 3
     end
   end
 

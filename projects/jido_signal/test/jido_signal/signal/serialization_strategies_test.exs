@@ -199,9 +199,10 @@ defmodule Jido.Signal.SerializationStrategiesTest do
         {deserialize_time, {:ok, _result}} =
           :timer.tc(fn -> Signal.deserialize(binary, serializer: serializer) end)
 
-        # Basic performance sanity check (should complete within reasonable time)
-        assert serialize_time < 100_000
-        assert deserialize_time < 100_000
+        # Basic sanity check - operations should complete within 10 seconds
+        # (generous threshold to avoid flaky tests on slow CI machines)
+        assert serialize_time < 10_000_000
+        assert deserialize_time < 10_000_000
       end
     end
   end

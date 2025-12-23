@@ -1,7 +1,7 @@
 defmodule Jido.Signal.MixProject do
   use Mix.Project
 
-  @version "1.1.0"
+  @version "1.2.0"
   @source_url "https://github.com/agentjido/jido_signal"
   @description "Agent Communication Envelope and Utilities"
 
@@ -124,6 +124,7 @@ defmodule Jido.Signal.MixProject do
         "Signal Dispatch": [
           Jido.Signal.Dispatch,
           Jido.Signal.Dispatch.Adapter,
+          Jido.Signal.Dispatch.CircuitBreaker,
           Jido.Signal.Dispatch.ConsoleAdapter,
           Jido.Signal.Dispatch.Http,
           Jido.Signal.Dispatch.LoggerAdapter,
@@ -137,6 +138,7 @@ defmodule Jido.Signal.MixProject do
           Jido.Signal.Journal,
           Jido.Signal.Journal.Adapters.ETS,
           Jido.Signal.Journal.Adapters.InMemory,
+          Jido.Signal.Journal.Adapters.Mnesia,
           Jido.Signal.Journal.Persistence
         ],
         Serialization: [
@@ -152,9 +154,7 @@ defmodule Jido.Signal.MixProject do
         "System Infrastructure": [
           Jido.Signal.Application,
           Jido.Signal.Registry,
-          Jido.Signal.Registry.Subscription,
-          Jido.Signal.Topology,
-          Jido.Signal.Topology.ProcessNode
+          Jido.Signal.Registry.Subscription
         ],
         "Errors & Exceptions": [
           Jido.Signal.Error.DispatchError,
@@ -204,6 +204,8 @@ defmodule Jido.Signal.MixProject do
       {:uniq, "~> 0.6.1"},
       {:splode, "~> 0.2.9"},
       {:zoi, "~> 0.10"},
+      {:memento, "~> 0.5.0"},
+      {:fuse, "~> 2.5"},
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},

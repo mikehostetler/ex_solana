@@ -166,11 +166,14 @@ defmodule Jido.Signal.Router do
 
   alias Jido.Signal
   alias Jido.Signal.Error
-  alias Jido.Signal.Router.{Engine, Route, Validator}
+  alias Jido.Signal.Router.{Cache, Engine, Route, Validator}
+
+  @type cache_id :: Cache.cache_id()
 
   @type t :: %{
           trie: __MODULE__.TrieNode.t(),
-          route_count: non_neg_integer()
+          route_count: non_neg_integer(),
+          cache_id: cache_id() | nil
         }
 
   @type path :: String.t()
@@ -254,18 +257,48 @@ defmodule Jido.Signal.Router do
     @moduledoc "Router Helper struct to store router metadata"
     field(:trie, TrieNode.t(), default: %TrieNode{})
     field(:route_count, non_neg_integer(), default: 0)
+    field(:cache_id, Jido.Signal.Router.cache_id())
   end
+
+  @type new_opts :: [cache_id: cache_id()]
 
   @doc """
   Creates a new router with the given routes.
+
+  ## Options
+  - `:cache_id` - Optional. When provided, the router's trie is cached in
+    `:persistent_term` for fast lookups. Use `Router.Cache.route/2` for
+    cached routing.
+
+  ## Examples
+
+      # Without caching (default behavior)
+      {:ok, router} = Router.new([{"user.created", MyHandler}])
+
+      # With caching for high-throughput scenarios
+      {:ok, router} = Router.new([{"user.created", MyHandler}], cache_id: :user_router)
+
+      # Later, route using the cache directly
+      {:ok, handlers} = Router.Cache.route(:user_router, signal)
   """
-  @spec new(route_spec() | [route_spec()] | [Route.t()] | nil) ::
+  @spec new(route_spec() | [route_spec()] | [Route.t()] | nil, new_opts()) ::
           {:ok, Router.t()} | {:error, term()}
-  def new(routes \\ nil)
+  def new(routes \\ nil, opts \\ [])
 
-  def new(nil), do: {:ok, %Router{}}
+  def new(nil, opts) do
+    cache_id = Keyword.get(opts, :cache_id)
+    router = %Router{cache_id: cache_id}
 
-  def new(routes) do
+    if cache_id do
+      Cache.put(cache_id, router)
+    end
+
+    {:ok, router}
+  end
+
+  def new(routes, opts) do
+    cache_id = Keyword.get(opts, :cache_id)
+
     with {:ok, normalized} <- Validator.normalize(routes),
          {:ok, validated} <- validate(normalized) do
       trie = Engine.build_trie(validated)
@@ -279,16 +312,24 @@ defmodule Jido.Signal.Router do
           end
         end)
 
-      {:ok, %Router{trie: trie, route_count: route_count}}
+      router = %Router{trie: trie, route_count: route_count, cache_id: cache_id}
+
+      if cache_id do
+        Cache.put(cache_id, router)
+      end
+
+      {:ok, router}
     end
   end
 
   @doc """
   Creates a new router with the given routes, raising on error.
+
+  See `new/2` for options.
   """
-  @spec new!(route_spec() | [route_spec()] | [Route.t()] | nil) :: Router.t()
-  def new!(routes \\ nil) do
-    case new(routes) do
+  @spec new!(route_spec() | [route_spec()] | [Route.t()] | nil, new_opts()) :: Router.t()
+  def new!(routes \\ nil, opts \\ []) do
+    case new(routes, opts) do
       {:ok, router} ->
         router
 
@@ -331,7 +372,13 @@ defmodule Jido.Signal.Router do
           end
         end)
 
-      {:ok, %{router | trie: new_trie, route_count: router.route_count + added_count}}
+      updated_router = %{router | trie: new_trie, route_count: router.route_count + added_count}
+
+      if router.cache_id do
+        Cache.put(router.cache_id, updated_router)
+      end
+
+      {:ok, updated_router}
     end
   end
 
@@ -363,7 +410,13 @@ defmodule Jido.Signal.Router do
       end)
 
     route_count = max(router.route_count - total_removed, 0)
-    {:ok, %{router | trie: new_trie, route_count: route_count}}
+    updated_router = %{router | trie: new_trie, route_count: route_count}
+
+    if router.cache_id do
+      Cache.put(router.cache_id, updated_router)
+    end
+
+    {:ok, updated_router}
   end
 
   def remove(%Router{} = router, path) when is_binary(path) do
@@ -541,11 +594,19 @@ defmodule Jido.Signal.Router do
      )}
   end
 
-  def route(%Router{trie: trie}, %Signal{} = signal) do
+  def route(%Router{trie: trie, cache_id: cache_id}, %Signal{} = signal) do
+    start_time = System.monotonic_time(:microsecond)
     results = Engine.route_signal(trie, signal)
+    latency_us = System.monotonic_time(:microsecond) - start_time
 
     case results do
       [] ->
+        :telemetry.execute(
+          [:jido, :signal, :router, :routed],
+          %{latency_us: latency_us, match_count: 0},
+          %{signal_type: signal.type, cache_id: cache_id, matched: false}
+        )
+
         {:error,
          Error.routing_error(
            "No matching handlers found for signal",
@@ -553,6 +614,12 @@ defmodule Jido.Signal.Router do
          )}
 
       _ ->
+        :telemetry.execute(
+          [:jido, :signal, :router, :routed],
+          %{latency_us: latency_us, match_count: length(results)},
+          %{signal_type: signal.type, cache_id: cache_id, matched: true}
+        )
+
         {:ok, results}
     end
   end

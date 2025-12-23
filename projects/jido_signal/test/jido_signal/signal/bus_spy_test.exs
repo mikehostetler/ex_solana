@@ -1,5 +1,7 @@
 defmodule Jido.Signal.BusSpyTest do
-  use ExUnit.Case, async: true
+  # async: false because BusSpy is a global telemetry listener
+  # that captures events from all buses
+  use ExUnit.Case, async: false
 
   alias Jido.Signal
   alias Jido.Signal.Bus
