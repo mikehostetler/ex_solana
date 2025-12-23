@@ -96,13 +96,7 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido_character"
     },
-    %{
-      name: "jido_dialogue",
-      upstream_url: "git@github.com:epic-creative/jido_dialogue.git",
-      branch: "main",
-      type: :library,
-      path: "projects/jido_dialogue"
-    },
+
     %{
       name: "jido_htn",
       upstream_url: "git@github.com:epic-creative/jido_htn.git",
@@ -112,19 +106,12 @@ config :jido_workspace,
     },
     %{
       name: "kodo",
-      upstream_url: "git@github.com:epic-creative/kodo.git",
+      upstream_url: "git@github.com:agentjido/kodo.git",
       branch: "main",
       type: :library,
       path: "projects/kodo"
     },
-    # DEPRECATED & ARCHIVED - Use standard env config and jido/jido_ai instead
-    %{
-      name: "jido_keys",
-      upstream_url: "git@github.com:agentjido/jido_keys.git",
-      branch: "main",
-      type: :library,
-      path: "projects/jido_keys"
-    },
+
     %{
       name: "req_llm",
       upstream_url: "git@github.com:agentjido/req_llm.git",
