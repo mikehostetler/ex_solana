@@ -36,3 +36,6 @@ req_llm-*.tar
 .expert
 
 .env
+
+# Dialyzer PLT files
+/priv/plts/

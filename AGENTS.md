@@ -176,3 +176,9 @@ The workspace automatically uses Hex dependencies when publishing - no environme
 - Handle errors gracefully with pattern matching
 - Use `System.cmd/3` for git operations
 - Stream output for long-running commands
+
+## Git Commit Guidelines
+
+- **Never add "ampcode" as a contributor** in commit messages, authors, or Co-authored-by trailers
+- Use conventional commit format: `type(scope): description`
+- Keep commit messages concise and descriptive

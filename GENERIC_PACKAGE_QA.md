@@ -554,7 +554,7 @@ end
 - [ ] `quality` alias defined
 - [ ] `.formatter.exs` configured
 - [ ] `.credo.exs` configured
-- [ ] `.gitignore` includes `_build/`, `deps/`, `cover/`, `*.plt`
+- [ ] `.gitignore` includes `_build/`, `deps/`, `cover/`, `/priv/plts/`, `*.plt`
 - [ ] `README.md` with installation and quick start
 - [ ] `LICENSE` file present
 - [ ] `AGENTS.md` for AI agent instructions
