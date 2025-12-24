@@ -61,13 +61,6 @@ config :jido_workspace,
       path: "projects/jido_workbench"
     },
     %{
-      name: "depot",
-      upstream_url: "git@github.com:agentjido/depot.git",
-      branch: "master",
-      type: :library,
-      path: "projects/depot"
-    },
-    %{
       name: "hako",
       upstream_url: "git@github.com:agentjido/hako.git",
       branch: "main",
