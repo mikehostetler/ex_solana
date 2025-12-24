@@ -5,6 +5,7 @@ defmodule ReqLLM.Provider.DefaultsTest do
   alias ReqLLM.Message
   alias ReqLLM.Message.ContentPart
   alias ReqLLM.Provider.Defaults
+  alias ReqLLM.Provider.Defaults.ResponseBuilder
   alias ReqLLM.StreamChunk
 
   describe "encode_context_to_openai_format/2" do
@@ -244,6 +245,57 @@ defmodule ReqLLM.Provider.DefaultsTest do
                "gpt-4"
              ) == expected_message_result
     end
+
+    test "encodes reasoning_details for round-trip preservation" do
+      reasoning_details = [
+        %{"type" => "encrypted_thought", "data" => "abc123", "format" => "google-gemini-v1"}
+      ]
+
+      message = %Message{
+        role: :assistant,
+        content: [%ContentPart{type: :text, text: "I'll help with that."}],
+        reasoning_details: reasoning_details
+      }
+
+      context = %Context{messages: [message]}
+      result = Defaults.encode_context_to_openai_format(context, "gemini-2.5-flash")
+
+      [encoded_message] = result.messages
+
+      assert encoded_message.reasoning_details == reasoning_details
+      assert encoded_message.role == "assistant"
+      assert encoded_message.content == "I'll help with that."
+    end
+
+    test "does not include reasoning_details key when nil" do
+      message = %Message{
+        role: :assistant,
+        content: [%ContentPart{type: :text, text: "Hello"}],
+        reasoning_details: nil
+      }
+
+      context = %Context{messages: [message]}
+      result = Defaults.encode_context_to_openai_format(context, "gpt-4")
+
+      [encoded_message] = result.messages
+
+      refute Map.has_key?(encoded_message, :reasoning_details)
+    end
+
+    test "does not include reasoning_details key when empty list" do
+      message = %Message{
+        role: :assistant,
+        content: [%ContentPart{type: :text, text: "Hello"}],
+        reasoning_details: []
+      }
+
+      context = %Context{messages: [message]}
+      result = Defaults.encode_context_to_openai_format(context, "gpt-4")
+
+      [encoded_message] = result.messages
+
+      refute Map.has_key?(encoded_message, :reasoning_details)
+    end
   end
 
   describe "decode_response_body_openai_format/2" do
@@ -423,6 +475,208 @@ defmodule ReqLLM.Provider.DefaultsTest do
 
       [chunk] = Defaults.default_decode_stream_event(nil_name_event, model)
       assert chunk.type == :meta
+    end
+
+    test "extracts reasoning_details from delta as meta chunk", %{model: model} do
+      reasoning_details = [
+        %{"type" => "encrypted_thought", "data" => "abc123"},
+        %{"type" => "encrypted_thought", "data" => "def456"}
+      ]
+
+      event = %{
+        data: %{
+          "choices" => [
+            %{
+              "delta" => %{
+                "reasoning_details" => reasoning_details
+              }
+            }
+          ]
+        }
+      }
+
+      chunks = Defaults.default_decode_stream_event(event, model)
+
+      assert [%StreamChunk{type: :meta, metadata: meta}] = chunks
+      assert meta.reasoning_details == reasoning_details
+    end
+
+    test "emits reasoning_details alongside content chunks", %{model: model} do
+      reasoning_details = [%{"type" => "thought", "signature" => "xyz789"}]
+
+      event = %{
+        data: %{
+          "choices" => [
+            %{
+              "delta" => %{
+                "content" => "Hello world",
+                "reasoning_details" => reasoning_details
+              }
+            }
+          ]
+        }
+      }
+
+      chunks = Defaults.default_decode_stream_event(event, model)
+
+      assert length(chunks) == 2
+
+      content_chunk = Enum.find(chunks, &(&1.type == :content))
+      assert content_chunk.text == "Hello world"
+
+      meta_chunk = Enum.find(chunks, &(&1.type == :meta))
+      assert meta_chunk.metadata.reasoning_details == reasoning_details
+    end
+
+    test "does not emit reasoning_details meta when list is empty", %{model: model} do
+      event = %{
+        data: %{
+          "choices" => [
+            %{
+              "delta" => %{
+                "content" => "Hello",
+                "reasoning_details" => []
+              }
+            }
+          ]
+        }
+      }
+
+      chunks = Defaults.default_decode_stream_event(event, model)
+
+      assert [%StreamChunk{type: :content, text: "Hello"}] = chunks
+    end
+
+    test "does not emit reasoning_details meta when key is missing", %{model: model} do
+      event = %{
+        data: %{
+          "choices" => [
+            %{
+              "delta" => %{
+                "content" => "Hello"
+              }
+            }
+          ]
+        }
+      }
+
+      chunks = Defaults.default_decode_stream_event(event, model)
+
+      assert [%StreamChunk{type: :content, text: "Hello"}] = chunks
+    end
+
+    test "reasoning_details included with finish_reason meta", %{model: model} do
+      reasoning_details = [%{"type" => "thought", "data" => "final"}]
+
+      event = %{
+        data: %{
+          "choices" => [
+            %{
+              "delta" => %{
+                "reasoning_details" => reasoning_details
+              },
+              "finish_reason" => "stop"
+            }
+          ]
+        }
+      }
+
+      chunks = Defaults.default_decode_stream_event(event, model)
+
+      assert length(chunks) == 2
+
+      reasoning_chunk = Enum.find(chunks, &Map.has_key?(&1.metadata, :reasoning_details))
+      assert reasoning_chunk.metadata.reasoning_details == reasoning_details
+
+      finish_chunk = Enum.find(chunks, &Map.has_key?(&1.metadata, :finish_reason))
+      assert finish_chunk.metadata.finish_reason == :stop
+      assert finish_chunk.metadata.terminal? == true
+    end
+  end
+
+  describe "ResponseBuilder reasoning_details accumulation" do
+    setup do
+      model = %LLMDB.Model{provider: :openai, id: "gpt-4"}
+      context = %Context{messages: []}
+      %{model: model, context: context}
+    end
+
+    test "accumulates reasoning_details from meta chunks", %{model: model, context: context} do
+      reasoning_details = [
+        %{"type" => "encrypted_thought", "data" => "abc123"},
+        %{"type" => "encrypted_thought", "data" => "def456"}
+      ]
+
+      chunks = [
+        StreamChunk.text("Hello"),
+        StreamChunk.meta(%{reasoning_details: reasoning_details})
+      ]
+
+      {:ok, response} =
+        ResponseBuilder.build_response(chunks, %{}, model: model, context: context)
+
+      assert response.message.reasoning_details == reasoning_details
+    end
+
+    test "accumulates reasoning_details from multiple meta chunks", %{
+      model: model,
+      context: context
+    } do
+      details1 = [%{"type" => "thought", "data" => "first"}]
+      details2 = [%{"type" => "thought", "data" => "second"}]
+
+      chunks = [
+        StreamChunk.text("Hello"),
+        StreamChunk.meta(%{reasoning_details: details1}),
+        StreamChunk.text(" world"),
+        StreamChunk.meta(%{reasoning_details: details2})
+      ]
+
+      {:ok, response} =
+        ResponseBuilder.build_response(chunks, %{}, model: model, context: context)
+
+      assert response.message.reasoning_details == details1 ++ details2
+    end
+
+    test "sets reasoning_details to nil when no meta chunks have reasoning_details", %{
+      model: model,
+      context: context
+    } do
+      chunks = [
+        StreamChunk.text("Hello world")
+      ]
+
+      {:ok, response} =
+        ResponseBuilder.build_response(chunks, %{}, model: model, context: context)
+
+      assert response.message.reasoning_details == nil
+    end
+
+    test "handles empty reasoning_details list in meta chunk", %{model: model, context: context} do
+      chunks = [
+        StreamChunk.text("Hello"),
+        StreamChunk.meta(%{reasoning_details: []})
+      ]
+
+      {:ok, response} =
+        ResponseBuilder.build_response(chunks, %{}, model: model, context: context)
+
+      assert response.message.reasoning_details == nil
+    end
+
+    test "preserves reasoning_details alongside tool calls", %{model: model, context: context} do
+      reasoning_details = [%{"type" => "thought", "signature" => "xyz"}]
+
+      chunks = [
+        StreamChunk.tool_call("get_weather", %{"city" => "NYC"}, %{id: "call_123"}),
+        StreamChunk.meta(%{reasoning_details: reasoning_details})
+      ]
+
+      {:ok, response} =
+        ResponseBuilder.build_response(chunks, %{}, model: model, context: context)
+
+      assert response.message.reasoning_details == reasoning_details
+      assert length(response.message.tool_calls) == 1
     end
   end
 end

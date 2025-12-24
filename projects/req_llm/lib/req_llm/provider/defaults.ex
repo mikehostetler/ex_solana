@@ -737,14 +737,25 @@ defmodule ReqLLM.Provider.Defaults do
   """
   @spec default_decode_stream_event(map(), LLMDB.Model.t()) :: [ReqLLM.StreamChunk.t()]
   def default_decode_stream_event(%{data: data}, model) when is_map(data) do
-    # 1. Handle choices (content + finish_reason)
+    # 1. Handle choices (content + finish_reason + reasoning_details)
     choices_chunks =
       case Map.get(data, "choices") do
         choices when is_list(choices) ->
           Enum.flat_map(choices, fn choice ->
-            # Extract content from delta
-            delta = Map.get(choice, "delta", %{})
+            # Extract content from delta (handle nil delta gracefully)
+            delta = Map.get(choice, "delta") || %{}
             content_chunks = decode_openai_delta(delta)
+
+            # Extract reasoning_details from delta (for Gemini via OpenRouter)
+            # These contain encrypted thought signatures required for tool call round-trips
+            reasoning_details_chunks =
+              case delta do
+                %{"reasoning_details" => details} when is_list(details) and details != [] ->
+                  [ReqLLM.StreamChunk.meta(%{reasoning_details: details})]
+
+                _ ->
+                  []
+              end
 
             # Extract finish_reason
             finish_reason = Map.get(choice, "finish_reason")
@@ -755,9 +766,9 @@ defmodule ReqLLM.Provider.Defaults do
               meta = %{finish_reason: normalized_reason}
               meta = if normalized_reason, do: Map.put(meta, :terminal?, true), else: meta
 
-              content_chunks ++ [ReqLLM.StreamChunk.meta(meta)]
+              content_chunks ++ reasoning_details_chunks ++ [ReqLLM.StreamChunk.meta(meta)]
             else
-              content_chunks
+              content_chunks ++ reasoning_details_chunks
             end
           end)
 
