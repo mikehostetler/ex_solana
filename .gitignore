@@ -40,3 +40,6 @@ thoughts/
 
 # tmp
 shelf/
+
+# ElixirLS
+.elixir_ls/
