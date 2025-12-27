@@ -1,142 +1,75 @@
 defmodule Jido.Discovery do
   @moduledoc """
-  The Discovery module is Jido's component registry system, providing efficient caching and lookup
-  of system components like Actions, Sensors, Agents, and Skills. Think of it as a "service registry"
-  that helps different parts of your system find and interact with each other.
+  Component registry system for discovering Jido artifacts in the system.
+
+  Discovery provides efficient caching and lookup of system components like Actions,
+  Sensors, Agents, Skills, and Demos. It acts as a service registry that helps
+  different parts of your system find and interact with each other.
 
   ## Core Concepts
 
   ### Component Discovery
 
-  Discovery works by scanning all loaded applications for components that implement Jido's
-  metadata protocols. It automatically finds and indexes:
+  Discovery works by scanning all loaded applications for components that implement
+  Jido's metadata callbacks. It automatically finds and indexes:
 
-  - **Actions** - Discrete units of work
-  - **Sensors** - Event monitoring components
-  - **Agents** - Autonomous workers
-  - **Skills** - Reusable capability packs
-  - **Demos** - Example implementations - used in the Jido Workbench (https://github.com/agentjido/jido_workbench)
+  - **Actions** - Discrete units of work (via `__action_metadata__/0`)
+  - **Sensors** - Event monitoring components (via `__sensor_metadata__/0`)
+  - **Agents** - Autonomous workers (via `__agent_metadata__/0`)
+  - **Skills** - Reusable capability packs (via `__skill_metadata__/0`)
+  - **Demos** - Example implementations (via `__jido_demo__/0`)
 
-  The module uses Erlang's `:persistent_term` for optimal lookup performance
+  The module uses Erlang's `:persistent_term` for optimal lookup performance.
 
   ### Component Metadata
 
   Each discovered component includes the following metadata:
 
-  ```elixir
-  %{
-    module: MyApp.CoolAction,        # The actual module
-    name: "cool_action",            # Human-readable name
-    description: "Does cool stuff", # What it does
-    slug: "abc123de",              # Unique identifier
-    category: :utility,            # Broad classification
-    tags: [:cool, :stuff]          # Searchable tags
-  }
-  ```
+      %{
+        module: MyApp.CoolAction,        # The actual module
+        name: "cool_action",             # Human-readable name
+        description: "Does cool stuff",  # What it does
+        slug: "abc123de",                # Unique identifier (8-char hash)
+        category: :utility,              # Broad classification
+        tags: [:cool, :stuff]            # Searchable tags
+      }
 
   ## Usage Examples
 
   ### Basic Component Lookup
 
-  Find components by their unique slugs:
-
-  ```elixir
-  # Find a specific action
-  case Discovery.get_action_by_slug("abc123de") do
-    %{module: module} ->
-      # Use the action module
-      {:ok, result} = module.run()
-    nil ->
-      # Handle missing action
-  end
-
-  # Find a sensor
-  sensor = Discovery.get_sensor_by_slug("def456gh")
-  ```
+      # Find a specific action by slug
+      case Jido.Discovery.get_action_by_slug("abc123de") do
+        %{module: module} ->
+          {:ok, result} = module.run()
+        nil ->
+          # Handle missing action
+      end
 
   ### Filtered Component Lists
 
-  Get filtered lists of components:
+      # List all monitoring sensors
+      sensors = Jido.Discovery.list_sensors(
+        category: :monitoring,
+        tag: :metrics
+      )
 
-  ```elixir
-  # List all monitoring sensors
-  sensors = Discovery.list_sensors(
-    category: :monitoring,
-    tag: :metrics
-  )
-
-  # Get the first 10 utility actions
-  actions = Discovery.list_actions(
-    category: :utility,
-    limit: 10
-  )
-
-  # Search agents by name
-  agents = Discovery.list_agents(
-    name: "processor",
-    offset: 5,
-    limit: 5
-  )
-  ```
+      # Get the first 10 utility actions
+      actions = Jido.Discovery.list_actions(
+        category: :utility,
+        limit: 10
+      )
 
   ### Cache Management
 
-  Control the discovery cache lifecycle:
+      # Initialize cache (usually done at startup)
+      :ok = Jido.Discovery.init()
 
-  ```elixir
-  # Initialize cache (usually done at startup)
-  :ok = Discovery.init()
+      # Force cache refresh if needed
+      :ok = Jido.Discovery.refresh()
 
-  # Force cache refresh if needed
-  :ok = Discovery.refresh()
-
-  # Check last update time
-  {:ok, last_updated} = Discovery.last_updated()
-  ```
-
-  ## Component Registration
-
-  Components are automatically discovered when they:
-  1. Are loaded in any application in the system
-  2. Implement the appropriate metadata callback
-  3. Include required metadata fields
-
-  Example component:
-  ```elixir
-  defmodule MyApp.CoolAction do
-    use Jido.Action,
-      name: "cool_action",
-      description: "Does cool stuff",
-      category: :utility,
-      tags: [:cool, :stuff]
-
-    # Metadata is automatically generated from use params
-    # def __action_metadata__ do
-    #   %{
-    #     name: "cool_action",
-    #     description: "Does cool stuff",
-    #     category: :utility,
-    #     tags: [:cool, :stuff]
-    #   }
-    # end
-  end
-  ```
-
-  ## Cache Structure
-
-  The discovery cache maintains separate collections for each component type:
-
-  ```elixir
-  %{
-    version: "1.0",              # Cache format version
-    last_updated: ~U[...],       # Last refresh timestamp
-    actions: [...],              # List of actions
-    sensors: [...],              # List of sensors
-    agents: [...],               # List of agents
-    skills: [...],              # List of skills
-    demos: [...]                # List of demos
-  }
-  ```
+      # Check last update time
+      {:ok, last_updated} = Jido.Discovery.last_updated()
 
   ## Filtering Options
 
@@ -148,28 +81,14 @@ defmodule Jido.Discovery do
   - `:description` - Filter by description (partial match)
   - `:category` - Filter by category (exact match)
   - `:tag` - Filter by tag (must have exact tag)
-
-  ## Important Notes
-
-  - Cache is shared across all processes
-  - Components must be loaded before discovery
-  - Metadata changes require cache refresh
-  - Slug generation is deterministic
-  - Filter options are additive (AND logic)
-
-  ## See Also
-
-  - `Jido.Action` - Action component behavior
-  - `Jido.Sensor` - Sensor component behavior
-  - `Jido.Agent` - Agent component behavior
-  - `Jido.Skill` - Skill component behavior
   """
   require Logger
 
   @cache_key :__jido_discovery_cache__
-  @cache_version "1.0"
+  @cache_version "2.0"
 
   @type component_type :: :action | :sensor | :agent | :skill | :demo
+
   @type component_metadata :: %{
           module: module(),
           name: String.t(),
@@ -195,18 +114,19 @@ defmodule Jido.Discovery do
   ## Returns
 
   - `:ok` if cache was initialized successfully
-  - `{:error, reason}` if initialization failed
+  - `{:error, :cache_init_failed}` if initialization failed
   """
-  @spec init() :: :ok | {:error, term()}
+  @spec init() :: :ok | {:error, :cache_init_failed}
   def init do
     try do
       cache = build_cache()
       :persistent_term.put(@cache_key, cache)
-      Logger.debug("[Jido.Discovery] Jido cache initialized successfully")
+      Logger.debug("[Jido.Discovery] cache initialized successfully")
       :ok
     rescue
       e ->
-        Logger.warning("[Jido.Discovery] Failed to initialize discovery cache: #{inspect(e)}")
+        error = Jido.Error.Discovery.CacheInitFailed.exception(reason: e)
+        Logger.warning("[Jido.Discovery] #{Exception.message(error)}")
         {:error, :cache_init_failed}
     end
   end
@@ -217,18 +137,19 @@ defmodule Jido.Discovery do
   ## Returns
 
   - `:ok` if cache was refreshed successfully
-  - `{:error, reason}` if refresh failed
+  - `{:error, :cache_refresh_failed}` if refresh failed
   """
-  @spec refresh() :: :ok | {:error, term()}
+  @spec refresh() :: :ok | {:error, :cache_refresh_failed}
   def refresh do
     try do
       cache = build_cache()
       :persistent_term.put(@cache_key, cache)
-      Logger.info("Jido discovery cache refreshed successfully")
+      Logger.info("[Jido.Discovery] cache refreshed successfully")
       :ok
     rescue
       e ->
-        Logger.warning("Failed to refresh Jido discovery cache: #{inspect(e)}")
+        error = Jido.Error.Discovery.CacheRefreshFailed.exception(reason: e)
+        Logger.warning("[Jido.Discovery] #{Exception.message(error)}")
         {:error, :cache_refresh_failed}
     end
   end
@@ -259,15 +180,6 @@ defmodule Jido.Discovery do
   ## Returns
 
   The Action metadata if found, otherwise `nil`.
-
-  ## Examples
-
-      iex> Jido.get_action_by_slug("abc123de")
-      %{module: MyApp.SomeAction, name: "some_action", description: "Does something", slug: "abc123de"}
-
-      iex> Jido.get_action_by_slug("nonexistent")
-      nil
-
   """
   @spec get_action_by_slug(String.t()) :: component_metadata() | nil
   def get_action_by_slug(slug) do
@@ -287,14 +199,6 @@ defmodule Jido.Discovery do
   ## Returns
 
   The Sensor metadata if found, otherwise `nil`.
-
-  ## Examples
-      iex> Jido.get_sensor_by_slug("def456gh")
-      %{module: MyApp.SomeSensor, name: "some_sensor", description: "Monitors something", slug: "def456gh"}
-
-      iex> Jido.get_sensor_by_slug("nonexistent")
-      nil
-
   """
   @spec get_sensor_by_slug(String.t()) :: component_metadata() | nil
   def get_sensor_by_slug(slug) do
@@ -314,15 +218,6 @@ defmodule Jido.Discovery do
   ## Returns
 
   The Agent metadata if found, otherwise `nil`.
-
-  ## Examples
-
-      iex> Jido.get_agent_by_slug("ghi789jk")
-      %{module: MyApp.SomeAgent, name: "some_agent", description: "Represents an agent", slug: "ghi789jk"}
-
-      iex> Jido.get_agent_by_slug("nonexistent")
-      nil
-
   """
   @spec get_agent_by_slug(String.t()) :: component_metadata() | nil
   def get_agent_by_slug(slug) do
@@ -342,15 +237,6 @@ defmodule Jido.Discovery do
   ## Returns
 
   The Skill metadata if found, otherwise `nil`.
-
-  ## Examples
-
-      iex> Jido.get_skill_by_slug("jkl012mn")
-      %{module: MyApp.SomeSkill, name: "some_skill", description: "Provides some capability", slug: "jkl012mn"}
-
-      iex> Jido.get_skill_by_slug("nonexistent")
-      nil
-
   """
   @spec get_skill_by_slug(String.t()) :: component_metadata() | nil
   def get_skill_by_slug(slug) do
@@ -370,15 +256,6 @@ defmodule Jido.Discovery do
   ## Returns
 
   The Demo metadata if found, otherwise `nil`.
-
-  ## Examples
-
-      iex> Jido.get_demo_by_slug("mno345pq")
-      %{module: MyApp.SomeDemo, name: "some_demo", description: "Demonstrates something", slug: "mno345pq"}
-
-      iex> Jido.get_demo_by_slug("nonexistent")
-      nil
-
   """
   @spec get_demo_by_slug(String.t()) :: component_metadata() | nil
   def get_demo_by_slug(slug) do
@@ -391,25 +268,18 @@ defmodule Jido.Discovery do
   @doc """
   Lists all Actions with optional filtering and pagination.
 
-  ## Parameters
+  ## Options
 
-  - `opts`: A keyword list of options for filtering and pagination. Available options:
-    - `:limit`: Maximum number of results to return.
-    - `:offset`: Number of results to skip before starting to return.
-    - `:name`: Filter Actions by name (partial match).
-    - `:description`: Filter Actions by description (partial match).
-    - `:category`: Filter Actions by category (exact match).
-    - `:tag`: Filter Actions by tag (must have the exact tag).
+  - `:limit` - Maximum number of results to return
+  - `:offset` - Number of results to skip before starting to return
+  - `:name` - Filter Actions by name (partial match)
+  - `:description` - Filter Actions by description (partial match)
+  - `:category` - Filter Actions by category (exact match)
+  - `:tag` - Filter Actions by tag (must have the exact tag)
 
   ## Returns
 
   A list of Action metadata.
-
-  ## Examples
-
-      iex> Jido.list_actions(limit: 10, offset: 5, category: :utility)
-      [%{module: MyApp.SomeAction, name: "some_action", description: "Does something", slug: "abc123de", category: :utility}]
-
   """
   @spec list_actions(keyword()) :: [component_metadata()]
   def list_actions(opts \\ []) do
@@ -422,25 +292,18 @@ defmodule Jido.Discovery do
   @doc """
   Lists all Sensors with optional filtering and pagination.
 
-  ## Parameters
+  ## Options
 
-  - `opts`: A keyword list of options for filtering and pagination. Available options:
-    - `:limit`: Maximum number of results to return.
-    - `:offset`: Number of results to skip before starting to return.
-    - `:name`: Filter Sensors by name (partial match).
-    - `:description`: Filter Sensors by description (partial match).
-    - `:category`: Filter Sensors by category (exact match).
-    - `:tag`: Filter Sensors by tag (must have the exact tag).
+  - `:limit` - Maximum number of results to return
+  - `:offset` - Number of results to skip before starting to return
+  - `:name` - Filter Sensors by name (partial match)
+  - `:description` - Filter Sensors by description (partial match)
+  - `:category` - Filter Sensors by category (exact match)
+  - `:tag` - Filter Sensors by tag (must have the exact tag)
 
   ## Returns
 
   A list of Sensor metadata.
-
-  ## Examples
-
-      iex> Jido.list_sensors(limit: 10, offset: 5, category: :monitoring)
-      [%{module: MyApp.SomeSensor, name: "some_sensor", description: "Monitors something", slug: "def456gh", category: :monitoring}]
-
   """
   @spec list_sensors(keyword()) :: [component_metadata()]
   def list_sensors(opts \\ []) do
@@ -453,25 +316,18 @@ defmodule Jido.Discovery do
   @doc """
   Lists all Agents with optional filtering and pagination.
 
-  ## Parameters
+  ## Options
 
-  - `opts`: A keyword list of options for filtering and pagination. Available options:
-    - `:limit`: Maximum number of results to return.
-    - `:offset`: Number of results to skip before starting to return.
-    - `:name`: Filter Agents by name (partial match).
-    - `:description`: Filter Agents by description (partial match).
-    - `:category`: Filter Agents by category (exact match).
-    - `:tag`: Filter Agents by tag (must have the exact tag).
+  - `:limit` - Maximum number of results to return
+  - `:offset` - Number of results to skip before starting to return
+  - `:name` - Filter Agents by name (partial match)
+  - `:description` - Filter Agents by description (partial match)
+  - `:category` - Filter Agents by category (exact match)
+  - `:tag` - Filter Agents by tag (must have the exact tag)
 
   ## Returns
 
   A list of Agent metadata.
-
-  ## Examples
-
-      iex> Jido.list_agents(limit: 10, offset: 5, category: :business)
-      [%{module: MyApp.SomeAgent, name: "some_agent", description: "Represents an agent", slug: "ghi789jk", category: :business}]
-
   """
   @spec list_agents(keyword()) :: [component_metadata()]
   def list_agents(opts \\ []) do
@@ -484,25 +340,18 @@ defmodule Jido.Discovery do
   @doc """
   Lists all Skills with optional filtering and pagination.
 
-  ## Parameters
+  ## Options
 
-  - `opts`: A keyword list of options for filtering and pagination. Available options:
-    - `:limit`: Maximum number of results to return.
-    - `:offset`: Number of results to skip before starting to return.
-    - `:name`: Filter Skills by name (partial match).
-    - `:description`: Filter Skills by description (partial match).
-    - `:category`: Filter Skills by category (exact match).
-    - `:tag`: Filter Skills by tag (must have the exact tag).
+  - `:limit` - Maximum number of results to return
+  - `:offset` - Number of results to skip before starting to return
+  - `:name` - Filter Skills by name (partial match)
+  - `:description` - Filter Skills by description (partial match)
+  - `:category` - Filter Skills by category (exact match)
+  - `:tag` - Filter Skills by tag (must have the exact tag)
 
   ## Returns
 
   A list of Skill metadata.
-
-  ## Examples
-
-      iex> Jido.list_skills(limit: 10, offset: 5, category: :capability)
-      [%{module: MyApp.SomeSkill, name: "some_skill", description: "Provides some capability", slug: "jkl012mn", category: :capability}]
-
   """
   @spec list_skills(keyword()) :: [component_metadata()]
   def list_skills(opts \\ []) do
@@ -515,25 +364,18 @@ defmodule Jido.Discovery do
   @doc """
   Lists all Demos with optional filtering and pagination.
 
-  ## Parameters
+  ## Options
 
-  - `opts`: A keyword list of options for filtering and pagination. Available options:
-    - `:limit`: Maximum number of results to return.
-    - `:offset`: Number of results to skip before starting to return.
-    - `:name`: Filter Demos by name (partial match).
-    - `:description`: Filter Demos by description (partial match).
-    - `:category`: Filter Demos by category (exact match).
-    - `:tag`: Filter Demos by tag (must have the exact tag).
+  - `:limit` - Maximum number of results to return
+  - `:offset` - Number of results to skip before starting to return
+  - `:name` - Filter Demos by name (partial match)
+  - `:description` - Filter Demos by description (partial match)
+  - `:category` - Filter Demos by category (exact match)
+  - `:tag` - Filter Demos by tag (must have the exact tag)
 
   ## Returns
 
   A list of Demo metadata.
-
-  ## Examples
-
-      iex> Jido.list_demos(limit: 10, offset: 5, category: :example)
-      [%{module: MyApp.SomeDemo, name: "some_demo", description: "Demonstrates something", slug: "mno345pq", category: :example}]
-
   """
   @spec list_demos(keyword()) :: [component_metadata()]
   def list_demos(opts \\ []) do
@@ -546,12 +388,11 @@ defmodule Jido.Discovery do
   @doc false
   def __get_cache__, do: get_cache()
 
-  # Private functions
   defp get_cache do
     try do
       case :persistent_term.get(@cache_key) do
         %{version: @cache_version} = cache -> {:ok, cache}
-        _ -> {:error, :invalid_cache_version}
+        _ -> {:error, :not_initialized}
       end
     rescue
       ArgumentError -> {:error, :not_initialized}
@@ -621,8 +462,9 @@ defmodule Jido.Discovery do
     |> maybe_limit(limit)
   end
 
-  defp all_applications,
-    do: Application.loaded_applications() |> Enum.map(fn {app, _, _} -> app end)
+  defp all_applications do
+    Application.loaded_applications() |> Enum.map(fn {app, _, _} -> app end)
+  end
 
   defp all_modules(app) do
     case :application.get_key(app, :modules) do

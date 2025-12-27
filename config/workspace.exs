@@ -7,7 +7,16 @@ config :jido_workspace,
       upstream_url: "git@github.com:agentjido/jido.git",
       branch: "main",
       type: :library,
-      path: "projects/jido"
+      path: "projects/jido",
+      status: :frozen  # v1 - frozen reference, do not modify
+    },
+    %{
+      name: "jido_v2",
+      upstream_url: "git@github.com:agentjido/jido.git",
+      branch: "v2",
+      type: :library,
+      path: "projects/jido_v2",
+      status: :active  # v2 - active development
     },
     %{
       name: "jido_action",

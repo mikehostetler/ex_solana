@@ -28,6 +28,9 @@ jido-*.tar
 # Elixir Language Server
 .elixir_ls/
 
+# Dialyzer PLT files
+/priv/plts/
+
 # expublish
 RELEASE.md
 
