@@ -63,7 +63,10 @@ defmodule Jido.Util do
 
   """
   @spec validate_name(any()) :: {:ok, String.t()} | {:error, Error.t()}
-  def validate_name(name) when is_binary(name) do
+  @spec validate_name(any(), keyword()) :: :ok | {:error, String.t()}
+  def validate_name(name, opts \\ [])
+
+  def validate_name(name, []) when is_binary(name) do
     if Regex.match?(@name_regex, name) do
       OK.success(name)
     else
@@ -72,9 +75,21 @@ defmodule Jido.Util do
     end
   end
 
-  def validate_name(_) do
+  def validate_name(name, _opts) when is_binary(name) do
+    if Regex.match?(@name_regex, name) do
+      :ok
+    else
+      {:error, "The name must start with a letter and contain only letters, numbers, and underscores."}
+    end
+  end
+
+  def validate_name(_, []) do
     "Invalid name format."
     |> OK.failure()
+  end
+
+  def validate_name(_, _opts) do
+    {:error, "Invalid name format."}
   end
 
   @doc """
