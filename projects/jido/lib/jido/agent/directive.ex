@@ -1,512 +1,317 @@
 defmodule Jido.Agent.Directive do
-  require Logger
-
   @moduledoc """
-    Provides a type-safe way to modify agent state through discrete, validated directives.
+  Typed directive structs for `Jido.Agent`.
 
-    ## Overview
+  A *directive* is a pure description of an external effect for the runtime
+  (e.g. `Jido.AgentServer`) to execute. Agents and strategies **never**
+  interpret or execute directives; they only emit them.
 
-    Directives are immutable instructions that can be applied to an agent to modify its state
-    in predefined ways. Each directive type is implemented as a separate struct with its own
-    validation rules, helping ensure type safety and consistent state transitions.
+  ## Signal Integration
 
-    ## Available Directives
+  The Emit directive integrates with `Jido.Signal` and `Jido.Signal.Dispatch`:
 
-    * `Enqueue` - Adds a new instruction to the agent's pending queue
-        - Requires an action atom
-        - Supports optional params and context maps
-        - Supports optional opts keyword list
-        - Example: `%Enqueue{action: :move, params: %{location: :kitchen}}`
+  - `%Emit{}` - Dispatch a signal via configured adapters (pid, pubsub, bus, http, etc.)
 
-    * `RegisterAction` - Registers a new action module with the agent
-        - Requires a valid module atom
-        - Example: `%RegisterAction{action_module: MyApp.Actions.Move}`
+  ## Design
 
-    * `DeregisterAction` - Removes an action module from the agent
-        - Requires a valid module atom
-        - Example: `%DeregisterAction{action_module: MyApp.Actions.Move}`
+  Directives are bare structs - no tuple wrappers. This enables:
+  - Clean pattern matching on struct type
+  - Protocol-based dispatch for extensibility
+  - External packages can define custom directives
 
-    * `Spawn` - Spawns a child process under the agent's supervisor
-        - Requires a module atom and arguments
-        - Example: `%Spawn{module: MyWorker, args: [id: 1]}`
+  ## Core Directives
 
-    * `Kill` - Terminates a child process
-        - Requires a valid PID
-        - Example: `%Kill{pid: #PID<0.123.0>}`
+    * `%Emit{}` - Dispatch a signal via `Jido.Signal.Dispatch`
+    * `%Error{}` - Signal an error (wraps `Jido.Error.t()`)
+    * `%Spawn{}` - Spawn a child process
+    * `%Schedule{}` - Schedule a delayed message
+    * `%Stop{}` - Stop the agent process
 
-    * `StateModification` - Modifies agent state at a given path
-        - Requires an operation and path
-        - Supports optional value
-        - Example: `%StateModification{op: :set, path: [:config, :mode], value: :active}`
+  ## Usage
 
-    ## Usage
+      alias Jido.Agent.Directive
 
-    Directives can be applied to either an Agent or ServerState struct:
+      # Emit a signal (runtime will dispatch via configured adapters)
+      %Directive.Emit{signal: my_signal}
+      %Directive.Emit{signal: my_signal, dispatch: {:pubsub, topic: "events"}}
+      %Directive.Emit{signal: my_signal, dispatch: {:pid, target: pid}}
 
-        # Apply to Agent - returns updated agent
-        {:ok, updated_agent} = Directive.apply_directives(agent, directives)
+      # Schedule for later
+      %Directive.Schedule{delay_ms: 5000, message: :timeout}
 
-        # Apply to ServerState - returns updated state
-        {:ok, updated_state} = Directive.apply_directives(server_state, directives)
+  ## Extensibility
 
-    Each function validates directives before applying them and returns either:
-    * `{:ok, updated_state}` - Directives were successfully applied
-    * `{:error, reason}` - Failed to apply directives
+  External packages can define their own directive structs:
 
-    ## Validation
+      defmodule MyApp.Directive.CallLLM do
+        defstruct [:model, :prompt, :tag]
+      end
 
-    Each directive type has its own validation rules:
-
-    * `Enqueue` requires a non-nil atom for the action
-    * `RegisterAction` requires a valid module atom
-    * `DeregisterAction` requires a valid module atom
-    * `Spawn` requires a valid module atom and arguments
-    * `Kill` requires a valid PID
-
-    Failed validation results in an error tuple being returned and processing being halted.
-
-    ## Error Handling
-
-    The module uses tagged tuples for error handling:
-
-    * `{:ok, updated_state}` - Successful application of directives
-    * `{:error, reason}` - Failed validation or application
-
-    Common error reasons include:
-
-    * `:invalid_action` - The action specified in an `Enqueue` is invalid
-    * `:invalid_action_module` - The module specified in a `Register/DeregisterAction` is invalid
-    * `:invalid_module` - The module specified in a `Spawn` is invalid
-    * `:invalid_pid` - The PID specified in a `Kill` is invalid
-    * `:invalid_topic` - The topic specified in a broadcast/subscribe/unsubscribe directive is invalid
-
-    ## Ideas
-    Change Mode
-    Change Verbosity
-    Manage Router (add/remove/etc)
-    Manage Skills (add/remove/etc)
-    Manage Dispatchers (add/remove/etc)
-
+  The runtime dispatches on struct type, so no changes to core are needed.
   """
-  use TypedStruct
-  alias Jido.Agent
-  alias Jido.Error
-  alias Jido.Agent.Server.State, as: ServerState
-  alias Jido.Instruction
 
-  # Define directive types
-  defmodule Enqueue do
-    @moduledoc "Directive to enqueue a new instruction"
-    use TypedStruct
+  alias __MODULE__.{Emit, Error, Spawn, Schedule, Stop}
 
-    typedstruct do
-      field(:action, atom(), enforce: true)
-      field(:params, map(), default: %{})
-      field(:context, map(), default: %{})
-      field(:opts, keyword(), default: [])
-    end
+  @typedoc """
+  Any external directive struct (core or extension).
 
-    @doc """
-    Creates a new Enqueue directive from an Instruction struct.
+  This is intentionally `struct()` so external packages can define
+  their own directive structs without modifying this type.
+  """
+  @type t :: struct()
 
-    ## Parameters
-      * `instruction` - %Instruction{} struct to convert to directive
+  @typedoc "Built-in core directives."
+  @type core ::
+          Emit.t()
+          | Error.t()
+          | Spawn.t()
+          | Schedule.t()
+          | Stop.t()
 
-    ## Returns
-      * `%Enqueue{}` - New enqueue directive with instruction fields
-    """
-    @spec new(Instruction.t()) :: t()
-    def new(%Instruction{} = instruction) do
-      %__MODULE__{
-        action: instruction.action,
-        params: instruction.params,
-        context: instruction.context,
-        opts: instruction.opts
-      }
-    end
-  end
+  # ============================================================================
+  # Error - Signal an error from cmd/2
+  # ============================================================================
 
-  defmodule StateModification do
-    @moduledoc "Directive to modify agent state at a given path"
-    use TypedStruct
-
-    typedstruct do
-      field(:op, :set | :update | :delete | :reset | :replace, enforce: true)
-      field(:path, list(atom()) | atom())
-      field(:value, any())
-    end
-  end
-
-  defmodule RegisterAction do
-    @moduledoc "Directive to register a new action module"
-    use TypedStruct
-
-    typedstruct do
-      field(:action_module, module(), enforce: true)
-    end
-  end
-
-  defmodule DeregisterAction do
-    @moduledoc "Directive to deregister an existing action module"
-    use TypedStruct
-
-    typedstruct do
-      field(:action_module, module(), enforce: true)
-    end
-  end
-
-  defmodule Spawn do
-    @moduledoc "Directive to spawn a child process"
-    use TypedStruct
-
-    typedstruct do
-      field(:module, module(), enforce: true)
-      field(:args, term(), enforce: true)
-    end
-  end
-
-  defmodule Kill do
-    @moduledoc "Directive to terminate a child process"
-    use TypedStruct
-
-    typedstruct do
-      field(:pid, pid(), enforce: true)
-    end
-  end
-
-  defmodule AddRoute do
-    @moduledoc "Directive to add a route to the agent's router"
-    use TypedStruct
-
-    typedstruct do
-      field(:path, String.t(), enforce: true)
-      field(:target, term(), enforce: true)
-    end
-  end
-
-  defmodule RemoveRoute do
-    @moduledoc "Directive to remove a route from the agent's router"
-    use TypedStruct
-
-    typedstruct do
-      field(:path, String.t(), enforce: true)
-    end
-  end
-
-  defmodule Emit do
+  defmodule Error do
     @moduledoc """
-    Directive to emit a signal to a signal bus for cross-process communication.
+    Signal an error from agent command processing.
+
+    This directive carries a `Jido.Error.t()` for consistent error handling.
+    The runtime can log, emit, or handle errors based on this directive.
 
     ## Fields
 
-    * `:type` - The signal type (e.g., "child.event", "user.created")
-    * `:data` - Data payload to include in the signal
-    * `:source` - Optional source identifier (defaults to agent ID)
-    * `:bus` - Bus name to publish to (default: :default)
-    * `:stream` - Optional stream name for the bus
-
-    ## Example
-
-        %Emit{
-          type: "child.event",
-          data: %{user_id: 123, action: "created"},
-          bus: :default
-        }
+    - `error` - A `Jido.Error.t()` struct
+    - `context` - Optional atom describing error context (e.g., `:normalize`, `:instruction`)
     """
-    use TypedStruct
 
-    typedstruct do
-      field(:type, String.t(), enforce: true)
-      field(:data, map(), default: %{})
-      field(:source, String.t())
-      field(:bus, atom(), default: :default)
-      field(:stream, String.t())
-    end
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                error: Zoi.any(description: "Jido.Error struct"),
+                context: Zoi.atom(description: "Error context") |> Zoi.optional()
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
   end
 
-  @type t ::
-          Enqueue.t()
-          | RegisterAction.t()
-          | DeregisterAction.t()
-          | Spawn.t()
-          | Kill.t()
-          | StateModification.t()
-          | AddRoute.t()
-          | RemoveRoute.t()
-          | Emit.t()
-          | Instruction.t()
-          | [Instruction.t()]
+  # ============================================================================
+  # Emit - Signal dispatch via Jido.Signal.Dispatch
+  # ============================================================================
 
-  @type directive_result ::
-          {:ok, Agent.t(), [t()]}
-          | {:ok, ServerState.t(), [t()]}
-          | {:error, term()}
+  defmodule Emit do
+    @moduledoc """
+    Dispatch a signal via `Jido.Signal.Dispatch`.
 
-  # Define which directive types are agent-specific, other directives are server-specific
-  @agent_directives [Enqueue, RegisterAction, DeregisterAction, StateModification]
+    The runtime interprets this directive by calling:
+
+        Jido.Signal.Dispatch.dispatch(signal, dispatch_config)
+
+    ## Fields
+
+    - `signal` - A `Jido.Signal.t()` struct to dispatch
+    - `dispatch` - Dispatch config: `{adapter, opts}` or list of configs
+      - `:pid` - Direct to process
+      - `:pubsub` - Via PubSub
+      - `:bus` - To signal bus
+      - `:http` / `:webhook` - HTTP endpoints
+      - `:logger` / `:console` / `:noop` - Logging/testing
+
+    ## Examples
+
+        # Use agent's default dispatch (configured on AgentServer)
+        %Emit{signal: signal}
+
+        # Explicit dispatch to PubSub
+        %Emit{signal: signal, dispatch: {:pubsub, topic: "events"}}
+
+        # Multiple dispatch targets
+        %Emit{signal: signal, dispatch: [
+          {:pubsub, topic: "events"},
+          {:logger, level: :info}
+        ]}
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                signal: Zoi.any(description: "Jido.Signal.t() to dispatch"),
+                dispatch:
+                  Zoi.any(description: "Dispatch config: {adapter, opts} or list")
+                  |> Zoi.optional()
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
+  # Spawn - Child process spawning
+  # ============================================================================
+
+  defmodule Spawn do
+    @moduledoc """
+    Spawn a child process under the agent's supervisor.
+
+    ## Fields
+
+    - `child_spec` - Supervisor child_spec for the process to spawn
+    - `tag` - Optional correlation tag for tracking
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                child_spec: Zoi.any(description: "Supervisor child_spec"),
+                tag: Zoi.any(description: "Optional correlation tag") |> Zoi.optional()
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
+  # Schedule - Delayed message scheduling
+  # ============================================================================
+
+  defmodule Schedule do
+    @moduledoc """
+    Schedule a delayed message to the agent.
+
+    The runtime will send the message back to the agent after the delay.
+
+    ## Fields
+
+    - `delay_ms` - Delay in milliseconds (must be >= 0)
+    - `message` - Message to send after delay
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                delay_ms: Zoi.integer(description: "Delay in milliseconds") |> Zoi.min(0),
+                message: Zoi.any(description: "Message to send after delay")
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
+  # Stop - Stop the agent process
+  # ============================================================================
+
+  defmodule Stop do
+    @moduledoc """
+    Request that the agent process stop.
+
+    ## Fields
+
+    - `reason` - Reason for stopping (default: `:normal`)
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                reason: Zoi.any(description: "Reason for stopping") |> Zoi.default(:normal)
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
+  # Helper Constructors
+  # ============================================================================
 
   @doc """
-  Applies agent directives to an Agent struct.
+  Creates an Emit directive.
 
-  ## Parameters
-    - agent: The Agent struct to modify
-    - directives: A list of directives to apply
-    - opts: Optional keyword list of options (default: [])
+  ## Examples
 
-  ## Returns
-    - `{:ok, updated_agent, unapplied_directives}` - Successfully applied agent directives
-    - `{:error, reason}` - Failed to apply directives
+      Directive.emit(signal)
+      Directive.emit(signal, {:pubsub, topic: "events"})
   """
-  @spec apply_agent_directive(Agent.t(), [t()]) :: {:ok, Agent.t(), [t()]} | {:error, term()}
-  @spec apply_agent_directive(Agent.t(), [t()], keyword()) ::
-          {:ok, Agent.t(), [t()]} | {:error, term()}
-  def apply_agent_directive(agent, directives, opts \\ []) do
-    with :ok <- validate_directives(directives) do
-      # Split and apply agent directives
-      {agent_directives, server_directives} = split_directives(directives)
-
-      Enum.reduce_while(agent_directives, {:ok, agent}, fn directive, {:ok, current_agent} ->
-        case apply_single_directive(current_agent, directive, opts) do
-          {:ok, updated_agent} -> {:cont, {:ok, updated_agent}}
-          error -> {:halt, error}
-        end
-      end)
-      |> case do
-        {:ok, updated_agent} -> {:ok, updated_agent, server_directives}
-        error -> error
-      end
-    end
+  @spec emit(term(), term()) :: Emit.t()
+  def emit(signal, dispatch \\ nil) do
+    %Emit{signal: signal, dispatch: dispatch}
   end
 
   @doc """
-  Applies only server directives to a ServerState struct.
+  Creates an Error directive.
 
-  ## Parameters
-    - state: The ServerState struct to modify
-    - directives: A list of directives to apply
-    - opts: Optional keyword list of options (default: [])
+  ## Examples
 
-  ## Returns
-    - `{:ok, updated_state, unapplied_directives}` - Successfully applied server directives
-    - `{:error, reason}` - Failed to apply directives
+      Directive.error(Jido.Error.validation_error("Invalid input"))
+      Directive.error(error, :normalize)
   """
-  @spec apply_server_directive(ServerState.t(), [t()], keyword()) :: directive_result()
-  def apply_server_directive(state, directives, _opts \\ []) do
-    # First validate all directives
-    with :ok <- validate_directives(directives) do
-      {_agent_directives, server_directives} = split_directives(directives)
-
-      {:ok, state, server_directives}
-      # # First apply agent directives to the embedded agent
-      # case apply_agent_directive(state.agent, agent_directives) do
-      #   {:ok, updated_agent, _} ->
-      #     # For now, just return the state unchanged since we can't handle server directives yet
-      #     # But we still need to validate them
-      #     case validate_directives(server_directives) do
-      #       :ok -> {:ok, %{state | agent: updated_agent}, server_directives}
-      #       error -> error
-      #     end
-
-      #   error ->
-      #     error
-      # end
-    end
+  @spec error(term(), atom()) :: Error.t()
+  def error(error, context \\ nil) do
+    %Error{error: error, context: context}
   end
 
-  # Private helpers
-  defp validate_directives(directives) do
-    Enum.reduce_while(directives, :ok, fn directive, :ok ->
-      case validate_directive(directive) do
-        :ok -> {:cont, :ok}
-        error -> {:halt, error}
-      end
-    end)
+  @doc """
+  Creates a Spawn directive.
+
+  ## Examples
+
+      Directive.spawn({MyWorker, arg: value})
+      Directive.spawn(child_spec, :worker_1)
+  """
+  @spec spawn(term(), term()) :: Spawn.t()
+  def spawn(child_spec, tag \\ nil) do
+    %Spawn{child_spec: child_spec, tag: tag}
   end
 
-  @doc false
-  @spec apply_single_directive(Agent.t(), t(), keyword()) :: {:ok, Agent.t()} | {:error, term()}
-  defp apply_single_directive(agent, %Instruction{} = instruction, opts) do
-    # Convert instruction to Enqueue directive and apply
-    enqueue = Enqueue.new(instruction)
-    apply_single_directive(agent, enqueue, opts)
+  @doc """
+  Creates a Schedule directive.
+
+  ## Examples
+
+      Directive.schedule(5000, :timeout)
+      Directive.schedule(1000, {:check, ref})
+  """
+  @spec schedule(non_neg_integer(), term()) :: Schedule.t()
+  def schedule(delay_ms, message) do
+    %Schedule{delay_ms: delay_ms, message: message}
   end
 
-  defp apply_single_directive(agent, instructions, opts) when is_list(instructions) do
-    # If all elements are instructions, convert each to Enqueue directive
-    if Enum.all?(instructions, &match?(%Instruction{}, &1)) do
-      instructions
-      |> Enum.map(&Enqueue.new/1)
-      |> Enum.reduce_while({:ok, agent}, fn directive, {:ok, current_agent} ->
-        case apply_single_directive(current_agent, directive, opts) do
-          {:ok, updated_agent} -> {:cont, {:ok, updated_agent}}
-          error -> {:halt, error}
-        end
-      end)
-    else
-      {:error, :invalid_directive}
-    end
+  @doc """
+  Creates a Stop directive.
+
+  ## Examples
+
+      Directive.stop()
+      Directive.stop(:shutdown)
+  """
+  @spec stop(term()) :: Stop.t()
+  def stop(reason \\ :normal) do
+    %Stop{reason: reason}
   end
-
-  defp apply_single_directive(agent, %Enqueue{} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      instruction = %Instruction{
-        action: directive.action,
-        params: directive.params,
-        context: directive.context,
-        opts: directive.opts
-      }
-
-      {:ok, %{agent | pending_instructions: :queue.in(instruction, agent.pending_instructions)}}
-    end
-  end
-
-  defp apply_single_directive(agent, %RegisterAction{action_module: module} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      if module in agent.actions do
-        {:ok, agent}
-      else
-        updated_agent = %{agent | actions: [module | agent.actions]}
-        {:ok, updated_agent}
-      end
-    end
-  end
-
-  defp apply_single_directive(agent, %DeregisterAction{action_module: module} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      updated_agent = %{agent | actions: List.delete(agent.actions, module)}
-      {:ok, updated_agent}
-    end
-  end
-
-  defp apply_single_directive(server_state, %Spawn{} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      # For now, just return the agent unchanged since we can't spawn
-      {:ok, server_state}
-    end
-  end
-
-  defp apply_single_directive(server_state, %Kill{} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      # For now, just return the agent unchanged since we can't kill
-      {:ok, server_state}
-    end
-  end
-
-  defp apply_single_directive(agent, %StateModification{} = directive, _opts) do
-    with :ok <- validate_directive(directive) do
-      case directive.op do
-        :set ->
-          updated_state = put_in(agent.state, List.wrap(directive.path), directive.value)
-          {:ok, %{agent | state: updated_state}}
-
-        :update when is_function(directive.value) ->
-          updated_state = update_in(agent.state, List.wrap(directive.path), directive.value)
-          {:ok, %{agent | state: updated_state}}
-
-        :delete ->
-          {_, updated_state} = pop_in(agent.state, List.wrap(directive.path))
-          {:ok, %{agent | state: updated_state}}
-
-        :replace ->
-          {:ok, %{agent | state: directive.value}}
-
-        :reset when is_nil(directive.path) ->
-          {:ok, %{agent | state: %{}}}
-
-        :reset when not is_nil(directive.path) ->
-          updated_state = put_in(agent.state, List.wrap(directive.path), nil)
-          {:ok, %{agent | state: updated_state}}
-      end
-    end
-  end
-
-  defp validate_directive(%Enqueue{action: nil}), do: {:error, :invalid_action}
-  defp validate_directive(%Enqueue{action: action}) when is_atom(action), do: :ok
-
-  defp validate_directive(%RegisterAction{action_module: nil}),
-    do: {:error, :invalid_action_module}
-
-  defp validate_directive(%RegisterAction{action_module: module}) when is_atom(module),
-    do: :ok
-
-  defp validate_directive(%DeregisterAction{action_module: module}) when is_atom(module),
-    do: :ok
-
-  defp validate_directive(%Spawn{module: nil}), do: {:error, :invalid_module}
-  defp validate_directive(%Spawn{module: mod}) when is_atom(mod), do: :ok
-
-  defp validate_directive(%Kill{pid: pid}) when is_pid(pid), do: :ok
-  defp validate_directive(%Kill{}), do: {:error, :invalid_pid}
-
-  defp validate_directive(%AddRoute{path: path, target: target}) do
-    cond do
-      not is_binary(path) -> {:error, :invalid_path}
-      is_nil(target) -> {:error, :invalid_target}
-      true -> :ok
-    end
-  end
-
-  defp validate_directive(%RemoveRoute{path: path}) when is_binary(path), do: :ok
-  defp validate_directive(%RemoveRoute{}), do: {:error, :invalid_path}
-
-  defp validate_directive(%Emit{type: type, bus: bus}) do
-    cond do
-      not is_binary(type) or type == "" ->
-        {:error, Error.validation_error("Emit type must be a non-empty string", %{type: type})}
-
-      not is_atom(bus) ->
-        {:error, Error.validation_error("Emit bus must be an atom", %{bus: bus})}
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_directive(%Instruction{action: nil}), do: {:error, :invalid_action}
-  defp validate_directive(%Instruction{action: action}) when is_atom(action), do: :ok
-
-  defp validate_directive(%StateModification{op: op, path: path, value: value}) do
-    cond do
-      op not in [:set, :update, :delete, :reset] ->
-        {:error, Error.validation_error("Invalid operation", %{op: op})}
-
-      not (is_list(path) or is_atom(path)) ->
-        {:error, Error.validation_error("Invalid path", %{path: path})}
-
-      op == :update and not is_function(value) ->
-        {:error, Error.validation_error("Invalid update function", %{value: value})}
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_directive(instructions) when is_list(instructions) do
-    if Enum.all?(instructions, &match?(%Instruction{}, &1)) do
-      Enum.reduce_while(instructions, :ok, fn instruction, :ok ->
-        case validate_directive(instruction) do
-          :ok -> {:cont, :ok}
-          error -> {:halt, error}
-        end
-      end)
-    else
-      {:error, :invalid_directive}
-    end
-  end
-
-  defp validate_directive(_), do: {:error, :invalid_directive}
-
-  def split_directives(directives) when is_list(directives) do
-    Enum.split_with(directives, &agent_directive?/1)
-  end
-
-  def agent_directive?(directive) when is_struct(directive) do
-    directive.__struct__ in @agent_directives or match?(%Instruction{}, directive)
-  end
-
-  def agent_directive?(directives) when is_list(directives) do
-    Enum.all?(directives, &match?(%Instruction{}, &1))
-  end
-
-  def agent_directive?(_), do: false
 end
