@@ -4,20 +4,6 @@
 
 JidoWorkspace is a git subtree-powered monorepo workspace manager for the Jido ecosystem. It allows managing multiple repositories as subtrees within a single workspace.
 
-## Jido v2 Development
-
-**IMPORTANT:** The core `jido` SDK has two versions in the workspace:
-
-| Path | Branch | Status | Purpose |
-|------|--------|--------|---------|
-| `projects/jido` | `main` | 🔒 **FROZEN** | v1 reference - do not modify |
-| `projects/jido_v2` | `v2` | ✅ **ACTIVE** | v2 development - all new work here |
-
-- **Do not make changes to `projects/jido`** - it exists only as a reference for v1 code
-- **All jido core development happens in `projects/jido_v2`**
-- Push v2 changes with: `mix ws.git.push jido_v2`
-- Both point to the same upstream repo (`agentjido/jido`) on different branches
-
 ## Common Commands
 
 ### Development
