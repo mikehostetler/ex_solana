@@ -5,7 +5,7 @@ config :jido_workspace,
     %{
       name: "jido",
       upstream_url: "git@github.com:agentjido/jido.git",
-      branch: "main",
+      branch: "v2",
       type: :library,
       path: "projects/jido"
     },
