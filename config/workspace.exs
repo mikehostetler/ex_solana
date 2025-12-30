@@ -9,6 +9,15 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido"
     },
+    # Read-only reference to Jido v1 (main branch) for comparison
+    %{
+      name: "jido_v1",
+      upstream_url: "git@github.com:agentjido/jido.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_v1",
+      read_only: true
+    },
     %{
       name: "jido_action",
       upstream_url: "git@github.com:agentjido/jido_action.git",
