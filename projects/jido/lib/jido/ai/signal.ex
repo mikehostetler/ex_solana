@@ -3,11 +3,13 @@ defmodule Jido.AI.Signal do
   Custom signal types for LLM-based agents.
 
   These signals are reusable across different LLM strategies (ReAct, Chain of Thought, etc.).
-  They follow a consistent naming convention: `ai.<event_type>`.
+  They follow a consistent naming convention: `reqllm.<event_type>` for ReqLLM-specific signals
+  and `ai.<event_type>` for generic AI signals.
 
   ## Signal Types
 
-  - `Jido.AI.Signal.LLMResult` - Result from an LLM call
+  - `Jido.AI.Signal.ReqLLMResult` - Result from a ReqLLM streaming call
+  - `Jido.AI.Signal.ReqLLMPartial` - Streaming token chunk from ReqLLM
   - `Jido.AI.Signal.ToolResult` - Result from a tool execution
 
   ## Usage
@@ -15,7 +17,7 @@ defmodule Jido.AI.Signal do
       alias Jido.AI.Signal
 
       # Create an LLM result signal
-      {:ok, signal} = Signal.LLMResult.new(%{
+      {:ok, signal} = Signal.ReqLLMResult.new(%{
         call_id: "call_123",
         result: {:ok, %{type: :final_answer, text: "Hello!", tool_calls: []}}
       })
@@ -28,19 +30,19 @@ defmodule Jido.AI.Signal do
       })
 
       # Bang versions for when you know data is valid
-      signal = Signal.LLMResult.new!(%{call_id: "call_123", result: {:ok, response}})
+      signal = Signal.ReqLLMResult.new!(%{call_id: "call_123", result: {:ok, response}})
   """
 
-  defmodule LLMResult do
+  defmodule ReqLLMResult do
     @moduledoc """
-    Signal for LLM streaming/call completion.
+    Signal for ReqLLM streaming/call completion.
 
-    Emitted when an LLM call completes, containing either tool calls to execute
+    Emitted when a ReqLLM call completes, containing either tool calls to execute
     or a final answer.
 
     ## Data Fields
 
-    - `:call_id` (required) - Correlation ID matching the original LLMStream directive
+    - `:call_id` (required) - Correlation ID matching the original ReqLLMStream directive
     - `:result` (required) - `{:ok, result_map}` or `{:error, reason}` from the LLM call
 
     The result map (when successful) contains:
@@ -50,11 +52,45 @@ defmodule Jido.AI.Signal do
     """
 
     use Jido.Signal,
-      type: "ai.llm_result",
-      default_source: "/ai/llm",
+      type: "reqllm.result",
+      default_source: "/reqllm",
       schema: [
         call_id: [type: :string, required: true, doc: "Correlation ID for the LLM call"],
         result: [type: :any, required: true, doc: "{:ok, result} | {:error, reason}"]
+      ]
+  end
+
+  defmodule ReqLLMPartial do
+    @moduledoc """
+    Signal for streaming ReqLLM token chunks.
+
+    Emitted incrementally as the LLM streams response tokens, enabling real-time
+    display of responses before the full answer is complete.
+
+    ## Data Fields
+
+    - `:call_id` (required) - Correlation ID matching the original ReqLLMStream directive
+    - `:delta` (required) - The text chunk/token from the stream
+    - `:chunk_type` (optional) - Type of chunk: `:content` or `:thinking` (default: `:content`)
+
+    ## Usage
+
+    Strategies can handle these signals to accumulate partial responses:
+
+        def handle_signal(agent, %Signal{type: "reqllm.partial", data: data}) do
+          current = agent.state.streaming_text || ""
+          new_agent = put_in(agent.state.streaming_text, current <> data.delta)
+          {new_agent, []}
+        end
+    """
+
+    use Jido.Signal,
+      type: "reqllm.partial",
+      default_source: "/reqllm",
+      schema: [
+        call_id: [type: :string, required: true, doc: "Correlation ID for the LLM call"],
+        delta: [type: :string, required: true, doc: "Text chunk from the stream"],
+        chunk_type: [type: :atom, default: :content, doc: "Type: :content or :thinking"]
       ]
   end
 
@@ -79,45 +115,5 @@ defmodule Jido.AI.Signal do
         tool_name: [type: :string, required: true, doc: "Name of the executed tool"],
         result: [type: :any, required: true, doc: "{:ok, result} | {:error, reason}"]
       ]
-  end
-
-  @doc """
-  Create an LLM result signal.
-
-  Convenience function that delegates to `Jido.AI.Signal.LLMResult.new/2`.
-  """
-  @spec llm_result(map(), keyword()) :: {:ok, Jido.Signal.t()} | {:error, String.t()}
-  def llm_result(data, opts \\ []) do
-    LLMResult.new(data, opts)
-  end
-
-  @doc """
-  Create an LLM result signal, raising on error.
-
-  Convenience function that delegates to `Jido.AI.Signal.LLMResult.new!/2`.
-  """
-  @spec llm_result!(map(), keyword()) :: Jido.Signal.t()
-  def llm_result!(data, opts \\ []) do
-    LLMResult.new!(data, opts)
-  end
-
-  @doc """
-  Create a tool result signal.
-
-  Convenience function that delegates to `Jido.AI.Signal.ToolResult.new/2`.
-  """
-  @spec tool_result(map(), keyword()) :: {:ok, Jido.Signal.t()} | {:error, String.t()}
-  def tool_result(data, opts \\ []) do
-    ToolResult.new(data, opts)
-  end
-
-  @doc """
-  Create a tool result signal, raising on error.
-
-  Convenience function that delegates to `Jido.AI.Signal.ToolResult.new!/2`.
-  """
-  @spec tool_result!(map(), keyword()) :: Jido.Signal.t()
-  def tool_result!(data, opts \\ []) do
-    ToolResult.new!(data, opts)
   end
 end

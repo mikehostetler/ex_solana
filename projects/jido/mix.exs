@@ -265,6 +265,9 @@ defmodule Jido.MixProject do
       {:typed_struct_nimble_options, "~> 0.1.1"},
       {:quantum, "~> 3.5"},
       {:uniq, "~> 0.6.1"},
+      # State Machine
+      {:fsmx, "~> 0.5"},
+
       # Skill & Action Dependencies for examples
       {:req, "~> 0.5.16"},
 

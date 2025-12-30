@@ -8,6 +8,14 @@ defmodule Jido.AI.Strategy.ReAct do
   3. Tool results → Continue with next LLM call
   4. Repeat until final answer or max iterations
 
+  ## Architecture
+
+  This strategy uses a pure state machine (`Jido.AI.ReAct.Machine`) for all state
+  transitions. The strategy acts as a thin adapter that:
+  - Converts instructions to machine messages
+  - Converts machine directives to SDK-specific directive structs
+  - Manages the machine state within the agent
+
   ## Configuration
 
   Configure via strategy options when defining your agent:
@@ -39,12 +47,16 @@ defmodule Jido.AI.Strategy.ReAct do
         cmd(agent, {ReActStrategy.start_action(), data})
       end
 
-      def handle_signal(agent, %Jido.Signal{type: "ai.llm_result", data: data}) do
+      def handle_signal(agent, %Jido.Signal{type: "reqllm.result", data: data}) do
         cmd(agent, {ReActStrategy.llm_result_action(), data})
       end
 
       def handle_signal(agent, %Jido.Signal{type: "ai.tool_result", data: data}) do
         cmd(agent, {ReActStrategy.tool_result_action(), data})
+      end
+
+      def handle_signal(agent, %Jido.Signal{type: "reqllm.partial", data: data}) do
+        cmd(agent, {ReActStrategy.llm_partial_action(), data})
       end
 
   ## State
@@ -67,7 +79,9 @@ defmodule Jido.AI.Strategy.ReAct do
 
   alias Jido.Agent
   alias Jido.Agent.Strategy.State, as: StratState
-  alias Jido.AI.{Directive, LLMBackend, LLMContext, ToolSpec}
+  alias Jido.AI.{Directive, ToolAdapter}
+  alias Jido.AI.ReAct.Machine
+  alias ReqLLM.Context
 
   @type config :: %{
           tools: [module()],
@@ -84,6 +98,7 @@ defmodule Jido.AI.Strategy.ReAct do
   @start :react_start
   @llm_result :react_llm_result
   @tool_result :react_tool_result
+  @llm_partial :react_llm_partial
 
   @doc "Returns the action atom for starting a ReAct conversation."
   @spec start_action() :: :react_start
@@ -96,6 +111,10 @@ defmodule Jido.AI.Strategy.ReAct do
   @doc "Returns the action atom for handling tool results."
   @spec tool_result_action() :: :react_tool_result
   def tool_result_action, do: @tool_result
+
+  @doc "Returns the action atom for handling streaming LLM partial tokens."
+  @spec llm_partial_action() :: :react_llm_partial
+  def llm_partial_action, do: @llm_partial
 
   @impl true
   def action_spec(@start) do
@@ -122,14 +141,28 @@ defmodule Jido.AI.Strategy.ReAct do
     }
   end
 
+  def action_spec(@llm_partial) do
+    %{
+      schema:
+        Zoi.object(%{
+          call_id: Zoi.string(),
+          delta: Zoi.string(),
+          chunk_type: Zoi.atom() |> Zoi.default(:content)
+        }),
+      doc: "Handle streaming LLM token chunk",
+      name: "react.llm_partial"
+    }
+  end
+
   def action_spec(_), do: nil
 
   @impl true
   def signal_routes(_ctx) do
     [
       {"react.user_query", {:strategy_cmd, @start}},
-      {"ai.llm_result", {:strategy_cmd, @llm_result}},
-      {"ai.tool_result", {:strategy_cmd, @tool_result}}
+      {"reqllm.result", {:strategy_cmd, @llm_result}},
+      {"ai.tool_result", {:strategy_cmd, @tool_result}},
+      {"reqllm.partial", {:strategy_cmd, @llm_partial}}
     ]
   end
 
@@ -155,9 +188,11 @@ defmodule Jido.AI.Strategy.ReAct do
         %{
           phase: state[:status],
           iteration: state[:iteration],
-          termination_reason: state[:termination_reason]
+          termination_reason: state[:termination_reason],
+          streaming_text: state[:streaming_text],
+          streaming_thinking: state[:streaming_thinking]
         }
-        |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+        |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
         |> Map.new()
     }
   end
@@ -165,44 +200,150 @@ defmodule Jido.AI.Strategy.ReAct do
   @impl true
   def init(%Agent{} = agent, ctx) do
     config = build_config(agent, ctx)
+    machine = Machine.new()
 
-    state = %{
-      status: :idle,
-      iteration: 0,
-      conversation: [],
-      pending_tool_calls: [],
-      result: nil,
-      current_llm_call_id: nil,
-      termination_reason: nil,
-      config: config
-    }
+    state =
+      machine
+      |> Machine.to_map()
+      |> Map.put(:config, config)
 
     agent = StratState.put(agent, state)
     {agent, []}
   end
 
   @impl true
-  def cmd(%Agent{} = agent, instructions, ctx) do
+  def cmd(%Agent{} = agent, instructions, _ctx) do
     Enum.reduce(instructions, {agent, []}, fn instr, {acc_agent, acc_dirs} ->
       %Jido.Instruction{action: action, params: params} = instr
 
-      {new_agent, new_dirs} =
-        case normalize_action(action) do
-          @start -> handle_start(acc_agent, params, ctx)
-          @llm_result -> handle_llm_result(acc_agent, params, ctx)
-          @tool_result -> handle_tool_result(acc_agent, params, ctx)
-          _other -> {acc_agent, []}
-        end
+      msg = to_machine_msg(normalize_action(action), params)
 
-      {new_agent, acc_dirs ++ new_dirs}
+      case msg do
+        nil ->
+          {acc_agent, acc_dirs}
+
+        msg ->
+          state = StratState.get(acc_agent, %{})
+          config = state[:config]
+          machine = Machine.from_map(state)
+
+          env = %{
+            system_prompt: config[:system_prompt],
+            max_iterations: config[:max_iterations]
+          }
+
+          {machine, directives} = Machine.update(machine, msg, env)
+
+          new_state =
+            machine
+            |> Machine.to_map()
+            |> Map.put(:config, config)
+            |> Map.put(:conversation, convert_conversation(machine.conversation))
+
+          acc_agent = StratState.put(acc_agent, new_state)
+          lifted_directives = lift_directives(directives, config)
+
+          {acc_agent, acc_dirs ++ lifted_directives}
+      end
     end)
   end
 
   defp normalize_action({inner, _meta}), do: normalize_action(inner)
   defp normalize_action(action), do: action
 
-  defp get_state(agent), do: StratState.get(agent, %{})
-  defp put_state(agent, state), do: StratState.put(agent, state)
+  defp to_machine_msg(@start, %{query: query}) do
+    call_id = generate_call_id()
+    {:start, query, call_id}
+  end
+
+  defp to_machine_msg(@llm_result, %{call_id: call_id, result: result}) do
+    {:llm_result, call_id, result}
+  end
+
+  defp to_machine_msg(@tool_result, %{call_id: call_id, result: result}) do
+    {:tool_result, call_id, result}
+  end
+
+  defp to_machine_msg(@llm_partial, %{call_id: call_id, delta: delta, chunk_type: chunk_type}) do
+    {:llm_partial, call_id, delta, chunk_type}
+  end
+
+  defp to_machine_msg(_, _), do: nil
+
+  defp lift_directives(directives, config) do
+    Enum.flat_map(directives, fn
+      {:call_llm_stream, id, conversation} ->
+        reqllm_context = convert_to_reqllm_context(conversation)
+
+        [
+          Directive.ReqLLMStream.new!(%{
+            id: id,
+            model: config[:model],
+            context: reqllm_context,
+            tools: config[:reqllm_tools]
+          })
+        ]
+
+      {:exec_tool, id, tool_name, arguments} ->
+        case config[:actions_by_name][tool_name] do
+          nil ->
+            []
+
+          action_module ->
+            [
+              Directive.ToolExec.new!(%{
+                id: id,
+                tool_name: tool_name,
+                action_module: action_module,
+                arguments: arguments
+              })
+            ]
+        end
+    end)
+  end
+
+  defp convert_to_reqllm_context(conversation) do
+    Enum.map(conversation, fn
+      # Already a ReqLLM.Message struct - pass through unchanged
+      %ReqLLM.Message{} = msg ->
+        msg
+
+      # Our internal map formats
+      %{role: :system, content: content} when is_binary(content) ->
+        Context.system(content)
+
+      %{role: :user, content: content} when is_binary(content) ->
+        Context.user(content)
+
+      %{role: :assistant, content: content, tool_calls: tool_calls} ->
+        tool_call_structs =
+          Enum.map(tool_calls, fn
+            # Already a ReqLLM.ToolCall struct
+            %ReqLLM.ToolCall{} = tc ->
+              tc
+
+            # Our internal map format
+            %{id: id, name: name, arguments: arguments} ->
+              ReqLLM.ToolCall.new(id, name, Jason.encode!(arguments))
+          end)
+
+        Context.assistant(content || "", tool_calls: tool_call_structs)
+
+      %{role: :assistant, content: content} ->
+        Context.assistant(content || "")
+
+      %{role: :tool, tool_call_id: id, name: name, content: content} when is_binary(content) ->
+        Context.tool_result(id, name, content)
+
+      # Any other struct (should not happen, but safe fallback)
+      msg when is_struct(msg) ->
+        msg
+    end)
+  end
+
+  defp convert_conversation(conversation) do
+    convert_to_reqllm_context(conversation)
+  end
 
   defp build_config(agent, ctx) do
     opts = ctx[:strategy_opts] || []
@@ -222,7 +363,7 @@ defmodule Jido.AI.Strategy.ReAct do
       |> Enum.map(fn mod -> {mod.name(), mod} end)
       |> Map.new()
 
-    reqllm_tools = ToolSpec.from_actions(tools_modules)
+    reqllm_tools = ToolAdapter.from_actions(tools_modules)
 
     %{
       tools: tools_modules,
@@ -243,179 +384,7 @@ defmodule Jido.AI.Strategy.ReAct do
     """
   end
 
-  defp handle_start(agent, %{query: query}, _ctx) do
-    state = get_state(agent)
-    config = state.config
-
-    system_msg = LLMContext.system_message(config.system_prompt)
-    user_msg = LLMContext.user_message(query)
-
-    state =
-      state
-      |> Map.put(:status, :awaiting_llm)
-      |> Map.put(:iteration, 1)
-      |> Map.put(:conversation, [system_msg, user_msg])
-      |> Map.put(:pending_tool_calls, [])
-      |> Map.put(:result, nil)
-      |> Map.put(:termination_reason, nil)
-
-    call_id = LLMBackend.generate_call_id()
-    state = Map.put(state, :current_llm_call_id, call_id)
-    agent = put_state(agent, state)
-
-    directive =
-      Directive.LLMStream.new!(%{
-        id: call_id,
-        model: config.model,
-        context: state.conversation,
-        tools: config.reqllm_tools
-      })
-
-    {agent, [directive]}
+  defp generate_call_id do
+    "call_#{Jido.Util.generate_id()}"
   end
-
-  defp handle_llm_result(agent, %{call_id: call_id, result: result}, _ctx) do
-    state = get_state(agent)
-
-    if call_id != state.current_llm_call_id do
-      {agent, []}
-    else
-      handle_llm_response(agent, state, result)
-    end
-  end
-
-  defp handle_llm_response(agent, state, {:error, reason}) do
-    state =
-      state
-      |> Map.put(:status, :error)
-      |> Map.put(:termination_reason, :error)
-      |> Map.put(:result, "Error: #{inspect(reason)}")
-
-    agent = put_state(agent, state)
-    {agent, []}
-  end
-
-  defp handle_llm_response(agent, state, {:ok, result}) do
-    case result.type do
-      :tool_calls -> handle_tool_calls(agent, state, result.tool_calls)
-      :final_answer -> handle_final_answer(agent, state, result.text)
-    end
-  end
-
-  defp handle_tool_calls(agent, state, tool_calls) do
-    config = state.config
-    assistant_msg = LLMContext.assistant_tool_calls(tool_calls)
-
-    pending =
-      Enum.map(tool_calls, fn tc ->
-        %{id: tc.id, name: tc.name, arguments: tc.arguments, result: nil}
-      end)
-
-    state =
-      state
-      |> Map.put(:status, :awaiting_tool)
-      |> Map.update(:conversation, [assistant_msg], &(&1 ++ [assistant_msg]))
-      |> Map.put(:pending_tool_calls, pending)
-
-    agent = put_state(agent, state)
-
-    directives =
-      tool_calls
-      |> Enum.map(fn tc ->
-        case config.actions_by_name[tc.name] do
-          nil ->
-            nil
-
-          action_module ->
-            Directive.ToolExec.new!(%{
-              id: tc.id,
-              tool_name: tc.name,
-              action_module: action_module,
-              arguments: tc.arguments
-            })
-        end
-      end)
-      |> Enum.reject(&is_nil/1)
-
-    {agent, directives}
-  end
-
-  defp handle_final_answer(agent, state, answer) do
-    assistant_msg = LLMContext.assistant_message(answer)
-
-    state =
-      state
-      |> Map.put(:status, :completed)
-      |> Map.put(:termination_reason, :final_answer)
-      |> Map.update(:conversation, [assistant_msg], &(&1 ++ [assistant_msg]))
-      |> Map.put(:result, answer)
-
-    agent = put_state(agent, state)
-    {agent, []}
-  end
-
-  defp handle_tool_result(agent, %{call_id: call_id, result: result}, _ctx) do
-    state = get_state(agent)
-    config = state.config
-
-    {state, all_complete?} = record_tool_result(state, call_id, result)
-
-    if all_complete? do
-      state =
-        state
-        |> append_all_tool_results()
-        |> inc_iteration()
-
-      cond do
-        state.iteration > config.max_iterations ->
-          state =
-            state
-            |> Map.put(:status, :completed)
-            |> Map.put(:termination_reason, :max_iterations)
-            |> Map.put_new(:result, "Maximum iterations reached without a final answer.")
-
-          agent = put_state(agent, state)
-          {agent, []}
-
-        true ->
-          call_id = LLMBackend.generate_call_id()
-          state = Map.put(state, :current_llm_call_id, call_id)
-          agent = put_state(agent, state)
-
-          directive =
-            Directive.LLMStream.new!(%{
-              id: call_id,
-              model: config.model,
-              context: state.conversation,
-              tools: config.reqllm_tools
-            })
-
-          {agent, [directive]}
-      end
-    else
-      agent = put_state(agent, state)
-      {agent, []}
-    end
-  end
-
-  defp record_tool_result(state, call_id, result) do
-    pending =
-      Enum.map(state.pending_tool_calls, fn tc ->
-        if tc.id == call_id, do: %{tc | result: result}, else: tc
-      end)
-
-    all_complete? = Enum.all?(pending, &(&1.result != nil))
-    {Map.put(state, :pending_tool_calls, pending), all_complete?}
-  end
-
-  defp append_all_tool_results(state) do
-    tool_msgs = LLMContext.tool_result_messages(state.pending_tool_calls)
-
-    state
-    |> Map.put(:status, :awaiting_llm)
-    |> Map.update(:conversation, tool_msgs, &(&1 ++ tool_msgs))
-    |> Map.put(:pending_tool_calls, [])
-  end
-
-  defp inc_iteration(state), do: Map.update!(state, :iteration, &(&1 + 1))
 end

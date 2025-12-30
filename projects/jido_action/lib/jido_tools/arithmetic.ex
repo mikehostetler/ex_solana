@@ -21,8 +21,8 @@ defmodule Jido.Tools.Arithmetic do
       name: "add",
       description: "Adds two numbers",
       schema: [
-        value: [type: :integer, required: true, doc: "The first number to add"],
-        amount: [type: :integer, required: true, doc: "The second number to add"]
+        value: [type: :float, required: true, doc: "The first number to add"],
+        amount: [type: :float, required: true, doc: "The second number to add"]
       ]
 
     @spec run(map(), map()) :: {:ok, map()}
@@ -37,8 +37,8 @@ defmodule Jido.Tools.Arithmetic do
       name: "subtract",
       description: "Subtracts one number from another",
       schema: [
-        value: [type: :integer, required: true, doc: "The number to subtract from"],
-        amount: [type: :integer, required: true, doc: "The number to subtract"]
+        value: [type: :float, required: true, doc: "The number to subtract from"],
+        amount: [type: :float, required: true, doc: "The number to subtract"]
       ]
 
     @spec run(map(), map()) :: {:ok, map()}
@@ -53,8 +53,8 @@ defmodule Jido.Tools.Arithmetic do
       name: "multiply",
       description: "Multiplies two numbers",
       schema: [
-        value: [type: :integer, required: true, doc: "The first number to multiply"],
-        amount: [type: :integer, required: true, doc: "The second number to multiply"]
+        value: [type: :float, required: true, doc: "The first number to multiply"],
+        amount: [type: :float, required: true, doc: "The second number to multiply"]
       ]
 
     @spec run(map(), map()) :: {:ok, map()}
@@ -69,12 +69,12 @@ defmodule Jido.Tools.Arithmetic do
       name: "divide",
       description: "Divides one number by another",
       schema: [
-        value: [type: :integer, required: true, doc: "The number to be divided (dividend)"],
-        amount: [type: :integer, required: true, doc: "The number to divide by (divisor)"]
+        value: [type: :float, required: true, doc: "The number to be divided (dividend)"],
+        amount: [type: :float, required: true, doc: "The number to divide by (divisor)"]
       ]
 
     @spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
-    def run(%{value: _value, amount: 0}, _context) do
+    def run(%{value: _value, amount: amount}, _context) when amount == 0 or amount == 0.0 do
       {:error, "Cannot divide by zero"}
     end
 
