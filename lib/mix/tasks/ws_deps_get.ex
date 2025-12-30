@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Ws.Deps.Get do
   @moduledoc """
   Safely fetch dependencies across all workspace projects.
-  
+
   With jido_dep, dependencies automatically resolve correctly for both
   workspace development and publishing.
   """

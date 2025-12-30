@@ -8,7 +8,7 @@ defmodule JidoWorkspace.Roadmap.Writer do
   """
   def write_file(path, content) do
     tmp_path = path <> ".tmp"
-    
+
     with :ok <- File.write(tmp_path, content),
          :ok <- File.rename(tmp_path, path) do
       :ok
@@ -27,10 +27,10 @@ defmodule JidoWorkspace.Roadmap.Writer do
       {:ok, content} ->
         new_content = content <> "\n" <> line
         write_file(path, new_content)
-      
+
       {:error, :enoent} ->
         write_file(path, line <> "\n")
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -43,19 +43,20 @@ defmodule JidoWorkspace.Roadmap.Writer do
     case File.read(path) do
       {:ok, content} ->
         if String.starts_with?(String.trim(content), "---") do
-          :ok  # Already has front-matter
+          # Already has front-matter
+          :ok
         else
           yaml = build_yaml_frontmatter(default_meta)
           new_content = yaml <> "\n\n" <> content
           write_file(path, new_content)
         end
-      
+
       {:error, :enoent} ->
         # File doesn't exist, create with front-matter
         yaml = build_yaml_frontmatter(default_meta)
         content = yaml <> "\n\n# " <> Map.get(default_meta, "title", "New File") <> "\n\n"
         write_file(path, content)
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -68,23 +69,23 @@ defmodule JidoWorkspace.Roadmap.Writer do
     case File.read(path) do
       {:ok, file_content} ->
         lines = String.split(file_content, "\n")
-        
+
         case find_section(lines, section_header) do
           {start_idx, _end_idx} ->
-            new_lines = 
+            new_lines =
               Enum.take(lines, start_idx + 1) ++
-              [content] ++
-              Enum.drop(lines, start_idx + 1)
-            
+                [content] ++
+                Enum.drop(lines, start_idx + 1)
+
             new_content = Enum.join(new_lines, "\n")
             write_file(path, new_content)
-          
+
           nil ->
             # Section not found, append at end
             new_content = file_content <> "\n\n## " <> section_header <> "\n\n" <> content
             write_file(path, new_content)
         end
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -98,13 +99,13 @@ defmodule JidoWorkspace.Roadmap.Writer do
       {:ok, content} ->
         {current_meta, body_lines} = parse_content_for_update(content)
         updated_meta = Map.merge(current_meta, updates)
-        
+
         yaml = build_yaml_frontmatter(updated_meta)
         body = Enum.join(body_lines, "\n")
         new_content = yaml <> "\n\n" <> body
-        
+
         write_file(path, new_content)
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -118,7 +119,7 @@ defmodule JidoWorkspace.Roadmap.Writer do
       {:ok, template_content} ->
         new_content = replace_template_vars(template_content, replacements)
         write_file(target_path, new_content)
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -126,10 +127,10 @@ defmodule JidoWorkspace.Roadmap.Writer do
 
   # Private function to build YAML front-matter
   defp build_yaml_frontmatter(meta) do
-    yaml_lines = 
+    yaml_lines =
       meta
       |> Enum.map(fn {key, value} -> "#{key}: #{format_yaml_value(value)}" end)
-    
+
     "---\n" <> Enum.join(yaml_lines, "\n") <> "\n---"
   end
 
@@ -141,28 +142,29 @@ defmodule JidoWorkspace.Roadmap.Writer do
       value
     end
   end
+
   defp format_yaml_value(value), do: inspect(value)
 
   # Private function to parse content for updating
   defp parse_content_for_update(content) do
     lines = String.split(content, "\n")
-    
+
     case lines do
       ["---" | rest] ->
         case Enum.find_index(rest, &(&1 == "---")) do
           nil ->
             {%{}, lines}
-          
+
           end_index ->
             yaml_lines = Enum.take(rest, end_index)
             body_lines = Enum.drop(rest, end_index + 1)
-            
+
             yaml_content = Enum.join(yaml_lines, "\n")
             meta = parse_yaml_to_map(yaml_content)
-            
+
             {meta, body_lines}
         end
-      
+
       _ ->
         {%{}, lines}
     end
@@ -170,6 +172,7 @@ defmodule JidoWorkspace.Roadmap.Writer do
 
   # Private function to parse YAML to string-keyed map
   defp parse_yaml_to_map(""), do: %{}
+
   defp parse_yaml_to_map(yaml_content) do
     case YamlElixir.read_from_string(yaml_content) do
       {:ok, meta} when is_map(meta) -> meta
@@ -186,7 +189,8 @@ defmodule JidoWorkspace.Roadmap.Writer do
     end)
     |> case do
       nil -> nil
-      idx -> {idx, idx}  # For now, just return the header line index
+      # For now, just return the header line index
+      idx -> {idx, idx}
     end
   end
 

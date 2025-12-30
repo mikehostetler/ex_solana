@@ -28,10 +28,10 @@ defmodule Mix.Tasks.Roadmap.Idea do
       [idea] when is_binary(idea) ->
         project = opts[:project] || "workspace"
         capture_idea(idea, project, opts[:open])
-      
+
       [] ->
         Mix.raise("Please provide an idea to capture: mix roadmap.idea \"your idea here\"")
-      
+
       _ ->
         Mix.raise("Please provide a single quoted idea")
     end
@@ -39,22 +39,22 @@ defmodule Mix.Tasks.Roadmap.Idea do
 
   defp capture_idea(idea, project, open_after?) do
     ideas_file = get_ideas_file(project)
-    
+
     # Ensure the file exists with proper structure
     ensure_ideas_file(ideas_file, project)
-    
+
     # Add the idea
     timestamp = Date.utc_today() |> Date.to_string()
     idea_line = "- #{idea} (#{timestamp})"
-    
+
     case Writer.append_to_section(ideas_file, "Ideas Brain Dump", idea_line) do
       :ok ->
         Mix.shell().info("💡 Idea captured in #{ideas_file}")
-        
+
         if open_after? do
           open_file(ideas_file)
         end
-      
+
       {:error, reason} ->
         Mix.raise("Failed to write idea: #{reason}")
     end
@@ -72,7 +72,7 @@ defmodule Mix.Tasks.Roadmap.Idea do
     unless File.exists?(path) do
       # Ensure directory exists
       Path.dirname(path) |> File.mkdir_p!()
-      
+
       # Create from template
       default_meta = %{
         "project" => project,
@@ -81,36 +81,37 @@ defmodule Mix.Tasks.Roadmap.Idea do
         "status" => "active",
         "review" => "ongoing"
       }
-      
+
       case Writer.ensure_frontmatter(path, default_meta) do
-        :ok -> 
+        :ok ->
           # Add basic structure
           content = """
 
-# Ideas – #{String.capitalize(project)}
+          # Ideas – #{String.capitalize(project)}
 
-## Ideas Brain Dump
-> Raw ideas, concepts, and inspiration - no structure required
+          ## Ideas Brain Dump
+          > Raw ideas, concepts, and inspiration - no structure required
 
-- 
+          - 
 
-## Architecture Ideas
-> Big picture improvements and refactoring thoughts
+          ## Architecture Ideas
+          > Big picture improvements and refactoring thoughts
 
-- 
+          - 
 
-## Feature Ideas
-> New features and enhancements
+          ## Feature Ideas
+          > New features and enhancements
 
-- 
+          - 
 
-## Technical Ideas
-> Development workflow and tooling improvements
+          ## Technical Ideas
+          > Development workflow and tooling improvements
 
-- 
-"""
+          - 
+          """
+
           File.write!(path, File.read!(path) <> content)
-        
+
         {:error, reason} ->
           Mix.raise("Failed to create ideas file: #{reason}")
       end
@@ -119,7 +120,7 @@ defmodule Mix.Tasks.Roadmap.Idea do
 
   defp open_file(path) do
     editor = System.get_env("EDITOR") || "nano"
-    
+
     case System.cmd(editor, [path], into: IO.stream(:stdio, :line)) do
       {_, 0} -> :ok
       {_, _} -> Mix.shell().info("Note: Could not open editor. File saved at #{path}")

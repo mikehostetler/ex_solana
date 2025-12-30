@@ -31,7 +31,7 @@ defmodule Mix.Tasks.Roadmap.Status do
   def run(args) do
     {opts, _args} = OptionParser.parse!(args, switches: @switches)
 
-    files = 
+    files =
       Scanner.load_all_files()
       |> apply_filters(opts)
 
@@ -57,17 +57,17 @@ defmodule Mix.Tasks.Roadmap.Status do
     if Enum.empty?(tasks) do
       Mix.shell().info("No tasks found matching the criteria.")
     else
-      filtered_tasks = 
+      filtered_tasks =
         tasks
         |> Filters.by_owner(opts[:owner])
         |> Filters.by_completed(opts[:completed])
 
-      rows = 
+      rows =
         filtered_tasks
         |> Enum.map(&task_to_row/1)
 
       headers = ["ID", "Title", "File", "Owner", "Status", "Estimate"]
-      
+
       TableRex.quick_render!(rows, headers)
       |> Mix.shell().info()
 
@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Roadmap.Status do
   end
 
   defp output_json(tasks) do
-    json_data = 
+    json_data =
       tasks
       |> Enum.map(fn task ->
         %{
@@ -102,7 +102,7 @@ defmodule Mix.Tasks.Roadmap.Status do
   end
 
   defp task_to_row(task) do
-    file_name = 
+    file_name =
       task.file_path
       |> Path.basename()
       |> String.replace_suffix(".md", "")
@@ -124,17 +124,22 @@ defmodule Mix.Tasks.Roadmap.Status do
 
   defp extract_project_from_path(path) do
     cond do
-      String.contains?(path, "roadmap/workspace/") -> "workspace"
+      String.contains?(path, "roadmap/workspace/") ->
+        "workspace"
+
       String.contains?(path, "roadmap/projects/") ->
         path
         |> String.split("/")
         |> Enum.drop_while(&(&1 != "projects"))
         |> Enum.at(1, "unknown")
-      true -> "unknown"
+
+      true ->
+        "unknown"
     end
   end
 
   defp parse_type(nil), do: nil
+
   defp parse_type(type) when is_binary(type) do
     case String.downcase(type) do
       "milestone" -> :milestone
@@ -146,6 +151,7 @@ defmodule Mix.Tasks.Roadmap.Status do
   end
 
   defp parse_due_days(nil), do: nil
+
   defp parse_due_days(days_str) when is_binary(days_str) do
     case Integer.parse(String.replace(days_str, "d", "")) do
       {days, _} -> days

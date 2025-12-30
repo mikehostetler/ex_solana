@@ -25,7 +25,7 @@ defmodule JidoWorkspace.Roadmap.Task do
     case Regex.named_captures(@checkbox_regex, String.trim(line)) do
       %{"status" => status, "title" => title} = captures ->
         {owner, estimate} = parse_meta(Map.get(captures, "meta", ""))
-        
+
         %__MODULE__{
           id: Map.get(captures, "id"),
           title: String.trim(title),
@@ -36,7 +36,7 @@ defmodule JidoWorkspace.Roadmap.Task do
           estimate: estimate,
           raw_line: line
         }
-      
+
       nil ->
         nil
     end
@@ -53,7 +53,7 @@ defmodule JidoWorkspace.Roadmap.Task do
   Generates the next task ID for the given prefix and existing tasks.
   """
   def next_id(prefix, existing_tasks) when is_binary(prefix) and is_list(existing_tasks) do
-    existing_numbers = 
+    existing_numbers =
       existing_tasks
       |> Enum.filter(&(&1.id && String.starts_with?(&1.id, prefix <> "-")))
       |> Enum.map(&(&1.id |> String.replace_prefix(prefix <> "-", "") |> String.to_integer()))
@@ -67,8 +67,8 @@ defmodule JidoWorkspace.Roadmap.Task do
   """
   def to_markdown(%__MODULE__{} = task) do
     status = if task.completed, do: "x", else: " "
-    
-    meta_part = 
+
+    meta_part =
       case {task.owner, task.estimate} do
         {nil, nil} -> ""
         {owner, nil} -> " *(#{owner})*"
@@ -83,9 +83,10 @@ defmodule JidoWorkspace.Roadmap.Task do
 
   # Private function to parse meta information (owner, estimate)
   defp parse_meta(""), do: {nil, nil}
+
   defp parse_meta(meta) do
     parts = String.split(meta, ",") |> Enum.map(&String.trim/1)
-    
+
     case parts do
       [owner_or_estimate] ->
         if String.starts_with?(owner_or_estimate, "@") do
@@ -93,10 +94,10 @@ defmodule JidoWorkspace.Roadmap.Task do
         else
           {nil, owner_or_estimate}
         end
-      
+
       [owner, estimate] ->
         {String.trim(owner), String.trim(estimate)}
-      
+
       _ ->
         {nil, nil}
     end

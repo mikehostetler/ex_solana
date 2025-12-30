@@ -5,7 +5,7 @@ defmodule Mix.Tasks.HexValidate do
 
   @moduledoc """
   Validates packages are ready for Hex publishing by checking:
-  
+
   - All ws_dep calls have explicit Hex versions (not GitHub URLs)
   - No uncommitted changes in package directories
   - Package metadata completeness (description, license, etc.)
@@ -28,7 +28,7 @@ defmodule Mix.Tasks.HexValidate do
 
     Mix.shell().info("Validating packages for Hex publishing...\n")
 
-    all_valid = 
+    all_valid =
       hex_packages
       |> Enum.map(&validate_package/1)
       |> Enum.all?()
@@ -43,19 +43,20 @@ defmodule Mix.Tasks.HexValidate do
 
   defp validate_package(package) do
     Mix.shell().info("Validating #{package.name}...")
-    
+
     package_path = package.path
     mix_file = Path.join(package_path, "mix.exs")
 
     validations = [
       {validate_mix_file_exists(mix_file), "mix.exs file exists"},
       {validate_version_defined(mix_file), "@version is defined"},
-      {validate_ws_dep_versions(mix_file, package.dependencies), "ws_dep calls have Hex versions"},
+      {validate_ws_dep_versions(mix_file, package.dependencies),
+       "ws_dep calls have Hex versions"},
       {validate_no_uncommitted_changes(package_path), "no uncommitted changes"},
       {validate_package_metadata(mix_file), "package metadata complete"}
     ]
 
-    results = 
+    results =
       for {result, description} <- validations do
         status = if result, do: "✓", else: "✗"
         Mix.shell().info("  #{status} #{description}")
@@ -63,7 +64,7 @@ defmodule Mix.Tasks.HexValidate do
       end
 
     package_valid = Enum.all?(results)
-    
+
     unless package_valid do
       Mix.shell().error("  Package #{package.name} failed validation")
     end
@@ -88,14 +89,15 @@ defmodule Mix.Tasks.HexValidate do
   defp validate_ws_dep_versions(mix_file, dependencies) do
     if File.exists?(mix_file) do
       content = File.read!(mix_file)
-      
+
       # Check that all Jido dependencies use proper Hex versions (not GitHub URLs)
       Enum.all?(dependencies, fn dep_name ->
         case Regex.run(~r/ws_dep\(:#{dep_name},\s+"[^"]+",\s+"([^"]+)"\)/, content) do
-          [_, version_spec] -> 
+          [_, version_spec] ->
             # Check that version spec looks like a Hex version (starts with ~> or similar)
             String.match?(version_spec, ~r/^[~>=<\d]/)
-          nil -> 
+
+          nil ->
             # ws_dep not found, which is OK if it's not a Jido dependency
             true
         end
@@ -108,15 +110,17 @@ defmodule Mix.Tasks.HexValidate do
   defp validate_no_uncommitted_changes(package_path) do
     case System.cmd("git", ["status", "--porcelain"], cd: package_path, stderr_to_stdout: true) do
       {"", 0} -> true
-      {_, 0} -> false  # Has uncommitted changes
-      {_, _} -> false  # Git command failed
+      # Has uncommitted changes
+      {_, 0} -> false
+      # Git command failed
+      {_, _} -> false
     end
   end
 
   defp validate_package_metadata(mix_file) do
     if File.exists?(mix_file) do
       content = File.read!(mix_file)
-      
+
       required_fields = [
         {"description", ~r/description:\s*"[^"]+"/},
         {"package name", ~r/package:\s*\[/},

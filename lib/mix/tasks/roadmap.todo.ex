@@ -26,13 +26,13 @@ defmodule Mix.Tasks.Roadmap.Todo do
     {opts, _args} = OptionParser.parse!(args, switches: @switches)
 
     owner = opts[:owner] || get_git_author()
-    
-    files = 
+
+    files =
       Scanner.load_all_files()
       |> Filters.by_project(opts[:project] || "all")
       |> Filters.by_status("in-progress")
 
-    tasks = 
+    tasks =
       Filters.extract_all_tasks(files)
       |> Filters.by_owner(owner)
       |> Filters.by_completed(false)
@@ -48,26 +48,26 @@ defmodule Mix.Tasks.Roadmap.Todo do
   defp display_todo_list(tasks, owner) do
     Mix.shell().info("📋 Todo List for #{owner}")
     Mix.shell().info("═" <> String.duplicate("═", 40))
-    
+
     tasks
     |> Enum.group_by(&extract_project_from_path(&1.file_path))
     |> Enum.each(fn {project, project_tasks} ->
       Mix.shell().info("\n#{String.upcase(project)}:")
-      
+
       project_tasks
       |> Enum.each(fn task ->
         status = if task.id, do: "[#{task.id}]", else: "[ ]"
         estimate = if task.estimate, do: " (#{task.estimate})", else: ""
-        
+
         Mix.shell().info("  #{status} #{task.title}#{estimate}")
       end)
     end)
-    
+
     total_tasks = length(tasks)
     Mix.shell().info("\n📊 Total: #{total_tasks} tasks")
-    
+
     # Show quick stats
-    by_type = 
+    by_type =
       tasks
       |> Enum.group_by(fn task ->
         if task.id do
@@ -78,7 +78,7 @@ defmodule Mix.Tasks.Roadmap.Todo do
       end)
       |> Enum.map(fn {type, type_tasks} -> "#{type}: #{length(type_tasks)}" end)
       |> Enum.join(", ")
-    
+
     if by_type != "" do
       Mix.shell().info("🏷️  By type: #{by_type}")
     end
@@ -86,13 +86,17 @@ defmodule Mix.Tasks.Roadmap.Todo do
 
   defp extract_project_from_path(path) do
     cond do
-      String.contains?(path, "roadmap/workspace/") -> "workspace"
+      String.contains?(path, "roadmap/workspace/") ->
+        "workspace"
+
       String.contains?(path, "roadmap/projects/") ->
         path
         |> String.split("/")
         |> Enum.drop_while(&(&1 != "projects"))
         |> Enum.at(1, "unknown")
-      true -> "unknown"
+
+      true ->
+        "unknown"
     end
   end
 

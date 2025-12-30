@@ -41,12 +41,16 @@ defmodule Mix.Tasks.Ws.Git.Push.Pr do
       {:error, message} ->
         Mix.shell().error(message)
         Mix.shell().error("")
-        Mix.shell().error("Usage: mix ws.git.push.pr <project> <branch-name> [--force] [--dry-run]")
+
+        Mix.shell().error(
+          "Usage: mix ws.git.push.pr <project> <branch-name> [--force] [--dry-run]"
+        )
     end
   end
 
   defp parse_args(args) do
-    {opts, remaining, _} = OptionParser.parse(args, switches: [force: :boolean, dry_run: :boolean])
+    {opts, remaining, _} =
+      OptionParser.parse(args, switches: [force: :boolean, dry_run: :boolean])
 
     case remaining do
       [project_name, branch_name] -> {:ok, project_name, branch_name, opts}
@@ -83,7 +87,9 @@ defmodule Mix.Tasks.Ws.Git.Push.Pr do
     Mix.shell().info("")
     Mix.shell().info("Changes in #{project.path}:")
 
-    case System.cmd("git", ["log", "--oneline", "-10", "--", project.path], stderr_to_stdout: true) do
+    case System.cmd("git", ["log", "--oneline", "-10", "--", project.path],
+           stderr_to_stdout: true
+         ) do
       {output, 0} ->
         output
         |> String.trim()

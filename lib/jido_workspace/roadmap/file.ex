@@ -29,13 +29,17 @@ defmodule JidoWorkspace.Roadmap.File do
   """
   def project(%__MODULE__{path: path}) do
     cond do
-      String.contains?(path, "roadmap/workspace/") -> "workspace"
+      String.contains?(path, "roadmap/workspace/") ->
+        "workspace"
+
       String.contains?(path, "roadmap/projects/") ->
         path
         |> String.split("/")
         |> Enum.drop_while(&(&1 != "projects"))
         |> Enum.at(1, "unknown")
-      true -> "unknown"
+
+      true ->
+        "unknown"
     end
   end
 
@@ -44,7 +48,7 @@ defmodule JidoWorkspace.Roadmap.File do
   """
   def file_type(%__MODULE__{path: path}) do
     filename = Path.basename(path, ".md")
-    
+
     cond do
       String.starts_with?(filename, "milestone-") -> :milestone
       filename == "backlog" -> :backlog
@@ -59,7 +63,7 @@ defmodule JidoWorkspace.Roadmap.File do
   """
   def milestone_number(%__MODULE__{path: path}) do
     filename = Path.basename(path, ".md")
-    
+
     if String.starts_with?(filename, "milestone-") do
       filename
       |> String.replace_prefix("milestone-", "")

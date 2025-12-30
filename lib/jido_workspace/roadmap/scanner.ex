@@ -20,7 +20,7 @@ defmodule JidoWorkspace.Roadmap.Scanner do
   """
   def scan_pattern(pattern) do
     full_pattern = Path.join(@roadmap_root, pattern)
-    
+
     Path.wildcard(full_pattern)
     |> Enum.filter(&String.ends_with?(&1, ".md"))
     |> Enum.sort()
@@ -78,14 +78,15 @@ defmodule JidoWorkspace.Roadmap.Scanner do
     scan_all()
     |> Enum.map(fn path ->
       case Parser.parse_frontmatter_only(path) do
-        {:ok, meta} -> 
+        {:ok, meta} ->
           %RoadmapFile{
             path: path,
             meta: meta,
             body_lines: [],
             tasks: []
           }
-        {:error, _} -> 
+
+        {:error, _} ->
           nil
       end
     end)
@@ -96,18 +97,20 @@ defmodule JidoWorkspace.Roadmap.Scanner do
   Gets all available projects by scanning the directory structure.
   """
   def available_projects do
-    workspace_projects = if File.exists?(Path.join(@roadmap_root, "workspace")), do: ["workspace"], else: []
-    
-    project_dirs = 
+    workspace_projects =
+      if File.exists?(Path.join(@roadmap_root, "workspace")), do: ["workspace"], else: []
+
+    project_dirs =
       Path.join(@roadmap_root, "projects")
       |> File.ls!()
-      |> Enum.filter(fn name -> 
+      |> Enum.filter(fn name ->
         File.dir?(Path.join([@roadmap_root, "projects", name]))
       end)
-    
+
     workspace_projects ++ project_dirs
   rescue
-    _ -> ["workspace"]  # fallback if projects dir doesn't exist
+    # fallback if projects dir doesn't exist
+    _ -> ["workspace"]
   end
 
   @doc """

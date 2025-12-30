@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Ws do
   def run([]) do
     Mix.shell().info("""
     Usage: mix ws <mix-task> [task args]
-    
+
     Examples:
       mix ws deps.get        # Run deps.get in all projects
       mix ws test            # Run tests in all projects

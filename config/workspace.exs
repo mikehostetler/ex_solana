@@ -105,7 +105,6 @@ config :jido_workspace,
       type: :library,
       path: "projects/jido_character"
     },
-
     %{
       name: "jido_htn",
       upstream_url: "git@github.com:epic-creative/jido_htn.git",
@@ -120,7 +119,6 @@ config :jido_workspace,
       type: :library,
       path: "projects/kodo"
     },
-
     %{
       name: "req_llm",
       upstream_url: "git@github.com:agentjido/req_llm.git",

@@ -12,9 +12,9 @@ defmodule JidoWorkspace.Runner do
     Logger.info("Running 'mix #{task} #{Enum.join(args, " ")}' across all projects...")
 
     projects = JidoWorkspace.config()
-    
+
     # Start async tasks for all projects
-    async_tasks = 
+    async_tasks =
       projects
       |> Enum.map(fn project ->
         Task.async(fn -> run_task_in_project(project, task, args) end)
@@ -30,12 +30,18 @@ defmodule JidoWorkspace.Runner do
 
     case Enum.all?(results, &(&1 == :ok)) do
       true ->
-        Logger.info("✓ Task '#{task}' completed successfully in all #{length(succeeded)} projects")
+        Logger.info(
+          "✓ Task '#{task}' completed successfully in all #{length(succeeded)} projects"
+        )
+
         print_final_summary(task, succeeded, failed)
         :ok
 
       false ->
-        Logger.error("✗ Task '#{task}' failed: #{length(succeeded)} succeeded, #{length(failed)} failed")
+        Logger.error(
+          "✗ Task '#{task}' failed: #{length(succeeded)} succeeded, #{length(failed)} failed"
+        )
+
         print_final_summary(task, succeeded, failed)
         :error
     end
@@ -45,21 +51,21 @@ defmodule JidoWorkspace.Runner do
     IO.puts("\n" <> String.duplicate("=", 80))
     IO.puts("WORKSPACE SUMMARY: mix #{task}")
     IO.puts(String.duplicate("=", 80))
-    
+
     if Enum.empty?(failed) do
       IO.puts("SUCCESS: All #{length(succeeded)} projects completed successfully")
     else
       IO.puts("FAILED: #{length(succeeded)} succeeded, #{length(failed)} failed")
     end
-    
+
     unless Enum.empty?(succeeded) do
       IO.puts("SUCCEEDED: #{Enum.map_join(succeeded, ", ", fn {project, _} -> project.name end)}")
     end
-    
+
     unless Enum.empty?(failed) do
       IO.puts("FAILED: #{Enum.map_join(failed, ", ", fn {project, _} -> project.name end)}")
     end
-    
+
     IO.puts(String.duplicate("=", 80) <> "\n")
   end
 

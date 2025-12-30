@@ -34,7 +34,7 @@ defmodule JidoWorkspace.MixProject do
       # High-level shortcuts
       morning: ["ws.git.pull", "compile"],
       sync: ["ws.git.pull", "ws test"],
-      
+
       # Convenient shortcuts for new commands
       "ws.pull": ["ws.git.pull"],
       "ws.push": ["ws.git.push"],
@@ -43,17 +43,17 @@ defmodule JidoWorkspace.MixProject do
       "ws.test": ["ws test"],
       "ws.deps.get": ["ws deps.get"],
       "ws.deps.upgrade": ["ws.upgrade.deps"],
-      
+
       # Slidev commands
       "slidev.dev": ["slidev.dev"],
       "slidev.build": ["slidev.build"],
       "slidev.install": ["slidev.install"],
       "slidev.new": ["slidev.new"],
-      
+
       # Hex publishing commands
       "hex.publish.all": ["hex_publish"],
       "version.check": ["version.check"],
-      
+
       # Roadmap commands
       "roadmap.status": ["roadmap.status"],
       "roadmap.todo": ["roadmap.todo"],

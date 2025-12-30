@@ -19,7 +19,7 @@ defmodule JidoWorkspace do
   """
   def check_clean_working_tree do
     repo = Git.new(".")
-    
+
     case Git.status(repo, "--porcelain") do
       {:ok, ""} ->
         :ok
@@ -162,7 +162,7 @@ defmodule JidoWorkspace do
 
   defp git_subtree_add(%{name: name, upstream_url: url, branch: branch, path: path}) do
     repo = Git.new(".")
-    
+
     case Git.subtree(repo, ["add", "--prefix=#{path}", url, branch, "--squash"]) do
       {:ok, output} ->
         Logger.info("Successfully added subtree: #{name}")
@@ -177,7 +177,7 @@ defmodule JidoWorkspace do
 
   defp git_subtree_pull(%{name: name, upstream_url: url, branch: branch, path: path}) do
     repo = Git.new(".")
-    
+
     case Git.subtree(repo, ["pull", "--prefix=#{path}", url, branch, "--squash"]) do
       {:ok, output} ->
         Logger.info("Successfully pulled subtree: #{name}")
@@ -192,7 +192,7 @@ defmodule JidoWorkspace do
 
   defp git_subtree_push(%{name: name, upstream_url: url, path: path}, target_branch) do
     repo = Git.new(".")
-    
+
     case Git.subtree(repo, ["push", "--prefix=#{path}", url, target_branch]) do
       {:ok, output} ->
         Logger.info("Successfully pushed subtree: #{name}")
