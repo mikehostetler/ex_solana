@@ -13,7 +13,7 @@ defmodule Jido.Agent.Strategy do
       cmd(agent, action, context) :: {agent, directives}
       init(agent, context) :: {agent, directives}
       tick(agent, context) :: {agent, directives}
-      snapshot(agent, context) :: Strategy.Public.t()
+      snapshot(agent, context) :: Strategy.Snapshot.t()
 
   The `cmd/3` callback is required. Others are optional with default implementations.
 
@@ -25,10 +25,10 @@ defmodule Jido.Agent.Strategy do
   - `tick/2` - Called by AgentServer when a strategy has scheduled a tick
     (via `{:schedule, ms, :strategy_tick}`). Use for multi-step execution.
 
-  ## Public State Interface
+  ## Snapshot Interface
 
   To avoid agents inspecting strategy internals, strategies expose their state
-  through `snapshot/2` which returns a `Strategy.Public` struct:
+  through `snapshot/2` which returns a `Strategy.Snapshot` struct:
 
       snap = MyStrategy.snapshot(agent, ctx)
       if snap.done?, do: snap.result
@@ -92,9 +92,9 @@ defmodule Jido.Agent.Strategy do
           optional(:name) => String.t()
         }
 
-  defmodule Public do
+  defmodule Snapshot do
     @moduledoc """
-    Stable, cross-strategy view of execution state.
+    Stable, cross-strategy execution snapshot.
 
     Use this struct instead of inspecting `agent.state.__strategy__` directly.
     This provides a stable interface that strategies can implement while
@@ -105,17 +105,32 @@ defmodule Jido.Agent.Strategy do
     - `status` - Coarse execution status (:idle, :running, :waiting, :success, :failure)
     - `done?` - Whether the strategy has reached a terminal state
     - `result` - The main output (if the strategy produces one)
-    - `meta` - Additional strategy-specific metadata
+    - `details` - Additional strategy-specific metadata
     """
 
     @type t :: %__MODULE__{
             status: Jido.Agent.Strategy.status(),
             done?: boolean(),
             result: term() | nil,
-            meta: map()
+            details: map()
           }
 
+    defstruct [:status, :done?, :result, details: %{}]
+
+    @doc "Returns true if the strategy has reached a terminal state."
+    @spec terminal?(t()) :: boolean()
+    def terminal?(%__MODULE__{status: s}), do: s in [:success, :failure]
+
+    @doc "Returns true if the strategy is currently running."
+    @spec running?(t()) :: boolean()
+    def running?(%__MODULE__{status: s}), do: s in [:running, :waiting]
+  end
+
+  # Deprecated: use Snapshot instead
+  defmodule Public do
+    @moduledoc false
     defstruct [:status, :done?, :result, meta: %{}]
+    @type t :: Jido.Agent.Strategy.Snapshot.t()
   end
 
   @doc """
@@ -183,10 +198,10 @@ defmodule Jido.Agent.Strategy do
               {Agent.t(), [Agent.directive()]}
 
   @doc """
-  Returns a stable, public view of the strategy state.
+  Returns a stable snapshot of the strategy state.
 
   Strategies should map any internal fields (status enums, final answers, etc.)
-  into a `Strategy.Public` struct. Callers must not depend on internal
+  into a `Strategy.Snapshot` struct. Callers must not depend on internal
   `__strategy__` state shape.
 
   Default implementation uses `Strategy.State` helpers.
@@ -198,9 +213,9 @@ defmodule Jido.Agent.Strategy do
 
   ## Returns
 
-    * `Strategy.Public.t()` - Public view of strategy state
+    * `Strategy.Snapshot.t()` - Snapshot of strategy state
   """
-  @callback snapshot(agent :: Agent.t(), ctx :: context()) :: Public.t()
+  @callback snapshot(agent :: Agent.t(), ctx :: context()) :: Snapshot.t()
 
   @doc """
   Returns the schema/spec for a strategy action.
@@ -275,17 +290,17 @@ defmodule Jido.Agent.Strategy do
 
   Reads status from state and determines terminal status.
   """
-  @spec default_snapshot(Agent.t()) :: Public.t()
+  @spec default_snapshot(Agent.t()) :: Snapshot.t()
   def default_snapshot(%Agent{} = agent) do
     state = StratState.get(agent, %{})
     status = StratState.status(agent)
     done? = StratState.terminal?(agent)
 
-    %Public{
+    %Snapshot{
       status: status,
       done?: done?,
       result: Map.get(state, :result, nil),
-      meta: Map.drop(state, [:module, :status, :result, :config])
+      details: Map.drop(state, [:module, :status, :result, :config])
     }
   end
 

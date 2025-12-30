@@ -106,27 +106,23 @@ defmodule Jido.AI.ReAct.Machine do
   def update(machine, msg, env \\ %{})
 
   def update(%__MODULE__{status: "idle"} = machine, {:start, query, call_id}, env) do
-    system_prompt = Map.get(env, :system_prompt, default_system_prompt())
+    system_prompt = Map.fetch!(env, :system_prompt)
     conversation = [system_message(system_prompt), user_message(query)]
 
-    case Fsmx.transition(machine, "awaiting_llm", state_field: :status) do
-      {:ok, machine} ->
-        machine =
-          machine
-          |> Map.put(:iteration, 1)
-          |> Map.put(:conversation, conversation)
-          |> Map.put(:pending_tool_calls, [])
-          |> Map.put(:result, nil)
-          |> Map.put(:termination_reason, nil)
-          |> Map.put(:current_llm_call_id, call_id)
-          |> Map.put(:streaming_text, "")
-          |> Map.put(:streaming_thinking, "")
+    with_transition(machine, "awaiting_llm", fn machine ->
+      machine =
+        machine
+        |> Map.put(:iteration, 1)
+        |> Map.put(:conversation, conversation)
+        |> Map.put(:pending_tool_calls, [])
+        |> Map.put(:result, nil)
+        |> Map.put(:termination_reason, nil)
+        |> Map.put(:current_llm_call_id, call_id)
+        |> Map.put(:streaming_text, "")
+        |> Map.put(:streaming_thinking, "")
 
-        {machine, [{:call_llm_stream, call_id, conversation}]}
-
-      {:error, _reason} ->
-        {machine, []}
-    end
+      {machine, [{:call_llm_stream, call_id, conversation}]}
+    end)
   end
 
   def update(%__MODULE__{status: "awaiting_llm"} = machine, {:llm_result, call_id, result}, env) do
@@ -173,35 +169,27 @@ defmodule Jido.AI.ReAct.Machine do
 
       cond do
         machine.iteration > max_iterations ->
-          case Fsmx.transition(machine, "completed", state_field: :status) do
-            {:ok, machine} ->
-              machine =
-                machine
-                |> Map.put(:termination_reason, :max_iterations)
-                |> Map.put(:result, "Maximum iterations reached without a final answer.")
+          with_transition(machine, "completed", fn machine ->
+            machine =
+              machine
+              |> Map.put(:termination_reason, :max_iterations)
+              |> Map.put(:result, "Maximum iterations reached without a final answer.")
 
-              {machine, []}
-
-            {:error, _} ->
-              {machine, []}
-          end
+            {machine, []}
+          end)
 
         true ->
           new_call_id = generate_call_id()
 
-          case Fsmx.transition(machine, "awaiting_llm", state_field: :status) do
-            {:ok, machine} ->
-              machine =
-                machine
-                |> Map.put(:current_llm_call_id, new_call_id)
-                |> Map.put(:streaming_text, "")
-                |> Map.put(:streaming_thinking, "")
+          with_transition(machine, "awaiting_llm", fn machine ->
+            machine =
+              machine
+              |> Map.put(:current_llm_call_id, new_call_id)
+              |> Map.put(:streaming_text, "")
+              |> Map.put(:streaming_thinking, "")
 
-              {machine, [{:call_llm_stream, new_call_id, machine.conversation}]}
-
-            {:error, _} ->
-              {machine, []}
-          end
+            {machine, [{:call_llm_stream, new_call_id, machine.conversation}]}
+          end)
       end
     else
       {machine, []}
@@ -256,19 +244,22 @@ defmodule Jido.AI.ReAct.Machine do
 
   # Private helpers
 
-  defp handle_llm_response(machine, {:error, reason}, _env) do
-    case Fsmx.transition(machine, "error", state_field: :status) do
-      {:ok, machine} ->
-        machine =
-          machine
-          |> Map.put(:termination_reason, :error)
-          |> Map.put(:result, "Error: #{inspect(reason)}")
-
-        {machine, []}
-
-      {:error, _} ->
-        {machine, []}
+  defp with_transition(machine, new_status, fun) do
+    case Fsmx.transition(machine, new_status, state_field: :status) do
+      {:ok, machine} -> fun.(machine)
+      {:error, _} -> {machine, []}
     end
+  end
+
+  defp handle_llm_response(machine, {:error, reason}, _env) do
+    with_transition(machine, "error", fn machine ->
+      machine =
+        machine
+        |> Map.put(:termination_reason, :error)
+        |> Map.put(:result, "Error: #{inspect(reason)}")
+
+      {machine, []}
+    end)
   end
 
   defp handle_llm_response(machine, {:ok, result}, env) do
@@ -286,41 +277,33 @@ defmodule Jido.AI.ReAct.Machine do
         %{id: tc.id, name: tc.name, arguments: tc.arguments, result: nil}
       end)
 
-    case Fsmx.transition(machine, "awaiting_tool", state_field: :status) do
-      {:ok, machine} ->
-        machine =
-          machine
-          |> Map.update!(:conversation, &(&1 ++ [assistant_msg]))
-          |> Map.put(:pending_tool_calls, pending)
+    with_transition(machine, "awaiting_tool", fn machine ->
+      machine =
+        machine
+        |> Map.update!(:conversation, &(&1 ++ [assistant_msg]))
+        |> Map.put(:pending_tool_calls, pending)
 
-        directives =
-          Enum.map(tool_calls, fn tc ->
-            {:exec_tool, tc.id, tc.name, tc.arguments}
-          end)
+      directives =
+        Enum.map(tool_calls, fn tc ->
+          {:exec_tool, tc.id, tc.name, tc.arguments}
+        end)
 
-        {machine, directives}
-
-      {:error, _} ->
-        {machine, []}
-    end
+      {machine, directives}
+    end)
   end
 
   defp handle_final_answer(machine, answer) do
     assistant_msg = assistant_message(answer)
 
-    case Fsmx.transition(machine, "completed", state_field: :status) do
-      {:ok, machine} ->
-        machine =
-          machine
-          |> Map.put(:termination_reason, :final_answer)
-          |> Map.update!(:conversation, &(&1 ++ [assistant_msg]))
-          |> Map.put(:result, answer)
+    with_transition(machine, "completed", fn machine ->
+      machine =
+        machine
+        |> Map.put(:termination_reason, :final_answer)
+        |> Map.update!(:conversation, &(&1 ++ [assistant_msg]))
+        |> Map.put(:result, answer)
 
-        {machine, []}
-
-      {:error, _} ->
-        {machine, []}
-    end
+      {machine, []}
+    end)
   end
 
   defp record_tool_result(machine, call_id, result) do
@@ -343,17 +326,12 @@ defmodule Jido.AI.ReAct.Machine do
 
   defp inc_iteration(machine), do: Map.update!(machine, :iteration, &(&1 + 1))
 
-  defp generate_call_id do
+  @doc """
+  Generates a unique call ID for LLM requests.
+  """
+  @spec generate_call_id() :: String.t()
+  def generate_call_id do
     "call_#{Jido.Util.generate_id()}"
-  end
-
-  defp default_system_prompt do
-    """
-    You are a helpful AI assistant using the ReAct (Reason-Act) pattern.
-    When you need to perform an action, use the available tools.
-    When you have enough information to answer, provide your final answer directly.
-    Think step by step and explain your reasoning.
-    """
   end
 
   # Message builders - these create simple maps that can be converted to ReqLLM messages

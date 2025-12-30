@@ -94,6 +94,12 @@ defmodule Jido.AI.Strategy.ReAct do
 
   @default_model "anthropic:claude-haiku-4-5"
   @default_max_iterations 10
+  @default_system_prompt """
+  You are a helpful AI assistant using the ReAct (Reason-Act) pattern.
+  When you need to perform an action, use the available tools.
+  When you have enough information to answer, provide your final answer directly.
+  Think step by step and explain your reasoning.
+  """
 
   @start :react_start
   @llm_result :react_llm_result
@@ -116,33 +122,23 @@ defmodule Jido.AI.Strategy.ReAct do
   @spec llm_partial_action() :: :react_llm_partial
   def llm_partial_action, do: @llm_partial
 
-  @impl true
-  def action_spec(@start) do
-    %{
+  @action_specs %{
+    @start => %{
       schema: Zoi.object(%{query: Zoi.string()}),
       doc: "Start a new ReAct conversation with a user query",
       name: "react.start"
-    }
-  end
-
-  def action_spec(@llm_result) do
-    %{
+    },
+    @llm_result => %{
       schema: Zoi.object(%{call_id: Zoi.string(), result: Zoi.any()}),
       doc: "Handle LLM response (tool calls or final answer)",
       name: "react.llm_result"
-    }
-  end
-
-  def action_spec(@tool_result) do
-    %{
+    },
+    @tool_result => %{
       schema: Zoi.object(%{call_id: Zoi.string(), tool_name: Zoi.string(), result: Zoi.any()}),
       doc: "Handle tool execution result",
       name: "react.tool_result"
-    }
-  end
-
-  def action_spec(@llm_partial) do
-    %{
+    },
+    @llm_partial => %{
       schema:
         Zoi.object(%{
           call_id: Zoi.string(),
@@ -152,9 +148,10 @@ defmodule Jido.AI.Strategy.ReAct do
       doc: "Handle streaming LLM token chunk",
       name: "react.llm_partial"
     }
-  end
+  }
 
-  def action_spec(_), do: nil
+  @impl true
+  def action_spec(action), do: Map.get(@action_specs, action)
 
   @impl true
   def signal_routes(_ctx) do
@@ -180,11 +177,11 @@ defmodule Jido.AI.Strategy.ReAct do
 
     done? = status in [:success, :failure]
 
-    %Jido.Agent.Strategy.Public{
+    %Jido.Agent.Strategy.Snapshot{
       status: status,
       done?: done?,
       result: state[:result],
-      meta:
+      details:
         %{
           phase: state[:status],
           iteration: state[:iteration],
@@ -213,39 +210,43 @@ defmodule Jido.AI.Strategy.ReAct do
 
   @impl true
   def cmd(%Agent{} = agent, instructions, _ctx) do
-    Enum.reduce(instructions, {agent, []}, fn instr, {acc_agent, acc_dirs} ->
-      %Jido.Instruction{action: action, params: params} = instr
+    {agent, dirs_rev} =
+      Enum.reduce(instructions, {agent, []}, fn instr, {acc_agent, acc_dirs} ->
+        case process_instruction(acc_agent, instr) do
+          {new_agent, new_dirs} ->
+            {new_agent, Enum.reverse(new_dirs) ++ acc_dirs}
 
-      msg = to_machine_msg(normalize_action(action), params)
+          :noop ->
+            {acc_agent, acc_dirs}
+        end
+      end)
 
-      case msg do
-        nil ->
-          {acc_agent, acc_dirs}
+    {agent, Enum.reverse(dirs_rev)}
+  end
 
-        msg ->
-          state = StratState.get(acc_agent, %{})
-          config = state[:config]
-          machine = Machine.from_map(state)
+  defp process_instruction(agent, %Jido.Instruction{action: action, params: params}) do
+    with msg when not is_nil(msg) <- to_machine_msg(normalize_action(action), params) do
+      state = StratState.get(agent, %{})
+      config = state[:config]
+      machine = Machine.from_map(state)
 
-          env = %{
-            system_prompt: config[:system_prompt],
-            max_iterations: config[:max_iterations]
-          }
+      env = %{
+        system_prompt: config[:system_prompt],
+        max_iterations: config[:max_iterations]
+      }
 
-          {machine, directives} = Machine.update(machine, msg, env)
+      {machine, directives} = Machine.update(machine, msg, env)
 
-          new_state =
-            machine
-            |> Machine.to_map()
-            |> Map.put(:config, config)
-            |> Map.put(:conversation, convert_conversation(machine.conversation))
+      new_state =
+        machine
+        |> Machine.to_map()
+        |> Map.put(:config, config)
 
-          acc_agent = StratState.put(acc_agent, new_state)
-          lifted_directives = lift_directives(directives, config)
-
-          {acc_agent, acc_dirs ++ lifted_directives}
-      end
-    end)
+      agent = StratState.put(agent, new_state)
+      {agent, lift_directives(directives, config)}
+    else
+      _ -> :noop
+    end
   end
 
   defp normalize_action({inner, _meta}), do: normalize_action(inner)
@@ -271,25 +272,22 @@ defmodule Jido.AI.Strategy.ReAct do
   defp to_machine_msg(_, _), do: nil
 
   defp lift_directives(directives, config) do
+    %{model: model, reqllm_tools: reqllm_tools, actions_by_name: actions_by_name} = config
+
     Enum.flat_map(directives, fn
       {:call_llm_stream, id, conversation} ->
-        reqllm_context = convert_to_reqllm_context(conversation)
-
         [
           Directive.ReqLLMStream.new!(%{
             id: id,
-            model: config[:model],
-            context: reqllm_context,
-            tools: config[:reqllm_tools]
+            model: model,
+            context: convert_to_reqllm_context(conversation),
+            tools: reqllm_tools
           })
         ]
 
       {:exec_tool, id, tool_name, arguments} ->
-        case config[:actions_by_name][tool_name] do
-          nil ->
-            []
-
-          action_module ->
+        case Map.fetch(actions_by_name, tool_name) do
+          {:ok, action_module} ->
             [
               Directive.ToolExec.new!(%{
                 id: id,
@@ -298,51 +296,16 @@ defmodule Jido.AI.Strategy.ReAct do
                 arguments: arguments
               })
             ]
+
+          :error ->
+            []
         end
     end)
   end
 
   defp convert_to_reqllm_context(conversation) do
-    Enum.map(conversation, fn
-      # Already a ReqLLM.Message struct - pass through unchanged
-      %ReqLLM.Message{} = msg ->
-        msg
-
-      # Our internal map formats
-      %{role: :system, content: content} when is_binary(content) ->
-        Context.system(content)
-
-      %{role: :user, content: content} when is_binary(content) ->
-        Context.user(content)
-
-      %{role: :assistant, content: content, tool_calls: tool_calls} ->
-        tool_call_structs =
-          Enum.map(tool_calls, fn
-            # Already a ReqLLM.ToolCall struct
-            %ReqLLM.ToolCall{} = tc ->
-              tc
-
-            # Our internal map format
-            %{id: id, name: name, arguments: arguments} ->
-              ReqLLM.ToolCall.new(id, name, Jason.encode!(arguments))
-          end)
-
-        Context.assistant(content || "", tool_calls: tool_call_structs)
-
-      %{role: :assistant, content: content} ->
-        Context.assistant(content || "")
-
-      %{role: :tool, tool_call_id: id, name: name, content: content} when is_binary(content) ->
-        Context.tool_result(id, name, content)
-
-      # Any other struct (should not happen, but safe fallback)
-      msg when is_struct(msg) ->
-        msg
-    end)
-  end
-
-  defp convert_conversation(conversation) do
-    convert_to_reqllm_context(conversation)
+    {:ok, context} = Context.normalize(conversation, validate: false)
+    Context.to_list(context)
   end
 
   defp build_config(agent, ctx) do
@@ -358,33 +321,18 @@ defmodule Jido.AI.Strategy.ReAct do
                 "Jido.AI.Strategy.ReAct requires :tools option (list of Jido.Action modules)"
       end
 
-    actions_by_name =
-      tools_modules
-      |> Enum.map(fn mod -> {mod.name(), mod} end)
-      |> Map.new()
-
+    actions_by_name = Map.new(tools_modules, &{&1.name(), &1})
     reqllm_tools = ToolAdapter.from_actions(tools_modules)
 
     %{
       tools: tools_modules,
       reqllm_tools: reqllm_tools,
       actions_by_name: actions_by_name,
-      system_prompt: Keyword.get(opts, :system_prompt, default_system_prompt()),
+      system_prompt: Keyword.get(opts, :system_prompt, @default_system_prompt),
       model: Keyword.get(opts, :model, Map.get(agent.state, :model, @default_model)),
       max_iterations: Keyword.get(opts, :max_iterations, @default_max_iterations)
     }
   end
 
-  defp default_system_prompt do
-    """
-    You are a helpful AI assistant using the ReAct (Reason-Act) pattern.
-    When you need to perform an action, use the available tools.
-    When you have enough information to answer, provide your final answer directly.
-    Think step by step and explain your reasoning.
-    """
-  end
-
-  defp generate_call_id do
-    "call_#{Jido.Util.generate_id()}"
-  end
+  defp generate_call_id, do: Machine.generate_call_id()
 end
