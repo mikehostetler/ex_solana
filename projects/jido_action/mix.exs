@@ -218,6 +218,7 @@ defmodule JidoAction.MixProject do
       {:libgraph, "~> 0.16.0"},
       {:lua, "~> 0.3"},
       {:req, "~> 0.5.10"},
+      {:req_llm, "~> 1.2"},
       {:tentacat, "~> 2.5"},
       {:weather, "~> 0.4.0"},
 

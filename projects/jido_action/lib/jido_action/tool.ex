@@ -1,9 +1,29 @@
 defmodule Jido.Action.Tool do
   @moduledoc """
-  Provides functionality to convert Jido Execs into tool representations.
+  Provides functionality to convert Jido Actions into tool representations.
 
-  This module allows Jido Execs to be easily integrated with AI systems
-  like LangChain or Instructor by converting them into a standardized tool format.
+  This module allows Jido Actions to be easily integrated with AI systems
+  like LangChain, ReqLLM, or Instructor by converting them into standardized tool formats.
+
+  ## Tool Formats
+
+  - `to_tool/1` - Returns a generic tool map compatible with LangChain-style systems
+  - `to_reqllm_tool/2` - Returns a `ReqLLM.Tool` struct for use with ReqLLM
+
+  ## ReqLLM Integration
+
+  ReqLLM tools require a 1-arity callback, while Jido Actions use 2-arity `run(params, context)`.
+  The `to_reqllm_tool/2` function handles this conversion by accepting a context builder function
+  that provides the context at execution time.
+
+      # Basic usage with empty context
+      tool = Jido.Action.Tool.to_reqllm_tool(MyAction)
+
+      # With dynamic context builder
+      tool = Jido.Action.Tool.to_reqllm_tool(MyAction, fn ->
+        %{user_id: current_user_id()}
+      end)
+
   """
 
   @type tool :: %{
@@ -42,6 +62,80 @@ defmodule Jido.Action.Tool do
       function: &execute_action(action, &1, &2),
       parameters_schema: build_parameters_schema(action.schema())
     }
+  end
+
+  @doc """
+  Converts a Jido Action into a ReqLLM.Tool struct.
+
+  This bridges the 2-arity Jido Action `run(params, context)` to the 1-arity
+  callback expected by ReqLLM. A context builder function can be provided to
+  supply dynamic context at execution time.
+
+  ## Arguments
+
+    * `action` - The module implementing the Jido.Action behavior.
+    * `ctx_builder` - A 0-arity function that returns the context map (default: `fn -> %{} end`)
+
+  ## Returns
+
+    A `ReqLLM.Tool` struct ready for use with ReqLLM.
+
+  ## Examples
+
+      # Basic usage with empty context
+      iex> tool = Jido.Action.Tool.to_reqllm_tool(MyAction)
+      %ReqLLM.Tool{name: "my_action", ...}
+
+      # With dynamic context
+      iex> tool = Jido.Action.Tool.to_reqllm_tool(MyAction, fn ->
+      ...>   %{user_id: get_current_user_id()}
+      ...> end)
+      %ReqLLM.Tool{name: "my_action", ...}
+
+      # Convert multiple actions
+      iex> tools = Enum.map([Action1, Action2], &Jido.Action.Tool.to_reqllm_tool/1)
+
+  """
+  @spec to_reqllm_tool(module(), (-> map())) :: ReqLLM.Tool.t()
+  def to_reqllm_tool(action, ctx_builder \\ fn -> %{} end) when is_atom(action) do
+    jido_tool = to_tool(action)
+
+    ReqLLM.Tool.new!(
+      name: jido_tool.name,
+      description: jido_tool.description,
+      parameter_schema: jido_tool.parameters_schema,
+      callback: fn args ->
+        ctx = ctx_builder.()
+        jido_tool.function.(args, ctx)
+      end
+    )
+  end
+
+  @doc """
+  Converts multiple Jido Actions into ReqLLM.Tool structs.
+
+  ## Arguments
+
+    * `actions` - List of modules implementing the Jido.Action behavior.
+    * `ctx_builder` - A 0-arity function that returns the context map (default: `fn -> %{} end`)
+
+  ## Returns
+
+    A list of `ReqLLM.Tool` structs.
+
+  ## Examples
+
+      iex> tools = Jido.Action.Tool.to_reqllm_tools([Action1, Action2])
+      [%ReqLLM.Tool{}, %ReqLLM.Tool{}]
+
+      iex> tools = Jido.Action.Tool.to_reqllm_tools([Action1, Action2], fn ->
+      ...>   %{session: get_session()}
+      ...> end)
+
+  """
+  @spec to_reqllm_tools([module()], (-> map())) :: [ReqLLM.Tool.t()]
+  def to_reqllm_tools(actions, ctx_builder \\ fn -> %{} end) when is_list(actions) do
+    Enum.map(actions, &to_reqllm_tool(&1, ctx_builder))
   end
 
   @doc """
