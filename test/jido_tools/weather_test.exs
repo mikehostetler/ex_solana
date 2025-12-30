@@ -249,12 +249,13 @@ defmodule JidoTest.Tools.WeatherTest do
       params = %{}
 
       assert {:ok, result} = Weather.run(params, %{})
-      # Default format is text, so Weather action returns just the forecast string
-      assert is_binary(result)
-      assert result =~ "Temperature:"
-      assert result =~ "°F"
-      assert result =~ "Tonight"
-      assert result =~ "56°F"
+      # Default format is text, so Weather action returns a map with forecast string
+      assert is_map(result)
+      assert is_binary(result.forecast)
+      assert result.forecast =~ "Temperature:"
+      assert result.forecast =~ "°F"
+      assert result.forecast =~ "Tonight"
+      assert result.forecast =~ "56°F"
     end
 
     test "accepts explicit location coordinates" do
@@ -263,12 +264,13 @@ defmodule JidoTest.Tools.WeatherTest do
       params = %{location: @nyc_coords}
 
       assert {:ok, result} = Weather.run(params, %{})
-      # Default format is text, so Weather action returns just the forecast string
-      assert is_binary(result)
-      assert result =~ "Temperature:"
-      assert result =~ "°F"
-      assert result =~ "This Afternoon"
-      assert result =~ "78°F"
+      # Default format is text, so Weather action returns a map with forecast string
+      assert is_map(result)
+      assert is_binary(result.forecast)
+      assert result.forecast =~ "Temperature:"
+      assert result.forecast =~ "°F"
+      assert result.forecast =~ "This Afternoon"
+      assert result.forecast =~ "78°F"
     end
 
     test "supports different periods parameter" do
@@ -277,25 +279,27 @@ defmodule JidoTest.Tools.WeatherTest do
       params = %{periods: 3}
 
       assert {:ok, result} = Weather.run(params, %{})
-      # Default format is text, so Weather action returns just the forecast string
-      assert is_binary(result)
-      assert result =~ "Temperature:"
-      assert result =~ "°F"
+      # Default format is text, so Weather action returns a map with forecast string
+      assert is_map(result)
+      assert is_binary(result.forecast)
+      assert result.forecast =~ "Temperature:"
+      assert result.forecast =~ "°F"
       # Should have 3 periods
-      assert result =~ "Tonight"
-      assert result =~ "Monday"
-      assert result =~ "Monday Night"
+      assert result.forecast =~ "Tonight"
+      assert result.forecast =~ "Monday"
+      assert result.forecast =~ "Monday Night"
     end
 
     test "supports different format parameters" do
-      # Test text format (raw forecast string)
+      # Test text format (map with forecast string)
       setup_weather_mocks(@chicago_coords, 2)
 
       params = %{format: :text, periods: 2}
       assert {:ok, result} = Weather.run(params, %{})
-      # Text format returns just the forecast string
-      assert is_binary(result)
-      assert result =~ "Temperature:"
+      # Text format returns a map with forecast string
+      assert is_map(result)
+      assert is_binary(result.forecast)
+      assert result.forecast =~ "Temperature:"
 
       # Test summary format (full map structure)
       setup_weather_mocks(@chicago_coords, 2)
@@ -405,17 +409,18 @@ defmodule JidoTest.Tools.WeatherTest do
       assert length(result.forecast) == 2
     end
 
-    test "text format returns raw forecast string" do
+    test "text format returns map with forecast string" do
       setup_weather_mocks(@chicago_coords, 1)
 
       params = %{format: :text, periods: 1}
 
       assert {:ok, result} = Weather.run(params, %{})
-      # Text format returns just the forecast string, not a map
-      assert is_binary(result)
-      assert result =~ "Temperature:"
-      assert result =~ "°F"
-      assert result =~ "Tonight"
+      # Text format returns a map with forecast string
+      assert is_map(result)
+      assert is_binary(result.forecast)
+      assert result.forecast =~ "Temperature:"
+      assert result.forecast =~ "°F"
+      assert result.forecast =~ "Tonight"
     end
 
     test "summary and detailed formats return structured data" do

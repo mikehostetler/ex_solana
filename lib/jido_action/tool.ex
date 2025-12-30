@@ -1,9 +1,19 @@
 defmodule Jido.Action.Tool do
   @moduledoc """
-  Provides functionality to convert Jido Execs into tool representations.
+  Provides functionality to convert Jido Actions into generic tool representations.
 
-  This module allows Jido Execs to be easily integrated with AI systems
-  like LangChain or Instructor by converting them into a standardized tool format.
+  This module allows Jido Actions to be converted into standardized tool maps
+  that can be used by various AI integration layers.
+
+  ## Tool Formats
+
+  - `to_tool/1` - Returns a generic tool map with name, description, function, and schema
+
+  ## Utility Functions
+
+  - `convert_params_using_schema/2` - Normalizes LLM arguments (string keys → atom keys, type coercion)
+  - `build_parameters_schema/1` - Converts action schema to JSON Schema format
+  - `execute_action/3` - Executes an action with schema-based param conversion
   """
 
   @type tool :: %{
@@ -61,6 +71,9 @@ defmodule Jido.Action.Tool do
 
       {:error, %_{} = error} when is_exception(error) ->
         {:error, Jason.encode!(%{error: inspect(error)})}
+
+      {:error, reason} ->
+        {:error, Jason.encode!(%{error: inspect(reason)})}
     end
   end
 
