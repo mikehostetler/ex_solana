@@ -46,6 +46,87 @@ defmodule ReqLLM.Providers.Azure.OpenAI do
 
   @openai_model_prefixes ["gpt", "o1", "o3", "o4", "text-embedding"]
 
+  @anthropic_specific_options [
+    :anthropic_prompt_cache,
+    :anthropic_prompt_cache_ttl,
+    :anthropic_version
+  ]
+
+  @doc """
+  Pre-validates and transforms options for OpenAI models on Azure.
+  Warns if Anthropic-specific options are passed.
+  """
+  def pre_validate_options(_operation, _model, opts) do
+    opts
+    |> warn_and_remove_anthropic_options()
+    |> warn_and_remove_anthropic_thinking_config()
+    |> then(&{&1, []})
+  end
+
+  defp warn_and_remove_anthropic_options(opts) do
+    case opts[:provider_options] do
+      provider_opts when is_list(provider_opts) ->
+        found_anthropic_opts =
+          @anthropic_specific_options
+          |> Enum.filter(&Keyword.has_key?(provider_opts, &1))
+
+        if found_anthropic_opts == [] do
+          opts
+        else
+          Logger.warning(
+            "Options #{inspect(found_anthropic_opts)} are Anthropic-specific and are ignored for OpenAI models on Azure."
+          )
+
+          updated_provider_opts = Keyword.drop(provider_opts, found_anthropic_opts)
+
+          Keyword.put(opts, :provider_options, updated_provider_opts)
+        end
+
+      _ ->
+        opts
+    end
+  end
+
+  defp warn_and_remove_anthropic_thinking_config(opts) do
+    case opts[:provider_options] do
+      provider_opts when is_list(provider_opts) ->
+        amrf = provider_opts[:additional_model_request_fields]
+
+        case amrf do
+          %{thinking: _} ->
+            warn_and_remove_thinking(opts, provider_opts, amrf)
+
+          %{"thinking" => _} ->
+            warn_and_remove_thinking(opts, provider_opts, amrf)
+
+          _ ->
+            opts
+        end
+
+      _ ->
+        opts
+    end
+  end
+
+  defp warn_and_remove_thinking(opts, provider_opts, amrf) do
+    Logger.warning(
+      "additional_model_request_fields with thinking config is Anthropic-specific " <>
+        "and is ignored for OpenAI models on Azure. " <>
+        "For OpenAI reasoning models, use reasoning_effort instead."
+    )
+
+    updated_amrf = Map.drop(amrf, [:thinking, "thinking"])
+
+    updated_provider_opts =
+      if map_size(updated_amrf) == 0 do
+        Keyword.delete(provider_opts, :additional_model_request_fields)
+      else
+        Keyword.put(provider_opts, :additional_model_request_fields, updated_amrf)
+      end
+
+    Keyword.put(opts, :provider_options, updated_provider_opts)
+  end
+
   @doc """
   Formats a ReqLLM context into OpenAI Chat Completions request format.
 

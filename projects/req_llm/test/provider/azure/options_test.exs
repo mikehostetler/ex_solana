@@ -531,4 +531,199 @@ defmodule ReqLLM.Providers.Azure.OptionsTest do
       assert url_string =~ "api-version="
     end
   end
+
+  describe "Azure.OpenAI.pre_validate_options/3" do
+    import ExUnit.CaptureLog
+
+    test "warns and removes anthropic_prompt_cache (Anthropic-specific option)" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+      opts = [provider_options: [anthropic_prompt_cache: true]]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :anthropic_prompt_cache)
+        end)
+
+      assert log =~ "anthropic_prompt_cache"
+      assert log =~ "Anthropic-specific"
+      assert log =~ "ignored for OpenAI models on Azure"
+    end
+
+    test "warns and removes anthropic_prompt_cache_ttl (Anthropic-specific option)" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+      opts = [provider_options: [anthropic_prompt_cache_ttl: "1h"]]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :anthropic_prompt_cache_ttl)
+        end)
+
+      assert log =~ "anthropic_prompt_cache_ttl"
+      assert log =~ "Anthropic-specific"
+    end
+
+    test "warns and removes anthropic_version (Anthropic-specific option)" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+      opts = [provider_options: [anthropic_version: "2023-06-01"]]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :anthropic_version)
+        end)
+
+      assert log =~ "anthropic_version"
+      assert log =~ "Anthropic-specific"
+    end
+
+    test "warns and removes multiple Anthropic options at once" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [
+          anthropic_prompt_cache: true,
+          anthropic_prompt_cache_ttl: "1h",
+          anthropic_version: "2023-06-01",
+          service_tier: "priority"
+        ]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :anthropic_prompt_cache)
+          refute Keyword.has_key?(provider_opts, :anthropic_prompt_cache_ttl)
+          refute Keyword.has_key?(provider_opts, :anthropic_version)
+          # service_tier should remain (it's valid for OpenAI)
+          assert Keyword.has_key?(provider_opts, :service_tier)
+        end)
+
+      assert log =~ "Anthropic-specific"
+    end
+
+    test "warns and removes thinking config from additional_model_request_fields" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [
+          additional_model_request_fields: %{thinking: %{type: "enabled", budget_tokens: 10_000}}
+        ]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          # additional_model_request_fields should be removed entirely (was only thinking)
+          refute Keyword.has_key?(provider_opts, :additional_model_request_fields)
+        end)
+
+      assert log =~ "thinking config is Anthropic-specific"
+      assert log =~ "ignored for OpenAI models on Azure"
+      assert log =~ "use reasoning_effort instead"
+    end
+
+    test "preserves other fields in additional_model_request_fields when removing thinking" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [
+          additional_model_request_fields: %{
+            thinking: %{type: "enabled"},
+            other_field: "keep me"
+          }
+        ]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          amrf = provider_opts[:additional_model_request_fields]
+          assert amrf != nil
+          refute Map.has_key?(amrf, :thinking)
+          assert amrf[:other_field] == "keep me"
+        end)
+
+      assert log =~ "thinking config is Anthropic-specific"
+    end
+
+    test "handles both Anthropic options and thinking config simultaneously" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [
+          anthropic_prompt_cache: true,
+          additional_model_request_fields: %{thinking: %{type: "enabled"}}
+        ]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :anthropic_prompt_cache)
+          refute Keyword.has_key?(provider_opts, :additional_model_request_fields)
+        end)
+
+      # Both warnings should be logged
+      assert log =~ "anthropic_prompt_cache"
+      assert log =~ "thinking config is Anthropic-specific"
+    end
+
+    test "does not warn when no Anthropic-specific options are present" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [service_tier: "priority", response_format: %{type: "json_object"}]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          assert Keyword.has_key?(provider_opts, :service_tier)
+          assert Keyword.has_key?(provider_opts, :response_format)
+        end)
+
+      refute log =~ "Anthropic-specific"
+      refute log =~ "thinking config"
+    end
+
+    test "handles non-keyword-list provider_options gracefully" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+      # This shouldn't happen in practice, but the code should handle it
+      opts = [provider_options: %{anthropic_prompt_cache: true}]
+
+      # Should not crash
+      {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+      # Options are returned as-is since we can't process a map as keyword list
+      assert translated[:provider_options] == %{anthropic_prompt_cache: true}
+    end
+
+    test "handles string keys in thinking config" do
+      model = %LLMDB.Model{id: "gpt-4o", provider: :azure, capabilities: %{}}
+
+      opts = [
+        provider_options: [
+          additional_model_request_fields: %{"thinking" => %{"type" => "enabled"}}
+        ]
+      ]
+
+      log =
+        capture_log(fn ->
+          {translated, _warnings} = Azure.OpenAI.pre_validate_options(:chat, model, opts)
+          provider_opts = translated[:provider_options] || []
+          refute Keyword.has_key?(provider_opts, :additional_model_request_fields)
+        end)
+
+      assert log =~ "thinking config is Anthropic-specific"
+    end
+  end
 end
