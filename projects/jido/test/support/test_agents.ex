@@ -39,10 +39,35 @@ defmodule JidoTest.TestAgents do
     @behaviour Jido.Agent.Strategy
 
     @impl true
+    def init(agent, _ctx), do: {agent, []}
+
+    @impl true
+    def tick(agent, _ctx), do: {agent, []}
+
+    @impl true
     def cmd(agent, action, ctx) do
       count = Map.get(agent.state, :strategy_count, 0)
       agent = %{agent | state: Map.put(agent.state, :strategy_count, count + 1)}
       Jido.Agent.Strategy.Direct.cmd(agent, action, ctx)
+    end
+  end
+
+  defmodule InitDirectiveStrategy do
+    @moduledoc "Strategy that emits directives from init/2 for testing"
+    use Jido.Agent.Strategy
+
+    @impl true
+    def init(agent, _ctx) do
+      new_state = Map.put(agent.state, :__strategy__, %{initialized: true})
+      agent = %{agent | state: new_state}
+
+      signal = Jido.Signal.new!("strategy.initialized", %{}, source: "/strategy")
+      {agent, [%Jido.Agent.Directive.Emit{signal: signal}]}
+    end
+
+    @impl true
+    def cmd(agent, _instructions, _ctx) do
+      {agent, []}
     end
   end
 
@@ -69,5 +94,15 @@ defmodule JidoTest.TestAgents do
           status: Zoi.atom() |> Zoi.default(:idle),
           count: Zoi.integer() |> Zoi.default(0)
         })
+  end
+
+  defmodule WithCustomStrategy do
+    @moduledoc "Agent with a strategy that emits directives from init/2"
+    use Jido.Agent,
+      name: "with_custom_strategy_agent",
+      strategy: JidoTest.TestAgents.InitDirectiveStrategy,
+      schema: [
+        value: [type: :integer, default: 0]
+      ]
   end
 end

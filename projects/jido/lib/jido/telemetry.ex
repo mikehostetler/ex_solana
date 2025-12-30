@@ -13,6 +13,15 @@ defmodule Jido.Telemetry do
   - `[:jido, :agent, :cmd, :stop]` - Agent command execution completed
   - `[:jido, :agent, :cmd, :exception]` - Agent command execution failed
 
+  ### AgentServer Events
+  - `[:jido, :agent_server, :signal, :start]` - Signal processing started
+  - `[:jido, :agent_server, :signal, :stop]` - Signal processing completed
+  - `[:jido, :agent_server, :signal, :exception]` - Signal processing failed
+  - `[:jido, :agent_server, :directive, :start]` - Directive execution started
+  - `[:jido, :agent_server, :directive, :stop]` - Directive execution completed
+  - `[:jido, :agent_server, :directive, :exception]` - Directive execution failed
+  - `[:jido, :agent_server, :queue, :overflow]` - Directive queue overflow
+
   ### Strategy Events
   - `[:jido, :agent, :strategy, :init, :start]` - Strategy initialization started
   - `[:jido, :agent, :strategy, :init, :stop]` - Strategy initialization completed
@@ -130,6 +139,42 @@ defmodule Jido.Telemetry do
         "jido.agent.strategy.tick.duration",
         unit: {:native, :millisecond},
         description: "Total duration of strategy ticks"
+      ),
+
+      # AgentServer signal metrics
+      Telemetry.Metrics.counter(
+        "jido.agent_server.signal.count",
+        description: "Total number of signals processed"
+      ),
+      Telemetry.Metrics.sum(
+        "jido.agent_server.signal.duration",
+        unit: {:native, :millisecond},
+        description: "Total duration of signal processing"
+      ),
+      Telemetry.Metrics.counter(
+        "jido.agent_server.signal.exception.count",
+        description: "Total number of signal processing failures"
+      ),
+
+      # AgentServer directive metrics
+      Telemetry.Metrics.counter(
+        "jido.agent_server.directive.count",
+        description: "Total number of directives executed"
+      ),
+      Telemetry.Metrics.sum(
+        "jido.agent_server.directive.duration",
+        unit: {:native, :millisecond},
+        description: "Total duration of directive execution"
+      ),
+      Telemetry.Metrics.counter(
+        "jido.agent_server.directive.exception.count",
+        description: "Total number of directive execution failures"
+      ),
+
+      # AgentServer queue metrics
+      Telemetry.Metrics.counter(
+        "jido.agent_server.queue.overflow.count",
+        description: "Total number of queue overflows"
       )
     ]
 
@@ -148,7 +193,14 @@ defmodule Jido.Telemetry do
         [:jido, :agent, :strategy, :cmd, :exception],
         [:jido, :agent, :strategy, :tick, :start],
         [:jido, :agent, :strategy, :tick, :stop],
-        [:jido, :agent, :strategy, :tick, :exception]
+        [:jido, :agent, :strategy, :tick, :exception],
+        [:jido, :agent_server, :signal, :start],
+        [:jido, :agent_server, :signal, :stop],
+        [:jido, :agent_server, :signal, :exception],
+        [:jido, :agent_server, :directive, :start],
+        [:jido, :agent_server, :directive, :stop],
+        [:jido, :agent_server, :directive, :exception],
+        [:jido, :agent_server, :queue, :overflow]
       ],
       &__MODULE__.handle_event/4,
       nil
@@ -289,6 +341,86 @@ defmodule Jido.Telemetry do
       strategy: metadata[:strategy],
       duration_μs: duration,
       error: inspect(metadata[:error])
+    )
+  end
+
+  # ---------------------------------------------------------------------------
+  # AgentServer Event Handlers
+  # ---------------------------------------------------------------------------
+
+  def handle_event([:jido, :agent_server, :signal, :start], _measurements, metadata, _config) do
+    Logger.debug("[AgentServer] Signal processing started",
+      agent_id: metadata[:agent_id],
+      signal_type: metadata[:signal_type]
+    )
+  end
+
+  def handle_event([:jido, :agent_server, :signal, :stop], measurements, metadata, _config) do
+    duration = Map.get(measurements, :duration, 0)
+
+    Logger.debug("[AgentServer] Signal processing completed",
+      agent_id: metadata[:agent_id],
+      signal_type: metadata[:signal_type],
+      duration_μs: duration,
+      directive_count: metadata[:directive_count]
+    )
+  end
+
+  def handle_event(
+        [:jido, :agent_server, :signal, :exception],
+        measurements,
+        metadata,
+        _config
+      ) do
+    duration = Map.get(measurements, :duration, 0)
+
+    Logger.warning("[AgentServer] Signal processing failed",
+      agent_id: metadata[:agent_id],
+      signal_type: metadata[:signal_type],
+      duration_μs: duration,
+      error: inspect(metadata[:error])
+    )
+  end
+
+  def handle_event([:jido, :agent_server, :directive, :start], _measurements, metadata, _config) do
+    Logger.debug("[AgentServer] Directive execution started",
+      agent_id: metadata[:agent_id],
+      directive_type: metadata[:directive_type]
+    )
+  end
+
+  def handle_event([:jido, :agent_server, :directive, :stop], measurements, metadata, _config) do
+    duration = Map.get(measurements, :duration, 0)
+
+    Logger.debug("[AgentServer] Directive execution completed",
+      agent_id: metadata[:agent_id],
+      directive_type: metadata[:directive_type],
+      duration_μs: duration,
+      result: metadata[:result]
+    )
+  end
+
+  def handle_event(
+        [:jido, :agent_server, :directive, :exception],
+        measurements,
+        metadata,
+        _config
+      ) do
+    duration = Map.get(measurements, :duration, 0)
+
+    Logger.warning("[AgentServer] Directive execution failed",
+      agent_id: metadata[:agent_id],
+      directive_type: metadata[:directive_type],
+      duration_μs: duration,
+      error: inspect(metadata[:error])
+    )
+  end
+
+  def handle_event([:jido, :agent_server, :queue, :overflow], measurements, metadata, _config) do
+    Logger.warning("[AgentServer] Queue overflow",
+      agent_id: metadata[:agent_id],
+      signal_type: metadata[:signal_type],
+      queue_size: measurements[:queue_size]
     )
   end
 

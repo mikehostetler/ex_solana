@@ -75,7 +75,7 @@ defmodule Jido.Agent do
 
   ### Working with Agents
 
-      # Create a new agent
+      # Create a new agent (fully initialized including strategy state)
       agent = MyAgent.new()
       agent = MyAgent.new(id: "custom-id", state: %{counter: 10})
 
@@ -86,6 +86,13 @@ defmodule Jido.Agent do
 
       # Update state directly
       {:ok, agent} = MyAgent.set(agent, %{status: :running})
+
+  ## Strategy Initialization
+
+  `new/1` automatically calls `strategy.init/2` to initialize strategy-specific
+  state. Any directives returned by strategy init are dropped here since they
+  require a runtime to execute. When using `AgentServer`, it handles strategy
+  init directives separately during startup.
 
   ## Lifecycle Hook
 
@@ -240,7 +247,51 @@ defmodule Jido.Agent do
   @callback on_after_cmd(agent :: t(), action :: term(), directives :: [directive()]) ::
               {:ok, t(), [directive()]}
 
-  @optional_callbacks [on_after_cmd: 3]
+  @doc """
+  Handles an incoming signal and returns updated agent with directives.
+
+  The default implementation translates the signal to an action via
+  `signal_to_action/1` and delegates to `cmd/2`. Override this callback
+  for custom signal handling logic.
+
+  ## Examples
+
+      # Default behavior: translates signal.type to action tuple
+      def handle_signal(agent, %Signal{type: "user.created", data: data}) do
+        # Default: calls cmd(agent, {"user.created", data})
+        ...
+      end
+
+      # Custom override for specific signal handling
+      def handle_signal(agent, %Signal{type: "increment"} = _signal) do
+        count = agent.state.counter + 1
+        {%{agent | state: %{agent.state | counter: count}}, []}
+      end
+  """
+  @callback handle_signal(agent :: t(), signal :: Jido.Signal.t()) ::
+              {t(), [directive()]}
+
+  @doc """
+  Translates a signal to an action for `cmd/2`.
+
+  The default implementation returns `{signal.type, signal.data}`.
+  Override to customize how signals map to actions.
+
+  ## Examples
+
+      # Default behavior
+      def signal_to_action(%Signal{type: type, data: data}) do
+        {type, data}
+      end
+
+      # Custom mapping
+      def signal_to_action(%Signal{type: "user." <> action, data: data}) do
+        {String.to_existing_atom(action), data}
+      end
+  """
+  @callback signal_to_action(signal :: Jido.Signal.t()) :: action()
+
+  @optional_callbacks [on_after_cmd: 3, handle_signal: 2, signal_to_action: 1]
 
   defmacro __using__(opts) do
     quote location: :keep do
@@ -372,6 +423,10 @@ defmodule Jido.Agent do
       @doc """
       Creates a new agent with optional initial state.
 
+      The agent is fully initialized including strategy state. For the default
+      Direct strategy, this is a no-op. For custom strategies, any state
+      initialization is applied (but directives are only processed by AgentServer).
+
       ## Examples
 
           agent = #{inspect(__MODULE__)}.new()
@@ -400,7 +455,7 @@ defmodule Jido.Agent do
 
         id = opts[:id] || Jido.Util.generate_id()
 
-        %Agent{
+        agent = %Agent{
           id: id,
           name: name(),
           description: description(),
@@ -410,6 +465,12 @@ defmodule Jido.Agent do
           schema: schema(),
           state: initial_state
         }
+
+        # Run strategy initialization (directives are dropped here;
+        # AgentServer handles init directives separately)
+        ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
+        {initialized_agent, _directives} = strategy().init(agent, ctx)
+        initialized_agent
       end
 
       @doc """
@@ -436,13 +497,36 @@ defmodule Jido.Agent do
         case Instruction.normalize(action, %{state: agent.state}, []) do
           {:ok, instructions} ->
             ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
-            {agent, directives} = strategy().cmd(agent, instructions, ctx)
+            strat = strategy()
+
+            normalized_instructions =
+              Enum.map(instructions, fn instr ->
+                Jido.Agent.Strategy.normalize_instruction(strat, instr, ctx)
+              end)
+
+            {agent, directives} = strat.cmd(agent, normalized_instructions, ctx)
             do_after_cmd(agent, action, directives)
 
           {:error, reason} ->
             error = Jido.Error.validation_error("Invalid action", %{reason: reason})
             {agent, [%Directive.Error{error: error, context: :normalize}]}
         end
+      end
+
+      @doc """
+      Returns a stable, public view of the strategy's execution state.
+
+      Use this instead of inspecting `agent.state.__strategy__` directly.
+      Returns a `Jido.Agent.Strategy.Public` struct with:
+      - `status` - Coarse execution status
+      - `done?` - Whether strategy reached terminal state
+      - `result` - Main output if any
+      - `meta` - Additional strategy-specific metadata
+      """
+      @spec strategy_snapshot(Agent.t()) :: Jido.Agent.Strategy.Public.t()
+      def strategy_snapshot(%Agent{} = agent) do
+        ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
+        strategy().snapshot(agent, ctx)
       end
 
       @doc """
@@ -484,10 +568,82 @@ defmodule Jido.Agent do
         end
       end
 
-      # Default callback implementation
+      # Default callback implementations
+
       def on_after_cmd(agent, _action, directives), do: {:ok, agent, directives}
 
+      @doc """
+      Default signal handler with automatic strategy routing.
+
+      If the strategy implements `signal_routes/1`, this handler automatically
+      routes matching signals to strategy commands. For unmatched signals,
+      falls back to `signal_to_action/1` translation.
+
+      Override this function to customize signal handling for your agent.
+      """
+      @spec handle_signal(Agent.t(), Jido.Signal.t()) :: Agent.cmd_result()
+      def handle_signal(%Agent{} = agent, %Jido.Signal{} = signal) do
+        strat = strategy()
+        ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
+
+        case route_signal_to_strategy(strat, signal, ctx) do
+          {:routed, action} ->
+            cmd(agent, action)
+
+          :no_route ->
+            action = signal_to_action(signal)
+            cmd(agent, action)
+        end
+      end
+
+      defp route_signal_to_strategy(strat, signal, ctx) do
+        if function_exported?(strat, :signal_routes, 1) do
+          routes = strat.signal_routes(ctx)
+
+          case find_matching_route(routes, signal) do
+            nil -> :no_route
+            {:strategy_cmd, action} -> {:routed, {action, signal.data}}
+            {:strategy_tick} -> {:routed, {:strategy_tick, %{}}}
+            {:custom, _term} -> :no_route
+          end
+        else
+          :no_route
+        end
+      end
+
+      defp find_matching_route(routes, signal) do
+        Enum.find_value(routes, fn
+          {type, target} when is_binary(type) ->
+            if signal.type == type, do: target, else: nil
+
+          {type, target, _priority} when is_binary(type) ->
+            if signal.type == type, do: target, else: nil
+
+          {type, match_fn, target} when is_binary(type) and is_function(match_fn, 1) ->
+            if signal.type == type and match_fn.(signal), do: target, else: nil
+
+          {type, match_fn, target, _priority} when is_binary(type) and is_function(match_fn, 1) ->
+            if signal.type == type and match_fn.(signal), do: target, else: nil
+
+          _ ->
+            nil
+        end)
+      end
+
+      @doc """
+      Default signal-to-action translation.
+
+      Returns `{signal.type, signal.data}` as an action tuple.
+      Override to customize how signals map to actions.
+      """
+      @spec signal_to_action(Jido.Signal.t()) :: Agent.action()
+      def signal_to_action(%Jido.Signal{type: type, data: data}) do
+        {type, data}
+      end
+
       defoverridable on_after_cmd: 3,
+                     handle_signal: 2,
+                     signal_to_action: 1,
                      name: 0,
                      description: 0,
                      category: 0,

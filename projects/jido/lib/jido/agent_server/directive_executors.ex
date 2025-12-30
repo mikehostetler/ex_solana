@@ -1,0 +1,165 @@
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Emit do
+  @moduledoc false
+
+  require Logger
+
+  def exec(%{signal: signal, dispatch: dispatch}, _input_signal, state) do
+    cfg = dispatch || state.default_dispatch
+
+    case cfg do
+      nil ->
+        Logger.debug("Emit directive with no dispatch config, signal: #{signal.type}")
+
+      cfg ->
+        if Code.ensure_loaded?(Jido.Signal.Dispatch) do
+          Task.Supervisor.start_child(Jido.TaskSupervisor, fn ->
+            Jido.Signal.Dispatch.dispatch(signal, cfg)
+          end)
+        else
+          Logger.warning("Jido.Signal.Dispatch not available, skipping emit")
+        end
+    end
+
+    {:async, nil, state}
+  end
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Error do
+  @moduledoc false
+
+  alias Jido.AgentServer.ErrorPolicy
+
+  def exec(error_directive, _input_signal, state) do
+    ErrorPolicy.handle(error_directive, state)
+  end
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Spawn do
+  @moduledoc false
+
+  require Logger
+
+  def exec(%{child_spec: child_spec, tag: tag}, _input_signal, state) do
+    result =
+      cond do
+        is_function(state.spawn_fun, 1) ->
+          state.spawn_fun.(child_spec)
+
+        true ->
+          DynamicSupervisor.start_child(Jido.AgentSupervisor, child_spec)
+      end
+
+    case result do
+      {:ok, pid} ->
+        Logger.debug("Spawned child process #{inspect(pid)} with tag #{inspect(tag)}")
+        {:ok, state}
+
+      {:ok, pid, _info} ->
+        Logger.debug("Spawned child process #{inspect(pid)} with tag #{inspect(tag)}")
+        {:ok, state}
+
+      {:error, reason} ->
+        Logger.error("Failed to spawn child: #{inspect(reason)}")
+        {:ok, state}
+
+      :ignored ->
+        {:ok, state}
+    end
+  end
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Schedule do
+  @moduledoc false
+
+  alias Jido.AgentServer.Signal.Scheduled
+
+  def exec(%{delay_ms: delay, message: message}, _input_signal, state) do
+    signal =
+      case message do
+        %Jido.Signal{} = s ->
+          s
+
+        other ->
+          Scheduled.new!(
+            %{message: other},
+            source: "/agent/#{state.id}"
+          )
+      end
+
+    Process.send_after(self(), {:scheduled_signal, signal}, delay)
+    {:ok, state}
+  end
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.SpawnAgent do
+  @moduledoc false
+
+  require Logger
+
+  alias Jido.AgentServer
+  alias Jido.AgentServer.{ChildInfo, State}
+
+  def exec(%{agent: agent, tag: tag, opts: opts, meta: meta}, _input_signal, state) do
+    child_id = opts[:id] || "#{state.id}/#{tag}"
+
+    child_opts =
+      [
+        agent: agent,
+        id: child_id,
+        parent: %{
+          pid: self(),
+          id: state.id,
+          tag: tag,
+          meta: meta
+        }
+      ] ++ Map.to_list(Map.delete(opts, :id))
+
+    case AgentServer.start(child_opts) do
+      {:ok, pid} ->
+        ref = Process.monitor(pid)
+
+        child_info =
+          ChildInfo.new!(%{
+            pid: pid,
+            ref: ref,
+            module: resolve_agent_module(agent),
+            id: child_id,
+            tag: tag,
+            meta: meta
+          })
+
+        new_state = State.add_child(state, tag, child_info)
+
+        Logger.debug("AgentServer #{state.id} spawned child #{child_id} with tag #{inspect(tag)}")
+
+        {:ok, new_state}
+
+      {:error, reason} ->
+        Logger.error("AgentServer #{state.id} failed to spawn child: #{inspect(reason)}")
+        {:ok, state}
+    end
+  end
+
+  defp resolve_agent_module(agent) when is_atom(agent), do: agent
+  defp resolve_agent_module(%{__struct__: module}), do: module
+  defp resolve_agent_module(_), do: nil
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Stop do
+  @moduledoc false
+
+  def exec(%{reason: reason}, _input_signal, state) do
+    {:stop, reason, state}
+  end
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Any do
+  @moduledoc false
+
+  require Logger
+
+  def exec(directive, _input_signal, state) do
+    Logger.debug("Ignoring unknown directive: #{inspect(directive.__struct__)}")
+    {:ok, state}
+  end
+end

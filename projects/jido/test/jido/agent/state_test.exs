@@ -119,10 +119,10 @@ defmodule JidoTest.Agent.StateTest do
       assert defaults == %{name: "default_name", count: 0}
     end
 
-    test "returns empty map for Zoi schema" do
+    test "extracts defaults from Zoi schema" do
       zoi_schema = Zoi.object(%{status: Zoi.atom() |> Zoi.default(:idle)})
 
-      assert State.defaults_from_schema(zoi_schema) == %{}
+      assert State.defaults_from_schema(zoi_schema) == %{status: :idle}
     end
 
     test "only includes keys with defaults" do

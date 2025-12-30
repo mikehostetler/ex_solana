@@ -50,7 +50,7 @@ defmodule Jido.Agent.Directive do
   The runtime dispatches on struct type, so no changes to core are needed.
   """
 
-  alias __MODULE__.{Emit, Error, Spawn, Schedule, Stop}
+  alias __MODULE__.{Emit, Error, Spawn, SpawnAgent, Schedule, Stop}
 
   @typedoc """
   Any external directive struct (core or extension).
@@ -65,6 +65,7 @@ defmodule Jido.Agent.Directive do
           Emit.t()
           | Error.t()
           | Spawn.t()
+          | SpawnAgent.t()
           | Schedule.t()
           | Stop.t()
 
@@ -187,6 +188,67 @@ defmodule Jido.Agent.Directive do
   end
 
   # ============================================================================
+  # SpawnAgent - Spawn a child agent with hierarchy tracking
+  # ============================================================================
+
+  defmodule SpawnAgent do
+    @moduledoc """
+    Spawn a child agent with parent-child hierarchy tracking.
+
+    Unlike `Spawn`, this directive specifically spawns another Jido agent
+    and sets up the logical parent-child relationship:
+
+    - Child's parent reference points to the spawning agent
+    - Parent monitors the child process
+    - Parent tracks child in its children map by tag
+    - Child exit signals are delivered to parent as `jido.agent.child.exit`
+
+    ## Fields
+
+    - `agent` - Agent module (atom) or pre-built agent struct to spawn
+    - `tag` - Tag for tracking this child (used as key in children map)
+    - `opts` - Additional options passed to child AgentServer
+    - `meta` - Metadata to pass to child via parent reference
+
+    ## Examples
+
+        # Spawn a worker agent
+        %SpawnAgent{agent: MyWorkerAgent, tag: :worker_1}
+
+        # Spawn with custom ID and initial state
+        %SpawnAgent{
+          agent: MyWorkerAgent,
+          tag: :processor,
+          opts: %{id: "custom-id", initial_state: %{batch_size: 100}}
+        }
+
+        # Spawn with metadata for the child
+        %SpawnAgent{
+          agent: MyWorkerAgent,
+          tag: :handler,
+          meta: %{assigned_topic: "events.user"}
+        }
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                agent: Zoi.any(description: "Agent module (atom) or pre-built agent struct"),
+                tag: Zoi.any(description: "Tag for tracking this child"),
+                opts: Zoi.map(description: "Options for child AgentServer") |> Zoi.default(%{}),
+                meta: Zoi.map(description: "Metadata to pass to child") |> Zoi.default(%{})
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
   # Schedule - Delayed message scheduling
   # ============================================================================
 
@@ -287,6 +349,27 @@ defmodule Jido.Agent.Directive do
   @spec spawn(term(), term()) :: Spawn.t()
   def spawn(child_spec, tag \\ nil) do
     %Spawn{child_spec: child_spec, tag: tag}
+  end
+
+  @doc """
+  Creates a SpawnAgent directive for spawning child agents with hierarchy tracking.
+
+  ## Options
+
+  - `:opts` - Additional options for the child AgentServer (map)
+  - `:meta` - Metadata to pass to the child via parent reference (map)
+
+  ## Examples
+
+      Directive.spawn_agent(MyWorkerAgent, :worker_1)
+      Directive.spawn_agent(MyWorkerAgent, :processor, opts: %{initial_state: %{batch_size: 100}})
+      Directive.spawn_agent(MyWorkerAgent, :handler, meta: %{assigned_topic: "events"})
+  """
+  @spec spawn_agent(term(), term(), keyword()) :: SpawnAgent.t()
+  def spawn_agent(agent, tag, options \\ []) do
+    opts = Keyword.get(options, :opts, %{})
+    meta = Keyword.get(options, :meta, %{})
+    %SpawnAgent{agent: agent, tag: tag, opts: opts, meta: meta}
   end
 
   @doc """

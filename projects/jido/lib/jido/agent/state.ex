@@ -88,5 +88,7 @@ defmodule Jido.Agent.State do
     end)
   end
 
-  def defaults_from_schema(_zoi_schema), do: %{}
+  def defaults_from_schema(zoi_schema) do
+    Jido.Agent.Schema.defaults_from_zoi_schema(zoi_schema)
+  end
 end

@@ -66,6 +66,36 @@ defmodule JidoTest.AgentTest do
     end
   end
 
+  describe "new/1 strategy initialization" do
+    test "new/1 calls strategy.init/2 for state initialization" do
+      # For agents with custom strategies that modify state in init,
+      # new/1 should apply those state changes
+      agent = TestAgents.WithCustomStrategy.new()
+      assert agent.state.__strategy__.initialized == true
+    end
+
+    test "new/1 returns just the agent (directives are dropped)" do
+      # new/1 returns Agent.t(), not {Agent.t(), directives}
+      agent = TestAgents.WithCustomStrategy.new()
+      assert %Agent{} = agent
+    end
+
+    test "strategy init is idempotent - can be called again by AgentServer" do
+      # This simulates what AgentServer does: create via new/1 then call init again
+      agent = TestAgents.WithCustomStrategy.new()
+      assert agent.state.__strategy__.initialized == true
+
+      # Calling strategy.init again should be safe (idempotent)
+      ctx = %{agent_module: TestAgents.WithCustomStrategy, strategy_opts: []}
+      {agent2, directives} = TestAgents.InitDirectiveStrategy.init(agent, ctx)
+
+      # State should still be initialized
+      assert agent2.state.__strategy__.initialized == true
+      # Directives should still be emitted (for AgentServer to process)
+      assert length(directives) == 1
+    end
+  end
+
   describe "set/2" do
     test "updates state with map" do
       agent = TestAgents.Basic.new()

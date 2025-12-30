@@ -1,6 +1,6 @@
 # Jido AgentServer V2 Architecture
 
-> A resilient, scalable, OTP-native runtime for hierarchical agent systems
+> A simple, OTP-native runtime for hierarchical agent systems
 
 **Version:** 2.0.0-draft  
 **Last Updated:** December 2024
@@ -9,15 +9,16 @@
 
 ## Executive Summary
 
-AgentServer V2 redesigns the agent runtime as a **per-instance OTP supervision tree** rather than a single GenServer. This architecture:
+AgentServer V2 is a **simplified, OTP-idiomatic runtime** for Jido agents. It replaces the multi-process per-instance architecture with a **single GenServer per agent** under a shared supervision tree.
 
-- **Decouples signal processing from effect execution** — eliminating the blocking bottleneck
-- **Enables resilient hierarchical agents** — with proper parent-child lifecycle management
-- **Provides production-grade error handling** — via configurable policies
-- **Scales to hundreds of agent instances** — leveraging BEAM's process model
-- **Remains extensible** — via protocols for directive execution and persistence hooks
+**Core Principles:**
 
-The core principle remains: **Agents think, Servers act** — but now the "act" part is properly distributed across multiple cooperating processes.
+1. **Agents think, Servers act** — Pure `Jido.Agent` logic produces directives; `AgentServer` executes effects
+2. **One process per agent** — Simple, debuggable, leverages BEAM's strengths
+3. **Flat OTP supervision** — All agents under one DynamicSupervisor; hierarchy is logical
+4. **Non-blocking signal processing** — Internal directive queue with drain loop
+5. **Extensible via protocols** — Custom directives without modifying core
+6. **Zoi-validated types** — All data structures use Zoi for schema validation
 
 ---
 
@@ -25,18 +26,16 @@ The core principle remains: **Agents think, Servers act** — but now the "act" 
 
 1. [Design Goals](#1-design-goals)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Global Runtime Infrastructure](#3-global-runtime-infrastructure)
-4. [Per-Instance Process Hierarchy](#4-per-instance-process-hierarchy)
-5. [Signal Processing Pipeline](#5-signal-processing-pipeline)
-6. [Directive Execution System](#6-directive-execution-system)
-7. [Hierarchical Agent Management](#7-hierarchical-agent-management)
-8. [Error Handling & Policies](#8-error-handling--policies)
-9. [Backpressure & Observability](#9-backpressure--observability)
-10. [Event Sourcing & Persistence](#10-event-sourcing--persistence)
-11. [Scaling Considerations](#11-scaling-considerations)
-12. [API Reference](#12-api-reference)
-13. [Migration from V1](#13-migration-from-v1)
-14. [Implementation Roadmap](#14-implementation-roadmap)
+3. [Global Supervision Tree](#3-global-supervision-tree)
+4. [Data Types (Zoi Schemas)](#4-data-types-zoi-schemas)
+5. [AgentServer GenServer](#5-agentserver-genserver)
+6. [Public API](#6-public-api)
+7. [Signal Processing Pipeline](#7-signal-processing-pipeline)
+8. [Directive Execution Protocol](#8-directive-execution-protocol)
+9. [Hierarchical Agent Management](#9-hierarchical-agent-management)
+10. [Error Handling & Policies](#10-error-handling--policies)
+11. [Backpressure & Observability](#11-backpressure--observability)
+12. [Migration from V1](#12-migration-from-v1)
 
 ---
 
@@ -44,26 +43,28 @@ The core principle remains: **Agents think, Servers act** — but now the "act" 
 
 ### Primary Goals
 
-| Goal | Description |
-|------|-------------|
-| **Non-blocking signal processing** | Signal handling must not be blocked by slow directive execution |
-| **Hierarchical agents** | Parent-child relationships with lifecycle feedback and coordination |
-| **Production-grade resilience** | Proper error policies, supervision, and recovery |
-| **Horizontal scale** | Support 100s of agent instances per type |
-| **Extensibility** | External packages can add directive executors without modifying core |
+| Goal | How V2 Achieves It |
+|------|---------------------|
+| **Non-blocking signal processing** | Internal directive queue; signals enqueue fast, effects drain async |
+| **Hierarchical agents** | Logical parent-child via state + lifecycle signals; flat OTP |
+| **Production resilience** | Configurable error policies; standard OTP supervision |
+| **Horizontal scale** | 1 process per agent; supports 1000s of concurrent instances |
+| **Extensibility** | Protocol-based directive execution; plugins add new directive types |
+| **Type safety** | Zoi schemas for all data structures with validation |
 
-### Non-Goals (For Now)
+### Non-Goals (Explicit)
 
 - Cross-node clustering (future consideration)
 - Exactly-once effect delivery (at-most-once is acceptable)
 - Complex scheduling/prioritization across agents
+- Nested OTP supervision per agent (adds complexity without benefit)
 
-### Key Constraints
+### Key Invariants
 
-1. **Sequential directive execution** — Directives for a single agent execute in order
-2. **Pure agent logic** — `Jido.Agent` remains purely functional
+1. **Sequential directive dispatch** — Directives for a single agent execute in order of enqueue
+2. **Pure agent logic** — `Jido.Agent.cmd/2` remains purely functional
 3. **Signals as universal envelope** — All external communication via `Jido.Signal`
-4. **OTP-native** — Leverage supervisors, dynamic supervisors, registries, and tasks
+4. **Single canonical entry point** — `cmd/2` is the pure interface; `handle_signal/2` is a generated adapter
 
 ---
 
@@ -73,1372 +74,1015 @@ The core principle remains: **Agents think, Servers act** — but now the "act" 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Jido.AgentRuntime                                  │
-│                       (Application Supervisor)                               │
+│                           Jido.Application                                   │
+│                        (Application Supervisor)                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  ┌──────────────────┐  ┌────────────────────────┐  ┌─────────────────────┐  │
-│  │  AgentRegistry   │  │ AgentInstanceSupervisor│  │ AgentTaskSupervisor │  │
-│  │    (Registry)    │  │   (DynamicSupervisor)  │  │  (Task.Supervisor)  │  │
-│  └──────────────────┘  └───────────┬────────────┘  └─────────────────────┘  │
-│                                    │                                         │
-│           ┌────────────────────────┼────────────────────────┐               │
-│           │                        │                        │               │
-│           ▼                        ▼                        ▼               │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
-│  │ AgentInstance1  │    │ AgentInstance2  │    │ AgentInstanceN  │         │
-│  │   (Supervisor)  │    │   (Supervisor)  │    │   (Supervisor)  │         │
-│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘         │
-│           │                      │                      │                   │
-└───────────┼──────────────────────┼──────────────────────┼───────────────────┘
-            │                      │                      │
-            ▼                      ▼                      ▼
-   ┌─────────────────────────────────────────────────────────────────┐
-   │              Per-Instance Process Hierarchy                      │
-   │                                                                  │
-   │  ┌────────────┐  ┌─────────────────┐  ┌───────────────────────┐ │
-   │  │AgentServer │  │ EffectExecutor  │  │ ChildSupervisor (opt) │ │
-   │  │ (GenServer)│  │   (GenServer)   │  │  (DynamicSupervisor)  │ │
-   │  └────────────┘  └─────────────────┘  └───────────────────────┘ │
-   └─────────────────────────────────────────────────────────────────┘
+│  ┌─────────────────────┐  ┌────────────────────┐  ┌───────────────────────┐ │
+│  │  Jido.TaskSupervisor│  │   Jido.Registry    │  │ Jido.AgentSupervisor  │ │
+│  │  (Task.Supervisor)  │  │     (Registry)     │  │  (DynamicSupervisor)  │ │
+│  └─────────────────────┘  └────────────────────┘  └───────────┬───────────┘ │
+│                                                               │              │
+│           Shared pool for                  Unique name        │              │
+│           async effects                    lookup             │              │
+│                                                               │              │
+│                            ┌──────────────────────────────────┼──────┐      │
+│                            │                                  │      │      │
+│                            ▼                                  ▼      ▼      │
+│                   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│                   │  AgentServer 1  │  │  AgentServer 2  │  │ AgentServer │ │
+│                   │   (GenServer)   │  │   (GenServer)   │  │     N       │ │
+│                   └─────────────────┘  └─────────────────┘  └─────────────┘ │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Process Responsibilities
+### Process Count
 
-| Process | Responsibility |
-|---------|----------------|
-| **AgentServer** | Holds agent state, processes signals (pure), routes to runner, enqueues directives |
-| **EffectExecutor** | Owns directive queue, executes directives sequentially, offloads heavy work to tasks |
-| **ChildSupervisor** | Supervises spawned child agents/processes |
-| **AgentTaskSupervisor** | Global pool for long-running effects (LLM calls, HTTP, etc.) |
+| Agents | Total Processes | Memory |
+|--------|-----------------|--------|
+| 1 | 4 (3 global + 1 agent) | ~400 KB |
+| 100 | 103 | ~10 MB |
+| 1,000 | 1,003 | ~100 MB |
+| 10,000 | 10,003 | ~1 GB |
 
 ---
 
-## 3. Global Runtime Infrastructure
+## 3. Global Supervision Tree
 
-### Application Supervision Tree
+### Application Module
 
 ```elixir
-defmodule Jido.AgentRuntime do
-  @moduledoc """
-  Global supervision tree for the Jido agent runtime.
-  
-  Provides:
-  - Registry for agent instance lookup
-  - DynamicSupervisor for agent instances
-  - Task.Supervisor for async effect execution
-  """
-  
+defmodule Jido.Application do
+  @moduledoc false
   use Application
 
   def start(_type, _args) do
     children = [
-      # Agent name registry (unique keys)
-      {Registry, keys: :unique, name: Jido.AgentRegistry},
-      
-      # Dynamic supervisor for all agent instances
-      {DynamicSupervisor, 
-        name: Jido.AgentInstanceSupervisor, 
+      {Task.Supervisor, name: Jido.TaskSupervisor, max_children: 1000},
+      {Registry, keys: :unique, name: Jido.Registry},
+      {DynamicSupervisor,
+        name: Jido.AgentSupervisor,
         strategy: :one_for_one,
         max_restarts: 1000,
-        max_seconds: 5},
-      
-      # Shared task supervisor for async effects
-      {Task.Supervisor, 
-        name: Jido.AgentTaskSupervisor,
-        max_children: 1000}
+        max_seconds: 5}
     ]
 
-    opts = [strategy: :one_for_one, name: Jido.AgentRuntime.Supervisor]
-    Supervisor.start_link(children, opts)
+    Supervisor.start_link(children,
+      strategy: :one_for_one,
+      name: Jido.Supervisor)
   end
-end
-```
-
-### Registry-Based Naming
-
-Agents can be looked up by their instance ID:
-
-```elixir
-# Registration (automatic in AgentServer.init/1)
-{:via, Registry, {Jido.AgentRegistry, agent_id}}
-
-# Lookup
-case Registry.lookup(Jido.AgentRegistry, agent_id) do
-  [{pid, _meta}] -> {:ok, pid}
-  [] -> {:error, :not_found}
 end
 ```
 
 ---
 
-## 4. Per-Instance Process Hierarchy
+## 4. Data Types (Zoi Schemas)
 
-### Instance Supervisor
+All AgentServer data structures are defined using Zoi for type safety and validation. Helper modules are `@moduledoc false` to keep the public API clean.
 
-Each agent instance is a small supervision tree:
+### Parent Reference
 
 ```elixir
-defmodule Jido.AgentServer.InstanceSupervisor do
-  @moduledoc """
-  Supervises a single agent instance's processes.
+defmodule Jido.Agent.Server.Types.ParentRef do
+  @moduledoc false
   
-  Uses :one_for_all strategy - if any child dies, all are restarted.
-  This ensures consistent state between AgentServer and EffectExecutor.
-  """
-  
-  use Supervisor
+  @schema Zoi.struct(
+    __MODULE__,
+    %{
+      pid: Zoi.any(description: "Parent process PID"),
+      id: Zoi.string(description: "Parent instance ID"),
+      tag: Zoi.any(description: "Tag assigned by parent when spawning this child"),
+      meta: Zoi.map(description: "Arbitrary metadata from parent") |> Zoi.default(%{})
+    },
+    coerce: true
+  )
 
-  def start_link({agent_module, opts}) do
-    Supervisor.start_link(__MODULE__, {agent_module, opts})
-  end
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
 
-  @impl true
-  def init({agent_module, opts}) do
-    instance_id = opts[:id] || Jido.Util.generate_id()
-    
-    children = [
-      # Child supervisor (started first, needed by EffectExecutor)
-      {DynamicSupervisor, 
-        name: child_sup_name(instance_id),
-        strategy: :one_for_one},
-      
-      # Effect executor (started before AgentServer)
-      {Jido.AgentServer.EffectExecutor,
-        instance_id: instance_id,
-        opts: opts},
-      
-      # Main agent server
-      {Jido.AgentServer,
-        agent_module: agent_module,
-        instance_id: instance_id,
-        opts: opts}
-    ]
+  def schema, do: @schema
 
-    Supervisor.init(children, strategy: :one_for_all, max_restarts: 3, max_seconds: 5)
-  end
-  
-  defp child_sup_name(instance_id), do: {:via, Registry, {Jido.AgentRegistry, {instance_id, :children}}}
+  @spec new(map()) :: {:ok, t()} | {:error, term()}
+  def new(attrs), do: Zoi.parse(@schema, attrs)
+
+  @spec new!(map()) :: t()
+  def new!(attrs), do: Zoi.parse!(@schema, attrs)
 end
 ```
 
-### Why `:one_for_all`?
-
-| Scenario | Behavior |
-|----------|----------|
-| AgentServer crashes | Entire instance restarts, ensuring clean state |
-| EffectExecutor crashes | Instance restarts; pending directives lost (at-most-once) |
-| ChildSupervisor crashes | Instance restarts; child agents also restarted |
-
-This provides strong consistency guarantees while leveraging OTP's built-in fault tolerance.
-
----
-
-## 5. Signal Processing Pipeline
-
-### AgentServer State
+### Child Info
 
 ```elixir
-defmodule Jido.AgentServer do
-  use GenServer
+defmodule Jido.Agent.Server.Types.ChildInfo do
+  @moduledoc false
   
-  @type state :: %{
-    # Identity
-    instance_id: String.t(),
-    agent_module: module(),
-    
-    # Pure agent data
-    agent: Jido.Agent.t(),
-    
-    # Runtime configuration
-    runner: module(),
-    default_dispatch: term(),
-    error_policy: error_policy(),
-    max_queue: non_neg_integer() | :infinity,
-    
-    # Process references
-    effect_executor: pid(),
-    child_sup: pid(),
-    
-    # Hierarchy
-    parent: parent_ref() | nil,
-    children: %{term() => child_info()},
-    
-    # Persistence (optional)
-    persistence: nil | {module(), keyword()},
-    
-    # Metrics
-    stats: %{
-      signals_processed: non_neg_integer(),
-      last_signal_at: integer() | nil
+  @schema Zoi.struct(
+    __MODULE__,
+    %{
+      pid: Zoi.any(description: "Child process PID"),
+      ref: Zoi.any(description: "Monitor reference"),
+      module: Zoi.atom(description: "Child agent module"),
+      meta: Zoi.map(description: "Metadata passed during spawn") |> Zoi.default(%{})
+    },
+    coerce: true
+  )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  def schema, do: @schema
+
+  @spec new(map()) :: {:ok, t()} | {:error, term()}
+  def new(attrs), do: Zoi.parse(@schema, attrs)
+
+  @spec new!(map()) :: t()
+  def new!(attrs), do: Zoi.parse!(@schema, attrs)
+end
+```
+
+### Error Policy
+
+```elixir
+defmodule Jido.Agent.Server.Types.ErrorPolicy do
+  @moduledoc false
+  
+  @type t ::
+    :log_only
+    | :stop_on_error
+    | {:emit_signal, dispatch_cfg :: term()}
+    | {:max_errors, pos_integer()}
+    | (Jido.Agent.Directive.Error.t(), state :: map() -> 
+        {:ok, map()} | {:stop, term(), map()})
+
+  @spec validate(term()) :: {:ok, t()} | {:error, :invalid_error_policy}
+  def validate(:log_only), do: {:ok, :log_only}
+  def validate(:stop_on_error), do: {:ok, :stop_on_error}
+  def validate({:emit_signal, _cfg} = policy), do: {:ok, policy}
+  def validate({:max_errors, n} = policy) when is_integer(n) and n > 0, do: {:ok, policy}
+  def validate(fun) when is_function(fun, 2), do: {:ok, fun}
+  def validate(_), do: {:error, :invalid_error_policy}
+end
+```
+
+### Server Options
+
+```elixir
+defmodule Jido.Agent.Server.Types.Options do
+  @moduledoc false
+  
+  alias Jido.Agent.Server.Types.{ParentRef, ErrorPolicy}
+
+  @schema Zoi.object(
+    %{
+      agent: Zoi.any(description: "Agent module (atom) or instantiated agent struct"),
+      id: Zoi.string(description: "Instance ID (auto-generated if not provided)") |> Zoi.optional(),
+      initial_state: Zoi.map(description: "Initial agent state") |> Zoi.default(%{}),
+      registry: Zoi.atom(description: "Registry module") |> Zoi.default(Jido.Registry),
+      default_dispatch: Zoi.any(description: "Default dispatch config for Emit") |> Zoi.optional(),
+      error_policy: Zoi.any(description: "Error handling policy") |> Zoi.default(:log_only),
+      max_queue_size: Zoi.integer(description: "Max directive queue size") 
+        |> Zoi.min(1) 
+        |> Zoi.default(10_000),
+      parent: Zoi.any(description: "Parent reference for hierarchy") |> Zoi.optional(),
+      on_parent_death: Zoi.atom(description: "Behavior when parent dies")
+        |> Zoi.enum([:stop, :continue, :emit_orphan])
+        |> Zoi.default(:stop)
     }
-  }
+  )
+
+  def schema, do: @schema
+
+  @spec validate(keyword() | map()) :: {:ok, map()} | {:error, term()}
+  def validate(opts) when is_list(opts), do: validate(Map.new(opts))
+  def validate(opts) when is_map(opts), do: Zoi.parse(@schema, opts)
+end
+```
+
+### Server State
+
+```elixir
+defmodule Jido.Agent.Server.State do
+  @moduledoc false
   
-  @type parent_ref :: %{pid: pid(), tag: term(), signal: Jido.Signal.t() | nil}
-  @type child_info :: %{pid: pid(), ref: reference(), module: module(), meta: map()}
-  @type error_policy :: :log_only | :stop_on_error | {:emit_signal, term()} | function()
+  alias Jido.Agent.Server.Types.{ParentRef, ChildInfo}
+
+  @schema Zoi.struct(
+    __MODULE__,
+    %{
+      # Identity
+      id: Zoi.string(description: "Instance ID"),
+      agent_module: Zoi.atom(description: "Agent behaviour module"),
+      agent: Zoi.any(description: "Pure agent struct"),
+
+      # Directive execution
+      queue: Zoi.any(description: "Directive queue (:queue.queue())"),
+      processing: Zoi.boolean(description: "Is drain loop active?") |> Zoi.default(false),
+
+      # Hierarchy (logical, not OTP)
+      parent: Zoi.any(description: "Parent reference") |> Zoi.optional(),
+      children: Zoi.map(description: "Child agents by tag") |> Zoi.default(%{}),
+      on_parent_death: Zoi.atom(description: "Behavior on parent death") |> Zoi.default(:stop),
+
+      # Configuration
+      registry: Zoi.atom(description: "Registry module") |> Zoi.default(Jido.Registry),
+      default_dispatch: Zoi.any(description: "Default dispatch config") |> Zoi.optional(),
+      error_policy: Zoi.any(description: "Error handling policy") |> Zoi.default(:log_only),
+      max_queue_size: Zoi.integer(description: "Max queue size") |> Zoi.default(10_000),
+
+      # Observability
+      error_count: Zoi.integer(description: "Cumulative error count") |> Zoi.default(0)
+    },
+    coerce: true
+  )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  def schema, do: @schema
+
+  @spec new(map()) :: {:ok, t()} | {:error, term()}
+  def new(attrs), do: Zoi.parse(@schema, attrs)
+
+  @spec new!(map()) :: t()
+  def new!(attrs), do: Zoi.parse!(@schema, attrs)
 end
 ```
 
-### Canonical Signal Processing
+---
 
-**Key design decision: Action-first with generated signal translation**
+## 5. AgentServer GenServer
+
+### Module Structure
 
 ```elixir
-# In `use Jido.Agent` macro - generated for all agents
-def handle_signal(agent, %Jido.Signal{} = signal) do
-  action = signal_to_action(signal)
-  cmd(agent, action)
-end
-
-# Default implementation (overridable)
-def signal_to_action(%Jido.Signal{type: type, data: data}) do
-  # Convention: signal.type maps to action
-  {Jido.Actions.from_type(type), data}
-end
-```
-
-This eliminates the runtime `function_exported?` check and provides a single, consistent entrypoint.
-
-### Signal Flow
-
-```
-Signal arrives
-      │
-      ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         AgentServer                                  │
-│                                                                      │
-│  1. Check backpressure (max_queue)                                  │
-│  2. Run pure logic: runner.handle(agent_module, state, signal)      │
-│  3. Update agent state                                              │
-│  4. (Optional) Persistence hook                                      │
-│  5. Enqueue directives → EffectExecutor                             │
-│  6. Return immediately                                               │
-│                                                                      │
-└──────────────────────────────────┬──────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                       EffectExecutor                                 │
-│                                                                      │
-│  1. Receive directives (cast, non-blocking)                         │
-│  2. Add to FIFO queue                                               │
-│  3. Drain queue sequentially                                         │
-│  4. Execute via DirectiveExecutor protocol                          │
-│  5. Offload heavy work to Task.Supervisor                           │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### AgentServer Implementation
-
-```elixir
-defmodule Jido.AgentServer do
+defmodule Jido.Agent.Server do
+  @moduledoc """
+  GenServer runtime for Jido agents.
+  
+  Manages agent lifecycle, signal processing, and directive execution.
+  Uses a single process per agent with an internal directive queue.
+  """
   use GenServer
   require Logger
 
-  # Public API
+  alias Jido.Agent.Server.State
+  alias Jido.Agent.Server.Types.{Options, ChildInfo, ParentRef}
+  alias Jido.Signal
+
+  # ============================================================================
+  # Public API (Minimal: start, call, cast, state)
+  # ============================================================================
+
+  @doc """
+  Starts an agent server under `Jido.AgentSupervisor`.
   
-  @doc "Start an agent instance under the runtime supervisor."
-  def start_link(agent_module, opts \\ []) do
-    DynamicSupervisor.start_child(
-      Jido.AgentInstanceSupervisor,
-      {Jido.AgentServer.InstanceSupervisor, {agent_module, opts}}
-    )
+  ## Options
+  
+    * `:agent` - Required. Agent module (atom) or instantiated struct
+    * `:id` - Instance ID. Auto-generated if not provided. If agent struct
+      has an ID, it takes precedence.
+    * `:initial_state` - Initial state map (default: `%{}`)
+    * `:registry` - Registry module (default: `Jido.Registry`)
+    * `:default_dispatch` - Default dispatch config for `%Emit{}` directives
+    * `:error_policy` - Error handling policy (default: `:log_only`)
+    * `:max_queue_size` - Max directive queue (default: `10_000`)
+    * `:parent` - Parent reference for hierarchy
+  
+  ## Returns
+  
+    * `{:ok, pid}` - Successfully started
+    * `{:error, reason}` - Failed to start
+  """
+  @spec start(keyword()) :: {:ok, pid()} | {:error, term()}
+  def start(opts) do
+    DynamicSupervisor.start_child(Jido.AgentSupervisor, {__MODULE__, opts})
   end
 
-  @doc "Send a signal asynchronously (non-blocking)."
-  def handle_signal(server, %Jido.Signal{} = signal) do
-    GenServer.cast(server, {:signal, signal})
+  @doc """
+  Starts an agent server (linked to caller, for testing).
+  """
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts) do
+    with {:ok, validated} <- Options.validate(opts),
+         {:ok, agent, id} <- resolve_agent(validated) do
+      name = via_tuple(id, validated.registry)
+      GenServer.start_link(__MODULE__, {agent, id, validated}, name: name)
+    end
   end
 
-  @doc "Send a signal synchronously, wait for processing."
-  def handle_signal_sync(server, %Jido.Signal{} = signal, timeout \\ 5_000) do
+  @doc """
+  Sends a synchronous signal and waits for response.
+  
+  Returns the updated agent state (not effect results).
+  """
+  @spec call(GenServer.server(), Signal.t(), timeout()) :: {:ok, term()} | {:error, term()}
+  def call(server, %Signal{} = signal, timeout \\ 5000) do
     GenServer.call(server, {:signal, signal}, timeout)
   end
 
-  @doc "Get current agent snapshot."
-  def get_agent(server) do
-    GenServer.call(server, :get_agent)
-  end
-  
-  @doc "Query children by tag or get all."
-  def get_children(server, tag \\ nil) do
-    GenServer.call(server, {:get_children, tag})
+  @doc """
+  Sends an asynchronous signal (fire-and-forget).
+  """
+  @spec cast(GenServer.server(), Signal.t()) :: :ok
+  def cast(server, %Signal{} = signal) do
+    GenServer.cast(server, {:signal, signal})
   end
 
-  # GenServer callbacks
-  
+  @doc """
+  Gets the current server state.
+  """
+  @spec state(GenServer.server()) :: {:ok, State.t()} | {:error, term()}
+  def state(server) do
+    GenServer.call(server, :get_state)
+  end
+
+  @doc """
+  Looks up an agent by ID.
+  """
+  @spec whereis(String.t(), module()) :: {:ok, pid()} | {:error, :not_found}
+  def whereis(id, registry \\ Jido.Registry) do
+    case Registry.lookup(registry, id) do
+      [{pid, _}] -> {:ok, pid}
+      [] -> {:error, :not_found}
+    end
+  end
+
+  # ============================================================================
+  # GenServer Callbacks
+  # ============================================================================
+
   @impl true
-  def init(args) do
-    agent_module = Keyword.fetch!(args, :agent_module)
-    instance_id = Keyword.fetch!(args, :instance_id)
-    opts = Keyword.get(args, :opts, [])
-    
-    # Build or inject agent
-    agent = build_agent(agent_module, opts)
-    
-    # Look up sibling processes
-    effect_executor = await_sibling(instance_id, :effect_executor)
-    child_sup = await_sibling(instance_id, :children)
-    
-    # Configure effect executor with our pid
-    GenServer.cast(effect_executor, {:set_agent_server, self()})
-    
-    state = %{
-      instance_id: instance_id,
-      agent_module: agent_module,
+  def init({agent, id, opts}) do
+    # Monitor parent if provided
+    if opts.parent, do: Process.monitor(opts.parent.pid)
+
+    state = State.new!(%{
+      id: id,
+      agent_module: agent.__struct__,
       agent: agent,
-      runner: opts[:runner] || Jido.Agent.Runner.Simple,
-      default_dispatch: opts[:default_dispatch],
-      error_policy: opts[:error_policy] || :log_only,
-      max_queue: opts[:max_queue] || :infinity,
-      effect_executor: effect_executor,
-      child_sup: child_sup,
-      parent: opts[:parent],
+      queue: :queue.new(),
+      processing: false,
+      parent: opts.parent,
       children: %{},
-      persistence: opts[:persistence],
-      stats: %{signals_processed: 0, last_signal_at: nil}
-    }
-    
+      on_parent_death: opts.on_parent_death,
+      registry: opts.registry,
+      default_dispatch: opts.default_dispatch,
+      error_policy: opts.error_policy,
+      max_queue_size: opts.max_queue_size,
+      error_count: 0
+    })
+
+    # Use {:continue, :post_init} for async setup
     {:ok, state, {:continue, :post_init}}
   end
-  
+
   @impl true
   def handle_continue(:post_init, state) do
-    # Emit started event
-    emit_lifecycle_event(:started, state)
+    # Async initialization work (e.g., emit started signal, register callbacks)
+    Logger.debug("AgentServer started: #{state.id}")
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:signal, signal}, _from, state) do
+    new_state = process_signal(signal, state)
+    {:reply, {:ok, new_state.agent}, new_state}
+  end
+
+  def handle_call(:get_state, _from, state) do
+    {:reply, {:ok, state}, state}
+  end
+
+  def handle_call(:get_children, _from, state) do
+    {:reply, {:ok, state.children}, state}
+  end
+
+  def handle_call({:get_child, tag}, _from, state) do
+    {:reply, {:ok, Map.get(state.children, tag)}, state}
+  end
+
+  def handle_call(:queue_length, _from, state) do
+    {:reply, {:ok, :queue.len(state.queue)}, state}
   end
 
   @impl true
   def handle_cast({:signal, signal}, state) do
-    case check_backpressure(state) do
-      :ok ->
-        {new_state, stop_reason} = process_signal(signal, state)
-        handle_stop_reason(stop_reason, new_state)
-        
-      {:error, :overloaded} ->
-        Logger.warning("Agent #{state.instance_id} overloaded, dropping signal")
-        emit_overload_event(signal, state)
-        {:noreply, state}
-    end
+    {:noreply, process_signal(signal, state)}
   end
 
   @impl true
-  def handle_call({:signal, signal}, from, state) do
-    {new_state, stop_reason, maybe_error} = process_signal_sync(signal, state)
-    
-    reply = case maybe_error do
-      nil -> {:ok, new_state.agent}
-      error -> {:error, error}
-    end
-    
-    case stop_reason do
-      nil -> {:reply, reply, new_state}
-      reason -> {:stop, reason, reply, new_state}
-    end
+  def handle_info(:drain, state) do
+    {:noreply, drain_queue(state)}
   end
 
-  def handle_call(:get_agent, _from, state) do
-    {:reply, state.agent, state}
-  end
-  
-  def handle_call({:get_children, nil}, _from, state) do
-    {:reply, state.children, state}
-  end
-  
-  def handle_call({:get_children, tag}, _from, state) do
-    {:reply, Map.get(state.children, tag), state}
-  end
-
-  @impl true
-  def handle_info({:child_started, tag, pid, module, ref, meta}, state) do
-    child_info = %{pid: pid, ref: ref, module: module, meta: meta}
-    children = Map.put(state.children, tag || pid, child_info)
-    
-    # Emit child lifecycle signal for agent to process
-    emit_child_event(:child_started, tag, child_info, state)
-    
-    {:noreply, %{state | children: children}}
+  def handle_info({:scheduled_signal, signal}, state) do
+    {:noreply, process_signal(signal, state)}
   end
 
   def handle_info({:DOWN, ref, :process, pid, reason}, state) do
-    case find_child_by_ref(state.children, ref) do
-      {tag, child_info} ->
-        new_children = Map.delete(state.children, tag)
-        emit_child_event(:child_exit, tag, Map.put(child_info, :reason, reason), state)
-        {:noreply, %{state | children: new_children}}
-        
-      nil ->
-        {:noreply, state}
-    end
-  end
-  
-  def handle_info({:jido_schedule, message}, state) do
-    # Convert scheduled message to signal if needed
-    signal = ensure_signal(message, state)
-    {new_state, stop_reason} = process_signal(signal, state)
-    handle_stop_reason(stop_reason, new_state)
+    state
+    |> handle_child_down(ref, pid, reason)
+    |> handle_parent_down(pid, reason)
   end
 
-  # Private functions
-  
-  defp process_signal(%Jido.Signal{} = signal, state) do
-    old_agent = state.agent
-    
-    # Run pure agent/runner logic
-    {agent, directives} = run_agent(signal, state)
-    
-    # Update state
-    new_state = %{state | 
-      agent: agent,
-      stats: %{state.stats | 
-        signals_processed: state.stats.signals_processed + 1,
-        last_signal_at: System.monotonic_time(:millisecond)
-      }
-    }
-    
-    # Optional persistence hook (async)
-    maybe_persist_transition(old_agent, signal, agent, directives, new_state)
-    
-    # Enqueue directives for execution (non-blocking)
-    enqueue_directives(signal, directives, new_state)
-    
-    {new_state, nil}
-  end
-  
-  defp process_signal_sync(signal, state) do
-    {new_state, stop_reason} = process_signal(signal, state)
-    
-    # For sync calls, we check for Error directives that were just enqueued
-    # This is best-effort since execution is async
-    first_error = find_first_error(state.last_directives)
-    
-    {new_state, stop_reason, first_error}
-  end
-  
-  defp run_agent(%Jido.Signal{} = signal, state) do
-    runner = state.runner
-    
-    case runner.handle(state.agent_module, state.agent.state, signal) do
-      {:ok, new_struct_state, effects} ->
-        agent = %{state.agent | state: new_struct_state}
-        directives = effects_to_directives(effects)
-        {agent, directives}
-        
-      {:error, reason} ->
-        error = Jido.Error.runtime_error("runner_error", %{reason: reason})
-        {state.agent, [%Jido.Agent.Directive.Error{error: error, context: :runner}]}
-    end
-  end
-  
-  defp enqueue_directives(_signal, [], _state), do: :ok
-  defp enqueue_directives(signal, directives, state) do
-    GenServer.cast(state.effect_executor, {:enqueue, signal, directives})
-  end
-  
-  defp check_backpressure(%{max_queue: :infinity}), do: :ok
-  defp check_backpressure(state) do
-    case Process.info(self(), :message_queue_len) do
-      {:message_queue_len, len} when len > state.max_queue -> {:error, :overloaded}
-      _ -> :ok
-    end
-  end
-  
-  defp handle_stop_reason(nil, state), do: {:noreply, state}
-  defp handle_stop_reason(reason, state), do: {:stop, reason, state}
-end
-```
-
----
-
-## 6. Directive Execution System
-
-### DirectiveExecutor Protocol
-
-External packages can implement custom directive execution:
-
-```elixir
-defprotocol Jido.AgentServer.DirectiveExecutor do
-  @moduledoc """
-  Protocol for executing directives.
-  
-  Implement this protocol for custom directive types to make them
-  executable by the EffectExecutor.
-  """
-  
-  @doc """
-  Execute the directive.
-  
-  Returns:
-  - `{:ok, exec_state}` - Continue to next directive
-  - `{:stop, reason, exec_state}` - Stop the agent
-  - `{:async, task_ref, exec_state}` - Directive spawned async work (informational)
-  """
-  @spec execute(struct(), Jido.Signal.t(), map()) ::
-          {:ok, map()} 
-          | {:stop, term(), map()}
-          | {:async, reference(), map()}
-  def execute(directive, signal, exec_state)
-end
-```
-
-### Core Directive Implementations
-
-```elixir
-# Emit directive - dispatch a signal
-defimpl Jido.AgentServer.DirectiveExecutor, for: Jido.Agent.Directive.Emit do
-  def execute(%{signal: signal, dispatch: dispatch}, _trigger_signal, state) do
-    cfg = dispatch || state.default_dispatch
-    
-    case cfg do
-      nil ->
-        Logger.debug("Emit without dispatch config: #{inspect(signal.type)}")
-        
-      cfg ->
-        # Non-blocking dispatch
-        case Jido.Signal.Dispatch.dispatch(signal, cfg) do
-          :ok -> :ok
-          {:ok, _} -> :ok
-          {:error, reason} ->
-            Logger.warning("Emit dispatch failed: #{inspect(reason)}")
-        end
-    end
-    
-    {:ok, state}
-  end
-end
-
-# Schedule directive - send delayed message
-defimpl Jido.AgentServer.DirectiveExecutor, for: Jido.Agent.Directive.Schedule do
-  def execute(%{delay_ms: delay, message: message}, _signal, state) do
-    Process.send_after(state.agent_server, {:jido_schedule, message}, delay)
-    {:ok, state}
-  end
-end
-
-# Stop directive - stop the agent
-defimpl Jido.AgentServer.DirectiveExecutor, for: Jido.Agent.Directive.Stop do
-  def execute(%{reason: reason}, _signal, state) do
-    {:stop, reason, state}
-  end
-end
-
-# Error directive - apply error policy
-defimpl Jido.AgentServer.DirectiveExecutor, for: Jido.Agent.Directive.Error do
-  def execute(%{error: error, context: context} = directive, _signal, state) do
-    Jido.AgentServer.ErrorPolicy.handle(directive, state)
-  end
-end
-
-# SpawnAgent directive - spawn a child agent
-defimpl Jido.AgentServer.DirectiveExecutor, for: Jido.Agent.Directive.SpawnAgent do
-  def execute(%{agent_module: mod, opts: opts, tag: tag, parent_meta: meta}, signal, state) do
-    child_opts = [
-      parent: %{pid: state.agent_server, tag: tag, signal: signal},
-      meta: meta
-    ] ++ Map.to_list(opts)
-    
-    spec = %{
-      id: make_ref(),
-      start: {Jido.AgentServer, :start_link_child, [mod, child_opts]},
-      restart: :transient,
-      type: :supervisor
-    }
-    
-    case DynamicSupervisor.start_child(state.child_sup, spec) do
-      {:ok, pid} ->
-        ref = Process.monitor(pid)
-        send(state.agent_server, {:child_started, tag, pid, mod, ref, meta})
-        {:ok, state}
-        
-      {:error, reason} ->
-        error = Jido.Error.runtime_error("spawn_failed", %{reason: reason, tag: tag})
-        Jido.AgentServer.ErrorPolicy.handle(
-          %Jido.Agent.Directive.Error{error: error, context: :spawn},
-          state
-        )
-    end
-  end
-end
-```
-
-### EffectExecutor Implementation
-
-```elixir
-defmodule Jido.AgentServer.EffectExecutor do
-  @moduledoc """
-  Executes directives sequentially for an agent instance.
-  
-  Maintains a FIFO queue of directives and processes them one at a time.
-  Heavy/async work is offloaded to Task.Supervisor.
-  """
-  
-  use GenServer
-  require Logger
-  
-  alias Jido.AgentServer.DirectiveExecutor
-
-  @type state :: %{
-    queue: :queue.queue({Jido.Signal.t(), term()}),
-    agent_server: pid() | nil,
-    task_sup: pid() | atom(),
-    default_dispatch: term(),
-    error_policy: term(),
-    child_sup: pid() | nil,
-    instance_id: String.t(),
-    processing: boolean()
-  }
-
-  def start_link(opts) do
-    instance_id = Keyword.fetch!(opts, :instance_id)
-    name = {:via, Registry, {Jido.AgentRegistry, {instance_id, :effect_executor}}}
-    GenServer.start_link(__MODULE__, opts, name: name)
-  end
-
-  @impl true
-  def init(opts) do
-    instance_id = Keyword.fetch!(opts, :instance_id)
-    config_opts = Keyword.get(opts, :opts, [])
-    
-    state = %{
-      queue: :queue.new(),
-      agent_server: nil,  # Set later via cast
-      task_sup: Jido.AgentTaskSupervisor,
-      default_dispatch: config_opts[:default_dispatch],
-      error_policy: config_opts[:error_policy] || :log_only,
-      child_sup: nil,  # Set later
-      instance_id: instance_id,
-      processing: false
-    }
-    
-    {:ok, state}
-  end
-
-  @impl true
-  def handle_cast({:set_agent_server, pid}, state) do
-    child_sup_name = {:via, Registry, {Jido.AgentRegistry, {state.instance_id, :children}}}
-    child_sup = GenServer.whereis(child_sup_name)
-    
-    {:noreply, %{state | agent_server: pid, child_sup: child_sup}}
-  end
-
-  def handle_cast({:enqueue, signal, directives}, state) do
-    # Add all directives to queue
-    queue = Enum.reduce(directives, state.queue, fn d, q ->
-      :queue.in({signal, d}, q)
-    end)
-    
-    state = %{state | queue: queue}
-    
-    # Start processing if not already
-    if not state.processing do
-      send(self(), :drain)
-    end
-    
-    {:noreply, %{state | processing: true}}
-  end
-
-  @impl true
-  def handle_info(:drain, %{queue: queue} = state) do
-    case :queue.out(queue) do
-      {{:value, {signal, directive}}, rest} ->
-        state = %{state | queue: rest}
-        
-        case execute_directive(directive, signal, state) do
-          {:ok, new_state} ->
-            send(self(), :drain)
-            {:noreply, new_state}
-            
-          {:stop, reason, new_state} ->
-            # Signal AgentServer to stop
-            Process.exit(state.agent_server, reason)
-            {:stop, reason, new_state}
-            
-          {:async, _ref, new_state} ->
-            # Async work started, continue to next directive
-            send(self(), :drain)
-            {:noreply, new_state}
-        end
-        
-      {:empty, _} ->
-        {:noreply, %{state | processing: false}}
-    end
-  end
-
-  def handle_info({ref, result}, state) when is_reference(ref) do
-    # Task completion - could log or emit result signal
+  def handle_info({ref, _result}, state) when is_reference(ref) do
+    # Task completion - flush monitor
     Process.demonitor(ref, [:flush])
     {:noreply, state}
   end
 
-  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
-    # Task failed
-    Logger.warning("Async directive task failed: #{inspect(reason)}")
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) when is_reference(ref) do
+    # Task failure - already handled by Task.Supervisor
     {:noreply, state}
   end
 
-  # Private
-  
-  defp execute_directive(directive, signal, state) do
-    try do
-      DirectiveExecutor.execute(directive, signal, state)
-    rescue
-      e ->
-        Logger.error("Directive execution error: #{Exception.message(e)}")
-        {:ok, state}  # Continue processing
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
+  @impl true
+  def terminate(reason, state) do
+    Logger.info("AgentServer #{state.id} terminating: #{inspect(reason)}")
+    :ok
+  end
+
+  # ============================================================================
+  # Private: Agent Resolution
+  # ============================================================================
+
+  defp resolve_agent(%{agent: agent} = opts) do
+    cond do
+      # Agent module passed - instantiate it
+      is_atom(agent) ->
+        resolve_agent_module(agent, opts)
+
+      # Agent struct passed - use it directly
+      is_struct(agent) ->
+        resolve_agent_struct(agent, opts)
+
+      true ->
+        {:error, :invalid_agent}
     end
+  end
+
+  defp resolve_agent_module(module, opts) do
+    case Code.ensure_loaded(module) do
+      {:module, _} ->
+        if function_exported?(module, :new, 2) do
+          id = resolve_id(nil, opts.id)
+          agent = module.new(id, opts.initial_state)
+          {:ok, agent, id}
+        else
+          {:error, {:invalid_agent_module, module}}
+        end
+
+      {:error, reason} ->
+        {:error, {:module_not_found, module, reason}}
+    end
+  end
+
+  defp resolve_agent_struct(agent, opts) do
+    agent_id = Map.get(agent, :id)
+    provided_id = opts.id
+
+    # Reconcile IDs: agent's ID takes precedence if non-empty
+    id = resolve_id(agent_id, provided_id)
+
+    # Warn if IDs conflict
+    if non_empty?(provided_id) and non_empty?(agent_id) and provided_id != agent_id do
+      Logger.warning(
+        "ID mismatch: provided '#{provided_id}' superseded by agent's '#{agent_id}'"
+      )
+    end
+
+    {:ok, agent, id}
+  end
+
+  defp resolve_id(agent_id, provided_id) do
+    cond do
+      non_empty?(agent_id) -> agent_id
+      non_empty?(provided_id) -> normalize_id(provided_id)
+      true -> Jido.Util.generate_id()
+    end
+  end
+
+  defp normalize_id(id) when is_binary(id), do: id
+  defp normalize_id(id) when is_atom(id), do: Atom.to_string(id)
+  defp normalize_id(_), do: Jido.Util.generate_id()
+
+  defp non_empty?(nil), do: false
+  defp non_empty?(""), do: false
+  defp non_empty?(s) when is_binary(s), do: true
+  defp non_empty?(a) when is_atom(a), do: true
+  defp non_empty?(_), do: false
+
+  defp via_tuple(id, registry) do
+    {:via, Registry, {registry, id}}
+  end
+
+  # ============================================================================
+  # Private: Signal Processing
+  # ============================================================================
+
+  defp process_signal(signal, state) do
+    # Delegate to pure agent logic
+    {agent, directives} = state.agent_module.handle_signal(state.agent, signal)
+    state = %{state | agent: agent}
+
+    # Check queue capacity
+    if queue_overflow?(state, directives) do
+      Logger.warning("Queue overflow for #{state.id}, dropping #{length(directives)} directives")
+      state
+    else
+      # Enqueue directives
+      queue = Enum.reduce(directives, state.queue, fn dir, q ->
+        :queue.in({signal, dir}, q)
+      end)
+
+      state = %{state | queue: queue}
+      start_drain_if_idle(state)
+    end
+  end
+
+  defp queue_overflow?(state, new_directives) do
+    :queue.len(state.queue) + length(new_directives) > state.max_queue_size
+  end
+
+  defp start_drain_if_idle(%{processing: true} = state), do: state
+  defp start_drain_if_idle(%{processing: false} = state) do
+    send(self(), :drain)
+    %{state | processing: true}
+  end
+
+  # ============================================================================
+  # Private: Drain Loop
+  # ============================================================================
+
+  defp drain_queue(%{queue: queue} = state) do
+    case :queue.out(queue) do
+      {{:value, {signal, directive}}, rest} ->
+        state = %{state | queue: rest}
+
+        case Jido.Agent.Server.DirectiveExecutor.execute(directive, signal, state) do
+          {:ok, new_state} ->
+            send(self(), :drain)
+            new_state
+
+          {:async, _ref, new_state} ->
+            send(self(), :drain)
+            new_state
+
+          {:stop, reason, new_state} ->
+            # Let GenServer handle the stop
+            throw({:stop, reason, new_state})
+        end
+
+      {:empty, _} ->
+        %{state | processing: false}
+    end
+  catch
+    {:stop, reason, final_state} ->
+      {:stop, reason, final_state}
+  end
+
+  # ============================================================================
+  # Private: Hierarchy Handling
+  # ============================================================================
+
+  defp handle_child_down(state, ref, pid, reason) do
+    case find_child_by_ref(state.children, ref) do
+      {tag, _info} ->
+        children = Map.delete(state.children, tag)
+        state = %{state | children: children}
+
+        # Feed lifecycle signal back to agent
+        signal = Signal.new!(%{
+          type: "jido.agent.child.exit",
+          source: "/agent/#{state.id}",
+          data: %{tag: tag, pid: pid, reason: reason}
+        })
+
+        {:noreply, process_signal(signal, state)}
+
+      nil ->
+        state
+    end
+  end
+
+  defp handle_parent_down(state, pid, reason) when is_map(state) do
+    if state.parent && state.parent.pid == pid do
+      case state.on_parent_death do
+        :stop ->
+          {:stop, :parent_died, state}
+
+        :continue ->
+          {:noreply, %{state | parent: nil}}
+
+        :emit_orphan ->
+          signal = Signal.new!(%{
+            type: "jido.agent.orphaned",
+            source: "/agent/#{state.id}",
+            data: %{parent_id: state.parent.id, reason: reason}
+          })
+          {:noreply, process_signal(signal, %{state | parent: nil})}
+      end
+    else
+      {:noreply, state}
+    end
+  end
+
+  defp handle_parent_down({:noreply, state}, _pid, _reason), do: {:noreply, state}
+
+  defp find_child_by_ref(children, ref) do
+    Enum.find(children, fn {_tag, info} -> info.ref == ref end)
   end
 end
 ```
 
 ---
 
-## 7. Hierarchical Agent Management
+## 6. Public API
 
-### Enhanced SpawnAgent Directive
+The public API is intentionally minimal: **start, call, cast, state**.
+
+### Summary
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `start/1` | — | Start agent under supervisor |
+| `start_link/1` | — | Start agent (linked, for testing) |
+| `call/3` | sync | Send signal, wait for agent update |
+| `cast/2` | async | Send signal, fire-and-forget |
+| `state/1` | sync | Get current server state |
+| `whereis/2` | — | Lookup agent by ID |
+
+### Usage Examples
+
+```elixir
+# Start an agent (module)
+{:ok, pid} = Jido.Agent.Server.start(agent: MyAgent, id: "user-123")
+
+# Start an agent (pre-built struct)
+agent = MyAgent.new("user-123", %{counter: 10})
+{:ok, pid} = Jido.Agent.Server.start(agent: agent)
+
+# Send sync signal
+signal = Signal.new!(%{type: "user.action", data: %{action: :increment}})
+{:ok, updated_agent} = Jido.Agent.Server.call(pid, signal)
+
+# Send async signal
+:ok = Jido.Agent.Server.cast(pid, signal)
+
+# Get state
+{:ok, state} = Jido.Agent.Server.state(pid)
+
+# Lookup by ID
+{:ok, pid} = Jido.Agent.Server.whereis("user-123")
+```
+
+---
+
+## 7. Signal Processing Pipeline
+
+### Flow Diagram
+
+```
+Signal arrives
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     handle_cast/call                            │
+│  1. Translate signal → action (via handle_signal/2)             │
+│  2. Run pure agent logic: cmd(agent, action) → {agent, dirs}    │
+│  3. Update agent in state                                       │
+│  4. Enqueue directives (fast, append to queue)                  │
+│  5. Trigger drain loop if idle                                  │
+└─────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      :drain loop                                │
+│  1. Pop directive from queue                                    │
+│  2. Execute via DirectiveExecutor protocol                      │
+│  3. Handle result: {:ok, state} | {:async, ref, state} | :stop  │
+│  4. Continue draining until queue empty                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Signal → Action Translation
+
+In `use Jido.Agent` macro, generate a default `handle_signal/2`:
+
+```elixir
+defmacro __using__(_opts) do
+  quote do
+    @doc "Default signal handler - translates to cmd/2"
+    def handle_signal(agent, %Jido.Signal{} = signal) do
+      action = signal_to_action(signal)
+      cmd(agent, action)
+    end
+
+    @doc "Override to customize signal → action translation"
+    def signal_to_action(%Jido.Signal{type: type, data: data}) do
+      {type, data}
+    end
+
+    defoverridable [handle_signal: 2, signal_to_action: 1]
+  end
+end
+```
+
+---
+
+## 8. Directive Execution Protocol
+
+### Protocol Definition
+
+```elixir
+defprotocol Jido.Agent.Server.DirectiveExecutor do
+  @moduledoc """
+  Protocol for executing directives.
+  
+  Implement for custom directive types to extend AgentServer.
+  """
+  
+  @spec execute(struct(), Jido.Signal.t(), Jido.Agent.Server.State.t()) ::
+          {:ok, Jido.Agent.Server.State.t()}
+          | {:async, reference() | nil, Jido.Agent.Server.State.t()}
+          | {:stop, term(), Jido.Agent.Server.State.t()}
+  def execute(directive, input_signal, state)
+end
+```
+
+### Core Implementations
+
+#### Emit (async)
+
+```elixir
+defimpl Jido.Agent.Server.DirectiveExecutor, for: Jido.Agent.Directive.Emit do
+  def execute(%{signal: signal, dispatch: dispatch}, _input, state) do
+    cfg = dispatch || state.default_dispatch
+
+    Task.Supervisor.start_child(Jido.TaskSupervisor, fn ->
+      Jido.Signal.Dispatch.dispatch(signal, cfg)
+    end)
+
+    {:async, nil, state}
+  end
+end
+```
+
+#### SpawnAgent (hierarchy)
 
 ```elixir
 defmodule Jido.Agent.Directive.SpawnAgent do
-  @moduledoc """
-  Spawn a child agent with parent-child relationship tracking.
-  
-  Unlike the generic %Spawn{} directive, this is specifically for
-  spawning Jido agents with proper hierarchy semantics.
-  """
-  
-  @enforce_keys [:agent_module]
-  defstruct [
-    :agent_module,
-    opts: %{},
-    tag: nil,
-    parent_meta: %{},
-    restart: :transient,
-    inherit_dispatch: true
-  ]
-  
-  @type t :: %__MODULE__{
-    agent_module: module(),
-    opts: map(),
-    tag: term(),
-    parent_meta: map(),
-    restart: :permanent | :transient | :temporary,
-    inherit_dispatch: boolean()
-  }
+  @moduledoc "Spawn a child agent with parent-child tracking."
+
+  @schema Zoi.struct(
+    __MODULE__,
+    %{
+      agent_module: Zoi.atom(description: "Agent module to spawn"),
+      tag: Zoi.any(description: "Tag for tracking this child"),
+      opts: Zoi.map(description: "Options for child agent") |> Zoi.default(%{}),
+      parent_meta: Zoi.map(description: "Metadata to pass to child") |> Zoi.default(%{})
+    },
+    coerce: true
+  )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  def schema, do: @schema
+end
+
+defimpl Jido.Agent.Server.DirectiveExecutor, for: Jido.Agent.Directive.SpawnAgent do
+  alias Jido.Agent.Server.Types.ChildInfo
+
+  def execute(%{agent_module: mod, tag: tag, opts: opts, parent_meta: meta}, _sig, state) do
+    child_id = opts[:id] || "#{state.id}/#{tag}"
+
+    child_opts = [
+      agent: mod,
+      id: child_id,
+      parent: %{
+        pid: self(),
+        id: state.id,
+        tag: tag,
+        meta: meta
+      }
+    ] ++ Map.to_list(opts)
+
+    {:ok, pid} = Jido.Agent.Server.start(child_opts)
+    ref = Process.monitor(pid)
+
+    child_info = ChildInfo.new!(%{
+      pid: pid,
+      ref: ref,
+      module: mod,
+      meta: meta
+    })
+
+    children = Map.put(state.children, tag, child_info)
+    {:ok, %{state | children: children}}
+  end
 end
 ```
 
-### Parent-Child Communication
-
-Child agents receive parent reference in their state:
+#### Schedule (timer)
 
 ```elixir
-# In child agent's init
-parent_ref = %{
-  pid: opts[:parent][:pid],
-  tag: opts[:parent][:tag],
-  signal: opts[:parent][:signal]  # Signal that triggered spawn
-}
-```
-
-Parents receive lifecycle signals:
-
-```elixir
-# Emitted when child starts
-%Jido.Signal{
-  type: "jido.agent.child.started",
-  source: "/agent/#{parent_id}",
-  data: %{
-    tag: tag,
-    pid: child_pid,
-    module: child_module,
-    meta: parent_meta
-  }
-}
-
-# Emitted when child exits
-%Jido.Signal{
-  type: "jido.agent.child.exit",
-  source: "/agent/#{parent_id}",
-  data: %{
-    tag: tag,
-    pid: child_pid,
-    module: child_module,
-    reason: exit_reason,
-    meta: parent_meta
-  }
-}
-```
-
-### Hierarchy Queries
-
-```elixir
-# Get all children
-children = Jido.AgentServer.get_children(parent_pid)
-
-# Get specific child by tag
-child_info = Jido.AgentServer.get_children(parent_pid, :worker_1)
-
-# Send signal to child
-Jido.AgentServer.handle_signal(child_info.pid, signal)
-
-# Send signal to all children
-Enum.each(children, fn {_tag, info} ->
-  Jido.AgentServer.handle_signal(info.pid, signal)
-end)
-```
-
-### Hierarchy Example
-
-```elixir
-defmodule OrchestratorAgent do
-  use Jido.Agent,
-    name: "orchestrator",
-    schema: [
-      task_count: [type: :integer, default: 0]
-    ]
-    
-  def cmd(agent, {:spawn_workers, count}) do
-    directives = for i <- 1..count do
-      %Directive.SpawnAgent{
-        agent_module: WorkerAgent,
-        tag: :"worker_#{i}",
-        opts: %{worker_id: i},
-        parent_meta: %{spawned_at: DateTime.utc_now()}
-      }
+defimpl Jido.Agent.Server.DirectiveExecutor, for: Jido.Agent.Directive.Schedule do
+  def execute(%{delay_ms: delay, message: message}, _input, state) do
+    # Wrap message in signal if not already
+    signal = case message do
+      %Jido.Signal{} = s -> s
+      other -> Jido.Signal.new!(%{type: "scheduled", data: %{message: other}})
     end
-    
-    agent = %{agent | state: %{agent.state | task_count: count}}
-    {agent, directives}
+
+    Process.send_after(self(), {:scheduled_signal, signal}, delay)
+    {:ok, state}
   end
-  
-  def handle_signal(agent, %Signal{type: "jido.agent.child.exit"} = signal) do
-    # React to child exit - maybe spawn replacement
-    case signal.data.reason do
-      :normal -> {agent, []}
-      _abnormal -> 
-        # Re-spawn the worker
-        {agent, [
-          %Directive.SpawnAgent{
-            agent_module: WorkerAgent,
-            tag: signal.data.tag,
-            opts: signal.data.meta
-          }
-        ]}
-    end
+end
+```
+
+#### Stop
+
+```elixir
+defimpl Jido.Agent.Server.DirectiveExecutor, for: Jido.Agent.Directive.Stop do
+  def execute(%{reason: reason}, _signal, state) do
+    {:stop, reason, state}
+  end
+end
+```
+
+#### Error (policy-based)
+
+```elixir
+defimpl Jido.Agent.Server.DirectiveExecutor, for: Jido.Agent.Directive.Error do
+  def execute(error_dir, _signal, state) do
+    Jido.Agent.Server.ErrorPolicy.handle(error_dir, state)
   end
 end
 ```
 
 ---
 
-## 8. Error Handling & Policies
+## 9. Hierarchical Agent Management
 
-### Error Policy Types
+### Logical Hierarchy (Flat OTP)
 
-```elixir
-@type error_policy ::
-  :log_only                              # Log and continue (default)
-  | :stop_on_error                       # Stop agent on any error
-  | {:emit_signal, dispatch_config()}    # Emit error as signal
-  | {:max_errors, count :: pos_integer()} # Stop after N errors
-  | (Directive.Error.t(), state() -> {:ok, state()} | {:stop, reason, state()})
+All agents live under `Jido.AgentSupervisor`. Parent-child is tracked in state:
+
 ```
+OTP Supervision (Flat):
+────────────────────────
+Jido.AgentSupervisor
+├── AgentServer["orchestrator"]
+├── AgentServer["orchestrator/worker_1"]
+└── AgentServer["orchestrator/worker_2"]
+
+Logical Hierarchy (In State):
+─────────────────────────────
+orchestrator (parent: nil)
+├── worker_1 (parent: {pid, "orchestrator", :worker_1})
+└── worker_2 (parent: {pid, "orchestrator", :worker_2})
+```
+
+### Lifecycle Signals
+
+| Signal Type | When | Data |
+|-------------|------|------|
+| `jido.agent.child.exit` | Child dies | `%{tag, pid, reason}` |
+| `jido.agent.orphaned` | Parent dies (if `:emit_orphan`) | `%{parent_id, reason}` |
+
+---
+
+## 10. Error Handling & Policies
 
 ### Error Policy Module
 
 ```elixir
-defmodule Jido.AgentServer.ErrorPolicy do
-  @moduledoc """
-  Handles error directives according to configured policy.
-  """
-  
+defmodule Jido.Agent.Server.ErrorPolicy do
+  @moduledoc false
   require Logger
+
   alias Jido.Agent.Directive.Error, as: ErrorDirective
 
   def handle(%ErrorDirective{error: error, context: context}, state) do
     case state.error_policy do
       :log_only ->
-        Logger.error("Agent error [#{context}]: #{inspect(error)}")
+        Logger.error("Agent error [#{inspect(context)}]: #{inspect(error)}")
         {:ok, state}
-        
+
       :stop_on_error ->
-        Logger.error("Agent stopping on error [#{context}]: #{inspect(error)}")
+        Logger.error("Agent stopping: #{inspect(error)}")
         {:stop, {:agent_error, error}, state}
-        
+
       {:emit_signal, dispatch_cfg} ->
         signal = build_error_signal(error, context, state)
         Jido.Signal.Dispatch.dispatch(signal, dispatch_cfg)
         {:ok, state}
-        
+
       {:max_errors, max} ->
-        count = Map.get(state, :error_count, 0) + 1
+        count = state.error_count + 1
+        state = %{state | error_count: count}
+
         if count >= max do
           {:stop, {:max_errors_exceeded, count}, state}
         else
-          Logger.error("Agent error #{count}/#{max} [#{context}]: #{inspect(error)}")
-          {:ok, Map.put(state, :error_count, count)}
+          Logger.error("Agent error #{count}/#{max}: #{inspect(error)}")
+          {:ok, state}
         end
-        
+
       fun when is_function(fun, 2) ->
-        fun.(%ErrorDirective{error: error, context: context}, state)
-    end
-  end
-  
-  defp build_error_signal(error, context, state) do
-    Jido.Signal.new!(
-      "jido.agent.error",
-      %{error: error, context: context},
-      source: "/agent/#{state.instance_id}"
-    )
-  end
-end
-```
-
-### Sync Call Error Surfacing
-
-For `handle_signal_sync/3`, errors are surfaced in the response:
-
-```elixir
-# Returns {:ok, agent} or {:error, first_error}
-case Jido.AgentServer.handle_signal_sync(pid, signal) do
-  {:ok, agent} -> 
-    # Success
-    
-  {:error, %Jido.Agent.Directive.Error{error: error}} ->
-    # Handle error
-end
-```
-
----
-
-## 9. Backpressure & Observability
-
-### Backpressure Mechanisms
-
-```elixir
-defmodule Jido.AgentServer do
-  # Check if agent is overloaded
-  @spec busy?(GenServer.server(), pos_integer()) :: boolean()
-  def busy?(server, threshold \\ 100) do
-    case Process.info(GenServer.whereis(server), :message_queue_len) do
-      {:message_queue_len, len} -> len > threshold
-      _ -> false
-    end
-  end
-  
-  # Get current queue length
-  @spec queue_length(GenServer.server()) :: non_neg_integer()
-  def queue_length(server) do
-    GenServer.call(server, :queue_length)
-  end
-  
-  # Submit signal with backpressure feedback
-  @spec submit_signal(GenServer.server(), Jido.Signal.t(), keyword()) ::
-          :ok | {:error, :overloaded}
-  def submit_signal(server, signal, opts \\ []) do
-    GenServer.call(server, {:submit_signal, signal, opts})
-  end
-end
-```
-
-### Observability
-
-```elixir
-# Get agent stats
-def get_stats(server) do
-  GenServer.call(server, :get_stats)
-end
-
-# Returns:
-%{
-  signals_processed: 1234,
-  last_signal_at: 1703856000000,
-  queue_length: 5,
-  children_count: 3,
-  uptime_ms: 60000
-}
-```
-
-### Telemetry Events
-
-```elixir
-# Emitted events
-:telemetry.execute(
-  [:jido, :agent, :signal, :processed],
-  %{duration: duration_ms},
-  %{agent_id: instance_id, signal_type: signal.type}
-)
-
-:telemetry.execute(
-  [:jido, :agent, :directive, :executed],
-  %{duration: duration_ms},
-  %{agent_id: instance_id, directive_type: directive.__struct__}
-)
-
-:telemetry.execute(
-  [:jido, :agent, :overload],
-  %{queue_length: len},
-  %{agent_id: instance_id}
-)
-```
-
----
-
-## 10. Event Sourcing & Persistence
-
-### Persistence Behaviour
-
-```elixir
-defmodule Jido.AgentServer.Persistence do
-  @moduledoc """
-  Behaviour for persisting agent state transitions.
-  
-  Implementations can store events for:
-  - Audit logging
-  - Event sourcing / replay
-  - State snapshots
-  """
-  
-  @callback after_transition(
-    old_agent :: Jido.Agent.t(),
-    signal :: Jido.Signal.t(),
-    new_agent :: Jido.Agent.t(),
-    directives :: [term()],
-    meta :: map()
-  ) :: :ok | {:error, term()}
-  
-  @callback restore(instance_id :: String.t(), opts :: keyword()) ::
-    {:ok, Jido.Agent.t()} | {:error, term()}
-    
-  @callback snapshot(agent :: Jido.Agent.t(), meta :: map()) ::
-    :ok | {:error, term()}
-    
-  @optional_callbacks [restore: 2, snapshot: 2]
-end
-```
-
-### Persistence Hook
-
-```elixir
-defp maybe_persist_transition(old_agent, signal, new_agent, directives, state) do
-  case state.persistence do
-    nil -> :ok
-    
-    {mod, opts} ->
-      # Non-blocking persistence
-      Task.Supervisor.start_child(Jido.AgentTaskSupervisor, fn ->
-        meta = %{
-          instance_id: state.instance_id,
-          timestamp: DateTime.utc_now(),
-          opts: opts
-        }
-        
-        case mod.after_transition(old_agent, signal, new_agent, directives, meta) do
-          :ok -> :ok
-          {:error, reason} ->
-            Logger.warning("Persistence failed: #{inspect(reason)}")
+        try do
+          fun.(%ErrorDirective{error: error, context: context}, state)
+        rescue
+          e ->
+            Logger.error("Error policy crashed: #{Exception.message(e)}")
+            {:ok, state}
         end
-      end)
+    end
+  end
+
+  defp build_error_signal(error, context, state) do
+    Jido.Signal.new!(%{
+      type: "jido.agent.error",
+      source: "/agent/#{state.id}",
+      data: %{error: error, context: context}
+    })
   end
 end
 ```
 
-### Example: Simple Event Log
-
-```elixir
-defmodule MyApp.AgentEventLog do
-  @behaviour Jido.AgentServer.Persistence
-  
-  @impl true
-  def after_transition(old_agent, signal, new_agent, directives, meta) do
-    event = %{
-      instance_id: meta.instance_id,
-      timestamp: meta.timestamp,
-      signal_id: signal.id,
-      signal_type: signal.type,
-      old_state_hash: hash(old_agent.state),
-      new_state_hash: hash(new_agent.state),
-      directive_count: length(directives)
-    }
-    
-    MyApp.Repo.insert(%AgentEvent{} |> Map.merge(event))
-    :ok
-  end
-  
-  defp hash(state), do: :erlang.phash2(state)
-end
-```
-
 ---
 
-## 11. Scaling Considerations
+## 11. Backpressure & Observability
 
-### Process Overhead
-
-| Agents | Processes | Memory (approx) |
-|--------|-----------|-----------------|
-| 100 | ~300 | ~30 MB |
-| 500 | ~1,500 | ~150 MB |
-| 1,000 | ~3,000 | ~300 MB |
-
-This is well within BEAM's comfortable range (millions of processes possible).
-
-### Strategies for High Scale
-
-1. **Pooled Task Execution**
-   - Use `poolboy` or `nimble_pool` for task supervision if many agents share expensive resources
-
-2. **Partitioned Registries**
-   - Use multiple registries partitioned by agent type or ID hash
-
-3. **Rate Limiting per Agent Type**
-   - Configure different `max_queue` limits based on agent workload
-
-4. **Lazy Child Supervisor**
-   - Only start ChildSupervisor when first child is spawned
+### Queue Metrics
 
 ```elixir
-# Lazy child supervisor creation
-defp ensure_child_sup(state) do
-  case state.child_sup do
-    nil ->
-      {:ok, pid} = DynamicSupervisor.start_link(strategy: :one_for_one)
-      %{state | child_sup: pid}
-    _ ->
-      state
-  end
-end
+# Get queue length
+{:ok, len} = Jido.Agent.Server.call(server, :queue_length)
+
+# Check if busy (via state)
+{:ok, state} = Jido.Agent.Server.state(server)
+busy? = :queue.len(state.queue) > 1000
 ```
 
-### Multi-Node Considerations (Future)
-
-For distributed agents:
-
-1. **Horde** - Distributed supervisor and registry
-2. **libcluster** - Automatic cluster formation
-3. **Delta CRDT** - Conflict-free replicated state
-
-These are out of scope for V2 but the architecture supports future extension.
-
----
-
-## 12. API Reference
-
-### Starting Agents
+### Configuration
 
 ```elixir
-# Start with defaults
-{:ok, pid} = Jido.AgentServer.start_link(MyAgent)
-
-# Start with options
-{:ok, pid} = Jido.AgentServer.start_link(MyAgent,
-  id: "user-123-agent",
-  agent_opts: [user_id: "123"],
-  default_dispatch: {:pubsub, topic: "agent_events"},
-  error_policy: {:max_errors, 5},
-  max_queue: 1000,
-  runner: Jido.Agent.Runner.ReAct,
-  persistence: {MyApp.AgentEventLog, []}
-)
-
-# Start as child of another agent
-{:ok, pid} = Jido.AgentServer.start_link(WorkerAgent,
-  parent: %{pid: parent_pid, tag: :worker_1, signal: trigger_signal}
+Jido.Agent.Server.start(
+  agent: MyAgent,
+  max_queue_size: 5000,
+  error_policy: {:max_errors, 10}
 )
 ```
 
-### Sending Signals
+---
 
-```elixir
-# Async (fire-and-forget)
-:ok = Jido.AgentServer.handle_signal(pid, signal)
+## 12. Migration from V1
 
-# Sync (wait for processing)
-{:ok, agent} = Jido.AgentServer.handle_signal_sync(pid, signal)
-{:error, error} = Jido.AgentServer.handle_signal_sync(pid, bad_signal)
+### Key Changes
 
-# With backpressure check
-case Jido.AgentServer.submit_signal(pid, signal) do
-  :ok -> :processed
-  {:error, :overloaded} -> :retry_later
-end
-```
+| V1 | V2 |
+|----|-----|
+| Multiple modules (ServerState, ServerRuntime, etc.) | Single module + helper types |
+| Signal queue + pending signals | Single directive queue |
+| `:auto`/`:step`/`:debug` modes | Removed |
+| `handle_signal/2` vs `cmd/2` ambiguity | `cmd/2` canonical |
+| Complex child supervisor | Flat OTP + logical hierarchy |
+| Custom `call`/`cast` wrappers | Standard `call`/`cast` + minimal public API |
 
-### Querying State
+### Migration Steps
 
-```elixir
-# Get agent snapshot
-agent = Jido.AgentServer.get_agent(pid)
-
-# Get children
-children = Jido.AgentServer.get_children(pid)
-child = Jido.AgentServer.get_children(pid, :worker_1)
-
-# Get stats
-stats = Jido.AgentServer.get_stats(pid)
-
-# Check health
-busy? = Jido.AgentServer.busy?(pid, 100)
-queue_len = Jido.AgentServer.queue_length(pid)
-```
+1. **Update agent modules** — Ensure `cmd/2` handles all actions
+2. **Use new start API** — `Jido.Agent.Server.start(agent: MyAgent)`
+3. **Replace signal handling** — Use `call/2` and `cast/2`
+4. **Update hierarchy** — Use `SpawnAgent` directive
 
 ---
 
-## 13. Migration from V1
+## Summary
 
-### Breaking Changes
+| Component | Type | Count | Purpose |
+|-----------|------|-------|---------|
+| `Jido.Supervisor` | Supervisor | 1 | Application root |
+| `Jido.TaskSupervisor` | Task.Supervisor | 1 | Async work pool |
+| `Jido.Registry` | Registry | 1 | Name lookup |
+| `Jido.AgentSupervisor` | DynamicSupervisor | 1 | Parent of all agents |
+| `Jido.Agent.Server` | GenServer | N | Agent logic + state |
 
-| V1 | V2 | Migration |
-|----|-----|-----------|
-| Single GenServer | Process tree | Transparent (API compatible) |
-| `children_supervisor` option | Automatic `ChildSupervisor` | Remove option |
-| `spawn_fun` option | `DirectiveExecutor` protocol | Implement protocol |
-| Inline directive execution | Async via `EffectExecutor` | Transparent |
-
-### Deprecated Options
-
-```elixir
-# V1 (deprecated)
-Jido.AgentServer.start_link(MyAgent,
-  children_supervisor: my_sup,  # Deprecated - ignored
-  spawn_fun: &custom_spawn/1    # Deprecated - use protocol
-)
-
-# V2
-Jido.AgentServer.start_link(MyAgent)
-# Children automatically supervised
-# Custom spawn via DirectiveExecutor protocol implementation
-```
-
-### New Required Setup
-
-```elixir
-# In application.ex
-def start(_type, _args) do
-  children = [
-    Jido.AgentRuntime,  # NEW - must be started
-    # ... your other children
-  ]
-  
-  Supervisor.start_link(children, strategy: :one_for_one)
-end
-```
-
----
-
-## 14. Implementation Roadmap
-
-### Phase 1: Core Infrastructure (1-2 days)
-
-- [ ] `Jido.AgentRuntime` application supervisor
-- [ ] `Jido.AgentServer.InstanceSupervisor`
-- [ ] `Jido.AgentServer` V2 (signal processing only)
-- [ ] `Jido.AgentServer.EffectExecutor`
-- [ ] `Jido.AgentServer.DirectiveExecutor` protocol
-- [ ] Core directive implementations (Emit, Schedule, Stop, Error)
-
-### Phase 2: Hierarchy & Error Handling (1 day)
-
-- [ ] `SpawnAgent` directive
-- [ ] Child tracking in AgentServer
-- [ ] Child lifecycle signals
-- [ ] `ErrorPolicy` module
-- [ ] Sync call error surfacing
-
-### Phase 3: Observability & Polish (0.5 days)
-
-- [ ] Backpressure (`busy?`, `queue_length`, `submit_signal`)
-- [ ] Stats/metrics
-- [ ] Telemetry events
-- [ ] Logging improvements
-
-### Phase 4: Persistence (0.5 days)
-
-- [ ] `Persistence` behaviour
-- [ ] Hook integration
-- [ ] Example implementation
-
-### Phase 5: Testing & Documentation (1 day)
-
-- [ ] Unit tests for each module
-- [ ] Integration tests for hierarchy
-- [ ] Property tests for lifecycle
-- [ ] API documentation
-- [ ] Migration guide
-
-**Total Estimated Effort: 4-5 days**
-
----
-
-## Appendix: Process Diagram
-
-```
-                              ┌─────────────────────────────────┐
-                              │     External System / UI        │
-                              └───────────────┬─────────────────┘
-                                              │
-                                     Jido.Signal.t()
-                                              │
-                                              ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Jido.AgentRuntime                                  │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                    AgentInstanceSupervisor                            │   │
-│  │                      (DynamicSupervisor)                              │   │
-│  │  ┌─────────────────────────────────────────────────────────────────┐ │   │
-│  │  │                  AgentInstance (Supervisor)                      │ │   │
-│  │  │                     :one_for_all                                 │ │   │
-│  │  │  ┌─────────────────────────────────────────────────────────────┐│ │   │
-│  │  │  │                                                              ││ │   │
-│  │  │  │  ┌──────────────┐  ┌─────────────────┐  ┌────────────────┐  ││ │   │
-│  │  │  │  │ AgentServer  │  │ EffectExecutor  │  │ ChildSupervisor│  ││ │   │
-│  │  │  │  │              │  │                 │  │(DynamicSup)    │  ││ │   │
-│  │  │  │  │ • agent      │  │ • queue         │  │                │  ││ │   │
-│  │  │  │  │ • state      │──│ • directives    │  │ • Child agents │  ││ │   │
-│  │  │  │  │ • children   │  │ • execution     │  │ • Child procs  │  ││ │   │
-│  │  │  │  │ • runner     │  │                 │  │                │  ││ │   │
-│  │  │  │  └──────────────┘  └────────┬────────┘  └───────┬────────┘  ││ │   │
-│  │  │  │         │                   │                   │           ││ │   │
-│  │  │  │         │     enqueue       │                   │           ││ │   │
-│  │  │  │         └───────────────────┘                   │           ││ │   │
-│  │  │  │                             │                   │           ││ │   │
-│  │  │  │                      ┌──────┴──────┐            │           ││ │   │
-│  │  │  │                      ▼             ▼            ▼           ││ │   │
-│  │  │  │               ┌────────────┐ ┌──────────┐ ┌──────────┐     ││ │   │
-│  │  │  │               │%Emit{}     │ │%Spawn{}  │ │Child     │     ││ │   │
-│  │  │  │               │→ Dispatch  │ │→ Start   │ │Instance  │     ││ │   │
-│  │  │  │               └────────────┘ └──────────┘ └──────────┘     ││ │   │
-│  │  │  │                                                              ││ │   │
-│  │  │  └──────────────────────────────────────────────────────────────┘│ │   │
-│  │  └───────────────────────────────────────────────────────────────────┘ │   │
-│  │                                                                        │   │
-│  │  ┌───────────────────────────────────────────────────────────────────┐ │   │
-│  │  │                 AgentInstance 2... N                               │ │   │
-│  │  │                      (same structure)                              │ │   │
-│  │  └───────────────────────────────────────────────────────────────────┘ │   │
-│  └────────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │
-│  ┌────────────────────────┐  ┌───────────────────────────────────────────┐   │
-│  │    AgentRegistry       │  │         AgentTaskSupervisor               │   │
-│  │    (Registry)          │  │         (Task.Supervisor)                 │   │
-│  │                        │  │                                           │   │
-│  │  • {id, :main} → pid   │  │  • LLM calls                              │   │
-│  │  • {id, :exec} → pid   │  │  • HTTP requests                          │   │
-│  │  • {id, :children}→pid │  │  • Persistence writes                     │   │
-│  └────────────────────────┘  └───────────────────────────────────────────┘   │
-└───────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.0.0-draft | Dec 2024 | Initial V2 architecture specification |
+**Per-agent overhead:** 1 process (~100 KB)  
+**Data validation:** Zoi schemas for all types  
+**Public API:** `start`, `call`, `cast`, `state`, `whereis`  
+**Extensibility:** `DirectiveExecutor` protocol
 
 ---
 
