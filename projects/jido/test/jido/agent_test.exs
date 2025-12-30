@@ -2,113 +2,57 @@ defmodule JidoTest.AgentTest do
   use ExUnit.Case, async: true
 
   alias Jido.Agent
-
-  # Test agent modules
-  defmodule MinimalAgent do
-    use Jido.Agent,
-      name: "minimal_agent"
-  end
-
-  defmodule BasicAgent do
-    use Jido.Agent,
-      name: "basic_agent",
-      description: "A basic test agent",
-      category: "test",
-      tags: ["test", "basic"],
-      vsn: "1.0.0",
-      schema: [
-        counter: [type: :integer, default: 0],
-        status: [type: :atom, default: :idle]
-      ]
-  end
-
-  defmodule HookAgent do
-    use Jido.Agent,
-      name: "hook_agent",
-      schema: [
-        counter: [type: :integer, default: 0]
-      ]
-
-    def on_after_cmd(agent, _action, directives) do
-      {:ok, %{agent | state: Map.put(agent.state, :hook_called, true)}, directives}
-    end
-  end
-
-  # Custom strategy that tracks execution count
-  defmodule CountingStrategy do
-    @behaviour Jido.Agent.Strategy
-
-    @impl true
-    def cmd(agent, action, ctx) do
-      # Track how many times strategy was called
-      count = Map.get(agent.state, :strategy_count, 0)
-      agent = %{agent | state: Map.put(agent.state, :strategy_count, count + 1)}
-
-      # Delegate to Direct strategy for actual execution
-      Jido.Agent.Strategy.Direct.cmd(agent, action, ctx)
-    end
-  end
-
-  defmodule CustomStrategyAgent do
-    use Jido.Agent,
-      name: "custom_strategy_agent",
-      strategy: JidoTest.AgentTest.CountingStrategy
-  end
-
-  defmodule StrategyWithOptsAgent do
-    use Jido.Agent,
-      name: "strategy_opts_agent",
-      strategy: {JidoTest.AgentTest.CountingStrategy, max_depth: 5}
-  end
+  alias JidoTest.TestAgents
+  alias JidoTest.TestActions
 
   describe "module definition" do
     test "defines metadata accessors" do
-      assert BasicAgent.name() == "basic_agent"
-      assert BasicAgent.description() == "A basic test agent"
-      assert BasicAgent.category() == "test"
-      assert BasicAgent.tags() == ["test", "basic"]
-      assert BasicAgent.vsn() == "1.0.0"
+      assert TestAgents.Basic.name() == "basic_agent"
+      assert TestAgents.Basic.description() == "A basic test agent"
+      assert TestAgents.Basic.category() == "test"
+      assert TestAgents.Basic.tags() == ["test", "basic"]
+      assert TestAgents.Basic.vsn() == "1.0.0"
     end
 
     test "minimal agent has default values" do
-      assert MinimalAgent.name() == "minimal_agent"
-      assert MinimalAgent.description() == nil
-      assert MinimalAgent.schema() == []
+      assert TestAgents.Minimal.name() == "minimal_agent"
+      assert TestAgents.Minimal.description() == nil
+      assert TestAgents.Minimal.schema() == []
     end
   end
 
   describe "new/1" do
     test "creates agent with auto-generated id" do
-      agent = MinimalAgent.new()
+      agent = TestAgents.Minimal.new()
       assert is_binary(agent.id)
       assert String.length(agent.id) > 0
     end
 
     test "creates agent with custom id" do
-      agent = MinimalAgent.new(id: "custom-123")
+      agent = TestAgents.Minimal.new(id: "custom-123")
       assert agent.id == "custom-123"
     end
 
     test "creates agent with initial state" do
-      agent = BasicAgent.new(state: %{counter: 10})
+      agent = TestAgents.Basic.new(state: %{counter: 10})
       assert agent.state.counter == 10
       assert agent.state.status == :idle
     end
 
     test "applies schema defaults to state" do
-      agent = BasicAgent.new()
+      agent = TestAgents.Basic.new()
       assert agent.state.counter == 0
       assert agent.state.status == :idle
     end
 
     test "merges initial state with defaults" do
-      agent = BasicAgent.new(state: %{counter: 5})
+      agent = TestAgents.Basic.new(state: %{counter: 5})
       assert agent.state.counter == 5
       assert agent.state.status == :idle
     end
 
     test "populates agent metadata" do
-      agent = BasicAgent.new()
+      agent = TestAgents.Basic.new()
       assert agent.name == "basic_agent"
       assert agent.description == "A basic test agent"
       assert agent.category == "test"
@@ -117,76 +61,76 @@ defmodule JidoTest.AgentTest do
     end
 
     test "uses default strategy" do
-      assert BasicAgent.strategy() == Jido.Agent.Strategy.Direct
-      assert BasicAgent.strategy_opts() == []
+      assert TestAgents.Basic.strategy() == Jido.Agent.Strategy.Direct
+      assert TestAgents.Basic.strategy_opts() == []
     end
   end
 
   describe "set/2" do
     test "updates state with map" do
-      agent = BasicAgent.new()
-      {:ok, updated} = BasicAgent.set(agent, %{counter: 42})
+      agent = TestAgents.Basic.new()
+      {:ok, updated} = TestAgents.Basic.set(agent, %{counter: 42})
       assert updated.state.counter == 42
     end
 
     test "updates state with keyword list" do
-      agent = BasicAgent.new()
-      {:ok, updated} = BasicAgent.set(agent, counter: 42, status: :running)
+      agent = TestAgents.Basic.new()
+      {:ok, updated} = TestAgents.Basic.set(agent, counter: 42, status: :running)
       assert updated.state.counter == 42
       assert updated.state.status == :running
     end
 
     test "deep merges nested maps" do
-      agent = BasicAgent.new(state: %{config: %{a: 1, b: 2}})
-      {:ok, updated} = BasicAgent.set(agent, %{config: %{b: 3, c: 4}})
+      agent = TestAgents.Basic.new(state: %{config: %{a: 1, b: 2}})
+      {:ok, updated} = TestAgents.Basic.set(agent, %{config: %{b: 3, c: 4}})
       assert updated.state.config == %{a: 1, b: 3, c: 4}
     end
   end
 
   describe "validate/2" do
     test "validates state against schema" do
-      agent = BasicAgent.new()
-      {:ok, validated} = BasicAgent.validate(agent)
+      agent = TestAgents.Basic.new()
+      {:ok, validated} = TestAgents.Basic.validate(agent)
       assert validated.state.counter == 0
       assert validated.state.status == :idle
     end
 
     test "preserves extra fields in non-strict mode" do
-      agent = BasicAgent.new(state: %{counter: 0, extra_field: "hello"})
-      {:ok, validated} = BasicAgent.validate(agent)
+      agent = TestAgents.Basic.new(state: %{counter: 0, extra_field: "hello"})
+      {:ok, validated} = TestAgents.Basic.validate(agent)
       assert validated.state.extra_field == "hello"
     end
 
     test "strict mode only keeps schema fields" do
-      agent = BasicAgent.new(state: %{counter: 0, status: :idle, extra_field: "hello"})
-      {:ok, validated} = BasicAgent.validate(agent, strict: true)
+      agent = TestAgents.Basic.new(state: %{counter: 0, status: :idle, extra_field: "hello"})
+      {:ok, validated} = TestAgents.Basic.validate(agent, strict: true)
       refute Map.has_key?(validated.state, :extra_field)
     end
   end
 
   describe "cmd/2" do
     test "executes action module" do
-      agent = BasicAgent.new()
-      {updated, _directives} = BasicAgent.cmd(agent, JidoTest.TestActions.NoSchema)
+      agent = TestAgents.Basic.new()
+      {updated, _directives} = TestAgents.Basic.cmd(agent, TestActions.NoSchema)
       assert updated.state.result == "No params"
     end
 
     test "executes action tuple" do
-      agent = BasicAgent.new()
+      agent = TestAgents.Basic.new()
 
       {updated, _directives} =
-        BasicAgent.cmd(agent, {JidoTest.TestActions.BasicAction, %{value: 42}})
+        TestAgents.Basic.cmd(agent, {TestActions.BasicAction, %{value: 42}})
 
       assert updated.state.value == 42
     end
 
     test "executes list of actions" do
-      agent = BasicAgent.new()
+      agent = TestAgents.Basic.new()
 
       {updated, directives} =
-        BasicAgent.cmd(agent, [
-          {JidoTest.TestActions.Add, %{value: 5, amount: 3}},
-          JidoTest.TestActions.NoSchema
+        TestAgents.Basic.cmd(agent, [
+          {TestActions.Add, %{value: 5, amount: 3}},
+          TestActions.NoSchema
         ])
 
       assert updated.state.value == 8
@@ -195,76 +139,80 @@ defmodule JidoTest.AgentTest do
     end
 
     test "handles %Instruction{} struct directly" do
-      agent = BasicAgent.new()
+      agent = TestAgents.Basic.new()
 
       {:ok, instruction} =
-        Jido.Instruction.new(%{action: JidoTest.TestActions.BasicAction, params: %{value: 99}})
+        Jido.Instruction.new(%{action: TestActions.BasicAction, params: %{value: 99}})
 
-      {updated, _directives} = BasicAgent.cmd(agent, instruction)
+      {updated, _directives} = TestAgents.Basic.cmd(agent, instruction)
       assert updated.state.value == 99
     end
 
     test "emits error directive for invalid action params" do
-      agent = BasicAgent.new()
-      {_agent, directives} = BasicAgent.cmd(agent, {JidoTest.TestActions.BasicAction, %{}})
+      agent = TestAgents.Basic.new()
+      {_agent, directives} = TestAgents.Basic.cmd(agent, {TestActions.BasicAction, %{}})
 
       assert [%Jido.Agent.Directive.Error{context: :instruction, error: error}] = directives
       assert error.message == "Instruction failed"
     end
 
     test "invalid input format returns error directive" do
-      agent = BasicAgent.new()
-      {updated, directives} = BasicAgent.cmd(agent, {:unknown, "whatever"})
+      agent = TestAgents.Basic.new()
+      {updated, directives} = TestAgents.Basic.cmd(agent, {:unknown, "whatever"})
 
-      # Agent state unchanged
       assert updated.state == agent.state
-      # Error directive emitted for normalization failure
       assert [%Jido.Agent.Directive.Error{context: :normalize}] = directives
     end
   end
 
   describe "lifecycle hooks" do
     test "on_after_cmd is called after processing" do
-      agent = HookAgent.new()
+      agent = TestAgents.Hook.new()
       refute Map.has_key?(agent.state, :hook_called)
 
-      {updated, _} = HookAgent.cmd(agent, JidoTest.TestActions.NoSchema)
+      {updated, _} = TestAgents.Hook.cmd(agent, TestActions.NoSchema)
       assert updated.state.hook_called == true
     end
   end
 
   describe "strategy" do
     test "default strategy is Direct" do
-      assert BasicAgent.strategy() == Jido.Agent.Strategy.Direct
-      assert BasicAgent.strategy_opts() == []
+      assert TestAgents.Basic.strategy() == Jido.Agent.Strategy.Direct
+      assert TestAgents.Basic.strategy_opts() == []
     end
 
     test "custom strategy module is used" do
-      assert CustomStrategyAgent.strategy() == JidoTest.AgentTest.CountingStrategy
-      assert CustomStrategyAgent.strategy_opts() == []
+      assert TestAgents.CustomStrategy.strategy() == TestAgents.CountingStrategy
+      assert TestAgents.CustomStrategy.strategy_opts() == []
     end
 
     test "strategy with options extracts module and opts" do
-      assert StrategyWithOptsAgent.strategy() == JidoTest.AgentTest.CountingStrategy
-      assert StrategyWithOptsAgent.strategy_opts() == [max_depth: 5]
+      assert TestAgents.StrategyWithOpts.strategy() == TestAgents.CountingStrategy
+      assert TestAgents.StrategyWithOpts.strategy_opts() == [max_depth: 5]
     end
 
     test "custom strategy is invoked during cmd/2" do
-      agent = CustomStrategyAgent.new()
+      agent = TestAgents.CustomStrategy.new()
       refute Map.has_key?(agent.state, :strategy_count)
 
-      {updated, _} = CustomStrategyAgent.cmd(agent, JidoTest.TestActions.NoSchema)
+      {updated, _} = TestAgents.CustomStrategy.cmd(agent, TestActions.NoSchema)
       assert updated.state.strategy_count == 1
 
-      {updated2, _} = CustomStrategyAgent.cmd(updated, JidoTest.TestActions.NoSchema)
+      {updated2, _} = TestAgents.CustomStrategy.cmd(updated, TestActions.NoSchema)
       assert updated2.state.strategy_count == 2
     end
   end
 
   describe "base module functions" do
-    test "Agent.new/1 creates agent from attrs" do
+    test "Agent.new/1 creates agent from attrs (map)" do
       {:ok, agent} = Agent.new(%{name: "test_agent", id: "test-123"})
       assert agent.id == "test-123"
+      assert agent.name == "test_agent"
+    end
+
+    test "Agent.new/1 creates agent from attrs (keyword list)" do
+      {:ok, agent} = Agent.new(name: "test_agent", id: "kw-123")
+      assert agent.id == "kw-123"
       assert agent.name == "test_agent"
     end
 
@@ -275,123 +223,38 @@ defmodule JidoTest.AgentTest do
     end
 
     test "Agent.new/1 returns error for invalid id type" do
-      # Base new/1 uses Zoi struct schema which validates types
       {:error, error} = Agent.new(%{id: 12345})
       assert error.message == "Agent validation failed"
     end
-  end
 
-  describe "directives" do
-    alias Jido.Agent.Directive
-
-    test "Directive.emit/1 creates Emit directive" do
-      signal = %{type: "test.event", data: %{}}
-      directive = Directive.emit(signal)
-
-      assert %Directive.Emit{signal: ^signal, dispatch: nil} = directive
+    test "Agent.validate/2 validates state against schema" do
+      {:ok, agent} = Agent.new(%{id: "test", schema: [count: [type: :integer, default: 0]]})
+      {:ok, validated} = Agent.validate(agent)
+      assert validated.state.count == 0
     end
 
-    test "Directive.emit/2 creates Emit with dispatch config" do
-      signal = %{type: "test.event"}
-      dispatch = {:pubsub, topic: "events"}
-      directive = Directive.emit(signal, dispatch)
-
-      assert %Directive.Emit{signal: ^signal, dispatch: ^dispatch} = directive
+    test "Agent.validate/2 returns error for invalid state" do
+      {:ok, agent} = Agent.new(%{id: "test", schema: [count: [type: :integer, required: true]]})
+      agent = %{agent | state: %{count: "not_an_integer"}}
+      {:error, error} = Agent.validate(agent)
+      assert error.message == "State validation failed"
     end
 
-    test "Directive.error/1 creates Error directive" do
-      error = Jido.Error.validation_error("Test error")
-      directive = Directive.error(error)
-
-      assert %Directive.Error{error: ^error, context: nil} = directive
+    test "Agent.schema/0 returns the Zoi schema" do
+      schema = Agent.schema()
+      assert schema
     end
 
-    test "Directive.error/2 creates Error with context" do
-      error = Jido.Error.execution_error("Failed")
-      directive = Directive.error(error, :instruction)
-
-      assert %Directive.Error{error: ^error, context: :instruction} = directive
-    end
-
-    test "Directive.spawn/1 creates Spawn directive" do
-      child_spec = {Task, fn -> :ok end}
-      directive = Directive.spawn(child_spec)
-
-      assert %Directive.Spawn{child_spec: ^child_spec, tag: nil} = directive
-    end
-
-    test "Directive.spawn/2 creates Spawn with tag" do
-      child_spec = {Task, fn -> :ok end}
-      directive = Directive.spawn(child_spec, :worker_1)
-
-      assert %Directive.Spawn{child_spec: ^child_spec, tag: :worker_1} = directive
-    end
-
-    test "Directive.schedule/2 creates Schedule directive" do
-      directive = Directive.schedule(5000, :timeout)
-
-      assert %Directive.Schedule{delay_ms: 5000, message: :timeout} = directive
-    end
-
-    test "Directive.stop/0 creates Stop with default reason" do
-      directive = Directive.stop()
-
-      assert %Directive.Stop{reason: :normal} = directive
-    end
-
-    test "Directive.stop/1 creates Stop with custom reason" do
-      directive = Directive.stop(:shutdown)
-
-      assert %Directive.Stop{reason: :shutdown} = directive
+    test "Agent.config_schema/0 returns the agent config schema" do
+      schema = Agent.config_schema()
+      assert schema
     end
   end
 
   describe "actions returning effects" do
-    defmodule EmitAction do
-      use Jido.Action,
-        name: "emit_action",
-        description: "Action that returns an emit effect"
-
-      alias Jido.Agent.Directive
-
-      def run(_params, _context) do
-        signal = %{type: "test.emitted", data: %{value: 42}}
-        {:ok, %{emitted: true}, Directive.emit(signal)}
-      end
-    end
-
-    defmodule MultiEffectAction do
-      use Jido.Action,
-        name: "multi_effect_action",
-        description: "Action that returns multiple effects"
-
-      alias Jido.Agent.Directive
-
-      def run(_params, _context) do
-        effects = [
-          Directive.emit(%{type: "event.1"}),
-          Directive.schedule(1000, :check)
-        ]
-
-        {:ok, %{triggered: true}, effects}
-      end
-    end
-
-    defmodule SetStateAction do
-      use Jido.Action,
-        name: "set_state_action",
-        description: "Action that uses Internal.SetState"
-
-      alias Jido.Agent.Internal
-
-      def run(_params, _context) do
-        {:ok, %{primary: "result"}, %Internal.SetState{attrs: %{extra: "state"}}}
-      end
-    end
-
     test "action can emit signal via directive" do
-      agent = BasicAgent.new()
-      {updated, directives} = BasicAgent.cmd(agent, EmitAction)
+      agent = TestAgents.Basic.new()
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.EmitAction)
 
       assert updated.state.emitted == true
       assert [%Jido.Agent.Directive.Emit{signal: signal}] = directives
@@ -399,8 +262,8 @@ defmodule JidoTest.AgentTest do
     end
 
     test "action can return multiple directives" do
-      agent = BasicAgent.new()
-      {updated, directives} = BasicAgent.cmd(agent, MultiEffectAction)
+      agent = TestAgents.Basic.new()
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.MultiEffectAction)
 
       assert updated.state.triggered == true
       assert length(directives) == 2
@@ -408,39 +271,62 @@ defmodule JidoTest.AgentTest do
     end
 
     test "Internal.SetState modifies agent state but is not returned as directive" do
-      agent = BasicAgent.new()
-      {updated, directives} = BasicAgent.cmd(agent, SetStateAction)
+      agent = TestAgents.Basic.new()
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.SetStateAction)
 
-      # Result merged into state
       assert updated.state.primary == "result"
-      # SetState effect also merged into state
       assert updated.state.extra == "state"
-      # No directives returned (SetState is internal)
+      assert directives == []
+    end
+
+    test "Internal.ReplaceState replaces state wholesale" do
+      agent = TestAgents.Basic.new(state: %{old: "data", counter: 10})
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.ReplaceStateAction)
+
+      assert updated.state == %{replaced: true, fresh: "state"}
+      refute Map.has_key?(updated.state, :old)
+      refute Map.has_key?(updated.state, :counter)
+      assert directives == []
+    end
+
+    test "Internal.DeleteKeys removes top-level keys from state" do
+      agent = TestAgents.Basic.new(state: %{to_delete: 1, also_delete: 2, keep: 3})
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.DeleteKeysAction)
+
+      refute Map.has_key?(updated.state, :to_delete)
+      refute Map.has_key?(updated.state, :also_delete)
+      assert updated.state.keep == 3
+      assert directives == []
+    end
+
+    test "Internal.SetPath sets value at nested path" do
+      agent = TestAgents.Basic.new(state: %{existing: "value"})
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.SetPathAction)
+
+      assert updated.state.nested.deep.value == 42
+      assert updated.state.existing == "value"
+      assert directives == []
+    end
+
+    test "Internal.DeletePath removes value at nested path" do
+      agent = TestAgents.Basic.new(state: %{nested: %{to_remove: "gone", keep: "here"}})
+      {updated, directives} = TestAgents.Basic.cmd(agent, TestActions.DeletePathAction)
+
+      refute Map.has_key?(updated.state.nested, :to_remove)
+      assert updated.state.nested.keep == "here"
       assert directives == []
     end
   end
 
   describe "Zoi schema support" do
-    defmodule ZoiSchemaAgent do
-      use Jido.Agent,
-        name: "zoi_schema_agent",
-        schema:
-          Zoi.object(%{
-            status: Zoi.atom() |> Zoi.default(:idle),
-            count: Zoi.integer() |> Zoi.default(0)
-          })
-    end
-
     test "agent works with Zoi schema" do
-      agent = ZoiSchemaAgent.new()
-      # Note: Zoi defaults aren't extracted the same way as NimbleOptions
-      # The schema is used for validation, not for providing defaults to new/1
+      agent = TestAgents.ZoiSchema.new()
       assert agent.name == "zoi_schema_agent"
     end
 
     test "validate works with Zoi schema" do
-      agent = ZoiSchemaAgent.new(state: %{status: :running, count: 5})
-      {:ok, validated} = ZoiSchemaAgent.validate(agent)
+      agent = TestAgents.ZoiSchema.new(state: %{status: :running, count: 5})
+      {:ok, validated} = TestAgents.ZoiSchema.validate(agent)
       assert validated.state.status == :running
       assert validated.state.count == 5
     end

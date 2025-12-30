@@ -31,10 +31,10 @@ defmodule Jido.Agent.Strategy.Direct do
     instruction = %{instruction | context: Map.put(instruction.context, :state, agent.state)}
 
     case Jido.Exec.run(instruction) do
-      {:ok, result} ->
+      {:ok, result} when is_map(result) ->
         {apply_result(agent, result), []}
 
-      {:ok, result, effects} ->
+      {:ok, result, effects} when is_map(result) ->
         agent = apply_result(agent, result)
         apply_effects(agent, List.wrap(effects))
 
@@ -48,8 +48,6 @@ defmodule Jido.Agent.Strategy.Direct do
     new_state = Jido.Agent.State.merge(agent.state, result)
     %{agent | state: new_state}
   end
-
-  defp apply_result(agent, _result), do: agent
 
   defp apply_effects(agent, effects) do
     Enum.reduce(effects, {agent, []}, fn

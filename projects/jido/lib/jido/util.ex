@@ -18,8 +18,6 @@ defmodule Jido.Util do
   but they can also be useful for developers building applications with Jido.
   """
 
-  alias Jido.Error
-
   require OK
   require Logger
 
@@ -62,7 +60,7 @@ defmodule Jido.Util do
       {:error, "The name must contain only letters, numbers, and underscores."}
 
   """
-  @spec validate_name(any()) :: {:ok, String.t()} | {:error, Error.t()}
+  @spec validate_name(any()) :: {:ok, String.t()} | {:error, String.t()}
   @spec validate_name(any(), keyword()) :: :ok | {:error, String.t()}
   def validate_name(name, opts \\ [])
 
@@ -79,7 +77,8 @@ defmodule Jido.Util do
     if Regex.match?(@name_regex, name) do
       :ok
     else
-      {:error, "The name must start with a letter and contain only letters, numbers, and underscores."}
+      {:error,
+       "The name must start with a letter and contain only letters, numbers, and underscores."}
     end
   end
 
@@ -126,9 +125,11 @@ defmodule Jido.Util do
       iex> Jido.Util.validate_actions(ValidAction)
       {:ok, [ValidAction]}
   """
-  @spec validate_actions(list(module()) | module()) ::
-          {:ok, list(module()) | module()} | {:error, String.t()}
-  def validate_actions(actions) when is_list(actions) do
+  @spec validate_actions(list(module()) | module(), keyword()) ::
+          :ok | {:ok, list(module()) | module()} | {:error, String.t()}
+  def validate_actions(actions, opts \\ [])
+
+  def validate_actions(actions, []) when is_list(actions) do
     if Enum.all?(actions, &implements_action?/1) do
       {:ok, actions}
     else
@@ -136,9 +137,25 @@ defmodule Jido.Util do
     end
   end
 
-  def validate_actions(action) when is_atom(action) do
+  def validate_actions(actions, _opts) when is_list(actions) do
+    if Enum.all?(actions, &implements_action?/1) do
+      :ok
+    else
+      {:error, "All actions must implement the Jido.Action behavior"}
+    end
+  end
+
+  def validate_actions(action, []) when is_atom(action) do
     if implements_action?(action) do
       {:ok, action}
+    else
+      {:error, "All actions must implement the Jido.Action behavior"}
+    end
+  end
+
+  def validate_actions(action, _opts) when is_atom(action) do
+    if implements_action?(action) do
+      :ok
     else
       {:error, "All actions must implement the Jido.Action behavior"}
     end

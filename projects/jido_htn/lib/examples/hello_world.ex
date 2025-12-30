@@ -23,6 +23,7 @@ defmodule Jido.Examples.HelloWorld do
     case Jido.HTN.plan(domain(), world_state) do
       {:ok, plan, _mtr} ->
         IO.puts("Generated plan:")
+
         Enum.each(plan, fn {action, params} ->
           IO.puts("  - #{inspect(action)} with params #{inspect(params)}")
         end)
@@ -38,9 +39,12 @@ defmodule Jido.Examples.HelloWorld do
   defp execute_plan(plan, state) do
     Enum.reduce(plan, state, fn {action_mod, params}, acc_state ->
       param_map = Enum.into(params, %{})
+
       case action_mod.run(param_map, %{}) do
-        {:ok, _result} -> Map.update(acc_state, :count, 0, &(&1 + 1))
-        {:error, reason} -> 
+        {:ok, _result} ->
+          Map.update(acc_state, :count, 0, &(&1 + 1))
+
+        {:error, reason} ->
           IO.puts("Action failed: #{inspect(reason)}")
           acc_state
       end

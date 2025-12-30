@@ -213,7 +213,12 @@ defmodule Jido.Agent do
                                description:
                                  "Execution strategy module or {module, opts}. Default: Jido.Agent.Strategy.Direct"
                              )
-                             |> Zoi.default(Jido.Agent.Strategy.Direct)
+                             |> Zoi.default(Jido.Agent.Strategy.Direct),
+                           skills:
+                             Zoi.list(Zoi.any(),
+                               description: "Skill modules or {module, config} tuples"
+                             )
+                             |> Zoi.default([])
                          },
                          coerce: true
                        )
@@ -261,13 +266,93 @@ defmodule Jido.Agent do
                              line: __ENV__.line
                        end)
 
+      # Normalize skills: Module or {Module, config}
+      @skills_config Enum.map(@validated_opts[:skills] || [], fn
+                       mod when is_atom(mod) -> {mod, %{}}
+                       {mod, opts} when is_list(opts) -> {mod, Map.new(opts)}
+                       {mod, opts} when is_map(opts) -> {mod, opts}
+                     end)
+
+      # Validate skills implement behaviour
+      for {mod, _} <- @skills_config do
+        case Code.ensure_compiled(mod) do
+          {:module, _} ->
+            unless function_exported?(mod, :skill_spec, 1) do
+              raise CompileError,
+                description:
+                  "#{inspect(mod)} does not implement Jido.Skill (missing skill_spec/1)",
+                file: __ENV__.file,
+                line: __ENV__.line
+            end
+
+          {:error, reason} ->
+            raise CompileError,
+              description: "Skill #{inspect(mod)} could not be compiled: #{inspect(reason)}",
+              file: __ENV__.file,
+              line: __ENV__.line
+        end
+      end
+
+      # Build skill specs at compile time
+      @skill_specs Enum.map(@skills_config, fn {mod, config} ->
+                     mod.skill_spec(config)
+                   end)
+
+      # Validate unique state_keys
+      @skill_state_keys Enum.map(@skill_specs, & &1.state_key)
+      @duplicate_keys @skill_state_keys -- Enum.uniq(@skill_state_keys)
+      if @duplicate_keys != [] do
+        raise CompileError,
+          description: "Duplicate skill state_keys: #{inspect(@duplicate_keys)}",
+          file: __ENV__.file,
+          line: __ENV__.line
+      end
+
+      # Validate no collision with base schema keys
+      @base_schema_keys Jido.Agent.Schema.known_keys(@validated_opts[:schema])
+      @colliding_keys Enum.filter(@skill_state_keys, &(&1 in @base_schema_keys))
+      if @colliding_keys != [] do
+        raise CompileError,
+          description: "Skill state_keys collide with agent schema: #{inspect(@colliding_keys)}",
+          file: __ENV__.file,
+          line: __ENV__.line
+      end
+
+      # Merge schemas: base schema + nested skill schemas
+      @merged_schema Jido.Agent.Schema.merge_with_skills(
+                       @validated_opts[:schema],
+                       @skill_specs
+                     )
+
+      # Aggregate actions from skills
+      @skill_actions @skill_specs |> Enum.flat_map(& &1.actions) |> Enum.uniq()
+
       # Metadata accessors
       def name, do: @validated_opts.name
       def description, do: @validated_opts[:description]
       def category, do: @validated_opts[:category]
       def tags, do: @validated_opts[:tags] || []
       def vsn, do: @validated_opts[:vsn]
-      def schema, do: @validated_opts[:schema] || []
+      def schema, do: @merged_schema
+
+      # Skill introspection functions
+      def skills, do: @skill_specs
+      def skill_specs, do: @skill_specs
+      def actions, do: @skill_actions
+
+      def skill_config(skill_mod) do
+        case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
+          nil -> nil
+          spec -> spec.config
+        end
+      end
+
+      def skill_state(agent, skill_mod) do
+        case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
+          nil -> nil
+          spec -> Map.get(agent.state, spec.state_key)
+        end
+      end
 
       # Strategy accessors
       def strategy do
@@ -297,8 +382,20 @@ defmodule Jido.Agent do
       def new(opts \\ []) do
         opts = if is_list(opts), do: Map.new(opts), else: opts
 
-        # Build initial state from schema defaults + provided state
-        schema_defaults = Jido.Agent.State.defaults_from_schema(schema())
+        # Build initial state from base schema defaults
+        base_defaults = Jido.Agent.State.defaults_from_schema(@validated_opts[:schema])
+
+        # Build skill defaults nested under their state_keys
+        skill_defaults =
+          @skill_specs
+          |> Enum.map(fn spec ->
+            skill_state_defaults = Jido.Agent.Schema.defaults_from_zoi_schema(spec.schema)
+            {spec.state_key, skill_state_defaults}
+          end)
+          |> Map.new()
+
+        # Merge: base defaults + skill defaults + provided state
+        schema_defaults = Map.merge(base_defaults, skill_defaults)
         initial_state = Map.merge(schema_defaults, opts[:state] || %{})
 
         id = opts[:id] || Jido.Util.generate_id()
@@ -398,7 +495,12 @@ defmodule Jido.Agent do
                      vsn: 0,
                      schema: 0,
                      strategy: 0,
-                     strategy_opts: 0
+                     strategy_opts: 0,
+                     skills: 0,
+                     skill_specs: 0,
+                     actions: 0,
+                     skill_config: 1,
+                     skill_state: 2
 
       # Private helper for after hook dispatch
       defp do_after_cmd(agent, msg, directives) do

@@ -185,7 +185,8 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
           ],
           # Incomplete response missing key details
           response: "Global warming happens because of fossil fuels.",
-          reference: "Global warming is caused by greenhouse gas emissions from burning fossil fuels, deforestation, and industrial processes that release heat-trapping gases into the atmosphere.",
+          reference:
+            "Global warming is caused by greenhouse gas emissions from burning fossil fuels, deforestation, and industrial processes that release heat-trapping gases into the atmosphere.",
           tags: %{"source" => "climate_qa", "expected_score" => "partial"}
         },
         %SingleTurn{
@@ -196,8 +197,10 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
             "When photons hit the semiconductor material, they knock electrons loose, creating electrical current."
           ],
           # Response adds information not in context (hallucination)
-          response: "Solar panels work by using photovoltaic cells to convert sunlight into electricity. They also use mirrors to concentrate the sunlight and generate steam to turn turbines.",
-          reference: "Solar panels use photovoltaic cells to convert sunlight directly into electricity through the photovoltaic effect.",
+          response:
+            "Solar panels work by using photovoltaic cells to convert sunlight into electricity. They also use mirrors to concentrate the sunlight and generate steam to turn turbines.",
+          reference:
+            "Solar panels use photovoltaic cells to convert sunlight directly into electricity through the photovoltaic effect.",
           tags: %{"source" => "tech_qa", "expected_score" => "mixed"}
         },
         %SingleTurn{
@@ -208,8 +211,10 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
             "There are three types of pasta: spaghetti, penne, and fusilli.",
             "Popular programming languages include Python, Java, and C++."
           ],
-          response: "Machine learning is a subset of AI that allows computers to learn from data without being explicitly programmed.",
-          reference: "Machine learning is a branch of artificial intelligence that enables computers to learn and make decisions from data.",
+          response:
+            "Machine learning is a subset of AI that allows computers to learn from data without being explicitly programmed.",
+          reference:
+            "Machine learning is a branch of artificial intelligence that enables computers to learn and make decisions from data.",
           tags: %{"source" => "mixed_qa", "expected_score" => "low_precision"}
         }
       ]
@@ -231,7 +236,7 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
       assert length(result.sample_results) == 3
 
       # Check for varied scores (not all perfect)
-      faithfulness_scores = 
+      faithfulness_scores =
         Enum.map(result.sample_results, fn sr -> sr.scores.faithfulness end)
 
       # At least one score should be less than perfect
@@ -239,12 +244,14 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
              "Expected at least one faithfulness score < 1.0, got: #{inspect(faithfulness_scores)}"
 
       IO.puts("\n=== Imperfect Response Results ===")
+
       for sample_result <- result.sample_results do
         sample_id = sample_result.sample_id
         faith_score = sample_result.scores.faithfulness
         precision_score = sample_result.scores.context_precision
         IO.puts("#{sample_id}: Faithfulness=#{faith_score}, Context Precision=#{precision_score}")
       end
+
       IO.puts("Avg Faithfulness: #{result.summary_stats.faithfulness.mean}")
       IO.puts("Avg Context Precision: #{result.summary_stats.context_precision.mean}")
       IO.puts("✅ Realistic score variation detected!")
@@ -260,8 +267,10 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
             "Special relativity deals with objects moving at constant speeds in a straight line.",
             "General relativity extends this to include gravity and acceleration."
           ],
-          response: "Einstein's theory of relativity includes both special relativity (dealing with constant motion) and general relativity (including gravity effects).",
-          reference: "The theory of relativity, developed by Einstein, includes special and general relativity theories.",
+          response:
+            "Einstein's theory of relativity includes both special relativity (dealing with constant motion) and general relativity (including gravity effects).",
+          reference:
+            "The theory of relativity, developed by Einstein, includes special and general relativity theories.",
           tags: %{"source" => "physics_qa"}
         },
         %SingleTurn{
@@ -272,8 +281,10 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
             "After vaccination, the immune system remembers the pathogen and can fight it quickly.",
             "This creates immunity without causing the actual disease."
           ],
-          response: "Vaccines work by exposing the immune system to harmless versions of pathogens, allowing it to develop immunity without getting sick.",
-          reference: "Vaccines train the immune system to recognize and fight specific diseases by using weakened or killed pathogens.",
+          response:
+            "Vaccines work by exposing the immune system to harmless versions of pathogens, allowing it to develop immunity without getting sick.",
+          reference:
+            "Vaccines train the immune system to recognize and fight specific diseases by using weakened or killed pathogens.",
           tags: %{"source" => "medical_qa"}
         }
       ]
@@ -281,7 +292,7 @@ defmodule Jido.Eval.Integration.LiveEvalTest do
       {:ok, dataset} = InMemory.new(samples)
 
       # Test async evaluation
-      {:ok, run_id} = 
+      {:ok, run_id} =
         Jido.Eval.evaluate_async(dataset,
           metrics: [:faithfulness, :context_precision],
           llm: "openai:gpt-4o-mini",
