@@ -182,7 +182,10 @@ defmodule ReqLLM.Providers.OpenAI.ResponsesAPI do
         [ReqLLM.StreamChunk.meta(meta)]
 
       "response.incomplete" ->
-        reason = data["reason"] || "incomplete"
+        reason =
+          get_in(data, ["response", "incomplete_details", "reason"]) ||
+            data["reason"] ||
+            "incomplete"
 
         [
           ReqLLM.StreamChunk.meta(%{

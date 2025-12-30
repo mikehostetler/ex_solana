@@ -202,6 +202,24 @@ defmodule ReqLLM.Providers.Azure do
       type: :map,
       doc:
         "Additional model-specific request fields (e.g., thinking config for Claude extended thinking)"
+    ],
+    # OpenAI-specific options - passed through to Azure.OpenAI formatter
+    # These use loose validation (type: :any); actual validation happens at the API level
+    response_format: [
+      type: :any,
+      doc: "Response format configuration (OpenAI models only)"
+    ],
+    openai_structured_output_mode: [
+      type: :any,
+      doc: "Structured output strategy for OpenAI models"
+    ],
+    openai_parallel_tool_calls: [
+      type: :any,
+      doc: "Parallel tool calls setting for OpenAI models"
+    ],
+    max_completion_tokens: [
+      type: :any,
+      doc: "Maximum completion tokens (OpenAI reasoning models)"
     ]
   ]
 
