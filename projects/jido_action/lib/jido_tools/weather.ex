@@ -50,10 +50,9 @@ defmodule Jido.Tools.Weather do
 
     case Jido.Exec.run(Jido.Tools.Weather.ByLocation, by_location_params, context) do
       {:ok, weather_data} ->
-        # For :text format, extract just the forecast string for backward compatibility
         result =
           case params[:format] || :text do
-            :text -> weather_data[:forecast]
+            :text -> %{forecast: weather_data[:forecast]}
             _ -> weather_data
           end
 
