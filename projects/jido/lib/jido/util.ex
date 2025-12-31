@@ -332,6 +332,8 @@ defmodule Jido.Util do
     end
   end
 
+  @valid_levels Logger.levels()
+
   @doc """
   Conditionally logs a message based on comparing threshold and message log levels.
 
@@ -365,11 +367,8 @@ defmodule Jido.Util do
       :ok
   """
   def cond_log(threshold_level, message_level, message, opts \\ []) do
-    valid_levels = Logger.levels()
-
     cond do
-      threshold_level not in valid_levels or message_level not in valid_levels ->
-        # Don't log
+      threshold_level not in @valid_levels or message_level not in @valid_levels ->
         :ok
 
       Logger.compare_levels(threshold_level, message_level) in [:lt, :eq] ->

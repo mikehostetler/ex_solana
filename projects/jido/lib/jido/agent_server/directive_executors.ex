@@ -12,7 +12,10 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Emit do
 
       cfg ->
         if Code.ensure_loaded?(Jido.Signal.Dispatch) do
-          Task.Supervisor.start_child(Jido.TaskSupervisor, fn ->
+          task_sup =
+            if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
+
+          Task.Supervisor.start_child(task_sup, fn ->
             Jido.Signal.Dispatch.dispatch(signal, cfg)
           end)
         else
@@ -46,7 +49,10 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Spawn do
           state.spawn_fun.(child_spec)
 
         true ->
-          DynamicSupervisor.start_child(Jido.AgentSupervisor, child_spec)
+          agent_sup =
+            if state.jido, do: Jido.agent_supervisor_name(state.jido), else: Jido.AgentSupervisor
+
+          DynamicSupervisor.start_child(agent_sup, child_spec)
       end
 
     case result do
@@ -114,6 +120,8 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.SpawnAgent do
         }
       ] ++ Map.to_list(Map.delete(opts, :id))
 
+    child_opts = if state.jido, do: Keyword.put(child_opts, :jido, state.jido), else: child_opts
+
     case AgentServer.start(child_opts) do
       {:ok, pid} ->
         ref = Process.monitor(pid)
@@ -143,6 +151,36 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.SpawnAgent do
   defp resolve_agent_module(agent) when is_atom(agent), do: agent
   defp resolve_agent_module(%{__struct__: module}), do: module
   defp resolve_agent_module(_), do: nil
+end
+
+defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.StopChild do
+  @moduledoc false
+
+  require Logger
+
+  alias Jido.AgentServer.State
+
+  def exec(%{tag: tag, reason: reason}, _input_signal, state) do
+    case State.get_child(state, tag) do
+      nil ->
+        Logger.debug("AgentServer #{state.id} cannot stop child #{inspect(tag)}: not found")
+        {:ok, state}
+
+      %{pid: pid} ->
+        Logger.debug(
+          "AgentServer #{state.id} stopping child #{inspect(tag)} with reason #{inspect(reason)}"
+        )
+
+        task_sup =
+          if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
+
+        Task.Supervisor.start_child(task_sup, fn ->
+          GenServer.stop(pid, reason, 5_000)
+        end)
+
+        {:ok, state}
+    end
+  end
 end
 
 defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Stop do

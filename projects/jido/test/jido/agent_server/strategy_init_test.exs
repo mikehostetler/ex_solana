@@ -1,5 +1,5 @@
 defmodule JidoTest.AgentServer.StrategyInitTest do
-  use ExUnit.Case, async: true
+  use JidoTest.Case, async: true
 
   alias Jido.AgentServer
   alias Jido.Agent.Directive
@@ -45,6 +45,17 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
     end
   end
 
+  defmodule NoopAction do
+    @moduledoc false
+    use Jido.Action,
+      name: "noop",
+      description: "No-op action for testing",
+      schema: []
+
+    @impl true
+    def run(_params, _ctx), do: {:ok, %{}}
+  end
+
   defmodule TrackingAgent do
     @moduledoc false
     use Jido.Agent,
@@ -53,6 +64,12 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       schema: [
         counter: [type: :integer, default: 0]
       ]
+
+    def signal_routes do
+      [
+        {"test", JidoTest.AgentServer.StrategyInitTest.NoopAction}
+      ]
+    end
   end
 
   defmodule DirectiveAgent do
@@ -63,6 +80,8 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       schema: [
         value: [type: :integer, default: 0]
       ]
+
+    def signal_routes, do: []
   end
 
   defmodule DefaultStrategyAgent do
@@ -72,11 +91,13 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       schema: [
         status: [type: :atom, default: :idle]
       ]
+
+    def signal_routes, do: []
   end
 
   describe "strategy.init/2 lifecycle" do
-    test "strategy.init/2 is called on AgentServer startup" do
-      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent)
+    test "strategy.init/2 is called on AgentServer startup", %{jido: jido} do
+      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent, jido: jido)
       {:ok, state} = AgentServer.state(pid)
 
       assert state.agent.state.__strategy__.initialized == true
@@ -84,8 +105,8 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "strategy_opts are passed to init/2" do
-      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent)
+    test "strategy_opts are passed to init/2", %{jido: jido} do
+      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent, jido: jido)
       {:ok, state} = AgentServer.state(pid)
 
       assert state.agent.state.__strategy__.opts == [max_iterations: 5]
@@ -93,8 +114,8 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "strategy state is initialized before first signal" do
-      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent)
+    test "strategy state is initialized before first signal", %{jido: jido} do
+      {:ok, pid} = AgentServer.start_link(agent: TrackingAgent, jido: jido)
 
       {:ok, state} = AgentServer.state(pid)
       assert state.agent.state.__strategy__.initialized == true
@@ -107,8 +128,8 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "directives from init/2 are processed" do
-      {:ok, pid} = AgentServer.start_link(agent: DirectiveAgent)
+    test "directives from init/2 are processed", %{jido: jido} do
+      {:ok, pid} = AgentServer.start_link(agent: DirectiveAgent, jido: jido)
 
       Process.sleep(20)
 
@@ -118,8 +139,8 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "default Direct strategy works (no-op init)" do
-      {:ok, pid} = AgentServer.start_link(agent: DefaultStrategyAgent)
+    test "default Direct strategy works (no-op init)", %{jido: jido} do
+      {:ok, pid} = AgentServer.start_link(agent: DefaultStrategyAgent, jido: jido)
       {:ok, state} = AgentServer.state(pid)
 
       assert state.status == :idle
@@ -128,9 +149,9 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "strategy init works with pre-built agent" do
+    test "strategy init works with pre-built agent", %{jido: jido} do
       agent = TrackingAgent.new(id: "prebuilt")
-      {:ok, pid} = AgentServer.start_link(agent: agent, agent_module: TrackingAgent)
+      {:ok, pid} = AgentServer.start_link(agent: agent, agent_module: TrackingAgent, jido: jido)
       {:ok, state} = AgentServer.state(pid)
 
       assert state.agent.state.__strategy__.initialized == true
@@ -138,11 +159,12 @@ defmodule JidoTest.AgentServer.StrategyInitTest do
       GenServer.stop(pid)
     end
 
-    test "strategy init works with initial_state" do
+    test "strategy init works with initial_state", %{jido: jido} do
       {:ok, pid} =
         AgentServer.start_link(
           agent: TrackingAgent,
-          initial_state: %{counter: 42}
+          initial_state: %{counter: 42},
+          jido: jido
         )
 
       {:ok, state} = AgentServer.state(pid)

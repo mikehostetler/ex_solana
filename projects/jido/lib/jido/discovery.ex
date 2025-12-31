@@ -62,6 +62,7 @@ defmodule Jido.Discovery do
   All processes can read concurrently without contention.
   """
 
+  use GenServer
   require Logger
 
   @catalog_key :jido_discovery_catalog
@@ -76,13 +77,23 @@ defmodule Jido.Discovery do
           tags: [atom()] | nil
         }
 
-  # Public API
+  # GenServer API
 
   @doc """
-  Initializes the discovery catalog. Called automatically during application startup.
+  Starts the Discovery GenServer.
+
+  ## Options
+
+  - `:name` - The name to register the GenServer under (default: `Jido.Discovery`)
   """
-  @spec init() :: :ok
-  def init do
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: name)
+  end
+
+  @impl GenServer
+  def init(_opts) do
     Logger.info("[Jido.Discovery] Building component catalog...")
     catalog = build_catalog()
     :persistent_term.put(@catalog_key, catalog)
@@ -91,19 +102,27 @@ defmodule Jido.Discovery do
       "[Jido.Discovery] Catalog initialized with #{count_components(catalog)} components"
     )
 
-    :ok
+    {:ok, %{}}
   end
+
+  @impl GenServer
+  def handle_call(:refresh, _from, state) do
+    do_refresh()
+    {:reply, :ok, state}
+  end
+
+  # Public API
 
   @doc """
   Refreshes the component catalog by rescanning all loaded applications.
   """
   @spec refresh() :: :ok
   def refresh do
-    Logger.info("[Jido.Discovery] Refreshing catalog...")
-    catalog = build_catalog()
-    :persistent_term.put(@catalog_key, catalog)
-    Logger.info("[Jido.Discovery] Catalog refreshed with #{count_components(catalog)} components")
-    :ok
+    if GenServer.whereis(__MODULE__) do
+      GenServer.call(__MODULE__, :refresh)
+    else
+      do_refresh()
+    end
   end
 
   @doc """
@@ -190,6 +209,14 @@ defmodule Jido.Discovery do
   def get_demo_by_slug(slug), do: get_by_slug(:demos, slug)
 
   # Internal helpers
+
+  defp do_refresh do
+    Logger.info("[Jido.Discovery] Refreshing catalog...")
+    catalog = build_catalog()
+    :persistent_term.put(@catalog_key, catalog)
+    Logger.info("[Jido.Discovery] Catalog refreshed with #{count_components(catalog)} components")
+    :ok
+  end
 
   defp list(type, opts) do
     case get_catalog() do

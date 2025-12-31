@@ -2,6 +2,33 @@
 
 <!-- %% CHANGELOG_ENTRIES %% -->
 
+## 2.0.0 - 2025-12-31
+
+### Added
+- **Instance-Scoped Supervisors**: Jido now uses user-owned, instance-scoped supervisors instead of auto-started global singletons
+- **Jido Supervisor Module**: New `Jido` module acts as a Supervisor managing per-instance Registry, TaskSupervisor, and AgentSupervisor
+- **Agent Lifecycle API**: New functions `Jido.start_agent/3`, `Jido.stop_agent/2`, `Jido.whereis/2`, `Jido.list_agents/1`
+- **Test Isolation**: New `JidoTest.Case` module for automatic test isolation with unique Jido instances
+- **Per-Instance Scheduler**: Scheduler can now be scoped to a Jido instance
+- **Multi-Agent Coordination**: New `Jido.await/3` and `Jido.await_child/4` for coordinating agent completion
+- **Discovery Delegates**: Discovery functions accessible via main Jido module
+
+### Breaking Changes
+- **Explicit Supervision**: Users must now add `{Jido, name: MyApp.Jido}` to their supervision tree
+- **Agent Start**: Use `Jido.start_agent(instance, agent, opts)` instead of `AgentServer.start/1`
+- **Instance Option**: Pass `jido: MyApp.Jido` option when starting agents directly
+
+### Changed
+- Refactored from global singletons to instance-scoped architecture
+- Agents now register in instance-specific Registry
+- TaskSupervisor and AgentSupervisor are per-instance
+- Updated all examples to use new 2.0 patterns
+
+### Migration from 1.x
+See the Migration section in README.md for upgrade instructions.
+
+---
+
 ## Unreleased - 2025-08-29
 
 ### Added

@@ -173,7 +173,6 @@ end
 defmodule MultiAgentRunner do
   @moduledoc "Runner for multi-agent demo"
 
-  alias Jido.AgentServer
   alias Jido.Signal
 
   def run do
@@ -186,8 +185,11 @@ defmodule MultiAgentRunner do
       System.halt(1)
     end
 
-    # Start coordinator
-    {:ok, coordinator_pid} = AgentServer.start(agent: CoordinatorAgent, id: "coordinator-1")
+    # Start a Jido instance for the example
+    {:ok, _} = Jido.start_link(name: MultiAgentRunner.Jido)
+
+    # Start coordinator under the Jido instance
+    {:ok, coordinator_pid} = Jido.start_agent(MultiAgentRunner.Jido, CoordinatorAgent, id: "coordinator-1")
     IO.puts("\n[1] Started coordinator: #{inspect(coordinator_pid)}")
 
     # Send work request - coordinator will spawn worker via SpawnAgent directive
@@ -202,7 +204,7 @@ defmodule MultiAgentRunner do
         source: "/demo"
       )
 
-    AgentServer.cast(coordinator_pid, signal)
+    Jido.cast(MultiAgentRunner.Jido, coordinator_pid, signal)
 
     IO.puts("\n[3] Waiting for response (streaming)...\n")
 
@@ -233,7 +235,7 @@ defmodule MultiAgentRunner do
     Stream.repeatedly(fn ->
       Process.sleep(200)
 
-      case AgentServer.state(pid) do
+      case Jido.state(MultiAgentRunner.Jido, pid) do
         {:ok, %{agent: %{state: %{status: :completed, answers: answers}}}}
         when is_list(answers) and length(answers) > 0 ->
           {:done, answers}

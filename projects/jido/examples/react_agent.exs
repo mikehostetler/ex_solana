@@ -15,7 +15,6 @@ defmodule ReActRunner do
   Demo runner for the ReAct agent with streaming output.
   """
 
-  alias Jido.AgentServer
   alias Jido.AI.Examples.ReActDemoAgent, as: Agent
 
   def run do
@@ -28,7 +27,10 @@ defmodule ReActRunner do
       System.halt(1)
     end
 
-    {:ok, pid} = AgentServer.start(agent: Agent)
+    # Start a Jido instance for the example
+    {:ok, _} = Jido.start_link(name: ReActRunner.Jido)
+
+    {:ok, pid} = Jido.start_agent(ReActRunner.Jido, Agent)
     IO.puts("[OK] Agent started\n")
 
     query = "What is 15 multiplied by 7? Also, what's the weather in Algonquin, IL?"
@@ -51,7 +53,7 @@ defmodule ReActRunner do
       Stream.repeatedly(fn ->
         Process.sleep(30)
 
-        case AgentServer.state(pid) do
+        case Jido.state(ReActRunner.Jido, pid) do
           {:ok, %{agent: %{state: %{completed: true, last_answer: answer}}}}
           when is_binary(answer) and answer != "" ->
             {:done, answer}

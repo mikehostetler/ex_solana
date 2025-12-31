@@ -23,9 +23,11 @@ defmodule Jido.Agent.Directive do
 
     * `%Emit{}` - Dispatch a signal via `Jido.Signal.Dispatch`
     * `%Error{}` - Signal an error (wraps `Jido.Error.t()`)
-    * `%Spawn{}` - Spawn a child process
+    * `%Spawn{}` - Spawn a generic BEAM child process (fire-and-forget, no tracking)
+    * `%SpawnAgent{}` - Spawn a child Jido agent with full hierarchy tracking
+    * `%StopChild{}` - Request a tracked child agent to stop gracefully
     * `%Schedule{}` - Schedule a delayed message
-    * `%Stop{}` - Stop the agent process
+    * `%Stop{}` - Stop the agent process (self)
 
   ## Usage
 
@@ -50,7 +52,7 @@ defmodule Jido.Agent.Directive do
   The runtime dispatches on struct type, so no changes to core are needed.
   """
 
-  alias __MODULE__.{Emit, Error, Spawn, SpawnAgent, Schedule, Stop}
+  alias __MODULE__.{Emit, Error, Spawn, SpawnAgent, StopChild, Schedule, Stop, Cron, CronCancel}
 
   @typedoc """
   Any external directive struct (core or extension).
@@ -66,8 +68,11 @@ defmodule Jido.Agent.Directive do
           | Error.t()
           | Spawn.t()
           | SpawnAgent.t()
+          | StopChild.t()
           | Schedule.t()
           | Stop.t()
+          | Cron.t()
+          | CronCancel.t()
 
   # ============================================================================
   # Error - Signal an error from cmd/2
@@ -163,12 +168,22 @@ defmodule Jido.Agent.Directive do
 
   defmodule Spawn do
     @moduledoc """
-    Spawn a child process under the agent's supervisor.
+    Spawn a generic BEAM child process under the agent's supervisor.
+
+    This is a **low-level, fire-and-forget** directive for spawning non-agent
+    processes (Tasks, GenServers, etc.). The spawned process is **not tracked**
+    in the agent's children map and has no parent-child relationship semantics.
+
+    Use `SpawnAgent` instead if you need to spawn another Jido agent with:
+    - Parent-child hierarchy tracking
+    - Process monitoring and exit signals
+    - The ability to use `emit_to_parent/3` from the child
+    - Lifecycle management via `StopChild`
 
     ## Fields
 
     - `child_spec` - Supervisor child_spec for the process to spawn
-    - `tag` - Optional correlation tag for tracking
+    - `tag` - Optional correlation tag for logging (not used for tracking)
     """
 
     @schema Zoi.struct(
@@ -237,6 +252,57 @@ defmodule Jido.Agent.Directive do
                 tag: Zoi.any(description: "Tag for tracking this child"),
                 opts: Zoi.map(description: "Options for child AgentServer") |> Zoi.default(%{}),
                 meta: Zoi.map(description: "Metadata to pass to child") |> Zoi.default(%{})
+              },
+              coerce: true
+            )
+
+    @type t :: unquote(Zoi.type_spec(@schema))
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
+
+    def schema, do: @schema
+  end
+
+  # ============================================================================
+  # StopChild - Stop a tracked child agent
+  # ============================================================================
+
+  defmodule StopChild do
+    @moduledoc """
+    Request that a tracked child agent stop gracefully.
+
+    This directive provides symmetric lifecycle control for child agents
+    spawned via `SpawnAgent`. It sends a shutdown signal to the child,
+    allowing it to terminate cleanly.
+
+    The child is identified by its `tag` (the key used in `SpawnAgent`).
+    If the child is not found, the directive is a no-op.
+
+    ## Fields
+
+    - `tag` - Tag of the child to stop (must match a key in the children map)
+    - `reason` - Reason for stopping (default: `:normal`)
+
+    ## Examples
+
+        # Stop a worker by tag
+        %StopChild{tag: :worker_1}
+
+        # Stop with a specific reason
+        %StopChild{tag: :processor, reason: :shutdown}
+
+    ## Behavior
+
+    The runtime sends a `jido.agent.stop` signal to the child process,
+    which triggers a graceful shutdown. The child's exit will be delivered
+    back to the parent as a `jido.agent.child.exit` signal.
+    """
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                tag: Zoi.any(description: "Tag of the child to stop"),
+                reason: Zoi.any(description: "Reason for stopping") |> Zoi.default(:normal)
               },
               coerce: true
             )
@@ -333,7 +399,7 @@ defmodule Jido.Agent.Directive do
       Directive.error(Jido.Error.validation_error("Invalid input"))
       Directive.error(error, :normalize)
   """
-  @spec error(term(), atom()) :: Error.t()
+  @spec error(term(), atom() | nil) :: Error.t()
   def error(error, context \\ nil) do
     %Error{error: error, context: context}
   end
@@ -373,6 +439,19 @@ defmodule Jido.Agent.Directive do
   end
 
   @doc """
+  Creates a StopChild directive to gracefully stop a tracked child agent.
+
+  ## Examples
+
+      Directive.stop_child(:worker_1)
+      Directive.stop_child(:processor, :shutdown)
+  """
+  @spec stop_child(term(), term()) :: StopChild.t()
+  def stop_child(tag, reason \\ :normal) do
+    %StopChild{tag: tag, reason: reason}
+  end
+
+  @doc """
   Creates a Schedule directive.
 
   ## Examples
@@ -396,6 +475,43 @@ defmodule Jido.Agent.Directive do
   @spec stop(term()) :: Stop.t()
   def stop(reason \\ :normal) do
     %Stop{reason: reason}
+  end
+
+  @doc """
+  Creates a Cron directive for recurring scheduled execution.
+
+  ## Options
+
+  - `:job_id` - Logical id for the job (for upsert/cancel)
+  - `:timezone` - Timezone identifier
+
+  ## Examples
+
+      Directive.cron("* * * * *", tick_signal)
+      Directive.cron("@daily", cleanup_signal, job_id: :daily_cleanup)
+      Directive.cron("0 9 * * MON", weekly_signal, job_id: :monday_9am, timezone: "America/New_York")
+  """
+  @spec cron(term(), term(), keyword()) :: Cron.t()
+  def cron(cron_expr, message, opts \\ []) do
+    %Cron{
+      cron: cron_expr,
+      message: message,
+      job_id: Keyword.get(opts, :job_id),
+      timezone: Keyword.get(opts, :timezone)
+    }
+  end
+
+  @doc """
+  Creates a CronCancel directive to stop a recurring job.
+
+  ## Examples
+
+      Directive.cron_cancel(:heartbeat)
+      Directive.cron_cancel(:daily_cleanup)
+  """
+  @spec cron_cancel(term()) :: CronCancel.t()
+  def cron_cancel(job_id) do
+    %CronCancel{job_id: job_id}
   end
 
   # ============================================================================
@@ -440,11 +556,15 @@ defmodule Jido.Agent.Directive do
 
   ## Examples
 
-      # In a child agent's handle_signal:
-      def handle_signal(agent, %Signal{type: "work.done"} = _signal) do
-        reply = Signal.new!("worker.result", %{answer: 42}, source: "/worker")
-        directive = Directive.emit_to_parent(agent, reply)
-        {agent, List.wrap(directive)}
+      # In a child agent's action:
+      defmodule WorkDoneAction do
+        use Jido.Action, name: "work.done", schema: []
+
+        def run(_params, context) do
+          reply = Signal.new!("worker.result", %{answer: 42}, source: "/worker")
+          directive = Directive.emit_to_parent(context.agent, reply)
+          {:ok, %{}, List.wrap(directive)}
+        end
       end
 
       # With sync delivery

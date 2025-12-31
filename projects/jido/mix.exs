@@ -263,7 +263,7 @@ defmodule Jido.MixProject do
       {:telemetry_metrics, "~> 1.1"},
       {:typed_struct, "~> 0.3.0"},
       {:typed_struct_nimble_options, "~> 0.1.1"},
-      {:quantum, "~> 3.5"},
+      {:sched_ex, "~> 1.1"},
       {:uniq, "~> 0.6.1"},
       # State Machine
       {:fsmx, "~> 0.5"},

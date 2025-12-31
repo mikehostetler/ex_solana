@@ -1,5 +1,5 @@
 defmodule JidoTest.UtilTest do
-  use ExUnit.Case, async: true
+  use JidoTest.Case, async: true
 
   alias Jido.Util
   alias JidoTest.TestActions
@@ -109,9 +109,10 @@ defmodule JidoTest.UtilTest do
   end
 
   describe "via_tuple/2" do
-    test "creates via tuple with default and custom registry" do
-      result = Util.via_tuple(:my_process)
-      assert {:via, Registry, {Jido.Registry, "my_process"}} = result
+    test "creates via tuple with default and custom registry", %{jido: jido} do
+      registry = Jido.registry(jido)
+      result = Util.via_tuple(:my_process, registry: registry)
+      assert {:via, Registry, {^registry, "my_process"}} = result
 
       result2 = Util.via_tuple(:my_process, registry: MyRegistry)
       assert {:via, Registry, {MyRegistry, "my_process"}} = result2
@@ -120,11 +121,12 @@ defmodule JidoTest.UtilTest do
       assert {:via, Registry, {MyRegistry, "my_process"}} = result3
     end
 
-    test "converts atom name to string and preserves string name" do
-      {:via, Registry, {_, name1}} = Util.via_tuple(:atom_name)
+    test "converts atom name to string and preserves string name", %{jido: jido} do
+      registry = Jido.registry(jido)
+      {:via, Registry, {_, name1}} = Util.via_tuple(:atom_name, registry: registry)
       assert is_binary(name1)
 
-      {:via, Registry, {_, name2}} = Util.via_tuple("string_name")
+      {:via, Registry, {_, name2}} = Util.via_tuple("string_name", registry: registry)
       assert name2 == "string_name"
     end
   end
@@ -135,21 +137,24 @@ defmodule JidoTest.UtilTest do
       assert {:ok, ^pid} = Util.whereis(pid)
     end
 
-    test "returns not_found for unregistered names" do
+    test "returns not_found for unregistered names", %{jido: jido} do
+      registry = Jido.registry(jido)
+
       inputs = [
         :unregistered_process_xyz,
-        {:unregistered_xyz, Jido.Registry},
+        {:unregistered_xyz, registry},
         :some_atom_name_xyz
       ]
 
       for input <- inputs do
-        assert {:error, :not_found} = Util.whereis(input),
+        assert {:error, :not_found} = Util.whereis(input, registry: registry),
                "expected #{inspect(input)} to return :not_found"
       end
     end
 
-    test "uses custom registry option" do
-      assert {:error, :not_found} = Util.whereis(:some_name_xyz, registry: Jido.Registry)
+    test "uses custom registry option", %{jido: jido} do
+      registry = Jido.registry(jido)
+      assert {:error, :not_found} = Util.whereis(:some_name_xyz, registry: registry)
     end
   end
 

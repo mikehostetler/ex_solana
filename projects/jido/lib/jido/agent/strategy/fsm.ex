@@ -1,28 +1,59 @@
 defmodule Jido.Agent.Strategy.FSM do
   @moduledoc """
-  A finite state machine execution strategy using Fsmx.
+  A generic finite state machine execution strategy.
 
-  This strategy demonstrates how to implement a simple FSM-based workflow
-  where instructions trigger state transitions. The FSM state is stored
-  in `agent.state.__strategy__`.
+  This strategy implements FSM-based workflows where instructions trigger
+  state transitions. The FSM state is stored in `agent.state.__strategy__`.
 
-  ## States
+  ## Configuration
 
-  - `:idle` - Initial state, waiting for work
-  - `:processing` - Currently processing an instruction
-  - `:completed` - Successfully finished
-  - `:failed` - Terminated with an error
-
-  ## Usage
+  Transitions are configured via strategy options:
 
       defmodule MyAgent do
         use Jido.Agent,
           name: "fsm_agent",
-          strategy: Jido.Agent.Strategy.FSM
+          strategy: {Jido.Agent.Strategy.FSM,
+            initial_state: "idle",
+            transitions: %{
+              "idle" => ["processing"],
+              "processing" => ["idle", "completed", "failed"],
+              "completed" => ["idle"],
+              "failed" => ["idle"]
+            }
+          }
       end
 
+  ## Options
+
+  - `:initial_state` - Initial FSM state (default: `"idle"`)
+  - `:transitions` - Map of valid transitions `%{from_state => [to_states]}`
+  - `:auto_transition` - Whether to auto-transition back to initial state after
+    processing (default: `true`)
+
+  ## Default Transitions
+
+  If no transitions are provided, uses a simple workflow:
+
+      %{
+        "idle" => ["processing"],
+        "processing" => ["idle", "completed", "failed"],
+        "completed" => ["idle"],
+        "failed" => ["idle"]
+      }
+
+  ## States
+
+  Default states (can be customized via transitions):
+
+  - `"idle"` - Initial state, waiting for work
+  - `"processing"` - Currently processing instructions
+  - `"completed"` - Successfully finished
+  - `"failed"` - Terminated with an error
+
+  ## Usage
+
       agent = MyAgent.new()
-      {agent, directives} = MyAgent.cmd(agent, SomeAction, %{data: "value"})
+      {agent, directives} = MyAgent.cmd(agent, SomeAction)
 
   The strategy automatically transitions through states as instructions execute.
   """
@@ -31,56 +62,109 @@ defmodule Jido.Agent.Strategy.FSM do
 
   alias Jido.Agent
   alias Jido.Agent.Directive
-  alias Jido.Agent.Internal
+  alias Jido.Agent.Effects
   alias Jido.Agent.Strategy.State, as: StratState
   alias Jido.Error
   alias Jido.Instruction
 
+  @default_initial_state "idle"
+  @default_transitions %{
+    "idle" => ["processing"],
+    "processing" => ["idle", "completed", "failed"],
+    "completed" => ["idle"],
+    "failed" => ["idle"]
+  }
+
   defmodule Machine do
-    @moduledoc false
-    use Fsmx.Struct,
-      state_field: :status,
-      transitions: %{
-        "idle" => ["processing"],
-        "processing" => ["idle", "completed", "failed"],
-        "completed" => ["idle"],
-        "failed" => ["idle"]
-      }
+    @moduledoc """
+    Generic FSM machine that uses configurable transitions.
+
+    Unlike the previous implementation that used Fsmx with hardcoded transitions,
+    this module validates transitions dynamically based on the provided config.
+    """
 
     @type t :: %__MODULE__{
             status: String.t(),
             processed_count: non_neg_integer(),
             last_result: term(),
-            error: term()
+            error: term(),
+            transitions: map()
           }
 
     defstruct status: "idle",
               processed_count: 0,
               last_result: nil,
-              error: nil
+              error: nil,
+              transitions: %{}
 
-    def new, do: %__MODULE__{}
+    @doc "Creates a new machine with the given initial state and transitions."
+    @spec new(String.t(), map()) :: t()
+    def new(initial_state, transitions) do
+      %__MODULE__{
+        status: initial_state,
+        transitions: transitions
+      }
+    end
 
-    def transition(%__MODULE__{} = machine, new_status) do
-      Fsmx.transition(machine, new_status, state_field: :status)
+    @doc "Attempts to transition to a new state."
+    @spec transition(t(), String.t()) :: {:ok, t()} | {:error, String.t()}
+    def transition(%__MODULE__{status: current, transitions: transitions} = machine, new_status) do
+      allowed = Map.get(transitions, current, [])
+
+      if new_status in allowed do
+        {:ok, %{machine | status: new_status}}
+      else
+        {:error, "invalid transition from #{current} to #{new_status}"}
+      end
     end
   end
 
   @impl true
-  def init(agent, _ctx) do
-    machine = Machine.new()
-    agent = StratState.put(agent, %{machine: machine, module: __MODULE__})
+  def init(agent, ctx) do
+    opts = ctx[:strategy_opts] || []
+    initial_state = Keyword.get(opts, :initial_state, @default_initial_state)
+    transitions = Keyword.get(opts, :transitions, @default_transitions)
+
+    machine = Machine.new(initial_state, transitions)
+
+    agent =
+      StratState.put(agent, %{
+        machine: machine,
+        module: __MODULE__,
+        initial_state: initial_state,
+        auto_transition: Keyword.get(opts, :auto_transition, true)
+      })
+
     {agent, []}
   end
 
   @impl true
-  def cmd(%Agent{} = agent, instructions, _ctx) when is_list(instructions) do
+  def cmd(%Agent{} = agent, instructions, ctx) when is_list(instructions) do
     state = StratState.get(agent, %{})
-    machine = Map.get(state, :machine) || Machine.new()
+    opts = ctx[:strategy_opts] || []
+
+    initial_state =
+      Map.get(state, :initial_state, Keyword.get(opts, :initial_state, @default_initial_state))
+
+    transitions = Keyword.get(opts, :transitions, @default_transitions)
+    auto_transition = Map.get(state, :auto_transition, Keyword.get(opts, :auto_transition, true))
+
+    machine = Map.get(state, :machine) || Machine.new(initial_state, transitions)
 
     case Machine.transition(machine, "processing") do
       {:ok, machine} ->
         {agent, machine, directives} = process_instructions(agent, machine, instructions)
+
+        machine =
+          if auto_transition do
+            case Machine.transition(machine, initial_state) do
+              {:ok, m} -> m
+              {:error, _} -> machine
+            end
+          else
+            machine
+          end
+
         agent = StratState.put(agent, %{state | machine: machine})
         {agent, directives}
 
@@ -91,16 +175,13 @@ defmodule Jido.Agent.Strategy.FSM do
   end
 
   defp process_instructions(agent, machine, instructions) do
-    {agent, machine, directives} =
-      Enum.reduce(instructions, {agent, machine, []}, fn instruction, {acc_agent, acc_machine, acc_directives} ->
-        {new_agent, new_machine, new_directives} = run_instruction(acc_agent, acc_machine, instruction)
-        {new_agent, new_machine, acc_directives ++ new_directives}
-      end)
+    Enum.reduce(instructions, {agent, machine, []}, fn instruction,
+                                                       {acc_agent, acc_machine, acc_directives} ->
+      {new_agent, new_machine, new_directives} =
+        run_instruction(acc_agent, acc_machine, instruction)
 
-    case Machine.transition(machine, "idle") do
-      {:ok, machine} -> {agent, machine, directives}
-      {:error, _} -> {agent, machine, directives}
-    end
+      {new_agent, new_machine, acc_directives ++ new_directives}
+    end)
   end
 
   defp run_instruction(agent, machine, %Instruction{} = instruction) do
@@ -109,12 +190,12 @@ defmodule Jido.Agent.Strategy.FSM do
     case Jido.Exec.run(instruction) do
       {:ok, result} when is_map(result) ->
         machine = %{machine | processed_count: machine.processed_count + 1, last_result: result}
-        {apply_result(agent, result), machine, []}
+        {Effects.apply_result(agent, result), machine, []}
 
       {:ok, result, effects} when is_map(result) ->
         machine = %{machine | processed_count: machine.processed_count + 1, last_result: result}
-        agent = apply_result(agent, result)
-        {agent, directives} = apply_effects(agent, List.wrap(effects))
+        agent = Effects.apply_result(agent, result)
+        {agent, directives} = Effects.apply_effects(agent, List.wrap(effects))
         {agent, machine, directives}
 
       {:error, reason} ->
@@ -122,29 +203,6 @@ defmodule Jido.Agent.Strategy.FSM do
         error = Error.execution_error("Instruction failed", %{reason: reason})
         {agent, machine, [%Directive.Error{error: error, context: :instruction}]}
     end
-  end
-
-  defp apply_result(agent, result) when is_map(result) do
-    new_state = Jido.Agent.State.merge(agent.state, result)
-    %{agent | state: new_state}
-  end
-
-  defp apply_effects(agent, effects) do
-    Enum.reduce(effects, {agent, []}, fn
-      %Internal.SetState{attrs: attrs}, {a, directives} ->
-        new_state = Jido.Agent.State.merge(a.state, attrs)
-        {%{a | state: new_state}, directives}
-
-      %Internal.ReplaceState{state: new_state}, {a, directives} ->
-        {%{a | state: new_state}, directives}
-
-      %Internal.DeleteKeys{keys: keys}, {a, directives} ->
-        new_state = Map.drop(a.state, keys)
-        {%{a | state: new_state}, directives}
-
-      %_{} = directive, {a, directives} ->
-        {a, directives ++ [directive]}
-    end)
   end
 
   @impl true
@@ -159,7 +217,8 @@ defmodule Jido.Agent.Strategy.FSM do
       result: Map.get(machine, :last_result),
       details: %{
         processed_count: Map.get(machine, :processed_count, 0),
-        error: Map.get(machine, :error)
+        error: Map.get(machine, :error),
+        fsm_state: Map.get(machine, :status)
       }
     }
   end

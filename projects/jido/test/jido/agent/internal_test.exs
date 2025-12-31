@@ -2,111 +2,114 @@ defmodule JidoTest.Agent.InternalTest do
   use ExUnit.Case, async: true
 
   alias Jido.Agent.Internal
-  alias Jido.Agent.Internal.{SetState, ReplaceState, DeleteKeys, SetPath, DeletePath}
-
-  describe "SetState struct" do
-    test "creates a SetState effect with attrs" do
-      effect = %SetState{attrs: %{key: "value"}}
-
-      assert effect.attrs == %{key: "value"}
-    end
-
-    test "has schema defined" do
-      schema = SetState.schema()
-      assert schema
-    end
-  end
-
-  describe "ReplaceState struct" do
-    test "creates a ReplaceState effect with state" do
-      effect = %ReplaceState{state: %{new: "state"}}
-
-      assert effect.state == %{new: "state"}
-    end
-
-    test "has schema defined" do
-      schema = ReplaceState.schema()
-      assert schema
-    end
-  end
-
-  describe "DeleteKeys struct" do
-    test "creates a DeleteKeys effect with keys list" do
-      effect = %DeleteKeys{keys: [:key1, :key2]}
-
-      assert effect.keys == [:key1, :key2]
-    end
-
-    test "has schema defined" do
-      schema = DeleteKeys.schema()
-      assert schema
-    end
-  end
-
-  describe "SetPath struct" do
-    test "creates a SetPath effect with path and value" do
-      effect = %SetPath{path: [:config, :timeout], value: 5000}
-
-      assert effect.path == [:config, :timeout]
-      assert effect.value == 5000
-    end
-
-    test "has schema defined" do
-      schema = SetPath.schema()
-      assert schema
-    end
-  end
-
-  describe "DeletePath struct" do
-    test "creates a DeletePath effect with path" do
-      effect = %DeletePath{path: [:temp, :cache]}
-
-      assert effect.path == [:temp, :cache]
-    end
-
-    test "has schema defined" do
-      schema = DeletePath.schema()
-      assert schema
-    end
-  end
 
   describe "set_state/1" do
-    test "creates SetState effect from map" do
+    test "creates SetState effect" do
       effect = Internal.set_state(%{status: :running})
+      assert %Internal.SetState{attrs: %{status: :running}} = effect
+    end
 
-      assert %SetState{attrs: %{status: :running}} = effect
+    test "requires a map" do
+      effect = Internal.set_state(%{a: 1, b: 2})
+      assert effect.attrs == %{a: 1, b: 2}
     end
   end
 
   describe "replace_state/1" do
-    test "creates ReplaceState effect from map" do
-      effect = Internal.replace_state(%{fresh: "state"})
+    test "creates ReplaceState effect" do
+      effect = Internal.replace_state(%{new: :state})
+      assert %Internal.ReplaceState{state: %{new: :state}} = effect
+    end
 
-      assert %ReplaceState{state: %{fresh: "state"}} = effect
+    test "stores the complete new state" do
+      new_state = %{completely: "new", data: 123}
+      effect = Internal.replace_state(new_state)
+      assert effect.state == new_state
     end
   end
 
   describe "delete_keys/1" do
-    test "creates DeleteKeys effect from list" do
+    test "creates DeleteKeys effect" do
       effect = Internal.delete_keys([:temp, :cache])
+      assert %Internal.DeleteKeys{keys: [:temp, :cache]} = effect
+    end
 
-      assert %DeleteKeys{keys: [:temp, :cache]} = effect
+    test "accepts empty list" do
+      effect = Internal.delete_keys([])
+      assert effect.keys == []
+    end
+
+    test "accepts single key" do
+      effect = Internal.delete_keys([:single])
+      assert effect.keys == [:single]
     end
   end
 
   describe "set_path/2" do
-    test "creates SetPath effect from path and value" do
-      effect = Internal.set_path([:config, :timeout], 3000)
+    test "creates SetPath effect" do
+      effect = Internal.set_path([:config, :timeout], 5000)
+      assert %Internal.SetPath{path: [:config, :timeout], value: 5000} = effect
+    end
 
-      assert %SetPath{path: [:config, :timeout], value: 3000} = effect
+    test "accepts single-element path" do
+      effect = Internal.set_path([:key], "value")
+      assert effect.path == [:key]
+      assert effect.value == "value"
+    end
+
+    test "accepts deep paths" do
+      effect = Internal.set_path([:a, :b, :c, :d], :deep_value)
+      assert effect.path == [:a, :b, :c, :d]
+    end
+
+    test "accepts any value type" do
+      effect = Internal.set_path([:data], %{nested: [1, 2, 3]})
+      assert effect.value == %{nested: [1, 2, 3]}
     end
   end
 
   describe "delete_path/1" do
-    test "creates DeletePath effect from path" do
-      effect = Internal.delete_path([:temp, :data])
+    test "creates DeletePath effect" do
+      effect = Internal.delete_path([:temp, :cache])
+      assert %Internal.DeletePath{path: [:temp, :cache]} = effect
+    end
 
-      assert %DeletePath{path: [:temp, :data]} = effect
+    test "accepts single-element path" do
+      effect = Internal.delete_path([:key])
+      assert effect.path == [:key]
+    end
+
+    test "accepts deep paths" do
+      effect = Internal.delete_path([:a, :b, :c])
+      assert effect.path == [:a, :b, :c]
+    end
+  end
+
+  describe "effect structs" do
+    test "SetState struct fields" do
+      effect = %Internal.SetState{attrs: %{a: 1}}
+      assert effect.attrs == %{a: 1}
+    end
+
+    test "ReplaceState struct fields" do
+      effect = %Internal.ReplaceState{state: %{b: 2}}
+      assert effect.state == %{b: 2}
+    end
+
+    test "DeleteKeys struct fields" do
+      effect = %Internal.DeleteKeys{keys: [:x, :y]}
+      assert effect.keys == [:x, :y]
+    end
+
+    test "SetPath struct fields" do
+      effect = %Internal.SetPath{path: [:p], value: :v}
+      assert effect.path == [:p]
+      assert effect.value == :v
+    end
+
+    test "DeletePath struct fields" do
+      effect = %Internal.DeletePath{path: [:q, :r]}
+      assert effect.path == [:q, :r]
     end
   end
 end

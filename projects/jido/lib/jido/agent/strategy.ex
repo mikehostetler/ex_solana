@@ -87,7 +87,7 @@ defmodule Jido.Agent.Strategy do
   @type status :: :idle | :running | :waiting | :success | :failure
 
   @type action_spec :: %{
-          optional(:schema) => Zoi.t() | keyword(),
+          optional(:schema) => Zoi.schema() | keyword(),
           optional(:doc) => String.t(),
           optional(:name) => String.t()
         }
@@ -246,7 +246,7 @@ defmodule Jido.Agent.Strategy do
   Declares signal routes handled by this strategy.
 
   Returns a list of route specs that map signal types to strategy commands.
-  The agent macro uses these to auto-generate `handle_signal/2` clauses.
+  AgentServer consults this to route incoming signals to the appropriate actions.
 
   ## Route Targets
 
@@ -346,8 +346,11 @@ defmodule Jido.Agent.Strategy do
     cond do
       is_struct(schema) ->
         case Zoi.parse(schema, atomized) do
-          {:ok, v} -> v
-          {:error, err} -> raise ArgumentError, "Invalid params for #{inspect(action)}: #{inspect(err)}"
+          {:ok, v} ->
+            v
+
+          {:error, err} ->
+            raise ArgumentError, "Invalid params for #{inspect(action)}: #{inspect(err)}"
         end
 
       is_list(schema) ->

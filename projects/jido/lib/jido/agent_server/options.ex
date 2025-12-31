@@ -22,6 +22,9 @@ defmodule Jido.AgentServer.Options do
               agent: Zoi.any(description: "Agent module (atom) or instantiated agent struct"),
               agent_module:
                 Zoi.atom(description: "Agent module for pre-built structs") |> Zoi.optional(),
+              jido:
+                Zoi.atom(description: "Jido instance name for per-instance supervision")
+                |> Zoi.optional(),
               id:
                 Zoi.string(description: "Instance ID (auto-generated if not provided)")
                 |> Zoi.optional(),
@@ -103,7 +106,15 @@ defmodule Jido.AgentServer.Options do
         id when is_atom(id) -> Atom.to_string(id)
       end
 
-    Map.put(attrs, :id, id)
+    registry =
+      case Map.get(attrs, :jido) do
+        nil -> Map.get(attrs, :registry, Jido.Registry)
+        jido_instance -> Jido.registry_name(jido_instance)
+      end
+
+    attrs
+    |> Map.put(:id, id)
+    |> Map.put(:registry, registry)
   end
 
   defp extract_agent_id(%{id: id}) when is_binary(id) and id != "", do: id

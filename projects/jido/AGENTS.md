@@ -3,9 +3,9 @@
 ## Commands
 - **Test all**: `mix test`
 - **Test single file**: `mix test test/path/to/test_file.exs`
-- **Test with coverage**: `mix coveralls`
+- **Test with coverage**: `mix test --cover` (80%+ threshold)
 - **Build/compile**: `mix compile`
-- **Quality check**: `mix quality` (format, dialyzer, credo)
+- **Quality check**: `mix quality` (format, dialyzer, credo) — must pass
 - **Format code**: `mix format`
 - **Type check**: `mix dialyzer`
 - **Lint**: `mix credo`
@@ -21,3 +21,82 @@
 - Prefix test modules with namespace: `JidoTest.ModuleName`
 - Use `use Action` for action modules with name, description, schema
 - Follow .cursorrules for detailed standards and examples
+
+## Architecture Overview
+
+### Core Pattern: Immutable Agent + `cmd/2` (Elm/Redux-inspired)
+
+A **Jido Agent** is an immutable struct. The core operation is:
+
+```elixir
+{agent, directives} = MyAgent.cmd(agent, action)
+```
+
+- `cmd/2` is **pure**: same inputs → same outputs
+- Returned `agent` is **fully updated**; directives never modify state
+- Accepts: `MyAction`, `{MyAction, %{param: value}}`, `%Instruction{}`, or lists
+
+### Schemas with Zoi
+
+Agents and directives use **Zoi** schemas (preferred over NimbleOptions for new code):
+
+```elixir
+@schema Zoi.struct(
+          __MODULE__,
+          %{
+            signal: Zoi.any(description: "Jido.Signal.t() to dispatch"),
+            dispatch: Zoi.any(description: "Dispatch config") |> Zoi.optional()
+          },
+          coerce: true
+        )
+
+@type t :: unquote(Zoi.type_spec(@schema))
+@enforce_keys Zoi.Struct.enforce_keys(@schema)
+defstruct Zoi.Struct.struct_fields(@schema)
+```
+
+Single source of truth for fields, types, enforced keys, and validation.
+
+### Actions vs. Directives
+
+| **Actions** | **Directives** |
+|-------------|----------------|
+| Describe *state transformations* | Describe *external effects* |
+| Executed by `cmd/2`, update `agent.state` | Bare structs emitted by agents |
+| Never perform side effects | Runtime (AgentServer) interprets them |
+
+### Core Directives
+
+| Directive | Purpose | Tracking |
+|-----------|---------|----------|
+| `Emit` | Dispatch a signal via configured adapters | — |
+| `Error` | Signal an error from cmd/2 | — |
+| `Spawn` | Spawn generic BEAM child process | None (fire-and-forget) |
+| `SpawnAgent` | Spawn child Jido agent with hierarchy | Full (monitoring, exit signals) |
+| `StopChild` | Gracefully stop a tracked child agent | Uses children map |
+| `Schedule` | Schedule a delayed message | — |
+| `Stop` | Stop the agent process (self) | — |
+
+**Spawn vs SpawnAgent**: Use `Spawn` for generic Tasks/GenServers that don't need parent-child semantics. Use `SpawnAgent` for Jido agents that need hierarchy tracking, `emit_to_parent/3`, and lifecycle management via `StopChild`.
+
+### Agent vs. AgentServer
+
+- **Agent module** (`use Jido.Agent`): Pure, stateless. Owns schema and `cmd/2`.
+- **AgentServer**: GenServer wrapper. Holds agent in process state, executes directives.
+
+### Multi-Agent Patterns
+
+- `%Directive.SpawnAgent{}` — spawn child agent with parent-child hierarchy
+- `%Directive.StopChild{}` — gracefully stop a tracked child by tag
+- `Directive.emit_to_pid(signal, pid)` — direct signal to specific process
+- `Directive.emit_to_parent(agent, signal)` — child signals back to parent
+
+## Quality Gates
+
+1. `mix test --cover` — 80%+ coverage threshold
+2. `mix quality` — format, credo, dialyzer must pass
+3. End-to-end examples in `/examples`
+
+---
+
+> **Note**: `Jido.AI.*` modules and `req_llm` are incubating. They will be extracted to a separate package before 1.0 release. Treat as experimental.

@@ -12,7 +12,7 @@ The name "Jido" (自動) comes from the Japanese word meaning "automatic" or "au
 
 ## 🚨 Important Notice
 
-As of March 3rd, 2025, I'm working out a few final issues in prep for the v1.1 release. The `main` branch will always represent the latest release - but it may have a few quality issues that don't represent the final release. I welcome input and contributions!  You can find me in the usual Elixir community locations.
+As of December 2025, Jido v2.0 has been released with a new instance-scoped architecture. The `main` branch will always represent the latest release. I welcome input and contributions! You can find me in the usual Elixir community locations.
 
 ## Overview
 
@@ -53,9 +53,20 @@ Add Jido to your dependencies:
 ```elixir
 def deps do
   [
-    {:jido, "~> 1.1.0"}
+    {:jido, "~> 2.0.0"}
   ]
 end
+```
+
+Then add Jido to your application's supervision tree:
+
+```elixir
+# In your application.ex
+children = [
+  {Jido, name: MyApp.Jido}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 ## Core Concepts
@@ -108,8 +119,11 @@ defmodule MyApp.CalculatorAgent do
     ]
 end
 
-# Start the agent
-{:ok, pid} = MyApp.CalculatorAgent.start_link()
+# Start the agent under a Jido instance
+{:ok, pid} = Jido.start_agent(MyApp.Jido, MyApp.CalculatorAgent, id: "calc-1")
+
+# Or start directly with jido option
+{:ok, pid} = MyApp.CalculatorAgent.start_link(jido: MyApp.Jido)
 
 # Send instructions directly to the agent
 {:ok, result} = MyApp.CalculatorAgent.cmd(pid, [
@@ -147,17 +161,37 @@ end
 
 ## Running in Production
 
-Start your agents under supervision:
+Start your agents under a Jido instance in your supervision tree:
 
 ```elixir
 # In your application.ex
 children = [
-  # Agents fit into your existing supervision tree
-  # Specify an id to always uniquely identify the agent
-  {MyApp.CalculatorAgent, id: "calculator_1"}
+  # First start the Jido instance
+  {Jido, name: MyApp.Jido},
+  # Then add agents under its supervision
+  {MyApp.CalculatorAgent, id: "calculator_1", jido: MyApp.Jido}
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+## Migrating from 1.x
+
+Jido 2.0 introduces instance-scoped supervisors instead of global singletons. Each Jido instance manages its own Registry, TaskSupervisor, and AgentSupervisor.
+
+**Key changes:**
+
+1. **Add Jido to your supervision tree** - Users must now explicitly add `{Jido, name: MyApp.Jido}` to their supervision tree
+2. **Pass the jido option to agents** - Use `jido: MyApp.Jido` when starting agents
+
+```elixir
+# Before (1.x)
+{:ok, pid} = MyApp.CalculatorAgent.start_link(id: "calc-1")
+
+# After (2.0)
+{:ok, pid} = MyApp.CalculatorAgent.start_link(id: "calc-1", jido: MyApp.Jido)
+# Or use the Jido API
+{:ok, pid} = Jido.start_agent(MyApp.Jido, MyApp.CalculatorAgent, id: "calc-1")
 ```
 
 ## Documentation
@@ -194,11 +228,24 @@ Jido is built with a test-driven mindset and provides comprehensive testing tool
 
 Jido provides several testing helpers:
 
+- `JidoTest.Case` - Test case module for isolated Jido instances per test
 - `Jido.TestSupport` - Common testing utilities
 - Property-based testing via StreamData
 - Mocking support through Mimic
 - PubSub testing helpers
 
+Use `JidoTest.Case` for test isolation with per-test Jido instances:
+
+```elixir
+defmodule MyAgentTest do
+  use JidoTest.Case, async: true
+
+  test "my agent works", %{jido: jido} do
+    {:ok, pid} = Jido.start_agent(jido, MyAgent)
+    # Test in isolation...
+  end
+end
+```
 
 ### Running Tests
 

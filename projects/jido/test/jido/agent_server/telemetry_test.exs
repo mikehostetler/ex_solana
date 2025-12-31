@@ -1,9 +1,39 @@
 defmodule JidoTest.AgentServer.TelemetryTest do
-  use ExUnit.Case, async: false
+  use JidoTest.Case, async: false
 
   alias Jido.AgentServer
   alias Jido.Agent.Directive
   alias Jido.Signal
+
+  # Test actions for TelemetryAgent
+  defmodule IncrementAction do
+    @moduledoc false
+    use Jido.Action, name: "increment", schema: []
+
+    def run(_params, context) do
+      count = Map.get(context.state, :counter, 0)
+      {:ok, %{counter: count + 1}}
+    end
+  end
+
+  defmodule EmitDirectiveAction do
+    @moduledoc false
+    use Jido.Action, name: "emit_directive", schema: []
+
+    def run(_params, _context) do
+      signal = Signal.new!("test.emitted", %{}, source: "/test")
+      {:ok, %{}, [%Directive.Emit{signal: signal}]}
+    end
+  end
+
+  defmodule ScheduleDirectiveAction do
+    @moduledoc false
+    use Jido.Action, name: "schedule_directive", schema: []
+
+    def run(_params, _context) do
+      {:ok, %{}, [%Directive.Schedule{delay_ms: 100, message: :tick}]}
+    end
+  end
 
   defmodule TelemetryAgent do
     @moduledoc false
@@ -13,27 +43,16 @@ defmodule JidoTest.AgentServer.TelemetryTest do
         counter: [type: :integer, default: 0]
       ]
 
-    def handle_signal(agent, %Signal{type: "increment"} = _signal) do
-      count = Map.get(agent.state, :counter, 0)
-      agent = %{agent | state: Map.put(agent.state, :counter, count + 1)}
-      {agent, []}
-    end
-
-    def handle_signal(agent, %Signal{type: "emit_directive"} = _signal) do
-      signal = Signal.new!("test.emitted", %{}, source: "/test")
-      {agent, [%Directive.Emit{signal: signal}]}
-    end
-
-    def handle_signal(agent, %Signal{type: "schedule_directive"} = _signal) do
-      {agent, [%Directive.Schedule{delay_ms: 100, message: :tick}]}
-    end
-
-    def handle_signal(agent, _signal) do
-      {agent, []}
+    def signal_routes do
+      [
+        {"increment", IncrementAction},
+        {"emit_directive", EmitDirectiveAction},
+        {"schedule_directive", ScheduleDirectiveAction}
+      ]
     end
   end
 
-  setup do
+  setup context do
     test_pid = self()
 
     handler_id = "test-telemetry-handler-#{:erlang.unique_integer()}"
@@ -59,12 +78,13 @@ defmodule JidoTest.AgentServer.TelemetryTest do
       :telemetry.detach(handler_id)
     end)
 
-    :ok
+    {:ok, jido: context.jido}
   end
 
   describe "signal telemetry" do
-    test "emits start and stop events for signal processing" do
-      {:ok, pid} = AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-signal-test")
+    test "emits start and stop events for signal processing", %{jido: jido} do
+      {:ok, pid} =
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-signal-test", jido: jido)
 
       signal = Signal.new!("increment", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -86,8 +106,9 @@ defmodule JidoTest.AgentServer.TelemetryTest do
       GenServer.stop(pid)
     end
 
-    test "includes directive count in stop event" do
-      {:ok, pid} = AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-directive-count")
+    test "includes directive count in stop event", %{jido: jido} do
+      {:ok, pid} =
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-directive-count", jido: jido)
 
       signal = Signal.new!("emit_directive", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -103,8 +124,9 @@ defmodule JidoTest.AgentServer.TelemetryTest do
   end
 
   describe "directive telemetry" do
-    test "emits start and stop events for directive execution" do
-      {:ok, pid} = AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-directive-test")
+    test "emits start and stop events for directive execution", %{jido: jido} do
+      {:ok, pid} =
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-directive-test", jido: jido)
 
       signal = Signal.new!("emit_directive", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -132,8 +154,9 @@ defmodule JidoTest.AgentServer.TelemetryTest do
       GenServer.stop(pid)
     end
 
-    test "reports correct directive type" do
-      {:ok, pid} = AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-type-test")
+    test "reports correct directive type", %{jido: jido} do
+      {:ok, pid} =
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-type-test", jido: jido)
 
       signal = Signal.new!("schedule_directive", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -157,9 +180,9 @@ defmodule JidoTest.AgentServer.TelemetryTest do
   end
 
   describe "metadata correctness" do
-    test "includes agent_id and agent_module in signal events" do
+    test "includes agent_id and agent_module in signal events", %{jido: jido} do
       {:ok, pid} =
-        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-metadata-test")
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-metadata-test", jido: jido)
 
       signal = Signal.new!("increment", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -173,9 +196,13 @@ defmodule JidoTest.AgentServer.TelemetryTest do
       GenServer.stop(pid)
     end
 
-    test "includes signal_type in directive events" do
+    test "includes signal_type in directive events", %{jido: jido} do
       {:ok, pid} =
-        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-signal-type-test")
+        AgentServer.start_link(
+          agent: TelemetryAgent,
+          id: "telemetry-signal-type-test",
+          jido: jido
+        )
 
       signal = Signal.new!("emit_directive", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -195,8 +222,9 @@ defmodule JidoTest.AgentServer.TelemetryTest do
   end
 
   describe "timing measurements" do
-    test "duration is positive for signal processing" do
-      {:ok, pid} = AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-timing-test")
+    test "duration is positive for signal processing", %{jido: jido} do
+      {:ok, pid} =
+        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-timing-test", jido: jido)
 
       signal = Signal.new!("increment", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)
@@ -208,9 +236,13 @@ defmodule JidoTest.AgentServer.TelemetryTest do
       GenServer.stop(pid)
     end
 
-    test "duration is positive for directive execution" do
+    test "duration is positive for directive execution", %{jido: jido} do
       {:ok, pid} =
-        AgentServer.start_link(agent: TelemetryAgent, id: "telemetry-directive-timing")
+        AgentServer.start_link(
+          agent: TelemetryAgent,
+          id: "telemetry-directive-timing",
+          jido: jido
+        )
 
       signal = Signal.new!("emit_directive", %{}, source: "/test")
       {:ok, _agent} = AgentServer.call(pid, signal)

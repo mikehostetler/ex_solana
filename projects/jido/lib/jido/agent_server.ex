@@ -3,8 +3,9 @@ defmodule Jido.AgentServer do
   GenServer runtime for Jido agents.
 
   AgentServer is the "Act" side of the Jido framework: while Agents "think"
-  (pure decision logic via `handle_signal/2` or `cmd/2`), AgentServer "acts"
-  by executing the directives they emit.
+  (pure decision logic via `cmd/2`), AgentServer "acts" by executing the
+  directives they emit. Signal routing happens in AgentServer, keeping
+  Agents purely action-oriented.
 
   ## Architecture
 
@@ -20,17 +21,23 @@ defmodule Jido.AgentServer do
   - `call/3` - Synchronous signal processing
   - `cast/2` - Asynchronous signal processing
   - `state/1` - Get full State struct
-  - `whereis/2` - Registry lookup by ID
+  - `whereis/1` - Registry lookup by ID (default registry)
+  - `whereis/2` - Registry lookup by ID (specific registry)
 
   ## Signal Flow
 
   ```
   Signal → AgentServer.call/cast
-        → Agent.handle_signal/2 (or cmd/2)
+        → route_signal_to_action (via strategy.signal_routes or default)
+        → Agent.cmd/2
         → {agent, directives}
         → Directives queued
         → Drain loop executes via DirectiveExec protocol
   ```
+
+  Signal routing is owned by AgentServer, not the Agent. Strategies can define
+  `signal_routes/1` to map signal types to strategy commands. Unmatched signals
+  fall back to `{signal.type, signal.data}` as the action.
 
   ## Options
 
@@ -44,6 +51,38 @@ defmodule Jido.AgentServer do
   - `:parent` - Parent reference for hierarchy
   - `:on_parent_death` - Behavior when parent dies (`:stop`, `:continue`, `:emit_orphan`)
   - `:spawn_fun` - Custom function for spawning children
+
+  ## Agent Resolution
+
+  The `:agent` option accepts:
+
+  - **Module name** - Must implement `new/0` or `new/1`
+    - `new/1` receives `[id: id, state: initial_state]` as keyword options
+    - `new/0` creates agent with defaults; `:id` and `:initial_state` options are ignored
+  - **Agent struct** - Used directly
+    - Provide `:agent_module` option to specify the module if it differs from `agent.__struct__`
+    - The struct's ID takes precedence over the `:id` option
+
+  The `:agent_module` option is only used when `:agent` is a struct. It tells AgentServer which module implements the agent behavior (for calling `cmd/2`, lifecycle hooks, etc.).
+
+  ## Examples
+
+      # Module with new/1 - receives id and state
+      {:ok, pid} = AgentServer.start_link(
+        agent: MyAgent,
+        id: "my-id",
+        initial_state: %{counter: 42}
+      )
+
+      # Module with new/0 - id and state ignored
+      {:ok, pid} = AgentServer.start_link(agent: SimpleAgent)
+
+      # Pre-built struct - requires agent_module
+      agent = MyAgent.new(id: "prebuilt", state: %{value: 99})
+      {:ok, pid} = AgentServer.start_link(
+        agent: agent,
+        agent_module: MyAgent
+      )
 
   ## Completion Detection
 
@@ -73,9 +112,11 @@ defmodule Jido.AgentServer do
 
   require Logger
 
-  alias Jido.AgentServer.{DirectiveExec, Options, ParentRef, State}
+  alias Jido.AgentServer.{DirectiveExec, Options, ParentRef, SignalRouter, State, Status}
   alias Jido.AgentServer.Signal.{ChildExit, ChildStarted, Orphaned}
+  alias Jido.Agent.Directive
   alias Jido.Signal
+  alias Jido.Signal.Router, as: JidoRouter
 
   @type server :: pid() | atom() | {:via, module(), term()} | String.t()
 
@@ -94,7 +135,17 @@ defmodule Jido.AgentServer do
   @spec start(keyword() | map()) :: DynamicSupervisor.on_start_child()
   def start(opts) do
     child_spec = {__MODULE__, opts}
-    DynamicSupervisor.start_child(Jido.AgentSupervisor, child_spec)
+
+    jido_instance =
+      if is_list(opts), do: Keyword.get(opts, :jido), else: Map.get(opts, :jido)
+
+    supervisor =
+      case jido_instance do
+        nil -> Jido.AgentSupervisor
+        instance -> Jido.agent_supervisor_name(instance)
+      end
+
+    DynamicSupervisor.start_child(supervisor, child_spec)
   end
 
   @doc """
@@ -136,6 +187,13 @@ defmodule Jido.AgentServer do
   Returns the updated agent struct after signal processing.
   Directives are still executed asynchronously via the drain loop.
 
+  ## Returns
+
+  * `{:ok, agent}` - Signal processed successfully
+  * `{:error, :not_found}` - Server not found via registry
+  * `{:error, :invalid_server}` - Unsupported server reference
+  * Exits with `{:noproc, ...}` if process dies during call
+
   ## Examples
 
       {:ok, agent} = Jido.AgentServer.call(pid, signal)
@@ -153,6 +211,12 @@ defmodule Jido.AgentServer do
 
   Returns immediately. The signal is processed in the background.
 
+  ## Returns
+
+  * `:ok` - Signal queued successfully
+  * `{:error, :not_found}` - Server not found via registry
+  * `{:error, :invalid_server}` - Unsupported server reference
+
   ## Examples
 
       :ok = Jido.AgentServer.cast(pid, signal)
@@ -168,6 +232,12 @@ defmodule Jido.AgentServer do
   @doc """
   Gets the full State struct for an agent.
 
+  ## Returns
+
+  * `{:ok, state}` - Full State struct retrieved
+  * `{:error, :not_found}` - Server not found via registry
+  * `{:error, :invalid_server}` - Unsupported server reference
+
   ## Examples
 
       {:ok, state} = Jido.AgentServer.state(pid)
@@ -181,15 +251,122 @@ defmodule Jido.AgentServer do
   end
 
   @doc """
-  Looks up an agent by ID in the registry.
+  Gets runtime status for an agent process.
+
+  Returns a `Status` struct combining the strategy snapshot with process metadata.
+  This provides a stable API for querying agent status without depending on internal
+  `__strategy__` state structure.
+
+  ## Returns
+
+  * `{:ok, status}` - Status struct with snapshot and metadata
+  * `{:error, :not_found}` - Server not found via registry
+  * `{:error, :invalid_server}` - Unsupported server reference
 
   ## Examples
 
-      pid = Jido.AgentServer.whereis("agent-id")
-      pid = Jido.AgentServer.whereis("agent-id", MyRegistry)
+      {:ok, agent_status} = Jido.AgentServer.status(pid)
+
+      # Check completion
+      if agent_status.snapshot.done? do
+        IO.puts("Result: " <> inspect(agent_status.snapshot.result))
+      end
+
+      # Use delegate helpers
+      case Status.status(agent_status) do
+        :success -> {:done, Status.result(agent_status)}
+        :failure -> {:error, Status.details(agent_status)}
+        _ -> :continue
+      end
   """
-  @spec whereis(String.t(), module()) :: pid() | nil
-  def whereis(id, registry \\ Jido.Registry) when is_binary(id) do
+  @spec status(server()) :: {:ok, Status.t()} | {:error, term()}
+  def status(server) do
+    with {:ok, pid} <- resolve_server(server),
+         {:ok, %State{agent: agent, agent_module: agent_module} = state} <-
+           GenServer.call(pid, :get_state) do
+      snapshot = agent_module.strategy_snapshot(agent)
+
+      {:ok,
+       %Status{
+         agent_module: agent_module,
+         agent_id: state.id,
+         pid: pid,
+         snapshot: snapshot,
+         raw_state: agent.state
+       }}
+    end
+  end
+
+  @doc """
+  Streams status updates by polling at regular intervals.
+
+  Returns a Stream that yields status snapshots. Useful for monitoring agent
+  execution without manual polling loops.
+
+  ## Options
+
+  - `:interval_ms` - Polling interval in milliseconds (default: 100)
+
+  ## Examples
+
+      # Poll until completion
+      AgentServer.stream_status(pid, interval_ms: 50)
+      |> Enum.reduce_while(nil, fn status, _acc ->
+        case Status.status(status) do
+          :success -> {:halt, {:ok, Status.result(status)}}
+          :failure -> {:halt, {:error, Status.details(status)}}
+          _ -> {:cont, nil}
+        end
+      end)
+
+      # Take first 10 snapshots
+      AgentServer.stream_status(pid)
+      |> Enum.take(10)
+  """
+  @spec stream_status(server(), keyword()) :: Enumerable.t()
+  def stream_status(server, opts \\ []) do
+    interval_ms = Keyword.get(opts, :interval_ms, 100)
+
+    Stream.repeatedly(fn ->
+      case status(server) do
+        {:ok, status} ->
+          Process.sleep(interval_ms)
+          status
+
+        {:error, reason} ->
+          raise "Failed to get status: #{inspect(reason)}"
+      end
+    end)
+  end
+
+  @doc """
+  Looks up an agent by ID using the default registry.
+
+  Returns the pid if found, nil otherwise.
+
+  ## Examples
+
+      pid = Jido.AgentServer.whereis("agent-123")
+      # => #PID<0.123.0>
+
+      Jido.AgentServer.whereis("nonexistent")
+      # => nil
+  """
+  @spec whereis(String.t()) :: pid() | nil
+  def whereis(id) when is_binary(id), do: whereis(Jido.Registry, id)
+
+  @doc """
+  Looks up an agent by ID in a specific registry.
+
+  Returns the pid if found, nil otherwise.
+
+  ## Examples
+
+      pid = Jido.AgentServer.whereis(MyRegistry, "agent-123")
+      # => #PID<0.123.0>
+  """
+  @spec whereis(module(), String.t()) :: pid() | nil
+  def whereis(registry, id) when is_atom(registry) and is_binary(id) do
     case Registry.lookup(registry, id) do
       [{pid, _}] -> pid
       [] -> nil
@@ -275,6 +452,9 @@ defmodule Jido.AgentServer do
       else
         state
       end
+
+    signal_router = SignalRouter.build(state)
+    state = %{state | signal_router: signal_router}
 
     notify_parent_of_startup(state)
 
@@ -374,6 +554,13 @@ defmodule Jido.AgentServer do
 
   @impl true
   def terminate(reason, state) do
+    # Clean up all cron jobs owned by this agent
+    Enum.each(state.cron_jobs, fn {_job_id, pid} ->
+      if is_pid(pid) and Process.alive?(pid) do
+        Jido.Scheduler.cancel(pid)
+      end
+    end)
+
     Logger.debug("AgentServer #{state.id} terminating: #{inspect(reason)}")
     :ok
   end
@@ -382,7 +569,7 @@ defmodule Jido.AgentServer do
   # Internal: Signal Processing
   # ---------------------------------------------------------------------------
 
-  defp process_signal(%Signal{} = signal, %State{} = state) do
+  defp process_signal(%Signal{} = signal, %State{signal_router: router} = state) do
     start_time = System.monotonic_time()
     agent_module = state.agent_module
 
@@ -399,35 +586,62 @@ defmodule Jido.AgentServer do
     )
 
     try do
-      {agent, directives} =
-        if function_exported?(agent_module, :handle_signal, 2) do
-          agent_module.handle_signal(state.agent, signal)
-        else
-          agent_module.cmd(state.agent, signal)
-        end
+      case route_to_actions(router, signal) do
+        {:ok, actions} ->
+          action_arg =
+            case actions do
+              [single] -> single
+              many -> many
+            end
 
-      directives = List.wrap(directives)
-      state = State.update_agent(state, agent)
+          {agent, directives} = agent_module.cmd(state.agent, action_arg)
 
-      emit_telemetry(
-        [:jido, :agent_server, :signal, :stop],
-        %{duration: System.monotonic_time() - start_time},
-        Map.merge(metadata, %{directive_count: length(directives)})
-      )
+          directives = List.wrap(directives)
+          state = State.update_agent(state, agent)
 
-      case State.enqueue_all(state, signal, directives) do
-        {:ok, enq_state} ->
-          {:ok, start_drain_if_idle(enq_state)}
-
-        {:error, :queue_overflow} ->
           emit_telemetry(
-            [:jido, :agent_server, :queue, :overflow],
-            %{queue_size: state.max_queue_size},
-            metadata
+            [:jido, :agent_server, :signal, :stop],
+            %{duration: System.monotonic_time() - start_time},
+            Map.merge(metadata, %{directive_count: length(directives)})
           )
 
-          Logger.warning("AgentServer #{state.id} queue overflow, dropping directives")
-          {:error, :queue_overflow, state}
+          case State.enqueue_all(state, signal, directives) do
+            {:ok, enq_state} ->
+              {:ok, start_drain_if_idle(enq_state)}
+
+            {:error, :queue_overflow} ->
+              emit_telemetry(
+                [:jido, :agent_server, :queue, :overflow],
+                %{queue_size: state.max_queue_size},
+                metadata
+              )
+
+              Logger.warning("AgentServer #{state.id} queue overflow, dropping directives")
+              {:error, :queue_overflow, state}
+          end
+
+        {:error, reason} ->
+          emit_telemetry(
+            [:jido, :agent_server, :signal, :stop],
+            %{duration: System.monotonic_time() - start_time},
+            Map.merge(metadata, %{error: reason})
+          )
+
+          error =
+            Jido.Error.routing_error("No route for signal", %{
+              signal_type: signal.type,
+              reason: reason
+            })
+
+          error_directive = %Directive.Error{error: error, context: :routing}
+
+          case State.enqueue_all(state, signal, [error_directive]) do
+            {:ok, enq_state} ->
+              {:error, reason, start_drain_if_idle(enq_state)}
+
+            {:error, :queue_overflow} ->
+              {:error, reason, state}
+          end
       end
     catch
       kind, reason ->
@@ -439,6 +653,44 @@ defmodule Jido.AgentServer do
 
         :erlang.raise(kind, reason, __STACKTRACE__)
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Internal: Signal Routing
+  # ---------------------------------------------------------------------------
+
+  defp route_to_actions(router, signal) do
+    case JidoRouter.route(router, signal) do
+      {:ok, targets} when targets != [] ->
+        actions = Enum.map(targets, &target_to_action(&1, signal))
+        {:ok, actions}
+
+      {:error, %{details: %{reason: :no_handlers_found}}} ->
+        {:error, :no_matching_route}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp target_to_action({:strategy_cmd, cmd}, %Signal{data: data}) do
+    {cmd, data}
+  end
+
+  defp target_to_action({:strategy_tick}, _signal) do
+    {:strategy_tick, %{}}
+  end
+
+  defp target_to_action({:custom, _term}, %Signal{data: data}) do
+    {:custom, data}
+  end
+
+  defp target_to_action(mod, %Signal{data: data}) when is_atom(mod) do
+    {mod, data}
+  end
+
+  defp target_to_action({mod, params}, _signal) when is_atom(mod) and is_map(params) do
+    {mod, params}
   end
 
   # ---------------------------------------------------------------------------
@@ -607,7 +859,9 @@ defmodule Jido.AgentServer do
 
   defp exec_directive_with_telemetry(directive, signal, state) do
     start_time = System.monotonic_time()
-    directive_type = directive.__struct__ |> Module.split() |> List.last()
+
+    directive_type =
+      directive.__struct__ |> Module.split() |> List.last()
 
     metadata = %{
       agent_id: state.id,
@@ -654,7 +908,8 @@ defmodule Jido.AgentServer do
 
   # Warn when {:stop, ...} is used with normal-looking reasons.
   # This indicates likely misuse - normal completion should use state.status instead.
-  defp warn_if_normal_stop(reason, directive, state) when reason in [:normal, :completed, :ok, :done, :success] do
+  defp warn_if_normal_stop(reason, directive, state)
+       when reason in [:normal, :completed, :ok, :done, :success] do
     directive_type = directive.__struct__ |> Module.split() |> List.last()
 
     Logger.warning("""

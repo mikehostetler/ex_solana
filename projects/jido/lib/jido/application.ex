@@ -7,22 +7,15 @@ defmodule Jido.Application do
       # Telemetry handler for agent and strategy metrics
       Jido.Telemetry,
 
-      # Shared task supervisor for async directive work (LLMs, HTTP, heavy IO)
-      {Task.Supervisor, name: Jido.TaskSupervisor, max_children: 1000},
+      # Component discovery catalog (global - not per-instance)
+      Jido.Discovery,
 
-      # Global registry for agent lookup by ID
-      {Registry, keys: :unique, name: Jido.Registry},
-
-      # Dynamic supervisor for all agent instances (flat hierarchy)
-      {DynamicSupervisor,
-       name: Jido.AgentSupervisor, strategy: :one_for_one, max_restarts: 1000, max_seconds: 5}
+      # Global registry for agent process discovery (backwards compatibility)
+      {Registry, keys: :unique, name: Jido.Registry}
     ]
 
     # Register essential signal extensions before starting supervision tree
     register_signal_extensions()
-
-    # Initialize discovery catalog asynchronously
-    Task.start(fn -> Jido.Discovery.init() end)
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Jido.Supervisor)
   end

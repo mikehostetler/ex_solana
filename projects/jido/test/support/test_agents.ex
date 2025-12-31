@@ -5,6 +5,8 @@ defmodule JidoTest.TestAgents do
     @moduledoc false
     use Jido.Agent,
       name: "minimal_agent"
+
+    def signal_routes, do: []
   end
 
   defmodule Basic do
@@ -19,6 +21,8 @@ defmodule JidoTest.TestAgents do
         counter: [type: :integer, default: 0],
         status: [type: :atom, default: :idle]
       ]
+
+    def signal_routes, do: []
   end
 
   defmodule Hook do
@@ -28,6 +32,8 @@ defmodule JidoTest.TestAgents do
       schema: [
         counter: [type: :integer, default: 0]
       ]
+
+    def signal_routes, do: []
 
     def on_after_cmd(agent, _action, directives) do
       {:ok, %{agent | state: Map.put(agent.state, :hook_called, true)}, directives}
@@ -76,6 +82,8 @@ defmodule JidoTest.TestAgents do
     use Jido.Agent,
       name: "custom_strategy_agent",
       strategy: JidoTest.TestAgents.CountingStrategy
+
+    def signal_routes, do: []
   end
 
   defmodule StrategyWithOpts do
@@ -83,6 +91,8 @@ defmodule JidoTest.TestAgents do
     use Jido.Agent,
       name: "strategy_opts_agent",
       strategy: {JidoTest.TestAgents.CountingStrategy, max_depth: 5}
+
+    def signal_routes, do: []
   end
 
   defmodule ZoiSchema do
@@ -94,6 +104,8 @@ defmodule JidoTest.TestAgents do
           status: Zoi.atom() |> Zoi.default(:idle),
           count: Zoi.integer() |> Zoi.default(0)
         })
+
+    def signal_routes, do: []
   end
 
   defmodule WithCustomStrategy do
@@ -104,5 +116,7 @@ defmodule JidoTest.TestAgents do
       schema: [
         value: [type: :integer, default: 0]
       ]
+
+    def signal_routes, do: []
   end
 end

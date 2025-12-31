@@ -39,25 +39,15 @@ defmodule Jido.AI.Strategy.ReAct do
 
   ## Signal Routing
 
-  Agents using this strategy should route signals to these actions:
+  This strategy implements `signal_routes/1` which AgentServer uses to
+  automatically route these signals to strategy commands:
 
-      alias Jido.AI.Strategy.ReAct, as: ReActStrategy
+  - `"react.user_query"` → `:react_start`
+  - `"reqllm.result"` → `:react_llm_result`
+  - `"ai.tool_result"` → `:react_tool_result`
+  - `"reqllm.partial"` → `:react_llm_partial`
 
-      def handle_signal(agent, %Jido.Signal{type: "react.user_query", data: data}) do
-        cmd(agent, {ReActStrategy.start_action(), data})
-      end
-
-      def handle_signal(agent, %Jido.Signal{type: "reqllm.result", data: data}) do
-        cmd(agent, {ReActStrategy.llm_result_action(), data})
-      end
-
-      def handle_signal(agent, %Jido.Signal{type: "ai.tool_result", data: data}) do
-        cmd(agent, {ReActStrategy.tool_result_action(), data})
-      end
-
-      def handle_signal(agent, %Jido.Signal{type: "reqllm.partial", data: data}) do
-        cmd(agent, {ReActStrategy.llm_partial_action(), data})
-      end
+  No custom signal handling code is needed in your agent.
 
   ## State
 

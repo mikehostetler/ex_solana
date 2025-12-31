@@ -1,5 +1,5 @@
 defmodule JidoTest.AgentServer.DirectiveExecTest do
-  use ExUnit.Case, async: true
+  use JidoTest.Case, async: true
 
   alias Jido.Agent.Directive
   alias Jido.AgentServer.{DirectiveExec, State, Options}
@@ -19,10 +19,10 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
     defstruct [:value]
   end
 
-  setup do
+  setup %{jido: jido} do
     agent = TestAgent.new()
 
-    {:ok, opts} = Options.new(%{agent: agent, id: "test-agent-123"})
+    {:ok, opts} = Options.new(%{agent: agent, id: "test-agent-123", jido: jido})
     {:ok, state} = State.from_options(opts, agent.__struct__, agent)
 
     input_signal = Signal.new!(%{type: "test.signal", source: "/test", data: %{}})
@@ -53,13 +53,15 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
 
     test "uses default_dispatch from state when directive dispatch is nil", %{
       input_signal: input_signal,
-      agent: agent
+      agent: agent,
+      jido: jido
     } do
       {:ok, opts} =
         Options.new(%{
           agent: agent,
           id: "test-agent-dispatch",
-          default_dispatch: {:logger, level: :debug}
+          default_dispatch: {:logger, level: :debug},
+          jido: jido
         })
 
       {:ok, state} = State.from_options(opts, agent.__struct__, agent)
@@ -79,12 +81,17 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
       assert {:ok, ^state} = DirectiveExec.exec(directive, input_signal, state)
     end
 
-    test "returns stop with stop_on_error policy", %{input_signal: input_signal, agent: agent} do
+    test "returns stop with stop_on_error policy", %{
+      input_signal: input_signal,
+      agent: agent,
+      jido: jido
+    } do
       {:ok, opts} =
         Options.new(%{
           agent: agent,
           id: "test-agent-stop",
-          error_policy: :stop_on_error
+          error_policy: :stop_on_error,
+          jido: jido
         })
 
       {:ok, state} = State.from_options(opts, agent.__struct__, agent)
@@ -98,13 +105,15 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
 
     test "increments error_count with max_errors policy", %{
       input_signal: input_signal,
-      agent: agent
+      agent: agent,
+      jido: jido
     } do
       {:ok, opts} =
         Options.new(%{
           agent: agent,
           id: "test-agent-max",
-          error_policy: {:max_errors, 3}
+          error_policy: {:max_errors, 3},
+          jido: jido
         })
 
       {:ok, state} = State.from_options(opts, agent.__struct__, agent)
@@ -127,7 +136,11 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
   end
 
   describe "Spawn directive" do
-    test "spawns child using custom spawn_fun", %{input_signal: input_signal, agent: agent} do
+    test "spawns child using custom spawn_fun", %{
+      input_signal: input_signal,
+      agent: agent,
+      jido: jido
+    } do
       test_pid = self()
 
       spawn_fun = fn child_spec ->
@@ -139,7 +152,8 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
         Options.new(%{
           agent: agent,
           id: "test-agent-spawn",
-          spawn_fun: spawn_fun
+          spawn_fun: spawn_fun,
+          jido: jido
         })
 
       {:ok, state} = State.from_options(opts, agent.__struct__, agent)
@@ -151,7 +165,11 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
       assert_receive {:spawn_called, ^child_spec}
     end
 
-    test "handles spawn failure gracefully", %{input_signal: input_signal, agent: agent} do
+    test "handles spawn failure gracefully", %{
+      input_signal: input_signal,
+      agent: agent,
+      jido: jido
+    } do
       spawn_fun = fn _child_spec ->
         {:error, :spawn_failed}
       end
@@ -160,7 +178,8 @@ defmodule JidoTest.AgentServer.DirectiveExecTest do
         Options.new(%{
           agent: agent,
           id: "test-agent-spawn-fail",
-          spawn_fun: spawn_fun
+          spawn_fun: spawn_fun,
+          jido: jido
         })
 
       {:ok, state} = State.from_options(opts, agent.__struct__, agent)

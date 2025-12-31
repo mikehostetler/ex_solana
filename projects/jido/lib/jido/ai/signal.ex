@@ -75,13 +75,9 @@ defmodule Jido.AI.Signal do
 
     ## Usage
 
-    Strategies can handle these signals to accumulate partial responses:
-
-        def handle_signal(agent, %Signal{type: "reqllm.partial", data: data}) do
-          current = agent.state.streaming_text || ""
-          new_agent = put_in(agent.state.streaming_text, current <> data.delta)
-          {new_agent, []}
-        end
+    Strategies can handle these signals via `signal_routes/1` to route them
+    to strategy commands that accumulate partial responses. The ReAct strategy
+    automatically handles these signals when using `Jido.AI.Strategy.ReAct`.
     """
 
     use Jido.Signal,

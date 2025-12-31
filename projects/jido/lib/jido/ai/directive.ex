@@ -105,9 +105,9 @@ defmodule Jido.AI.Directive do
               __MODULE__,
               %{
                 id: Zoi.string(description: "Tool call ID from LLM (ReqLLM.ToolCall.id)"),
-                tool_name: Zoi.string(description: "Name of the tool (matches Jido.Action.name/0)"),
-                action_module:
-                  Zoi.any(description: "Module implementing Jido.Action behaviour"),
+                tool_name:
+                  Zoi.string(description: "Name of the tool (matches Jido.Action.name/0)"),
+                action_module: Zoi.any(description: "Module implementing Jido.Action behaviour"),
                 arguments:
                   Zoi.map(description: "Arguments from LLM (string keys, normalized before exec)")
                   |> Zoi.default(%{}),

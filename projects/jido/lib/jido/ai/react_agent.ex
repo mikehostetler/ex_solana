@@ -28,7 +28,7 @@ defmodule Jido.AI.ReActAgent do
   ## Generated Functions
 
   - `ask/2` - Convenience function to send a query to the agent
-  - `handle_signal/2` - Tracks last_query and routes to strategy
+  - `on_before_cmd/2` - Captures last_query before processing
   - `on_after_cmd/3` - Updates last_answer and completed when done
 
   ## State Fields
@@ -58,7 +58,12 @@ defmodule Jido.AI.ReActAgent do
     default_model = @default_model
     default_max_iterations = @default_max_iterations
 
-    quote location: :keep, bind_quoted: [opts: opts, default_model: default_model, default_max_iterations: default_max_iterations] do
+    quote location: :keep,
+          bind_quoted: [
+            opts: opts,
+            default_model: default_model,
+            default_max_iterations: default_max_iterations
+          ] do
       import Jido.AI.ReActAgent, only: [tools_from_skills: 1]
 
       name = Keyword.fetch!(opts, :name)
@@ -103,13 +108,12 @@ defmodule Jido.AI.ReActAgent do
       end
 
       @impl true
-      def handle_signal(agent, %Jido.Signal{type: "react.user_query", data: data} = signal) do
-        query = data[:query] || data["query"]
+      def on_before_cmd(agent, {:react_start, %{query: query}} = action) do
         agent = %{agent | state: Map.put(agent.state, :last_query, query)}
-        super(agent, signal)
+        {:ok, agent, action}
       end
 
-      def handle_signal(agent, signal), do: super(agent, signal)
+      def on_before_cmd(agent, action), do: {:ok, agent, action}
 
       @impl true
       def on_after_cmd(agent, _action, directives) do
@@ -132,7 +136,7 @@ defmodule Jido.AI.ReActAgent do
         {:ok, agent, directives}
       end
 
-      defoverridable handle_signal: 2, on_after_cmd: 3
+      defoverridable on_before_cmd: 2, on_after_cmd: 3
     end
   end
 
