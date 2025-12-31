@@ -340,29 +340,13 @@ defmodule Jido.AgentServer do
   end
 
   @doc """
-  Looks up an agent by ID using the default registry.
-
-  Returns the pid if found, nil otherwise.
-
-  ## Examples
-
-      pid = Jido.AgentServer.whereis("agent-123")
-      # => #PID<0.123.0>
-
-      Jido.AgentServer.whereis("nonexistent")
-      # => nil
-  """
-  @spec whereis(String.t()) :: pid() | nil
-  def whereis(id) when is_binary(id), do: whereis(Jido.Registry, id)
-
-  @doc """
   Looks up an agent by ID in a specific registry.
 
   Returns the pid if found, nil otherwise.
 
   ## Examples
 
-      pid = Jido.AgentServer.whereis(MyRegistry, "agent-123")
+      pid = Jido.AgentServer.whereis(MyApp.Jido.Registry, "agent-123")
       # => #PID<0.123.0>
   """
   @spec whereis(module(), String.t()) :: pid() | nil
@@ -378,11 +362,11 @@ defmodule Jido.AgentServer do
 
   ## Examples
 
-      name = Jido.AgentServer.via_tuple("agent-id")
+      name = Jido.AgentServer.via_tuple("agent-id", MyApp.Jido.Registry)
       GenServer.call(name, :get_state)
   """
   @spec via_tuple(String.t(), module()) :: {:via, Registry, {module(), String.t()}}
-  def via_tuple(id, registry \\ Jido.Registry) do
+  def via_tuple(id, registry) when is_binary(id) and is_atom(registry) do
     {:via, Registry, {registry, id}}
   end
 
@@ -769,10 +753,10 @@ defmodule Jido.AgentServer do
   end
 
   defp resolve_server(id) when is_binary(id) do
-    case whereis(id) do
-      nil -> {:error, :not_found}
-      pid -> {:ok, pid}
-    end
+    # String IDs require explicit registry lookup via Jido.whereis/2
+    {:error,
+     {:invalid_server,
+      "String IDs require explicit registry lookup. Use Jido.whereis(MyApp.Jido, \"#{id}\") first or pass the pid directly."}}
   end
 
   defp resolve_server(_), do: {:error, :invalid_server}

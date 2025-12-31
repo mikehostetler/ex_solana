@@ -8,10 +8,7 @@ defmodule Jido.Application do
       Jido.Telemetry,
 
       # Component discovery catalog (global - not per-instance)
-      Jido.Discovery,
-
-      # Global registry for agent process discovery (backwards compatibility)
-      {Registry, keys: :unique, name: Jido.Registry}
+      Jido.Discovery
     ]
 
     # Register essential signal extensions before starting supervision tree
