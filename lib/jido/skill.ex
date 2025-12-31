@@ -1,506 +1,293 @@
 defmodule Jido.Skill do
   @moduledoc """
-  Defines the core behavior and structure for Jido Skills, the fundamental building blocks
-  of agent capabilities in the Jido framework.
+  A Skill is a composable capability that can be attached to an agent.
 
-  ## Overview
+  Skills encapsulate:
+  - A set of actions the agent can perform
+  - State schema for skill-specific data
+  - Configuration schema for per-agent customization
+  - Signal patterns for routing
+  - Optional process-layer callbacks for runtime behavior
 
-  Skills encapsulate discrete sets of functionality that agents can use to accomplish tasks.
-  Think of them as feature packs that give agents new abilities - similar to how a person might
-  learn skills like "cooking" or "programming". Each Skill provides:
+  ## Core Pattern
 
-  - Signal routing and handling patterns
-  - Isolated state management
-  - Process supervision
-  - Configuration validation
-  - Runtime adaptation
-
-  ## Core Concepts
-
-  ### State Isolation
-
-  Skills use schema-based state isolation to prevent different capabilities from interfering
-  with each other. Each skill defines:
-
-  - A unique `opts_key` for namespace isolation
-  - Validation rules for configuration
-
-  ### Signal Patterns
-
-  Skills define what signals they can handle through pattern matching:
-
-  ```elixir
-  use Jido.Skill,
-  name: "weather_monitor",
-  signal_patterns: [
-  "weather.data.*",
-  "weather.alert.**"
-  ],
-     actions: [
-       MyApp.GetWeatherAction,
-       MyApp.SendAlertAction
-     ]
-  ```
-
-  Pattern rules:
-  - Exact matches: "user.created"
-  - Single wildcards: "user.*.updated"
-  - Multi-wildcards: "audit.**"
-
-  ### Configuration Management
-
-  Skills provide schema-based config validation:
-
-  ```elixir
-  config: [
-    api_key: [
-      type: :string,
-      required: true,
-      doc: "API key for weather service"
-    ],
-    update_interval: [
-      type: :pos_integer,
-      default: 60_000,
-      doc: "Update interval in milliseconds"
-    ]
-  ]
-  ```
-
-  ### Process Supervision
-
-  Skills can define child processes through the `child_spec/1` callback:
-
-  ```elixir
-  def child_spec(config) do
-    [
-      {WeatherAPI.Client, config.api_key},
-      {MetricsCollector, name: config.metrics_name}
-    ]
-  end
-  ```
-
-  ## Usage Example
-
-  Here's a complete skill example:
-
-  ```elixir
-  defmodule MyApp.WeatherSkill do
-  use Jido.Skill,
-  name: "weather_monitor",
-  description: "Monitors weather conditions and generates alerts",
-  category: "monitoring",
-  tags: ["weather", "alerts"],
-  vsn: "1.0.0",
-  opts_key: :weather,
-  signal_patterns: [
-  "weather.data.*",
-  "weather.alert.**"
-  ],
-  actions: [
-  MyApp.GetWeatherAction,
-    MyApp.SendAlertAction
-       ],
-       opts_schema: [
-         api_key: [type: :string, required: true]
-       ]
-
-    def child_spec(config) do
-      [
-        {WeatherAPI.Client, config.api_key}
-      ]
-    end
-
-    def handle_signal(%Signal{type: "weather.data.updated"} = signal, _skill) do
-      # Handle weather updates
-      {:ok, signal}
-    end
-
-    def transform_result(%Signal{} = signal, result, _skill) do
-      # Transform the result
-      {:ok, result}
-    end
-  end
-  ```
-
-  ## Callbacks
-
-  Skills implement these callbacks:
-
-  - `child_spec/1` - Returns child process specifications
-  - `router/0` - Returns signal routing rules
-  - `handle_signal/2` - Processes incoming signals
-  - `transform_result/3` - Post-processes signal handling results
-  - `mount/2` - Mounts the skill to an agent
-
-  ## Behavior
-
-  The Skill behavior enforces a consistent interface:
-
-  ```elixir
-  @callback child_spec(config :: map()) :: Supervisor.child_spec() | [Supervisor.child_spec()]
-  @callback router() :: [map()]
-  @callback handle_signal(signal :: Signal.t(), skill :: t()) :: {:ok, Signal.t()} | {:error, term()}
-  @callback transform_result(signal :: Signal.t(), result :: term(), skill :: t()) ::
-              {:ok, term()} | {:error, term()}
-  @callback mount(agent :: Jido.Agent.t(), opts :: keyword()) :: Jido.Agent.t()
-  ```
-
-  ## Configuration
-
-  Skills validate their configuration at compile time using these fields:
-
-  - `name` - Unique identifier (required)
-  - `description` - Human-readable explanation
-  - `category` - Broad classification
-  - `tags` - List of searchable tags
-  - `vsn` - Version string
-  - `opts_key` - State namespace key
-  - `signal_patterns` - Input/output patterns
-  - `opts_schema` - Configuration schema
-
-  ## Best Practices
-
-  1. **State Isolation**
-     - Use meaningful opts_key names
-     - Keep state focused and minimal
-     - Document state structure
-
-  2. **Signal Design**
-     - Use consistent naming patterns
-     - Document signal formats
-     - Consider routing efficiency
-
-  3. **Configuration**
-     - Validate thoroughly
-     - Provide good defaults
-     - Document all options
-
-  4. **Process Management**
-     - Supervise child processes
-     - Handle crashes gracefully
-     - Monitor resource usage
-
-  ## See Also
-
-  - `Jido.Signal` - Signal structure and validation
-  - `Jido.Error` - Error handling
-  - `Jido.Agent` - Agent integration
-  """
-  alias Jido.Signal
-  alias Jido.Signal.Router.Route
-  alias Jido.Error
-  require OK
-  use TypedStruct
-
-  @typedoc """
-  Represents a skill's core structure and metadata.
-
-  Fields:
-  - `name`: Unique identifier for the skill
-  - `description`: Human-readable explanation of purpose
-  - `category`: Broad classification for organization
-  - `tags`: List of searchable tags
-  - `vsn`: Version string for compatibility
-  - `opts_key`: Atom key for state namespace
-  - `signal_patterns`: Input/output signal patterns
-  - `opts_schema`: Configuration schema
-  """
-  typedstruct do
-    field(:name, String.t(), enforce: true)
-    field(:description, String.t())
-    field(:category, String.t())
-    field(:tags, [String.t()], default: [])
-    field(:vsn, String.t())
-    field(:opts_key, atom())
-    field(:opts_schema, map())
-    field(:signal_patterns, [String.t()], default: [])
-    field(:actions, [module()], default: [])
-  end
-
-  # Configuration schema validation
-  @skill_config_schema NimbleOptions.new!(
-                         name: [
-                           type: {:custom, Jido.Util, :validate_name, []},
-                           required: true,
-                           doc:
-                             "The name of the Skill. Must contain only letters, numbers, and underscores."
-                         ],
-                         description: [
-                           type: :string,
-                           required: false,
-                           doc: "A description of what the Skill does."
-                         ],
-                         category: [
-                           type: :string,
-                           required: false,
-                           doc: "The category of the Skill."
-                         ],
-                         tags: [
-                           type: {:list, :string},
-                           default: [],
-                           doc: "A list of tags associated with the Skill."
-                         ],
-                         vsn: [
-                           type: :string,
-                           required: false,
-                           doc: "The version of the Skill."
-                         ],
-                         opts_key: [
-                           type: :atom,
-                           required: true,
-                           doc: "Atom key for state namespace isolation"
-                         ],
-                         opts_schema: [
-                           type: :keyword_list,
-                           default: [],
-                           doc: "Nimble Options schema for skill options"
-                         ],
-                         signal_patterns: [
-                           type: {:list, :string},
-                           default: ["**"],
-                           doc:
-                             "List of signal patterns this skill handles, defaults to matching all signals"
-                         ],
-                         actions: [
-                           type: {:list, {:custom, Jido.Util, :validate_module_compiled, []}},
-                           default: [],
-                           doc: "List of action modules required by this skill"
-                         ]
-                       )
-
-  @doc """
-  Implements the skill behavior and configuration validation.
-
-  This macro:
-  1. Validates configuration at compile time
-  2. Defines metadata accessors
-  3. Provides JSON serialization
-  4. Sets up default implementations
-
-  ## Example
+  Skills are defined using the `use Jido.Skill` macro:
 
       defmodule MySkill do
         use Jido.Skill,
           name: "my_skill",
-          opts_key: :my_skill,
-          signals: [
-            input: ["my.event.*"],
-            output: ["my.result.*"]
-          ]
+          state_key: :my_skill,
+          actions: [MyAction],
+          schema: Zoi.object(%{counter: Zoi.integer() |> Zoi.default(0)})
       end
+
+  The skill is attached to an agent and provides its spec via `skill_spec/1`:
+
+      spec = MySkill.skill_spec(%{})
+
+  ## Configuration Options
+
+  - `name` - Required. The skill name (letters, numbers, underscores).
+  - `state_key` - Required. Atom key for skill state in agent.
+  - `actions` - Required. List of action modules.
+  - `description` - Optional description.
+  - `category` - Optional category.
+  - `vsn` - Optional version string.
+  - `schema` - Optional Zoi schema for skill state.
+  - `config_schema` - Optional Zoi schema for per-agent config.
+  - `signal_patterns` - List of signal pattern strings (default: []).
+  - `tags` - List of tag strings (default: []).
+
+  ## Process-Layer Callbacks
+
+  Skills can optionally implement process-layer callbacks for runtime behavior:
+
+  - `mount/2` - Initialize skill state when attached to an agent
+  - `router/1` - Return signal router for this skill
+  - `handle_signal/2` - Handle incoming signals
+  - `transform_result/3` - Transform action results before returning
+  - `child_spec/1` - Return child spec for supervised processes
   """
-  defmacro __using__(opts) do
-    escaped_schema = Macro.escape(@skill_config_schema)
 
-    quote location: :keep do
-      @behaviour Jido.Skill
-      alias Jido.Skill
-      alias Jido.Signal
-      alias Jido.Instruction
-      require OK
+  alias Jido.Skill.Spec
 
-      # Validate configuration at compile time
-      case NimbleOptions.validate(unquote(opts), unquote(escaped_schema)) do
-        {:ok, validated_opts} ->
-          @validated_opts validated_opts
-
-          # Ensure all action modules are compiled before this skill to prevent ordering issues
-          actions = @validated_opts[:actions]
-          Enum.each(actions, &Code.ensure_compiled!/1)
-
-          # Define metadata accessors
-          @doc false
-          def name, do: @validated_opts[:name]
-
-          @doc false
-          def description, do: @validated_opts[:description]
-
-          @doc false
-          def category, do: @validated_opts[:category]
-
-          @doc false
-          def tags, do: @validated_opts[:tags]
-
-          @doc false
-          def vsn, do: @validated_opts[:vsn]
-
-          @doc false
-          def opts_key, do: @validated_opts[:opts_key]
-
-          @doc false
-          def signal_patterns, do: @validated_opts[:signal_patterns]
-
-          @doc false
-          def opts_schema, do: @validated_opts[:opts_schema]
-
-          @doc false
-          def actions, do: @validated_opts[:actions]
-
-          @doc false
-          def to_json do
-            %{
-              name: @validated_opts[:name],
-              description: @validated_opts[:description],
-              category: @validated_opts[:category],
-              tags: @validated_opts[:tags],
-              vsn: @validated_opts[:vsn],
-              opts_key: @validated_opts[:opts_key],
-              opts_schema: @validated_opts[:opts_schema],
-              signal_patterns: @validated_opts[:signal_patterns],
-              actions: @validated_opts[:actions],
-              action_count: length(@validated_opts[:actions]),
-              action_names: Enum.map(@validated_opts[:actions], fn action -> action.name() end)
-            }
-          end
-
-          @doc false
-          def __skill_metadata__ do
-            to_json()
-          end
-
-          # Default implementations
-          @doc false
-          def child_spec(_config), do: []
-
-          @doc false
-          def router(_opts), do: []
-
-          @doc false
-          def handle_signal(signal, _skill), do: {:ok, signal}
-
-          @doc false
-          def transform_result(signal, result, _skill), do: {:ok, result}
-
-          @doc false
-          def mount(agent, _opts), do: {:ok, agent}
-
-          @doc """
-          Converts this skill into LLM tool calling format.
-
-          Returns a list of function definitions compatible with LLM function calling APIs.
-          """
-          def to_tools do
-            actions()
-            |> Enum.map(fn action_module ->
-              %{
-                name: action_module.name(),
-                description: action_module.description(),
-                parameters: Jido.Action.Tool.build_parameters_schema(action_module.schema())
-              }
-            end)
-          end
-
-          @doc """
-          Gets all available tool names from this skill.
-          """
-          def tool_names do
-            actions()
-            |> Enum.map(fn action_module -> action_module.name() end)
-          end
-
-          @doc """
-          Executes a tool from this skill by name.
-          """
-          def execute_tool(tool_name, params, context \\ %{}) do
-            case Enum.find(actions(), fn action -> action.name() == tool_name end) do
-              nil ->
-                {:error, Jason.encode!(%{error: "Tool '#{tool_name}' not found in skill"})}
-
-              action_module ->
-                Jido.Action.Tool.execute_action(action_module, params, context)
-            end
-          end
-
-          defoverridable child_spec: 1,
-                         router: 1,
-                         handle_signal: 2,
-                         transform_result: 3,
-                         mount: 2
-
-        {:error, error} ->
-          message = Error.format_nimble_config_error(error, "Skill", __MODULE__)
-
-          raise CompileError,
-            description: message,
-            file: __ENV__.file,
-            line: __ENV__.line
-      end
-    end
-  end
-
-  # Behaviour callbacks
-  @callback child_spec(config :: map()) :: Supervisor.child_spec() | [Supervisor.child_spec()]
-  @callback router(skill_opts :: keyword()) :: [Route.t()]
-  @callback handle_signal(signal :: Signal.t(), skill :: t()) ::
-              {:ok, Signal.t()} | {:error, term()}
-  @callback transform_result(signal :: Signal.t(), result :: term(), skill :: t()) ::
-              {:ok, term()} | {:error, any()}
-  @callback mount(agent :: Jido.Agent.t(), opts :: keyword()) ::
-              {:ok, Jido.Agent.t()} | {:error, Error.t()}
-
-  @doc """
-  Skills must be defined at compile time, not runtime.
-
-  This function always returns an error to enforce compile-time definition.
-  """
-  @spec new() :: {:error, any()}
-  @spec new(map() | keyword()) :: {:error, any()}
-  def new, do: new(%{})
+  @skill_config_schema Zoi.object(
+                         %{
+                           name:
+                             Zoi.string(
+                               description:
+                                 "The name of the Skill. Must contain only letters, numbers, and underscores."
+                             )
+                             |> Zoi.refine({Jido.Util, :validate_name, []}),
+                           state_key:
+                             Zoi.atom(description: "The key for skill state in agent state."),
+                           actions:
+                             Zoi.list(Zoi.atom(), description: "List of action modules.")
+                             |> Zoi.refine({Jido.Util, :validate_actions, []}),
+                           description:
+                             Zoi.string(description: "A description of what the Skill does.")
+                             |> Zoi.optional(),
+                           category:
+                             Zoi.string(description: "The category of the Skill.")
+                             |> Zoi.optional(),
+                           vsn:
+                             Zoi.string(description: "Version")
+                             |> Zoi.optional(),
+                           schema:
+                             Zoi.any(description: "Zoi schema for skill state.")
+                             |> Zoi.optional(),
+                           config_schema:
+                             Zoi.any(description: "Zoi schema for per-agent configuration.")
+                             |> Zoi.optional(),
+                           signal_patterns:
+                             Zoi.list(Zoi.string(), description: "Signal patterns for routing.")
+                             |> Zoi.default([]),
+                           tags:
+                             Zoi.list(Zoi.string(), description: "Tags for categorization.")
+                             |> Zoi.default([])
+                         },
+                         coerce: true
+                       )
 
   @doc false
-  def new(_map_or_kwlist) do
-    "Skills should not be defined at runtime"
-    |> Error.config_error()
-    |> OK.failure()
-  end
+  def config_schema, do: @skill_config_schema
+
+  # Callbacks
 
   @doc """
-  Validates a skill's configuration against its schema.
+  Returns the skill specification with optional per-agent configuration.
 
-  ## Parameters
-  - `skill_module`: The skill module to validate
-  - `config`: Configuration map to validate
-
-  ## Returns
-  - `{:ok, validated_config}`: Successfully validated config
-  - `{:error, reason}`: Validation failed
-
-  ## Example
-
-      Skill.validate_opts(WeatherSkill, %{
-        api_key: "abc123",
-        interval: 1000
-      })
+  This is the primary interface for getting skill metadata and configuration.
   """
-  @spec validate_opts(module(), map()) :: {:ok, map()}
-  def validate_opts(skill_module, config) do
-    with {:ok, schema} <- get_opts_schema(skill_module) do
-      NimbleOptions.validate(config, schema)
-    end
-  end
+  @callback skill_spec(config :: map()) :: Spec.t()
 
   @doc """
-  Gets a skill's configuration schema.
+  Called when the skill is mounted to an agent.
+
+  Use this to initialize skill-specific state. Returns the initial state
+  that will be stored under the skill's `state_key`.
 
   ## Parameters
-  - `skill_module`: The skill module to inspect
+
+  - `agent` - The agent struct
+  - `config` - Per-agent configuration for this skill
 
   ## Returns
-  - `{:ok, schema}`: The skill's config schema
-  - `{:error, reason}`: Schema not found
 
-  ## Example
-
-      Skill.get_config_schema(WeatherSkill)
+  - `{:ok, initial_state}` - Success with initial state
+  - `{:error, reason}` - Failure
   """
-  @spec get_opts_schema(module()) :: {:ok, map()} | {:error, Error.t()}
-  def get_opts_schema(skill_module) do
-    case function_exported?(skill_module, :opts_schema, 0) do
-      true ->
-        {:ok, skill_module.opts_schema()}
+  @callback mount(agent :: term(), config :: map()) :: {:ok, map()} | {:error, term()}
 
-      false ->
-        {:error, Error.config_error("Skill has no opts schema")}
+  @doc """
+  Returns the signal router for this skill.
+
+  The router determines how signals are routed to handlers.
+  """
+  @callback router(config :: map()) :: term()
+
+  @doc """
+  Handle an incoming signal.
+
+  Called when a signal matches one of the skill's signal patterns.
+
+  ## Parameters
+
+  - `signal` - The incoming signal
+  - `context` - Context including agent, config, etc.
+
+  ## Returns
+
+  - `{:ok, result}` - Success
+  - `{:error, reason}` - Failure
+  """
+  @callback handle_signal(signal :: term(), context :: map()) :: {:ok, term()} | {:error, term()}
+
+  @doc """
+  Transform an action result before returning.
+
+  Called after an action completes to allow skills to modify the result.
+
+  ## Parameters
+
+  - `action` - The action module that was executed
+  - `result` - The action result
+  - `context` - Context including agent, config, etc.
+
+  ## Returns
+
+  The transformed result.
+  """
+  @callback transform_result(action :: module(), result :: term(), context :: map()) :: term()
+
+  @doc """
+  Returns a child specification for supervised processes.
+
+  Use this when the skill needs to run supervised processes.
+  """
+  @callback child_spec(config :: map()) :: Supervisor.child_spec()
+
+  @optional_callbacks [mount: 2, router: 1, handle_signal: 2, transform_result: 3, child_spec: 1]
+
+  defmacro __using__(opts) do
+    quote location: :keep do
+      @behaviour Jido.Skill
+
+      alias Jido.Skill
+      alias Jido.Skill.Spec
+
+      # Validate config at compile time
+      @validated_opts (case Zoi.parse(Skill.config_schema(), Map.new(unquote(opts))) do
+                         {:ok, validated} ->
+                           validated
+
+                         {:error, errors} ->
+                           message =
+                             "Invalid Skill configuration for #{inspect(__MODULE__)}: #{inspect(errors)}"
+
+                           raise CompileError,
+                             description: message,
+                             file: __ENV__.file,
+                             line: __ENV__.line
+                       end)
+
+      # Validate actions exist at compile time
+      @validated_opts.actions
+      |> Enum.each(fn action_module ->
+        case Code.ensure_compiled(action_module) do
+          {:module, _} ->
+            unless function_exported?(action_module, :__action_metadata__, 0) do
+              raise CompileError,
+                description:
+                  "Action #{inspect(action_module)} does not implement Jido.Action behavior",
+                file: __ENV__.file,
+                line: __ENV__.line
+            end
+
+          {:error, reason} ->
+            raise CompileError,
+              description:
+                "Action #{inspect(action_module)} could not be compiled: #{inspect(reason)}",
+              file: __ENV__.file,
+              line: __ENV__.line
+        end
+      end)
+
+      # Metadata accessors
+      def name, do: @validated_opts.name
+      def state_key, do: @validated_opts.state_key
+      def actions, do: @validated_opts.actions
+      def description, do: @validated_opts[:description]
+      def category, do: @validated_opts[:category]
+      def vsn, do: @validated_opts[:vsn]
+      def schema, do: @validated_opts[:schema]
+      def config_schema, do: @validated_opts[:config_schema]
+      def signal_patterns, do: @validated_opts[:signal_patterns] || []
+      def tags, do: @validated_opts[:tags] || []
+
+      @doc """
+      Returns the skill specification with optional per-agent configuration.
+
+      ## Examples
+
+          spec = #{inspect(__MODULE__)}.skill_spec(%{})
+          spec = #{inspect(__MODULE__)}.skill_spec(%{custom_option: true})
+      """
+      @impl Jido.Skill
+      def skill_spec(config \\ %{}) do
+        %Spec{
+          module: __MODULE__,
+          name: name(),
+          state_key: state_key(),
+          description: description(),
+          category: category(),
+          vsn: vsn(),
+          schema: schema(),
+          config_schema: config_schema(),
+          config: config,
+          signal_patterns: signal_patterns(),
+          tags: tags(),
+          actions: actions()
+        }
+      end
+
+      # Default implementations for optional callbacks
+
+      @doc false
+      @impl Jido.Skill
+      def mount(_agent, _config), do: {:ok, %{}}
+
+      @doc false
+      @impl Jido.Skill
+      def router(_config), do: nil
+
+      @doc false
+      @impl Jido.Skill
+      def handle_signal(_signal, _context), do: {:ok, nil}
+
+      @doc false
+      @impl Jido.Skill
+      def transform_result(_action, result, _context), do: result
+
+      @doc false
+      @impl Jido.Skill
+      def child_spec(_config), do: nil
+
+      defoverridable mount: 2,
+                     router: 1,
+                     handle_signal: 2,
+                     transform_result: 3,
+                     child_spec: 1,
+                     name: 0,
+                     state_key: 0,
+                     actions: 0,
+                     description: 0,
+                     category: 0,
+                     vsn: 0,
+                     schema: 0,
+                     config_schema: 0,
+                     signal_patterns: 0,
+                     tags: 0
     end
   end
 end

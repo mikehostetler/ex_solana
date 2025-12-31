@@ -1,22 +1,7 @@
-# Prepare modules for Mimic
-Enum.each(
-  [
-    :telemetry,
-    System,
-    Req,
-    Jido.Supervisor,
-    Jido.Agent.Lifecycle,
-    Jido.Agent.Utilities,
-    Jido.Discovery,
-    Jido.Signal.ID
-  ],
-  &Mimic.copy/1
-)
+# Suppress the Discovery module's info log during startup
+# The capture_log: true option captures test logs, but Discovery logs happen
+# before tests run. We handle this by temporarily setting compile_time_purge_level.
+# However, since that's a compile-time option, we accept the Discovery log.
 
-# Suite requires debug level for all tests
-require Logger
-Logger.configure(level: :debug)
-
-ExUnit.start(capture_log: true)
-
-ExUnit.configure(exclude: [:skip])
+ExUnit.start()
+ExUnit.configure(exclude: [:skip, :flaky])

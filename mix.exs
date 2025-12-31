@@ -244,7 +244,7 @@ defmodule Jido.MixProject do
   defp deps do
     [
       # Jido Ecosystem
-      {:jido_action, "~> 1.0.0"},
+      {:jido_action, github: "agentjido/jido_action", branch: "main"},
       {:jido_signal, "~> 1.1.0"},
 
       # Jido Deps
@@ -263,11 +263,17 @@ defmodule Jido.MixProject do
       {:telemetry_metrics, "~> 1.1"},
       {:typed_struct, "~> 0.3.0"},
       {:typed_struct_nimble_options, "~> 0.1.1"},
-      {:quantum, "~> 3.5"},
+      {:sched_ex, "~> 1.1"},
       {:uniq, "~> 0.6.1"},
-      # Skill & Action Dependencies for examples
+      # State Machine
+      {:fsmx, "~> 0.5"},
 
+      # Skill & Action Dependencies for examples
       {:req, "~> 0.5.16"},
+
+      # ReAct example dependency (optional - requires API key)
+      # Using GitHub main for upcoming tool call extraction improvements
+      {:req_llm, github: "agentjido/req_llm", branch: "main", optional: true, override: true},
 
       # Development & Test Dependencies
       {:git_ops, "~> 2.9", only: :dev, runtime: false},

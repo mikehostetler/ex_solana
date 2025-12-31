@@ -4,43 +4,38 @@ defmodule Jido.Application do
 
   def start(_type, _args) do
     children = [
-      # Telemetry handler
+      # Telemetry handler for agent and strategy metrics
       Jido.Telemetry,
 
-      # Exec Async Actions Task Supervisor
-      {Task.Supervisor, name: Jido.TaskSupervisor},
+      # Component discovery catalog (global - not per-instance)
+      Jido.Discovery,
 
-      # Global Registry & Default Supervisor
-      {Registry, keys: :unique, name: Jido.Registry},
-      {DynamicSupervisor, strategy: :one_for_one, name: Jido.Agent.Supervisor},
-
-      # Add the Jido Scheduler (Quantum) under the name :jido_quantum
-      {Jido.Scheduler, name: Jido.Quantum}
+      # Global registry for agent process discovery (backwards compatibility)
+      {Registry, keys: :unique, name: Jido.Registry}
     ]
 
-    # Register essential signal extensions that may not have been auto-registered
+    # Register essential signal extensions before starting supervision tree
     register_signal_extensions()
-
-    # Initialize discovery cache asynchronously
-    Task.start(fn ->
-      :ok = Jido.Discovery.init()
-    end)
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Jido.Supervisor)
   end
 
   # Ensure critical signal extensions are registered
   defp register_signal_extensions do
-    # Register the Trace extension from jido_signal
-    Code.ensure_loaded(Jido.Signal.Ext.Trace)
-    Jido.Signal.Ext.Registry.register(Jido.Signal.Ext.Trace)
+    extensions = [
+      Jido.Signal.Ext.Trace,
+      Jido.Signal.Ext.Dispatch,
+      Jido.Signal.Ext.Target
+    ]
 
-    # Register the Dispatch extension from jido_signal if available
-    Code.ensure_loaded(Jido.Signal.Ext.Dispatch)
-    Jido.Signal.Ext.Registry.register(Jido.Signal.Ext.Dispatch)
+    for ext <- extensions do
+      Code.ensure_loaded(ext)
+      Jido.Signal.Ext.Registry.register(ext)
+    end
 
-    # Register the Target extension from jido
-    Code.ensure_loaded(Jido.Signal.Ext.Target)
-    Jido.Signal.Ext.Registry.register(Jido.Signal.Ext.Target)
+    :ok
+  rescue
+    # Gracefully handle missing modules during compilation or testing
+    _ -> :ok
   end
 end

@@ -75,7 +75,7 @@ defmodule Jido.Agent do
 
   ### Working with Agents
 
-      # Create a new agent
+      # Create a new agent (fully initialized including strategy state)
       agent = MyAgent.new()
       agent = MyAgent.new(id: "custom-id", state: %{counter: 10})
 
@@ -87,10 +87,18 @@ defmodule Jido.Agent do
       # Update state directly
       {:ok, agent} = MyAgent.set(agent, %{status: :running})
 
-  ## Lifecycle Hook
+  ## Strategy Initialization
 
-  Agents support one optional callback:
+  `new/1` automatically calls `strategy.init/2` to initialize strategy-specific
+  state. Any directives returned by strategy init are dropped here since they
+  require a runtime to execute. When using `AgentServer`, it handles strategy
+  init directives separately during startup.
 
+  ## Lifecycle Hooks
+
+  Agents support two optional callbacks:
+
+  - `on_before_cmd/2` - Called before command processing (pure transformations only)
   - `on_after_cmd/3` - Called after command processing (pure transformations only)
 
   ## State Schema Types
@@ -213,7 +221,12 @@ defmodule Jido.Agent do
                                description:
                                  "Execution strategy module or {module, opts}. Default: Jido.Agent.Strategy.Direct"
                              )
-                             |> Zoi.default(Jido.Agent.Strategy.Direct)
+                             |> Zoi.default(Jido.Agent.Strategy.Direct),
+                           skills:
+                             Zoi.list(Zoi.any(),
+                               description: "Skill modules or {module, config} tuples"
+                             )
+                             |> Zoi.default([])
                          },
                          coerce: true
                        )
@@ -222,6 +235,21 @@ defmodule Jido.Agent do
   def config_schema, do: @agent_config_schema
 
   # Callbacks
+
+  @doc """
+  Called before command processing. Can transform the agent or action.
+  Must be pure - no side effects. Return `{:ok, agent, action}` to continue.
+
+  This hook runs once per `cmd/2` call, with the action as passed (which may be a list).
+  It is not a per-instruction hook.
+
+  Use cases:
+  - Mirror action params into agent state (e.g., save last_query before processing)
+  - Add default params that depend on current state
+  - Enforce invariants or guards before execution
+  """
+  @callback on_before_cmd(agent :: t(), action :: term()) ::
+              {:ok, t(), term()}
 
   @doc """
   Called after command processing. Can transform the agent or directives.
@@ -235,7 +263,33 @@ defmodule Jido.Agent do
   @callback on_after_cmd(agent :: t(), action :: term(), directives :: [directive()]) ::
               {:ok, t(), [directive()]}
 
-  @optional_callbacks [on_after_cmd: 3]
+  @doc """
+  Returns signal routes for this agent.
+
+  Routes map signal types to action modules. AgentServer uses these routes
+  to map incoming signals to actions for execution via cmd/2.
+
+  ## Route Formats
+
+  - `{path, ActionModule}` - Simple mapping (priority 0)
+  - `{path, ActionModule, priority}` - With priority
+  - `{path, {ActionModule, %{static: params}}}` - With static params
+  - `{path, match_fn, ActionModule}` - With pattern matching
+  - `{path, match_fn, ActionModule, priority}` - Full spec
+
+  ## Examples
+
+      def signal_routes do
+        [
+          {"user.created", HandleUserCreatedAction},
+          {"counter.increment", IncrementAction},
+          {"payment.*", fn s -> s.data.amount > 100 end, LargePaymentAction, 10}
+        ]
+      end
+  """
+  @callback signal_routes() :: [Jido.Signal.Router.route_spec()]
+
+  @optional_callbacks [on_before_cmd: 2, on_after_cmd: 3, signal_routes: 0]
 
   defmacro __using__(opts) do
     quote location: :keep do
@@ -261,13 +315,93 @@ defmodule Jido.Agent do
                              line: __ENV__.line
                        end)
 
+      # Normalize skills: Module or {Module, config}
+      @skills_config Enum.map(@validated_opts[:skills] || [], fn
+                       mod when is_atom(mod) -> {mod, %{}}
+                       {mod, opts} when is_list(opts) -> {mod, Map.new(opts)}
+                       {mod, opts} when is_map(opts) -> {mod, opts}
+                     end)
+
+      # Validate skills implement behaviour
+      for {mod, _} <- @skills_config do
+        case Code.ensure_compiled(mod) do
+          {:module, _} ->
+            unless function_exported?(mod, :skill_spec, 1) do
+              raise CompileError,
+                description:
+                  "#{inspect(mod)} does not implement Jido.Skill (missing skill_spec/1)",
+                file: __ENV__.file,
+                line: __ENV__.line
+            end
+
+          {:error, reason} ->
+            raise CompileError,
+              description: "Skill #{inspect(mod)} could not be compiled: #{inspect(reason)}",
+              file: __ENV__.file,
+              line: __ENV__.line
+        end
+      end
+
+      # Build skill specs at compile time
+      @skill_specs Enum.map(@skills_config, fn {mod, config} ->
+                     mod.skill_spec(config)
+                   end)
+
+      # Validate unique state_keys
+      @skill_state_keys Enum.map(@skill_specs, & &1.state_key)
+      @duplicate_keys @skill_state_keys -- Enum.uniq(@skill_state_keys)
+      if @duplicate_keys != [] do
+        raise CompileError,
+          description: "Duplicate skill state_keys: #{inspect(@duplicate_keys)}",
+          file: __ENV__.file,
+          line: __ENV__.line
+      end
+
+      # Validate no collision with base schema keys
+      @base_schema_keys Jido.Agent.Schema.known_keys(@validated_opts[:schema])
+      @colliding_keys Enum.filter(@skill_state_keys, &(&1 in @base_schema_keys))
+      if @colliding_keys != [] do
+        raise CompileError,
+          description: "Skill state_keys collide with agent schema: #{inspect(@colliding_keys)}",
+          file: __ENV__.file,
+          line: __ENV__.line
+      end
+
+      # Merge schemas: base schema + nested skill schemas
+      @merged_schema Jido.Agent.Schema.merge_with_skills(
+                       @validated_opts[:schema],
+                       @skill_specs
+                     )
+
+      # Aggregate actions from skills
+      @skill_actions @skill_specs |> Enum.flat_map(& &1.actions) |> Enum.uniq()
+
       # Metadata accessors
       def name, do: @validated_opts.name
       def description, do: @validated_opts[:description]
       def category, do: @validated_opts[:category]
       def tags, do: @validated_opts[:tags] || []
       def vsn, do: @validated_opts[:vsn]
-      def schema, do: @validated_opts[:schema] || []
+      def schema, do: @merged_schema
+
+      # Skill introspection functions
+      def skills, do: @skill_specs
+      def skill_specs, do: @skill_specs
+      def actions, do: @skill_actions
+
+      def skill_config(skill_mod) do
+        case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
+          nil -> nil
+          spec -> spec.config
+        end
+      end
+
+      def skill_state(agent, skill_mod) do
+        case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
+          nil -> nil
+          spec -> Map.get(agent.state, spec.state_key)
+        end
+      end
 
       # Strategy accessors
       def strategy do
@@ -287,6 +421,10 @@ defmodule Jido.Agent do
       @doc """
       Creates a new agent with optional initial state.
 
+      The agent is fully initialized including strategy state. For the default
+      Direct strategy, this is a no-op. For custom strategies, any state
+      initialization is applied (but directives are only processed by AgentServer).
+
       ## Examples
 
           agent = #{inspect(__MODULE__)}.new()
@@ -297,13 +435,25 @@ defmodule Jido.Agent do
       def new(opts \\ []) do
         opts = if is_list(opts), do: Map.new(opts), else: opts
 
-        # Build initial state from schema defaults + provided state
-        schema_defaults = Jido.Agent.State.defaults_from_schema(schema())
+        # Build initial state from base schema defaults
+        base_defaults = Jido.Agent.State.defaults_from_schema(@validated_opts[:schema])
+
+        # Build skill defaults nested under their state_keys
+        skill_defaults =
+          @skill_specs
+          |> Enum.map(fn spec ->
+            skill_state_defaults = Jido.Agent.Schema.defaults_from_zoi_schema(spec.schema)
+            {spec.state_key, skill_state_defaults}
+          end)
+          |> Map.new()
+
+        # Merge: base defaults + skill defaults + provided state
+        schema_defaults = Map.merge(base_defaults, skill_defaults)
         initial_state = Map.merge(schema_defaults, opts[:state] || %{})
 
         id = opts[:id] || Jido.Util.generate_id()
 
-        %Agent{
+        agent = %Agent{
           id: id,
           name: name(),
           description: description(),
@@ -313,6 +463,12 @@ defmodule Jido.Agent do
           schema: schema(),
           state: initial_state
         }
+
+        # Run strategy initialization (directives are dropped here;
+        # AgentServer handles init directives separately)
+        ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
+        {initialized_agent, _directives} = strategy().init(agent, ctx)
+        initialized_agent
       end
 
       @doc """
@@ -336,16 +492,41 @@ defmodule Jido.Agent do
       """
       @spec cmd(Agent.t(), Agent.action()) :: Agent.cmd_result()
       def cmd(%Agent{} = agent, action) do
+        {:ok, agent, action} = on_before_cmd(agent, action)
+
         case Instruction.normalize(action, %{state: agent.state}, []) do
           {:ok, instructions} ->
             ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
-            {agent, directives} = strategy().cmd(agent, instructions, ctx)
+            strat = strategy()
+
+            normalized_instructions =
+              Enum.map(instructions, fn instr ->
+                Jido.Agent.Strategy.normalize_instruction(strat, instr, ctx)
+              end)
+
+            {agent, directives} = strat.cmd(agent, normalized_instructions, ctx)
             do_after_cmd(agent, action, directives)
 
           {:error, reason} ->
             error = Jido.Error.validation_error("Invalid action", %{reason: reason})
             {agent, [%Directive.Error{error: error, context: :normalize}]}
         end
+      end
+
+      @doc """
+      Returns a stable, public view of the strategy's execution state.
+
+      Use this instead of inspecting `agent.state.__strategy__` directly.
+      Returns a `Jido.Agent.Strategy.Snapshot` struct with:
+      - `status` - Coarse execution status
+      - `done?` - Whether strategy reached terminal state
+      - `result` - Main output if any
+      - `details` - Additional strategy-specific metadata
+      """
+      @spec strategy_snapshot(Agent.t()) :: Jido.Agent.Strategy.Snapshot.t()
+      def strategy_snapshot(%Agent{} = agent) do
+        ctx = %{agent_module: __MODULE__, strategy_opts: strategy_opts()}
+        strategy().snapshot(agent, ctx)
       end
 
       @doc """
@@ -387,10 +568,15 @@ defmodule Jido.Agent do
         end
       end
 
-      # Default callback implementation
-      def on_after_cmd(agent, _action, directives), do: {:ok, agent, directives}
+      # Default callback implementations
 
-      defoverridable on_after_cmd: 3,
+      def on_before_cmd(agent, action), do: {:ok, agent, action}
+      def on_after_cmd(agent, _action, directives), do: {:ok, agent, directives}
+      def signal_routes, do: []
+
+      defoverridable on_before_cmd: 2,
+                     on_after_cmd: 3,
+                     signal_routes: 0,
                      name: 0,
                      description: 0,
                      category: 0,
@@ -398,7 +584,12 @@ defmodule Jido.Agent do
                      vsn: 0,
                      schema: 0,
                      strategy: 0,
-                     strategy_opts: 0
+                     strategy_opts: 0,
+                     skills: 0,
+                     skill_specs: 0,
+                     actions: 0,
+                     skill_config: 1,
+                     skill_state: 2
 
       # Private helper for after hook dispatch
       defp do_after_cmd(agent, msg, directives) do

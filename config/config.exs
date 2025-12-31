@@ -1,5 +1,7 @@
 import Config
 
+config :jido, default: Jido.DefaultInstance
+
 # Git hooks and git_ops configuration for conventional commits
 # Only enabled in dev environment (git_ops is a dev-only dependency)
 if config_env() == :dev do
@@ -32,3 +34,6 @@ if config_env() == :dev do
       ci: [hidden?: true]
     ]
 end
+
+# Import environment specific config
+import_config "#{config_env()}.exs"

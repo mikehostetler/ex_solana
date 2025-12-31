@@ -1,219 +1,306 @@
 defmodule Jido do
+  use Supervisor
+
   @moduledoc """
   自動 (Jido) - A foundational framework for building autonomous, distributed agent systems in Elixir.
 
-  This module provides the main high-level API for interacting with Jido agents and components:
+  ## Architecture
 
-  ## Agent Lifecycle
-  - `start_agent/2` - Start individual agents
-  - `start_agents/1` - Start multiple agents at once
-  - `stop_agent/2` - Gracefully stop agents
-  - `restart_agent/2` - Restart agents with preserved configuration
-  - `clone_agent/3` - Clone existing agents
+  Jido 2.0 uses **instance-scoped supervisors** instead of global singletons. Each Jido instance
+  manages its own Registry, TaskSupervisor, and AgentSupervisor, providing complete isolation
+  between different parts of your application.
 
-  ## Agent Interaction
-  - `call/3` - Synchronous agent communication
-  - `cast/2` - Asynchronous agent communication  
-  - `send_signal/4` - Send signals to agents
-  - `send_instruction/4` - Send instructions to agents
-  - `request/4` - High-level unified request interface
+  ## Getting Started
 
-  ## Introspection & Monitoring
-  - `get_agent/2` - Retrieve agent processes
-  - `get_agent_state/1` - Get agent internal state
-  - `get_agent_status/1` - Get agent runtime status
-  - `agent_alive?/1` - Check if agent is running
-  - `queue_size/1` - Check agent message queue size
-  - `list_running_agents/1` - List all running agents
+  Add a Jido instance to your application's supervision tree:
 
-  ## Usage Pattern
-
-  Applications should create their own Jido module and add it to their supervision tree:
-
-      # lib/my_app/jido.ex
-      defmodule MyApp.Jido do
-        use Jido, otp_app: :my_app
-      end
-
-      # lib/my_app/application.ex  
+      # In your application.ex
       children = [
-        MyApp.Jido,
-        # ... other children
+        {Jido, name: MyApp.Jido}
       ]
 
-  Then interact with agents through the high-level API:
+  Then use the instance to manage agents:
 
       # Start an agent
-      {:ok, pid} = MyApp.Jido.start_agent(MyApp.MyAgent, id: "worker-1")
+      {:ok, pid} = Jido.start_agent(MyApp.Jido, MyAgent, id: "agent-1")
 
-      # Send a request
-      {:ok, result} = MyApp.Jido.call("worker-1", %Signal{type: "work", data: %{}})
+      # Look up an agent by ID
+      pid = Jido.whereis(MyApp.Jido, "agent-1")
 
-      # Check status
-      {:ok, :running} = MyApp.Jido.get_agent_status("worker-1")
+      # List all agents
+      agents = Jido.list_agents(MyApp.Jido)
+
+      # Stop an agent
+      :ok = Jido.stop_agent(MyApp.Jido, "agent-1")
+
+  ## Test Isolation
+
+  For tests, use `JidoTest.Case` which automatically creates an isolated Jido instance:
+
+      defmodule MyAgentTest do
+        use JidoTest.Case, async: true
+
+        test "my agent works", %{jido: jido} do
+          {:ok, pid} = Jido.start_agent(jido, MyAgent)
+          # Test in isolation...
+        end
+      end
+
+  ## Core Concepts
+
+  Jido is built around a purely functional Agent design:
+
+  - **Agent** - An immutable data structure that holds state and can be updated via commands
+  - **Actions** - Pure functions that transform agent state
+  - **Directives** - Descriptions of external effects (emit signals, spawn processes, etc.)
+  - **Strategies** - Pluggable execution patterns for actions
+
+  ## Agent API
+
+  The core operation is `cmd/2`:
+
+      {agent, directives} = MyAgent.cmd(agent, MyAction)
+      {agent, directives} = MyAgent.cmd(agent, {MyAction, %{value: 42}})
+      {agent, directives} = MyAgent.cmd(agent, [Action1, Action2])
+
+  Key invariants:
+  - The returned `agent` is always complete — no "apply directives" step needed
+  - `directives` are external effects only — they never modify agent state
+  - `cmd/2` is a pure function — given same inputs, always same outputs
+
+  ## Defining Agents
+
+      defmodule MyAgent do
+        use Jido.Agent,
+          name: "my_agent",
+          description: "My custom agent",
+          schema: [
+            status: [type: :atom, default: :idle],
+            counter: [type: :integer, default: 0]
+          ]
+      end
   """
 
-  @type component_metadata :: %{
-          module: module(),
-          name: String.t(),
-          description: String.t(),
-          slug: String.t(),
-          category: atom() | nil,
-          tags: [atom()] | nil
-        }
-
-  @type server ::
-          pid() | atom() | binary() | {name :: atom() | binary(), registry :: module()}
-
   @type agent_id :: String.t() | atom()
-  @type agent_ref :: pid() | {:ok, pid()} | agent_id()
-  @type agent_status :: :idle | :running | :paused | :error | :stopping
-  @type registry :: module()
 
-  @callback config() :: keyword()
+  @doc """
+  Starts a Jido instance supervisor.
 
-  defmacro __using__(opts) do
-    quote do
-      @behaviour unquote(__MODULE__)
+  ## Options
+    - `:name` - Required. The name of this Jido instance (e.g., `MyApp.Jido`)
 
-      @otp_app unquote(opts)[:otp_app] ||
-                 raise(ArgumentError, """
-                 You must provide `otp_app: :your_app` to use Jido, e.g.:
+  ## Example
 
-                     use Jido, otp_app: :my_app
-                 """)
+      {:ok, pid} = Jido.start_link(name: MyApp.Jido)
+  """
+  def start_link(opts) do
+    name = Keyword.fetch!(opts, :name)
+    Supervisor.start_link(__MODULE__, opts, name: name)
+  end
 
-      # Public function to retrieve config from application environment
-      def config do
-        Application.get_env(@otp_app, __MODULE__, [])
-        |> Keyword.put_new(:agent_registry, Jido.Registry)
-      end
+  @doc false
+  def child_spec(opts) do
+    name = Keyword.fetch!(opts, :name)
 
-      # Get the configured agent registry
-      def agent_registry, do: config()[:agent_registry]
+    %{
+      id: name,
+      start: {__MODULE__, :start_link, [opts]},
+      type: :supervisor,
+      restart: :permanent,
+      shutdown: 10_000
+    }
+  end
 
-      # Provide a child spec so we can be placed directly under a Supervisor
-      @spec child_spec(any()) :: Supervisor.child_spec()
-      def child_spec(_arg) do
-        %{
-          id: __MODULE__,
-          start: {__MODULE__, :start_link, []},
-          shutdown: 5000,
-          type: :supervisor
-        }
-      end
+  @impl true
+  def init(opts) do
+    name = Keyword.fetch!(opts, :name)
 
-      # Entry point for starting the Jido supervisor
-      @spec start_link() :: Supervisor.on_start()
-      def start_link do
-        unquote(__MODULE__).ensure_started(__MODULE__)
-      end
+    children = [
+      {Task.Supervisor,
+       name: task_supervisor_name(name), max_children: Keyword.get(opts, :max_tasks, 1000)},
+      {Registry, keys: :unique, name: registry_name(name)},
+      {DynamicSupervisor,
+       name: agent_supervisor_name(name),
+       strategy: :one_for_one,
+       max_restarts: 1000,
+       max_seconds: 5}
+    ]
 
-      # Delegate high-level API methods so they're available on MyApp.Jido
-      defdelegate start_agent(agent_or_module, opts \\ []), to: Jido.Agent.Lifecycle
-      defdelegate start_agents(agent_specs), to: Jido.Agent.Lifecycle
-      defdelegate stop_agent(agent_ref, opts \\ []), to: Jido.Agent.Lifecycle
-      defdelegate restart_agent(agent_ref, opts \\ []), to: Jido.Agent.Lifecycle
-      defdelegate clone_agent(source_id, new_id, opts \\ []), to: Jido.Agent.Lifecycle
+    Supervisor.init(children, strategy: :one_for_one)
+  end
 
-      defdelegate get_agent(id, opts \\ []), to: Jido.Agent.Lifecycle
-      defdelegate get_agent!(id, opts \\ []), to: Jido.Agent.Lifecycle
-      defdelegate agent_pid(agent_ref), to: Jido.Agent.Lifecycle
-      defdelegate agent_alive?(agent_ref), to: Jido.Agent.Lifecycle
-      defdelegate get_agent_state(agent_ref), to: Jido.Agent.Lifecycle
-      defdelegate get_agent_status(agent_ref), to: Jido.Agent.Lifecycle
-      defdelegate queue_size(agent_ref), to: Jido.Agent.Lifecycle
-      defdelegate list_running_agents(opts \\ []), to: Jido.Agent.Lifecycle
+  @doc """
+  Generate a unique identifier.
 
-      defdelegate call(agent_ref, message, timeout \\ 5000), to: Jido.Agent.Interaction
-      defdelegate cast(agent_ref, message), to: Jido.Agent.Interaction
-      defdelegate send_signal(agent_ref, type, data, opts \\ []), to: Jido.Agent.Interaction
+  Delegates to `Jido.Util.generate_id/0`.
+  """
+  defdelegate generate_id(), to: Jido.Util
 
-      defdelegate send_instruction(agent_ref, action, params, opts \\ []),
-        to: Jido.Agent.Interaction
+  @doc "Returns the Registry name for a Jido instance."
+  @spec registry_name(atom()) :: atom()
+  def registry_name(name), do: Module.concat(name, Registry)
 
-      defdelegate request(agent_ref, path, payload, opts \\ []), to: Jido.Agent.Interaction
+  @doc "Returns the AgentSupervisor name for a Jido instance."
+  @spec agent_supervisor_name(atom()) :: atom()
+  def agent_supervisor_name(name), do: Module.concat(name, AgentSupervisor)
 
-      defdelegate via(id, opts \\ []), to: Jido.Agent.Utilities
-      defdelegate resolve_pid(server), to: Jido.Agent.Utilities
-      defdelegate generate_id(), to: Jido.Agent.Utilities
-      defdelegate log_level(agent_ref, level), to: Jido.Agent.Utilities
+  @doc "Returns the TaskSupervisor name for a Jido instance."
+  @spec task_supervisor_name(atom()) :: atom()
+  def task_supervisor_name(name), do: Module.concat(name, TaskSupervisor)
+
+  @doc "Returns the Scheduler name for a Jido instance."
+  @spec scheduler_name(atom()) :: atom()
+  def scheduler_name(name), do: Module.concat(name, Scheduler)
+
+  @doc "Returns the configured default Jido instance."
+  @spec default() :: atom()
+  def default do
+    Application.get_env(:jido, :default) ||
+      raise ArgumentError, "Configure :jido, :default or pass instance name explicitly"
+  end
+
+  @doc "Returns the TaskSupervisor name for a specific Jido instance."
+  @spec task_supervisor(atom()) :: atom()
+  def task_supervisor(name), do: task_supervisor_name(name)
+
+  @doc "Returns the TaskSupervisor name for the default Jido instance."
+  @spec task_supervisor() :: atom()
+  def task_supervisor, do: task_supervisor(default())
+
+  @doc "Returns the Registry name for a specific Jido instance."
+  @spec registry(atom()) :: atom()
+  def registry(name), do: registry_name(name)
+
+  @doc "Returns the Registry name for the default Jido instance."
+  @spec registry() :: atom()
+  def registry, do: registry(default())
+
+  @doc "Returns the AgentSupervisor name for a specific Jido instance."
+  @spec agent_supervisor(atom()) :: atom()
+  def agent_supervisor(name), do: agent_supervisor_name(name)
+
+  @doc "Returns the AgentSupervisor name for the default Jido instance."
+  @spec agent_supervisor() :: atom()
+  def agent_supervisor, do: agent_supervisor(default())
+
+  # ---------------------------------------------------------------------------
+  # Agent Lifecycle
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Starts an agent under a specific Jido instance.
+
+  ## Examples
+
+      {:ok, pid} = Jido.start_agent(MyApp.Jido, MyAgent)
+      {:ok, pid} = Jido.start_agent(MyApp.Jido, MyAgent, id: "custom-id")
+  """
+  @spec start_agent(atom(), module() | struct(), keyword()) :: DynamicSupervisor.on_start_child()
+  def start_agent(jido_instance, agent, opts \\ []) when is_atom(jido_instance) do
+    child_spec = {Jido.AgentServer, Keyword.merge(opts, agent: agent, jido: jido_instance)}
+    DynamicSupervisor.start_child(agent_supervisor_name(jido_instance), child_spec)
+  end
+
+  @doc """
+  Stops an agent by pid or id.
+
+  ## Examples
+
+      :ok = Jido.stop_agent(MyApp.Jido, pid)
+      :ok = Jido.stop_agent(MyApp.Jido, "agent-id")
+  """
+  @spec stop_agent(atom(), pid() | String.t()) :: :ok | {:error, :not_found}
+  def stop_agent(jido_instance, pid) when is_atom(jido_instance) and is_pid(pid) do
+    DynamicSupervisor.terminate_child(agent_supervisor_name(jido_instance), pid)
+  end
+
+  def stop_agent(jido_instance, id) when is_atom(jido_instance) and is_binary(id) do
+    case whereis(jido_instance, id) do
+      nil -> {:error, :not_found}
+      pid -> stop_agent(jido_instance, pid)
     end
   end
 
-  # ============================================================================  
-  # Agent Lifecycle - Direct Delegates
-  # ============================================================================
-
-  # These functions delegate to Jido.Agent.Lifecycle for backward compatibility
-  # and to provide direct access to lifecycle functions
-  defdelegate start_agent(agent_or_module, opts \\ []), to: Jido.Agent.Lifecycle
-  defdelegate start_agents(agent_specs), to: Jido.Agent.Lifecycle
-  defdelegate stop_agent(agent_ref, opts \\ []), to: Jido.Agent.Lifecycle
-  defdelegate restart_agent(agent_ref, opts \\ []), to: Jido.Agent.Lifecycle
-  defdelegate clone_agent(source_id, new_id, opts \\ []), to: Jido.Agent.Lifecycle
-
-  defdelegate get_agent(id, opts \\ []), to: Jido.Agent.Lifecycle
-  defdelegate get_agent!(id, opts \\ []), to: Jido.Agent.Lifecycle
-  defdelegate agent_pid(agent_ref), to: Jido.Agent.Lifecycle
-  defdelegate agent_alive?(agent_ref), to: Jido.Agent.Lifecycle
-  defdelegate get_agent_state(agent_ref), to: Jido.Agent.Lifecycle
-  defdelegate get_agent_status(agent_ref), to: Jido.Agent.Lifecycle
-  defdelegate queue_size(agent_ref), to: Jido.Agent.Lifecycle
-  defdelegate list_running_agents(opts \\ []), to: Jido.Agent.Lifecycle
-
-  # Introspection & Monitoring functions have been moved to Jido.Agent.Lifecycle
-  # All monitoring functions are delegated in the __using__ macro above
-
-  # ============================================================================
-  # Interaction Helpers - Delegated to Jido.Agent.Interaction
-  # ============================================================================
-
-  # These functions have been moved to Jido.Agent.Interaction
-  # All interaction functions are delegated in the __using__ macro above
-
-  # ============================================================================
-  # Utility Functions - Delegated to Jido.Agent.Utilities
-  # ============================================================================
-
-  # These utility functions have been extracted to Jido.Agent.Utilities
-  # All utility functions are delegated in the __using__ macro above
-  defdelegate via(id, opts \\ []), to: Jido.Agent.Utilities
-  defdelegate resolve_pid(server), to: Jido.Agent.Utilities
-  defdelegate generate_id(), to: Jido.Agent.Utilities
-  defdelegate log_level(agent_ref, level), to: Jido.Agent.Utilities
-
-  # Agent Cloning functions have been moved to Jido.Agent.Lifecycle
-  # All cloning functions are delegated in the __using__ macro above
-
-  # ============================================================================
-  # Internal Functions (Preserved from Original)
-  # ============================================================================
-
   @doc """
-  Callback used by the generated `start_link/0` function.
-  This is where we actually call Jido.Supervisor.start_link.
+  Looks up an agent by ID in a Jido instance's registry.
+
+  Returns the pid if found, nil otherwise.
+
+  ## Examples
+
+      pid = Jido.whereis(MyApp.Jido, "agent-123")
   """
-  @spec ensure_started(module()) :: Supervisor.on_start()
-  def ensure_started(jido_module) do
-    config = jido_module.config()
-    Jido.Supervisor.start_link(jido_module, config)
+  @spec whereis(atom(), String.t()) :: pid() | nil
+  def whereis(jido_instance, id) when is_atom(jido_instance) and is_binary(id) do
+    case Registry.lookup(registry_name(jido_instance), id) do
+      [{pid, _}] -> pid
+      [] -> nil
+    end
   end
 
-  # ============================================================================
-  # Component Discovery (Preserved from Original)
-  # ============================================================================
+  @doc """
+  Lists all agents running in a Jido instance.
 
-  # Component Discovery
+  Returns a list of `{id, pid}` tuples.
+
+  ## Examples
+
+      agents = Jido.list_agents(MyApp.Jido)
+      # => [{"agent-1", #PID<0.123.0>}, {"agent-2", #PID<0.124.0>}]
+  """
+  @spec list_agents(atom()) :: [{String.t(), pid()}]
+  def list_agents(jido_instance) when is_atom(jido_instance) do
+    registry_name(jido_instance)
+    |> Registry.select([{{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}])
+  end
+
+  # ---------------------------------------------------------------------------
+  # Discovery
+  # ---------------------------------------------------------------------------
+
+  @doc "Lists discovered Actions with optional filtering."
   defdelegate list_actions(opts \\ []), to: Jido.Discovery
+
+  @doc "Lists discovered Sensors with optional filtering."
   defdelegate list_sensors(opts \\ []), to: Jido.Discovery
-  defdelegate list_agents(opts \\ []), to: Jido.Discovery
+
+  @doc "Lists discovered Skills with optional filtering."
   defdelegate list_skills(opts \\ []), to: Jido.Discovery
+
+  @doc "Lists discovered Demos with optional filtering."
   defdelegate list_demos(opts \\ []), to: Jido.Discovery
 
+  @doc "Gets an Action by its slug."
   defdelegate get_action_by_slug(slug), to: Jido.Discovery
+
+  @doc "Gets a Sensor by its slug."
   defdelegate get_sensor_by_slug(slug), to: Jido.Discovery
-  defdelegate get_agent_by_slug(slug), to: Jido.Discovery
+
+  @doc "Gets a Skill by its slug."
   defdelegate get_skill_by_slug(slug), to: Jido.Discovery
-  defdelegate get_demo_by_slug(slug), to: Jido.Discovery
+
+  @doc "Refreshes the Discovery catalog."
+  defdelegate refresh_discovery(), to: Jido.Discovery, as: :refresh
+
+  # ---------------------------------------------------------------------------
+  # Multi-Agent Coordination
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Wait for an agent to reach a terminal status.
+
+  See `Jido.MultiAgent.await_completion/3` for details.
+  """
+  defdelegate await(server, timeout_ms \\ 10_000, opts \\ []),
+    to: Jido.MultiAgent,
+    as: :await_completion
+
+  @doc """
+  Wait for a child agent to reach a terminal status.
+
+  See `Jido.MultiAgent.await_child_completion/4` for details.
+  """
+  defdelegate await_child(server, child_tag, timeout_ms \\ 30_000, opts \\ []),
+    to: Jido.MultiAgent,
+    as: :await_child_completion
 end
