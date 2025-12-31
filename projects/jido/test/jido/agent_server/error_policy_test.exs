@@ -15,16 +15,15 @@ defmodule JidoTest.AgentServer.ErrorPolicyTest do
       ]
   end
 
-  defp build_state(error_policy, jido \\ nil) do
+  defp build_state(error_policy, jido \\ :test_jido) do
     agent = TestAgent.new()
 
     opts_map = %{
       agent: agent,
       id: "error-policy-test-agent",
-      error_policy: error_policy
+      error_policy: error_policy,
+      jido: jido
     }
-
-    opts_map = if jido, do: Map.put(opts_map, :jido, jido), else: opts_map
 
     {:ok, opts} = Options.new(opts_map)
 
@@ -136,7 +135,7 @@ defmodule JidoTest.AgentServer.ErrorPolicyTest do
   end
 
   describe "custom function policy" do
-    test "calls custom function with error and state" do
+    test "calls custom function with error and state", %{jido: jido} do
       test_pid = self()
 
       custom_policy = fn error_directive, state ->
@@ -144,31 +143,31 @@ defmodule JidoTest.AgentServer.ErrorPolicyTest do
         {:ok, state}
       end
 
-      state = build_state(custom_policy)
+      state = build_state(custom_policy, jido)
       directive = build_error_directive("Custom handled")
 
       assert {:ok, ^state} = ErrorPolicy.handle(directive, state)
       assert_receive {:custom_policy_called, ^directive, ^state}
     end
 
-    test "allows custom function to return stop" do
+    test "allows custom function to return stop", %{jido: jido} do
       custom_policy = fn _error_directive, state ->
         {:stop, :custom_stop_reason, state}
       end
 
-      state = build_state(custom_policy)
+      state = build_state(custom_policy, jido)
       directive = build_error_directive("Stop me")
 
       assert {:stop, :custom_stop_reason, ^state} = ErrorPolicy.handle(directive, state)
     end
 
-    test "allows custom function to modify state" do
+    test "allows custom function to modify state", %{jido: jido} do
       custom_policy = fn _error_directive, state ->
         new_state = State.increment_error_count(state)
         {:ok, new_state}
       end
 
-      state = build_state(custom_policy)
+      state = build_state(custom_policy, jido)
       directive = build_error_directive("Modify state")
 
       {:ok, new_state} = ErrorPolicy.handle(directive, state)

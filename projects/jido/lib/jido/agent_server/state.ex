@@ -38,12 +38,12 @@ defmodule Jido.AgentServer.State do
                 Zoi.map(description: "Map of job_id => scheduler job name") |> Zoi.default(%{}),
 
               # Configuration
-              jido: Zoi.atom(description: "Jido instance name") |> Zoi.optional(),
+              jido: Zoi.atom(description: "Jido instance name (required)"),
               default_dispatch: Zoi.any(description: "Default dispatch config") |> Zoi.optional(),
               error_policy:
                 Zoi.any(description: "Error handling policy") |> Zoi.default(:log_only),
               max_queue_size: Zoi.integer(description: "Max queue size") |> Zoi.default(10_000),
-              registry: Zoi.atom(description: "Registry module") |> Zoi.default(Jido.Registry),
+              registry: Zoi.atom(description: "Registry module"),
               spawn_fun: Zoi.any(description: "Custom spawn function") |> Zoi.optional(),
 
               # Routing

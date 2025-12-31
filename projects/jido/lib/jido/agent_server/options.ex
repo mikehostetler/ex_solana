@@ -22,9 +22,7 @@ defmodule Jido.AgentServer.Options do
               agent: Zoi.any(description: "Agent module (atom) or instantiated agent struct"),
               agent_module:
                 Zoi.atom(description: "Agent module for pre-built structs") |> Zoi.optional(),
-              jido:
-                Zoi.atom(description: "Jido instance name for per-instance supervision")
-                |> Zoi.optional(),
+              jido: Zoi.atom(description: "Jido instance name (required for registry scoping)"),
               id:
                 Zoi.string(description: "Instance ID (auto-generated if not provided)")
                 |> Zoi.optional(),
@@ -108,8 +106,12 @@ defmodule Jido.AgentServer.Options do
 
     registry =
       case Map.get(attrs, :jido) do
-        nil -> Map.get(attrs, :registry, Jido.Registry)
-        jido_instance -> Jido.registry_name(jido_instance)
+        nil ->
+          raise ArgumentError,
+                ":jido option is required - pass the Jido instance name (e.g., MyApp.Jido)"
+
+        jido_instance ->
+          Jido.registry_name(jido_instance)
       end
 
     attrs

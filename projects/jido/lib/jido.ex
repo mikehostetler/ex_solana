@@ -254,6 +254,21 @@ defmodule Jido do
     |> Registry.select([{{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}])
   end
 
+  @doc """
+  Returns the count of running agents in a Jido instance.
+
+  ## Examples
+
+      count = Jido.agent_count(MyApp.Jido)
+      # => 5
+  """
+  @spec agent_count(atom()) :: non_neg_integer()
+  def agent_count(jido_instance) when is_atom(jido_instance) do
+    agent_supervisor_name(jido_instance)
+    |> DynamicSupervisor.count_children()
+    |> Map.get(:active, 0)
+  end
+
   # ---------------------------------------------------------------------------
   # Discovery
   # ---------------------------------------------------------------------------
