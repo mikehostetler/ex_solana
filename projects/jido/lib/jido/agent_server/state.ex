@@ -59,9 +59,14 @@ defmodule Jido.AgentServer.State do
 
   @doc """
   Creates a new State from validated Options, agent module, and agent struct.
+
+  If a parent reference is provided, it's injected into the agent's state
+  as `agent.state.__parent__` so agents can use `Directive.emit_to_parent/3`.
   """
   @spec from_options(Options.t(), module(), struct()) :: {:ok, t()} | {:error, term()}
   def from_options(%Options{} = opts, agent_module, agent) do
+    agent = inject_parent_into_agent(agent, opts.parent)
+
     attrs = %{
       id: opts.id,
       agent_module: agent_module,
@@ -82,6 +87,13 @@ defmodule Jido.AgentServer.State do
     }
 
     Zoi.parse(@schema, attrs)
+  end
+
+  defp inject_parent_into_agent(agent, nil), do: agent
+
+  defp inject_parent_into_agent(agent, parent) do
+    updated_state = Map.put(agent.state, :__parent__, parent)
+    %{agent | state: updated_state}
   end
 
   @doc """

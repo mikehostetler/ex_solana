@@ -397,4 +397,70 @@ defmodule Jido.Agent.Directive do
   def stop(reason \\ :normal) do
     %Stop{reason: reason}
   end
+
+  # ============================================================================
+  # Multi-Agent Communication Helpers
+  # ============================================================================
+
+  @doc """
+  Creates an Emit directive targeting a specific process by PID.
+
+  This is a convenience for sending signals directly to another agent or process.
+
+  ## Options
+
+  All options are passed to the `:pid` dispatch adapter:
+  - `:delivery_mode` - `:async` (default) or `:sync`
+  - `:timeout` - Timeout for sync delivery (default: 5000)
+
+  ## Examples
+
+      Directive.emit_to_pid(signal, some_pid)
+      Directive.emit_to_pid(signal, worker_pid, delivery_mode: :sync)
+  """
+  @spec emit_to_pid(term(), pid(), Keyword.t()) :: Emit.t()
+  def emit_to_pid(signal, pid, extra_opts \\ []) when is_pid(pid) do
+    opts = Keyword.merge([target: pid], extra_opts)
+    %Emit{signal: signal, dispatch: {:pid, opts}}
+  end
+
+  @doc """
+  Creates an Emit directive targeting the agent's parent.
+
+  The agent's state must have a `__parent__` field containing a `ParentRef` struct.
+  This field is automatically populated when an agent is spawned via the 
+  `SpawnAgent` directive.
+
+  Returns `nil` if the agent has no parent. Use `List.wrap/1` to safely
+  handle the result when building directive lists.
+
+  ## Options
+
+  Same as `emit_to_pid/3`.
+
+  ## Examples
+
+      # In a child agent's handle_signal:
+      def handle_signal(agent, %Signal{type: "work.done"} = _signal) do
+        reply = Signal.new!("worker.result", %{answer: 42}, source: "/worker")
+        directive = Directive.emit_to_parent(agent, reply)
+        {agent, List.wrap(directive)}
+      end
+
+      # With sync delivery
+      Directive.emit_to_parent(agent, signal, delivery_mode: :sync)
+  """
+  @spec emit_to_parent(struct(), term(), Keyword.t()) :: Emit.t() | nil
+  def emit_to_parent(agent, signal, extra_opts \\ [])
+
+  def emit_to_parent(
+        %{state: %{__parent__: %Jido.AgentServer.ParentRef{pid: pid}}},
+        signal,
+        extra_opts
+      )
+      when is_pid(pid) do
+    emit_to_pid(signal, pid, extra_opts)
+  end
+
+  def emit_to_parent(_agent, _signal, _extra_opts), do: nil
 end

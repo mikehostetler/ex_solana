@@ -74,7 +74,7 @@ defmodule Jido.AgentServer do
   require Logger
 
   alias Jido.AgentServer.{DirectiveExec, Options, ParentRef, State}
-  alias Jido.AgentServer.Signal.{ChildExit, Orphaned}
+  alias Jido.AgentServer.Signal.{ChildExit, ChildStarted, Orphaned}
   alias Jido.Signal
 
   @type server :: pid() | atom() | {:via, module(), term()} | String.t()
@@ -276,6 +276,8 @@ defmodule Jido.AgentServer do
         state
       end
 
+    notify_parent_of_startup(state)
+
     state = start_drain_if_idle(state)
 
     Logger.debug("AgentServer #{state.id} initialized, status: idle")
@@ -356,6 +358,13 @@ defmodule Jido.AgentServer do
 
       true ->
         handle_child_down(state, pid, reason)
+    end
+  end
+
+  def handle_info({:signal, %Signal{} = signal}, state) do
+    case process_signal(signal, state) do
+      {:ok, new_state} -> {:noreply, new_state}
+      {:error, _reason, new_state} -> {:noreply, new_state}
     end
   end
 
@@ -526,6 +535,27 @@ defmodule Jido.AgentServer do
   end
 
   defp maybe_monitor_parent(state), do: state
+
+  defp notify_parent_of_startup(%State{parent: %ParentRef{} = parent} = state)
+       when is_pid(parent.pid) do
+    child_started =
+      ChildStarted.new!(
+        %{
+          parent_id: parent.id,
+          child_id: state.id,
+          child_module: state.agent_module,
+          tag: parent.tag,
+          pid: self(),
+          meta: parent.meta || %{}
+        },
+        source: "/agent/#{state.id}"
+      )
+
+    _ = cast(parent.pid, child_started)
+    :ok
+  end
+
+  defp notify_parent_of_startup(_state), do: :ok
 
   defp handle_parent_down(%State{on_parent_death: :stop} = state, _pid, reason) do
     Logger.info("AgentServer #{state.id} stopping: parent died (#{inspect(reason)})")
