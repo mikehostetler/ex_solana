@@ -29,6 +29,9 @@ defmodule JidoHtn.MixProject do
       jido_dep(:jido, "../jido", "~> 1.3.0"),
       jido_dep(:jido_action, "../jido_action", "~> 1.3.0"),
 
+      # Optional dep required by jido's AI modules
+      {:req_llm, github: "agentjido/req_llm", branch: "main", optional: true, override: true},
+
       # Development & Test Dependencies
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
