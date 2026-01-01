@@ -3,12 +3,20 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Emit do
 
   require Logger
 
-  def exec(%{signal: signal, dispatch: dispatch}, _input_signal, state) do
+  alias Jido.Signal.TraceContext
+
+  def exec(%{signal: signal, dispatch: dispatch}, input_signal, state) do
     cfg = dispatch || state.default_dispatch
+
+    traced_signal =
+      case TraceContext.propagate_to(signal, input_signal.id) do
+        {:ok, s} -> s
+        {:error, _} -> signal
+      end
 
     case cfg do
       nil ->
-        Logger.debug("Emit directive with no dispatch config, signal: #{signal.type}")
+        Logger.debug("Emit directive with no dispatch config, signal: #{traced_signal.type}")
 
       cfg ->
         if Code.ensure_loaded?(Jido.Signal.Dispatch) do
@@ -16,7 +24,7 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Emit do
             if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
 
           Task.Supervisor.start_child(task_sup, fn ->
-            Jido.Signal.Dispatch.dispatch(signal, cfg)
+            Jido.Signal.Dispatch.dispatch(traced_signal, cfg)
           end)
         else
           Logger.warning("Jido.Signal.Dispatch not available, skipping emit")
@@ -78,8 +86,9 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Schedule do
   @moduledoc false
 
   alias Jido.AgentServer.Signal.Scheduled
+  alias Jido.Signal.TraceContext
 
-  def exec(%{delay_ms: delay, message: message}, _input_signal, state) do
+  def exec(%{delay_ms: delay, message: message}, input_signal, state) do
     signal =
       case message do
         %Jido.Signal{} = s ->
@@ -92,7 +101,13 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.Agent.Directive.Schedule do
           )
       end
 
-    Process.send_after(self(), {:scheduled_signal, signal}, delay)
+    traced_signal =
+      case TraceContext.propagate_to(signal, input_signal.id) do
+        {:ok, s} -> s
+        {:error, _} -> signal
+      end
+
+    Process.send_after(self(), {:scheduled_signal, traced_signal}, delay)
     {:ok, state}
   end
 end

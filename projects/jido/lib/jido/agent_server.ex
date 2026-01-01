@@ -116,6 +116,7 @@ defmodule Jido.AgentServer do
   alias Jido.AgentServer.Signal.{ChildExit, ChildStarted, Orphaned}
   alias Jido.Agent.Directive
   alias Jido.Signal
+  alias Jido.Signal.{Trace, TraceContext}
   alias Jido.Signal.Router, as: JidoRouter
 
   @type server :: pid() | atom() | {:via, module(), term()} | String.t()
@@ -454,12 +455,18 @@ defmodule Jido.AgentServer do
 
   @impl true
   def handle_call({:signal, %Signal{} = signal}, _from, state) do
-    case process_signal(signal, state) do
-      {:ok, new_state} ->
-        {:reply, {:ok, new_state.agent}, new_state}
+    {traced_signal, _ctx} = TraceContext.ensure_from_signal(signal)
 
-      {:error, reason, new_state} ->
-        {:reply, {:error, reason}, new_state}
+    try do
+      case process_signal(traced_signal, state) do
+        {:ok, new_state} ->
+          {:reply, {:ok, new_state.agent}, new_state}
+
+        {:error, reason, new_state} ->
+          {:reply, {:error, reason}, new_state}
+      end
+    after
+      TraceContext.clear()
     end
   end
 
@@ -473,9 +480,15 @@ defmodule Jido.AgentServer do
 
   @impl true
   def handle_cast({:signal, %Signal{} = signal}, state) do
-    case process_signal(signal, state) do
-      {:ok, new_state} -> {:noreply, new_state}
-      {:error, _reason, new_state} -> {:noreply, new_state}
+    {traced_signal, _ctx} = TraceContext.ensure_from_signal(signal)
+
+    try do
+      case process_signal(traced_signal, state) do
+        {:ok, new_state} -> {:noreply, new_state}
+        {:error, _reason, new_state} -> {:noreply, new_state}
+      end
+    after
+      TraceContext.clear()
     end
   end
 
@@ -492,7 +505,14 @@ defmodule Jido.AgentServer do
         {:noreply, s}
 
       {{:value, {signal, directive}}, s1} ->
-        result = exec_directive_with_telemetry(directive, signal, s1)
+        TraceContext.set_from_signal(signal)
+
+        result =
+          try do
+            exec_directive_with_telemetry(directive, signal, s1)
+          after
+            TraceContext.clear()
+          end
 
         case result do
           {:ok, s2} ->
@@ -557,11 +577,15 @@ defmodule Jido.AgentServer do
     start_time = System.monotonic_time()
     agent_module = state.agent_module
 
-    metadata = %{
-      agent_id: state.id,
-      agent_module: agent_module,
-      signal_type: signal.type
-    }
+    trace_metadata = TraceContext.to_telemetry_metadata()
+
+    metadata =
+      %{
+        agent_id: state.id,
+        agent_module: agent_module,
+        signal_type: signal.type
+      }
+      |> Map.merge(trace_metadata)
 
     emit_telemetry(
       [:jido, :agent_server, :signal, :start],
@@ -787,7 +811,13 @@ defmodule Jido.AgentServer do
         source: "/agent/#{state.id}"
       )
 
-    _ = cast(parent.pid, child_started)
+    traced_child_started =
+      case Trace.put(child_started, Trace.new_root()) do
+        {:ok, s} -> s
+        {:error, _} -> child_started
+      end
+
+    _ = cast(parent.pid, traced_child_started)
     :ok
   end
 
@@ -810,7 +840,13 @@ defmodule Jido.AgentServer do
         source: "/agent/#{state.id}"
       )
 
-    case process_signal(signal, state) do
+    traced_signal =
+      case Trace.put(signal, Trace.new_root()) do
+        {:ok, s} -> s
+        {:error, _} -> signal
+      end
+
+    case process_signal(traced_signal, state) do
       {:ok, new_state} -> {:noreply, new_state}
       {:error, _reason, ns} -> {:noreply, ns}
     end
@@ -828,7 +864,13 @@ defmodule Jido.AgentServer do
           source: "/agent/#{state.id}"
         )
 
-      case process_signal(signal, state) do
+      traced_signal =
+        case Trace.put(signal, Trace.new_root()) do
+          {:ok, s} -> s
+          {:error, _} -> signal
+        end
+
+      case process_signal(traced_signal, state) do
         {:ok, new_state} -> {:noreply, new_state}
         {:error, _reason, ns} -> {:noreply, ns}
       end
@@ -847,12 +889,16 @@ defmodule Jido.AgentServer do
     directive_type =
       directive.__struct__ |> Module.split() |> List.last()
 
-    metadata = %{
-      agent_id: state.id,
-      agent_module: state.agent_module,
-      directive_type: directive_type,
-      signal_type: signal.type
-    }
+    trace_metadata = TraceContext.to_telemetry_metadata()
+
+    metadata =
+      %{
+        agent_id: state.id,
+        agent_module: state.agent_module,
+        directive_type: directive_type,
+        signal_type: signal.type
+      }
+      |> Map.merge(trace_metadata)
 
     emit_telemetry(
       [:jido, :agent_server, :directive, :start],
