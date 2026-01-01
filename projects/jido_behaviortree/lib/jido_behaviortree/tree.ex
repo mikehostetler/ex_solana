@@ -84,6 +84,29 @@ defmodule Jido.BehaviorTree.Tree do
   end
 
   @doc """
+  Executes a single tick with context, returning the updated tick.
+
+  This variant is used by `Jido.Agent.Strategy.BehaviorTree` to thread
+  agent state and directives through the tree during traversal.
+
+  Unlike `tick/2`, this function returns the updated tick which may contain
+  modified agent state and accumulated directives from Action nodes.
+
+  ## Examples
+
+      iex> tree = Jido.BehaviorTree.Tree.new(root_node)
+      iex> tick = Jido.BehaviorTree.Tick.new_with_context(blackboard, agent, [], ctx)
+      iex> {status, updated_tree, updated_tick} = Jido.BehaviorTree.Tree.tick_with_context(tree, tick)
+
+  """
+  @spec tick_with_context(t(), Tick.t()) :: {Status.t(), t(), Tick.t()}
+  def tick_with_context(%__MODULE__{root: root_node} = tree, tick) do
+    {status, updated_node, updated_tick} = Node.execute_tick_with_context(root_node, tick)
+    updated_tree = %{tree | root: updated_node}
+    {status, updated_tree, updated_tick}
+  end
+
+  @doc """
   Gets the root node of the tree.
 
   ## Examples

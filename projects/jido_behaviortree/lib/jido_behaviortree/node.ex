@@ -61,17 +61,42 @@ defmodule Jido.BehaviorTree.Node do
 
   ## Telemetry
 
-  Nodes should emit telemetry events during execution to enable
-  monitoring and debugging:
+  Behavior tree nodes emit telemetry events via `Jido.Observe` for observability.
+  Events use the `[:jido, :bt, :node, ...]` namespace to align with core Jido telemetry.
 
-      :telemetry.execute(
-        [:jido_behaviortree, :node, :tick],
-        %{duration: duration},
-        %{node: __MODULE__, status: status}
-      )
+  ### Node Tick Events
+
+  - `[:jido, :bt, :node, :tick, :start]` - Node tick started
+  - `[:jido, :bt, :node, :tick, :stop]` - Node tick completed
+  - `[:jido, :bt, :node, :tick, :exception]` - Node tick raised an exception
+
+  ### Node Halt Events
+
+  - `[:jido, :bt, :node, :halt, :start]` - Node halt started
+  - `[:jido, :bt, :node, :halt, :stop]` - Node halt completed
+  - `[:jido, :bt, :node, :halt, :exception]` - Node halt raised an exception
+
+  ### Metadata
+
+  All events include the following metadata:
+
+  - `:node` - The node module being executed
+  - `:sequence` - The tick sequence number (for tick events)
+
+  When running as a Jido strategy, additional metadata is included from `Tick.context`:
+
+  - `:agent_id` - The agent's unique identifier
+  - `:agent_module` - The agent module name
+  - `:strategy` - The strategy module name
+
+  ### Measurements
+
+  - `:duration` - Execution time in nanoseconds (on `:stop` and `:exception`)
+  - `:system_time` - Start timestamp in nanoseconds (on `:start`)
   """
 
   alias Jido.BehaviorTree.{Error, Status, Tick}
+  alias Jido.Observe
 
   @typedoc "Any struct that represents a behavior tree node"
   @type t :: struct()
@@ -140,7 +165,7 @@ defmodule Jido.BehaviorTree.Node do
   Executes a tick on the given node with telemetry.
 
   This function wraps the node's tick callback with telemetry events
-  and error handling.
+  via `Jido.Observe` and error handling.
 
   ## Examples
 
@@ -150,38 +175,62 @@ defmodule Jido.BehaviorTree.Node do
   @spec execute_tick(t(), Tick.t()) :: {Status.t(), t()}
   def execute_tick(node_state, tick) do
     node_module = node_state.__struct__
-    start_time = System.monotonic_time()
+    metadata = build_tick_metadata(node_module, tick)
 
-    metadata = %{
-      node: node_module,
-      sequence: tick.sequence
-    }
-
-    :telemetry.execute([:jido_behaviortree, :node, :tick, :start], %{}, metadata)
+    span_ctx = Observe.start_span([:jido, :bt, :node, :tick], metadata)
 
     try do
       {status, updated_node} = node_module.tick(node_state, tick)
 
-      duration = System.monotonic_time() - start_time
-
-      :telemetry.execute(
-        [:jido_behaviortree, :node, :tick, :stop],
-        %{duration: duration},
-        Map.put(metadata, :status, status)
-      )
+      Observe.finish_span(span_ctx, %{status: status})
 
       {status, updated_node}
     rescue
       error ->
-        duration = System.monotonic_time() - start_time
-
-        :telemetry.execute(
-          [:jido_behaviortree, :node, :tick, :exception],
-          %{duration: duration},
-          Map.merge(metadata, %{error: error, stacktrace: __STACKTRACE__})
-        )
+        Observe.finish_span_error(span_ctx, :error, error, __STACKTRACE__)
 
         {{:error, Error.node_error(Exception.message(error), node_module, %{original_error: error})}, node_state}
+    end
+  end
+
+  @doc """
+  Executes a tick with context, threading tick through the node.
+
+  This variant is used by the BehaviorTree strategy to pass agent state
+  and collect directives. It returns a 3-tuple including the updated tick.
+
+  For nodes that implement `tick_with_context/2`, that callback is used.
+  Otherwise, the standard `tick/2` is called and tick is passed through unchanged.
+
+  ## Examples
+
+      {status, updated_node, updated_tick} = Node.execute_tick_with_context(node, tick)
+
+  """
+  @spec execute_tick_with_context(t(), Tick.t()) :: {Status.t(), t(), Tick.t()}
+  def execute_tick_with_context(node_state, tick) do
+    node_module = node_state.__struct__
+    metadata = build_tick_metadata(node_module, tick)
+
+    span_ctx = Observe.start_span([:jido, :bt, :node, :tick], metadata)
+
+    try do
+      {status, updated_node, updated_tick} =
+        if function_exported?(node_module, :tick_with_context, 2) do
+          node_module.tick_with_context(node_state, tick)
+        else
+          {status, updated_node} = node_module.tick(node_state, tick)
+          {status, updated_node, tick}
+        end
+
+      Observe.finish_span(span_ctx, %{status: status})
+
+      {status, updated_node, updated_tick}
+    rescue
+      error ->
+        Observe.finish_span_error(span_ctx, :error, error, __STACKTRACE__)
+
+        {{:error, Error.node_error(Exception.message(error), node_module, %{original_error: error})}, node_state, tick}
     end
   end
 
@@ -189,7 +238,7 @@ defmodule Jido.BehaviorTree.Node do
   Halts the given node with telemetry.
 
   This function wraps the node's halt callback with telemetry events
-  and error handling.
+  via `Jido.Observe` and error handling.
 
   ## Examples
 
@@ -199,33 +248,19 @@ defmodule Jido.BehaviorTree.Node do
   @spec execute_halt(t()) :: t()
   def execute_halt(node_state) do
     node_module = node_state.__struct__
-    start_time = System.monotonic_time()
-
     metadata = %{node: node_module}
 
-    :telemetry.execute([:jido_behaviortree, :node, :halt, :start], %{}, metadata)
+    span_ctx = Observe.start_span([:jido, :bt, :node, :halt], metadata)
 
     try do
       updated_node = node_module.halt(node_state)
 
-      duration = System.monotonic_time() - start_time
-
-      :telemetry.execute(
-        [:jido_behaviortree, :node, :halt, :stop],
-        %{duration: duration},
-        metadata
-      )
+      Observe.finish_span(span_ctx)
 
       updated_node
     rescue
       error ->
-        duration = System.monotonic_time() - start_time
-
-        :telemetry.execute(
-          [:jido_behaviortree, :node, :halt, :exception],
-          %{duration: duration},
-          Map.merge(metadata, %{error: error, stacktrace: __STACKTRACE__})
-        )
+        Observe.finish_span_error(span_ctx, :error, error, __STACKTRACE__)
 
         # Return original state if halt failed
         node_state
@@ -248,4 +283,21 @@ defmodule Jido.BehaviorTree.Node do
   def node?(value) do
     is_struct(value) and function_exported?(value.__struct__, :tick, 2)
   end
+
+  # Private helpers for telemetry metadata
+
+  defp build_tick_metadata(node_module, %Tick{} = tick) do
+    base = %{
+      node: node_module,
+      sequence: tick.sequence
+    }
+
+    Map.merge(base, agent_context_from_tick(tick))
+  end
+
+  defp agent_context_from_tick(%Tick{context: ctx}) when is_map(ctx) do
+    Map.take(ctx, [:agent_id, :agent_module, :strategy])
+  end
+
+  defp agent_context_from_tick(_tick), do: %{}
 end

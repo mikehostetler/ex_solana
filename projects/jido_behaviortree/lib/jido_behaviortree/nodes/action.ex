@@ -104,6 +104,98 @@ defmodule Jido.BehaviorTree.Nodes.Action do
     end
   end
 
+  @doc """
+  Context-aware tick that integrates with Jido Agent Effects.
+
+  When called via `Tree.tick_with_context/2`, this function:
+  1. Resolves params from the blackboard
+  2. Builds a Jido Instruction with agent state context
+  3. Executes via `Jido.Exec.run/1`
+  4. Applies results and effects to the agent via `Jido.Agent.Effects`
+  5. Accumulates directives on the tick
+  6. Updates the blackboard with last_result
+
+  Returns a 3-tuple `{status, updated_node, updated_tick}`.
+  """
+  @spec tick_with_context(t(), Tick.t()) :: {Jido.BehaviorTree.Status.t(), t(), Tick.t()}
+  def tick_with_context(
+        %__MODULE__{action_module: action_module, params: params, context: node_context} = state,
+        tick
+      ) do
+    resolved_params = resolve_params(params, tick)
+    agent = tick.agent
+
+    try do
+      if agent do
+        execute_with_agent(state, tick, action_module, resolved_params, node_context, agent)
+      else
+        execute_without_agent(state, tick, action_module, resolved_params, node_context)
+      end
+    rescue
+      error ->
+        bt_error =
+          Error.node_error(Exception.message(error), __MODULE__, %{
+            action_module: action_module,
+            original_error: error
+          })
+
+        tick = Tick.put(tick, :error, bt_error)
+        {{:error, bt_error}, state, tick}
+    end
+  end
+
+  defp execute_with_agent(state, tick, action_module, resolved_params, node_context, agent) do
+    merged_context =
+      Map.merge(node_context, %{state: agent.state})
+      |> Map.merge(tick.context)
+
+    instruction = %Jido.Instruction{
+      action: action_module,
+      params: resolved_params,
+      context: merged_context
+    }
+
+    case Jido.Exec.run(instruction) do
+      {:ok, result} when is_map(result) ->
+        updated_agent = Jido.Agent.Effects.apply_result(agent, result)
+
+        tick =
+          tick
+          |> Tick.update_agent(updated_agent)
+          |> Tick.put(:last_result, result)
+
+        {:success, %{state | result: result}, tick}
+
+      {:ok, result, effects} when is_map(result) ->
+        updated_agent = Jido.Agent.Effects.apply_result(agent, result)
+        {final_agent, directives} = Jido.Agent.Effects.apply_effects(updated_agent, List.wrap(effects))
+
+        tick =
+          tick
+          |> Tick.update_agent(final_agent)
+          |> Tick.append_directives(directives)
+          |> Tick.put(:last_result, result)
+
+        {:success, %{state | result: result}, tick}
+
+      {:error, reason} ->
+        tick = Tick.put(tick, :error, reason)
+        {:failure, state, tick}
+    end
+  end
+
+  defp execute_without_agent(state, tick, action_module, resolved_params, node_context) do
+    case Jido.Exec.run(action_module, resolved_params, node_context) do
+      {:ok, result} ->
+        tick = Tick.put(tick, :last_result, result)
+        {:success, %{state | result: result}, tick}
+
+      {:error, reason} ->
+        tick = Tick.put(tick, :error, reason)
+        {:failure, state, tick}
+    end
+  end
+
   @impl true
   def halt(state) do
     %{state | result: nil}

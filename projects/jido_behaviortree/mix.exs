@@ -142,7 +142,10 @@ defmodule Jido.BehaviorTree.MixProject do
   defp deps do
     [
       # Core dependencies
-      {:jido_action, path: "../jido_action"},
+      {:jido, path: "../jido"},
+      {:jido_action, path: "../jido_action", override: true},
+      {:jido_signal, path: "../jido_signal", override: true},
+      {:req_llm, github: "agentjido/req_llm", branch: "main", optional: true, override: true},
       {:telemetry, "~> 1.3"},
       {:jason, "~> 1.4"},
 

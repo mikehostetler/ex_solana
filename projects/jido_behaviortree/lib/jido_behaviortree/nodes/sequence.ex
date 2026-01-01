@@ -60,6 +60,18 @@ defmodule Jido.BehaviorTree.Nodes.Sequence do
     execute_from(state, children, index, tick)
   end
 
+  @doc """
+  Context-aware tick that threads the tick through child nodes.
+
+  Used by `Tree.tick_with_context/2` to ensure agent state and directives
+  are properly accumulated as children execute.
+  """
+  @spec tick_with_context(t(), Jido.BehaviorTree.Tick.t()) ::
+          {Jido.BehaviorTree.Status.t(), t(), Jido.BehaviorTree.Tick.t()}
+  def tick_with_context(%__MODULE__{children: children, current_index: index} = state, tick) do
+    execute_from_with_context(state, children, index, tick)
+  end
+
   @impl true
   def halt(%__MODULE__{children: children} = state) do
     halted_children = Enum.map(children, &Node.execute_halt/1)
@@ -87,6 +99,35 @@ defmodule Jido.BehaviorTree.Nodes.Sequence do
 
       {:error, _reason} = error ->
         {error, %{state | children: updated_children, current_index: 0}}
+    end
+  end
+
+  defp execute_from_with_context(state, children, index, tick) when index >= length(children) do
+    {:success, %{state | current_index: 0}, tick}
+  end
+
+  defp execute_from_with_context(state, children, index, tick) do
+    child = Enum.at(children, index)
+    {status, updated_child, updated_tick} = Node.execute_tick_with_context(child, tick)
+    updated_children = List.replace_at(children, index, updated_child)
+
+    case status do
+      :success ->
+        execute_from_with_context(
+          %{state | children: updated_children},
+          updated_children,
+          index + 1,
+          updated_tick
+        )
+
+      :failure ->
+        {:failure, %{state | children: updated_children, current_index: 0}, updated_tick}
+
+      :running ->
+        {:running, %{state | children: updated_children, current_index: index}, updated_tick}
+
+      {:error, _reason} = error ->
+        {error, %{state | children: updated_children, current_index: 0}, updated_tick}
     end
   end
 end
