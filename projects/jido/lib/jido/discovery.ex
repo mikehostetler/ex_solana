@@ -94,6 +94,11 @@ defmodule Jido.Discovery do
 
   @impl GenServer
   def init(_opts) do
+    {:ok, %{}, {:continue, :build_catalog}}
+  end
+
+  @impl GenServer
+  def handle_continue(:build_catalog, state) do
     Logger.info("[Jido.Discovery] Building component catalog...")
     catalog = build_catalog()
     :persistent_term.put(@catalog_key, catalog)
@@ -102,7 +107,7 @@ defmodule Jido.Discovery do
       "[Jido.Discovery] Catalog initialized with #{count_components(catalog)} components"
     )
 
-    {:ok, %{}}
+    {:noreply, state}
   end
 
   @impl GenServer

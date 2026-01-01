@@ -163,8 +163,9 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.AI.Directive.ReqLLMStream do
     } = directive
 
     agent_pid = self()
+    task_sup = if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
 
-    Task.Supervisor.start_child(Jido.TaskSupervisor, fn ->
+    Task.Supervisor.start_child(task_sup, fn ->
       result =
         try do
           stream_with_callbacks(
@@ -332,8 +333,9 @@ defimpl Jido.AgentServer.DirectiveExec, for: Jido.AI.Directive.ToolExec do
     } = directive
 
     agent_pid = self()
+    task_sup = if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
 
-    Task.Supervisor.start_child(Jido.TaskSupervisor, fn ->
+    Task.Supervisor.start_child(task_sup, fn ->
       result =
         try do
           normalized_args = normalize_arguments(action_module, arguments)
