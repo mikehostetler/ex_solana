@@ -62,7 +62,6 @@ defmodule Jido.Discovery do
   All processes can read concurrently without contention.
   """
 
-  use GenServer
   require Logger
 
   @catalog_key :jido_discovery_catalog
@@ -77,43 +76,26 @@ defmodule Jido.Discovery do
           tags: [atom()] | nil
         }
 
-  # GenServer API
+  # Initialization
 
   @doc """
-  Starts the Discovery GenServer.
+  Initializes the discovery catalog asynchronously.
 
-  ## Options
-
-  - `:name` - The name to register the GenServer under (default: `Jido.Discovery`)
+  Call this from your application supervisor's start callback.
+  The catalog will be built in the background without blocking startup.
   """
-  @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts \\ []) do
-    name = Keyword.get(opts, :name, __MODULE__)
-    GenServer.start_link(__MODULE__, opts, name: name)
-  end
+  @spec init_async() :: Task.t()
+  def init_async do
+    Task.async(fn ->
+      catalog = build_catalog()
+      :persistent_term.put(@catalog_key, catalog)
 
-  @impl GenServer
-  def init(_opts) do
-    {:ok, %{}, {:continue, :build_catalog}}
-  end
+      Logger.info(
+        "[Jido.Discovery] Catalog initialized with #{count_components(catalog)} components"
+      )
 
-  @impl GenServer
-  def handle_continue(:build_catalog, state) do
-    Logger.info("[Jido.Discovery] Building component catalog...")
-    catalog = build_catalog()
-    :persistent_term.put(@catalog_key, catalog)
-
-    Logger.info(
-      "[Jido.Discovery] Catalog initialized with #{count_components(catalog)} components"
-    )
-
-    {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_call(:refresh, _from, state) do
-    do_refresh()
-    {:reply, :ok, state}
+      :ok
+    end)
   end
 
   # Public API
@@ -123,11 +105,11 @@ defmodule Jido.Discovery do
   """
   @spec refresh() :: :ok
   def refresh do
-    if GenServer.whereis(__MODULE__) do
-      GenServer.call(__MODULE__, :refresh)
-    else
-      do_refresh()
-    end
+    Logger.info("[Jido.Discovery] Refreshing catalog...")
+    catalog = build_catalog()
+    :persistent_term.put(@catalog_key, catalog)
+    Logger.info("[Jido.Discovery] Catalog refreshed with #{count_components(catalog)} components")
+    :ok
   end
 
   @doc """
@@ -215,14 +197,6 @@ defmodule Jido.Discovery do
 
   # Internal helpers
 
-  defp do_refresh do
-    Logger.info("[Jido.Discovery] Refreshing catalog...")
-    catalog = build_catalog()
-    :persistent_term.put(@catalog_key, catalog)
-    Logger.info("[Jido.Discovery] Catalog refreshed with #{count_components(catalog)} components")
-    :ok
-  end
-
   defp list(type, opts) do
     case get_catalog() do
       {:ok, catalog} ->
@@ -248,7 +222,6 @@ defmodule Jido.Discovery do
   end
 
   defp get_catalog do
-    :persistent_term.get(@catalog_key)
     {:ok, :persistent_term.get(@catalog_key)}
   rescue
     ArgumentError -> {:error, :not_initialized}

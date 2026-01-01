@@ -5,14 +5,14 @@ defmodule Jido.Application do
   def start(_type, _args) do
     children = [
       # Telemetry handler for agent and strategy metrics
-      Jido.Telemetry,
-
-      # Component discovery catalog (global - not per-instance)
-      Jido.Discovery
+      Jido.Telemetry
     ]
 
     # Register essential signal extensions before starting supervision tree
     register_signal_extensions()
+
+    # Initialize discovery catalog asynchronously (fire-and-forget)
+    Jido.Discovery.init_async()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Jido.Supervisor)
   end

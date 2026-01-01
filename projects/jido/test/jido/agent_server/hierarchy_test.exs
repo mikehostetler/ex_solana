@@ -175,7 +175,6 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       assert reason in [:shutdown, :noproc]
     end
 
-    @tag :skip
     test "logs when stopping due to parent death", %{jido: jido} do
       # Start parent under DynamicSupervisor to avoid linking to test process
       {:ok, parent_pid} = AgentServer.start(agent: ParentAgent, id: "parent-stop-log", jido: jido)
@@ -207,7 +206,6 @@ defmodule JidoTest.AgentServer.HierarchyTest do
   end
 
   describe "on_parent_death: :continue" do
-    @tag :skip
     test "child continues when parent dies", %{jido: jido} do
       {:ok, parent_pid} =
         AgentServer.start_link(agent: ParentAgent, id: "parent-continue-1", jido: jido)
@@ -237,7 +235,6 @@ defmodule JidoTest.AgentServer.HierarchyTest do
   end
 
   describe "on_parent_death: :emit_orphan" do
-    @tag :flaky
     test "child emits orphan signal when parent dies", %{jido: jido} do
       {:ok, parent_pid} =
         AgentServer.start_link(agent: ParentAgent, id: "parent-orphan-1", jido: jido)

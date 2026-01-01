@@ -154,7 +154,6 @@ defmodule JidoTest.AgentServer.StatusTest do
       assert status2.raw_state.counter == 1
     end
 
-    @tag :skip
     test "reflects completion", %{pid: pid} do
       # Complete the agent
       signal = Signal.new!("test.complete", %{}, source: "test")
@@ -192,7 +191,6 @@ defmodule JidoTest.AgentServer.StatusTest do
       assert Enum.all?(statuses, &match?(%Status{}, &1))
     end
 
-    @tag :flaky
     test "can monitor state changes via stream", %{pid: pid} do
       # Start streaming in a task
       task =
@@ -227,7 +225,6 @@ defmodule JidoTest.AgentServer.StatusTest do
       assert 3 in counters
     end
 
-    @tag :flaky
     test "stream respects interval_ms option", %{pid: pid} do
       start_time = System.monotonic_time(:millisecond)
 

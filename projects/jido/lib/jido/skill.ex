@@ -4,26 +4,57 @@ defmodule Jido.Skill do
 
   Skills encapsulate:
   - A set of actions the agent can perform
-  - State schema for skill-specific data
+  - State schema for skill-specific data (nested under `state_key`)
   - Configuration schema for per-agent customization
-  - Signal patterns for routing
-  - Optional process-layer callbacks for runtime behavior
+  - Signal routing rules
+  - Optional lifecycle hooks and child processes
 
-  ## Core Pattern
+  ## Lifecycle
 
-  Skills are defined using the `use Jido.Skill` macro:
+  1. **Compile-time**: Skill is declared in agent's `skills:` option
+  2. **Agent.new/1**: `mount/2` is called to initialize skill state (pure)
+  3. **AgentServer.init/1**: `child_spec/1` processes are started and monitored
+  4. **Signal processing**: `handle_signal/2` runs before routing, can override or abort
+  5. **After cmd/2 (call path)**: `transform_result/3` wraps call results
 
-      defmodule MySkill do
+  ## Example Skill
+
+      defmodule MyApp.ChatSkill do
         use Jido.Skill,
-          name: "my_skill",
-          state_key: :my_skill,
-          actions: [MyAction],
-          schema: Zoi.object(%{counter: Zoi.integer() |> Zoi.default(0)})
+          name: "chat",
+          state_key: :chat,
+          actions: [MyApp.Actions.SendMessage, MyApp.Actions.ListHistory],
+          schema: Zoi.object(%{
+            messages: Zoi.list(Zoi.any()) |> Zoi.default([]),
+            model: Zoi.string() |> Zoi.default("gpt-4")
+          }),
+          signal_patterns: ["chat.*"]
+
+        @impl Jido.Skill
+        def mount(agent, config) do
+          # Custom initialization beyond schema defaults
+          {:ok, %{initialized_at: DateTime.utc_now()}}
+        end
+
+        @impl Jido.Skill
+        def router(config) do
+          [
+            {"chat.send", MyApp.Actions.SendMessage},
+            {"chat.history", MyApp.Actions.ListHistory}
+          ]
+        end
       end
 
-  The skill is attached to an agent and provides its spec via `skill_spec/1`:
+  ## Using Skills
 
-      spec = MySkill.skill_spec(%{})
+      defmodule MyAgent do
+        use Jido.Agent,
+          name: "my_agent",
+          skills: [
+            MyApp.ChatSkill,
+            {MyApp.DatabaseSkill, %{pool_size: 5}}
+          ]
+      end
 
   ## Configuration Options
 
@@ -37,16 +68,6 @@ defmodule Jido.Skill do
   - `config_schema` - Optional Zoi schema for per-agent config.
   - `signal_patterns` - List of signal pattern strings (default: []).
   - `tags` - List of tag strings (default: []).
-
-  ## Process-Layer Callbacks
-
-  Skills can optionally implement process-layer callbacks for runtime behavior:
-
-  - `mount/2` - Initialize skill state when attached to an agent
-  - `router/1` - Return signal router for this skill
-  - `handle_signal/2` - Handle incoming signals
-  - `transform_result/3` - Transform action results before returning
-  - `child_spec/1` - Return child spec for supervised processes
   """
 
   alias Jido.Skill.Spec
@@ -102,22 +123,29 @@ defmodule Jido.Skill do
   @callback skill_spec(config :: map()) :: Spec.t()
 
   @doc """
-  Called when the skill is mounted to an agent.
+  Called when the skill is mounted to an agent during `Agent.new/1`.
 
-  Use this to initialize skill-specific state. Returns the initial state
-  that will be stored under the skill's `state_key`.
+  Use this to initialize skill-specific state beyond schema defaults.
+  This is a pure function - no side effects allowed.
 
   ## Parameters
 
-  - `agent` - The agent struct
+  - `agent` - The agent struct (with state from previously mounted skills)
   - `config` - Per-agent configuration for this skill
 
   ## Returns
 
-  - `{:ok, initial_state}` - Success with initial state
-  - `{:error, reason}` - Failure
+  - `{:ok, skill_state}` - Map to merge into skill's state slice
+  - `{:ok, nil}` - No additional state (schema defaults only)
+  - `{:error, reason}` - Raises during agent creation
+
+  ## Example
+
+      def mount(_agent, config) do
+        {:ok, %{initialized_at: DateTime.utc_now(), api_key: config[:api_key]}}
+      end
   """
-  @callback mount(agent :: term(), config :: map()) :: {:ok, map()} | {:error, term()}
+  @callback mount(agent :: term(), config :: map()) :: {:ok, map() | nil} | {:error, term()}
 
   @doc """
   Returns the signal router for this skill.
@@ -127,45 +155,88 @@ defmodule Jido.Skill do
   @callback router(config :: map()) :: term()
 
   @doc """
-  Handle an incoming signal.
+  Pre-routing hook called before signal routing in AgentServer.
 
-  Called when a signal matches one of the skill's signal patterns.
-
-  ## Parameters
-
-  - `signal` - The incoming signal
-  - `context` - Context including agent, config, etc.
-
-  ## Returns
-
-  - `{:ok, result}` - Success
-  - `{:error, reason}` - Failure
-  """
-  @callback handle_signal(signal :: term(), context :: map()) :: {:ok, term()} | {:error, term()}
-
-  @doc """
-  Transform an action result before returning.
-
-  Called after an action completes to allow skills to modify the result.
+  Can inspect, log, or override which action runs for a signal.
 
   ## Parameters
 
-  - `action` - The action module that was executed
-  - `result` - The action result
-  - `context` - Context including agent, config, etc.
+  - `signal` - The incoming `Jido.Signal` struct
+  - `context` - Map with `:agent`, `:agent_module`, `:skill`, `:skill_spec`, `:config`
 
   ## Returns
 
-  The transformed result.
+  - `{:ok, nil}` or `{:ok, :continue}` - Continue to normal routing
+  - `{:ok, {:override, action_spec}}` - Bypass router, use this action instead
+  - `{:error, reason}` - Abort signal processing with error
+
+  ## Example
+
+      def handle_signal(signal, _context) do
+        if signal.type == "admin.override" do
+          {:ok, {:override, MyApp.AdminAction}}
+        else
+          {:ok, :continue}
+        end
+      end
   """
-  @callback transform_result(action :: module(), result :: term(), context :: map()) :: term()
+  @callback handle_signal(signal :: term(), context :: map()) ::
+              {:ok, term()} | {:ok, {:override, term()}} | {:error, term()}
 
   @doc """
-  Returns a child specification for supervised processes.
+  Transform the agent returned from `AgentServer.call/3`.
 
-  Use this when the skill needs to run supervised processes.
+  Called after signal processing on the synchronous call path only.
+  Does not affect `cast/2` or internal state - only the returned agent.
+
+  ## Parameters
+
+  - `action` - The signal type or action module that was executed
+  - `result` - The agent struct to transform
+  - `context` - Map with `:agent`, `:agent_module`, `:skill`, `:skill_spec`, `:config`
+
+  ## Returns
+
+  The transformed agent struct (or original if no transformation needed).
+
+  ## Example
+
+      def transform_result(_action, agent, _context) do
+        # Add metadata to returned agent
+        new_state = Map.put(agent.state, :last_call_at, DateTime.utc_now())
+        %{agent | state: new_state}
+      end
   """
-  @callback child_spec(config :: map()) :: Supervisor.child_spec()
+  @callback transform_result(action :: module() | String.t(), result :: term(), context :: map()) ::
+              term()
+
+  @doc """
+  Returns child specification(s) for supervised processes.
+
+  Called during `AgentServer.init/1`. Returned processes are
+  monitored by the AgentServer and tracked in its state.
+
+  ## Parameters
+
+  - `config` - Per-agent configuration for this skill
+
+  ## Return Values
+
+  - `nil` - No child processes needed
+  - `Supervisor.child_spec()` - Single child process
+  - `[Supervisor.child_spec()]` - Multiple child processes
+
+  ## Example
+
+      def child_spec(config) do
+        %{
+          id: MyWorker,
+          start: {MyWorker, :start_link, [config]}
+        }
+      end
+  """
+  @callback child_spec(config :: map()) ::
+              nil | Supervisor.child_spec() | [Supervisor.child_spec()]
 
   @optional_callbacks [mount: 2, router: 1, handle_signal: 2, transform_result: 3, child_spec: 1]
 

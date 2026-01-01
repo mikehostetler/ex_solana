@@ -830,7 +830,6 @@ defmodule JidoTest.AgentServerTest do
   end
 
   describe "termination" do
-    @tag :skip
     test "logs on termination", %{jido: jido} do
       import ExUnit.CaptureLog
 
