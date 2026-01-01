@@ -252,6 +252,38 @@ defmodule Jido.AgentServer do
   end
 
   @doc """
+  Wait for an agent to reach a terminal status (`:completed` or `:failed`).
+
+  This is an event-driven wait - the caller blocks until the agent's state
+  transitions to a terminal status, then receives the result immediately.
+  No polling is involved.
+
+  ## Options
+
+  - `:status_path` - Path to status field in agent.state (default: `[:status]`)
+  - `:result_path` - Path to result field (default: `[:last_answer]`)
+  - `:error_path` - Path to error field (default: `[:error]`)
+
+  ## Returns
+
+  - `{:ok, %{status: :completed | :failed, result: any()}}` - Agent reached terminal status
+  - `{:error, :not_found}` - Server not found
+  - Exits with `{:timeout, ...}` if GenServer.call times out
+
+  ## Examples
+
+      {:ok, result} = AgentServer.await_completion(pid, timeout: 10_000)
+  """
+  @spec await_completion(server(), keyword()) :: {:ok, map()} | {:error, term()}
+  def await_completion(server, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, 10_000)
+
+    with {:ok, pid} <- resolve_server(server) do
+      GenServer.call(pid, {:await_completion, opts}, timeout)
+    end
+  end
+
+  @doc """
   Gets runtime status for an agent process.
 
   Returns a `Status` struct combining the strategy snapshot with process metadata.
@@ -474,6 +506,32 @@ defmodule Jido.AgentServer do
     {:reply, {:ok, state}, state}
   end
 
+  def handle_call({:await_completion, opts}, from, %State{} = state) do
+    status_path = Keyword.get(opts, :status_path, [:status])
+    result_path = Keyword.get(opts, :result_path, [:last_answer])
+    error_path = Keyword.get(opts, :error_path, [:error])
+
+    case completion_from_agent_state(state.agent.state, status_path, result_path, error_path) do
+      {:ok, result} ->
+        {:reply, {:ok, result}, state}
+
+      :pending ->
+        ref = make_ref()
+        {caller_pid, _tag} = from
+        Process.monitor(caller_pid)
+
+        waiter = %{
+          from: from,
+          status_path: status_path,
+          result_path: result_path,
+          error_path: error_path
+        }
+
+        new_waiters = Map.put(state.completion_waiters, ref, waiter)
+        {:noreply, %{state | completion_waiters: new_waiters}}
+    end
+  end
+
   def handle_call(_msg, _from, state) do
     {:reply, {:error, :unknown_call}, state}
   end
@@ -536,6 +594,13 @@ defmodule Jido.AgentServer do
   end
 
   def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+    new_waiters =
+      state.completion_waiters
+      |> Enum.reject(fn {_ref, %{from: {from_pid, _tag}}} -> from_pid == pid end)
+      |> Map.new()
+
+    state = %{state | completion_waiters: new_waiters}
+
     cond do
       match?(%{parent: %ParentRef{pid: ^pid}}, state) ->
         handle_parent_down(state, pid, reason)
@@ -606,6 +671,7 @@ defmodule Jido.AgentServer do
 
           directives = List.wrap(directives)
           state = State.update_agent(state, agent)
+          state = maybe_notify_completion_waiters(state)
 
           emit_telemetry(
             [:jido, :agent_server, :signal, :stop],
@@ -719,6 +785,54 @@ defmodule Jido.AgentServer do
       send(self(), :drain)
       {:noreply, %{state | processing: true, status: :processing}}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Internal: Completion Detection
+  # ---------------------------------------------------------------------------
+
+  defp completion_from_agent_state(agent_state, status_path, result_path, error_path) do
+    case get_in(agent_state, status_path) do
+      :completed ->
+        {:ok, %{status: :completed, result: get_in(agent_state, result_path)}}
+
+      :failed ->
+        {:ok, %{status: :failed, result: get_in(agent_state, error_path)}}
+
+      _ ->
+        :pending
+    end
+  end
+
+  defp maybe_notify_completion_waiters(%State{completion_waiters: waiters} = state)
+       when map_size(waiters) == 0 do
+    state
+  end
+
+  defp maybe_notify_completion_waiters(%State{completion_waiters: waiters, agent: agent} = state) do
+    {to_notify, still_waiting} =
+      Enum.split_with(waiters, fn {_ref, waiter} ->
+        completion_from_agent_state(
+          agent.state,
+          waiter.status_path,
+          waiter.result_path,
+          waiter.error_path
+        ) != :pending
+      end)
+
+    Enum.each(to_notify, fn {_ref, waiter} ->
+      {:ok, result} =
+        completion_from_agent_state(
+          agent.state,
+          waiter.status_path,
+          waiter.result_path,
+          waiter.error_path
+        )
+
+      GenServer.reply(waiter.from, {:ok, result})
+    end)
+
+    %{state | completion_waiters: Map.new(still_waiting)}
   end
 
   # ---------------------------------------------------------------------------

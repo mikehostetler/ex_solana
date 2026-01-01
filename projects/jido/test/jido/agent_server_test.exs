@@ -124,7 +124,7 @@ defmodule JidoTest.AgentServerTest do
 
     test "registers in Registry", %{jido: jido} do
       {:ok, pid} = AgentServer.start_link(agent: TestAgent, id: "registry-test", jido: jido)
-      assert AgentServer.whereis(Jido.registry(jido), "registry-test") == pid
+      assert AgentServer.whereis(Jido.registry_name(jido), "registry-test") == pid
       GenServer.stop(pid)
     end
 
@@ -153,8 +153,8 @@ defmodule JidoTest.AgentServerTest do
     test "starts under DynamicSupervisor", %{jido: jido} do
       {:ok, pid} = AgentServer.start(agent: TestAgent, id: "dynamic-test", jido: jido)
       assert Process.alive?(pid)
-      assert AgentServer.whereis(Jido.registry(jido), "dynamic-test") == pid
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), pid)
+      assert AgentServer.whereis(Jido.registry_name(jido), "dynamic-test") == pid
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), pid)
     end
   end
 
@@ -258,31 +258,31 @@ defmodule JidoTest.AgentServerTest do
   describe "whereis/1 and whereis/2" do
     test "whereis/1 returns pid for registered agent using default registry", %{jido: jido} do
       {:ok, pid} = AgentServer.start_link(agent: TestAgent, id: "whereis-test-1", jido: jido)
-      assert AgentServer.whereis(Jido.registry(jido), "whereis-test-1") == pid
+      assert AgentServer.whereis(Jido.registry_name(jido), "whereis-test-1") == pid
       GenServer.stop(pid)
     end
 
     test "whereis/1 returns nil for unknown agent", %{jido: jido} do
-      assert AgentServer.whereis(Jido.registry(jido), "nonexistent") == nil
+      assert AgentServer.whereis(Jido.registry_name(jido), "nonexistent") == nil
     end
 
     test "whereis/2 returns pid for registered agent in specific registry", %{jido: jido} do
       {:ok, pid} =
         AgentServer.start_link(agent: TestAgent, id: "whereis-test-2", jido: jido)
 
-      assert AgentServer.whereis(Jido.registry(jido), "whereis-test-2") == pid
+      assert AgentServer.whereis(Jido.registry_name(jido), "whereis-test-2") == pid
       GenServer.stop(pid)
     end
 
     test "whereis/2 returns nil for unknown agent in specific registry", %{jido: jido} do
-      assert AgentServer.whereis(Jido.registry(jido), "nonexistent-2") == nil
+      assert AgentServer.whereis(Jido.registry_name(jido), "nonexistent-2") == nil
     end
   end
 
   describe "via_tuple/2" do
     test "creates valid via tuple", %{jido: jido} do
-      via = AgentServer.via_tuple("via-test", Jido.registry(jido))
-      assert via == {:via, Registry, {Jido.registry(jido), "via-test"}}
+      via = AgentServer.via_tuple("via-test", Jido.registry_name(jido))
+      assert via == {:via, Registry, {Jido.registry_name(jido), "via-test"}}
     end
 
     test "works with custom registry", %{jido: _jido} do
@@ -700,13 +700,13 @@ defmodule JidoTest.AgentServerTest do
     test "resolves via tuple", %{jido: jido} do
       {:ok, _pid} = AgentServer.start_link(agent: TestAgent, id: "via-resolve-test", jido: jido)
 
-      via = AgentServer.via_tuple("via-resolve-test", Jido.registry(jido))
+      via = AgentServer.via_tuple("via-resolve-test", Jido.registry_name(jido))
       signal = Signal.new!("increment", %{}, source: "/test")
 
       {:ok, agent} = AgentServer.call(via, signal)
       assert agent.state.counter == 1
 
-      GenServer.stop(AgentServer.whereis(Jido.registry(jido), "via-resolve-test"))
+      GenServer.stop(AgentServer.whereis(Jido.registry_name(jido), "via-resolve-test"))
     end
 
     test "resolves string id", %{jido: jido} do
@@ -721,7 +721,7 @@ defmodule JidoTest.AgentServerTest do
     end
 
     test "returns error for non-existent server", %{jido: jido} do
-      registry = Jido.registry(jido)
+      registry = Jido.registry_name(jido)
 
       # Test with string ID that doesn't exist via whereis
       assert AgentServer.whereis(registry, "nonexistent-server") == nil

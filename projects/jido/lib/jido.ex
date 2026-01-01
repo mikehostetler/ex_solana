@@ -152,37 +152,6 @@ defmodule Jido do
   @spec scheduler_name(atom()) :: atom()
   def scheduler_name(name), do: Module.concat(name, Scheduler)
 
-  @doc "Returns the configured default Jido instance."
-  @spec default() :: atom()
-  def default do
-    Application.get_env(:jido, :default) ||
-      raise ArgumentError, "Configure :jido, :default or pass instance name explicitly"
-  end
-
-  @doc "Returns the TaskSupervisor name for a specific Jido instance."
-  @spec task_supervisor(atom()) :: atom()
-  def task_supervisor(name), do: task_supervisor_name(name)
-
-  @doc "Returns the TaskSupervisor name for the default Jido instance."
-  @spec task_supervisor() :: atom()
-  def task_supervisor, do: task_supervisor(default())
-
-  @doc "Returns the Registry name for a specific Jido instance."
-  @spec registry(atom()) :: atom()
-  def registry(name), do: registry_name(name)
-
-  @doc "Returns the Registry name for the default Jido instance."
-  @spec registry() :: atom()
-  def registry, do: registry(default())
-
-  @doc "Returns the AgentSupervisor name for a specific Jido instance."
-  @spec agent_supervisor(atom()) :: atom()
-  def agent_supervisor(name), do: agent_supervisor_name(name)
-
-  @doc "Returns the AgentSupervisor name for the default Jido instance."
-  @spec agent_supervisor() :: atom()
-  def agent_supervisor, do: agent_supervisor(default())
-
   # ---------------------------------------------------------------------------
   # Agent Lifecycle
   # ---------------------------------------------------------------------------
@@ -298,24 +267,70 @@ defmodule Jido do
   defdelegate refresh_discovery(), to: Jido.Discovery, as: :refresh
 
   # ---------------------------------------------------------------------------
-  # Multi-Agent Coordination
+  # Agent Coordination
   # ---------------------------------------------------------------------------
 
   @doc """
   Wait for an agent to reach a terminal status.
 
-  See `Jido.MultiAgent.await_completion/3` for details.
+  See `Jido.Await.completion/3` for details.
   """
   defdelegate await(server, timeout_ms \\ 10_000, opts \\ []),
-    to: Jido.MultiAgent,
-    as: :await_completion
+    to: Jido.Await,
+    as: :completion
 
   @doc """
   Wait for a child agent to reach a terminal status.
 
-  See `Jido.MultiAgent.await_child_completion/4` for details.
+  See `Jido.Await.child/4` for details.
   """
   defdelegate await_child(server, child_tag, timeout_ms \\ 30_000, opts \\ []),
-    to: Jido.MultiAgent,
-    as: :await_child_completion
+    to: Jido.Await,
+    as: :child
+
+  @doc """
+  Wait for all agents to reach terminal status.
+
+  See `Jido.Await.all/3` for details.
+  """
+  defdelegate await_all(servers, timeout_ms \\ 10_000, opts \\ []),
+    to: Jido.Await,
+    as: :all
+
+  @doc """
+  Wait for any agent to reach terminal status.
+
+  See `Jido.Await.any/3` for details.
+  """
+  defdelegate await_any(servers, timeout_ms \\ 10_000, opts \\ []),
+    to: Jido.Await,
+    as: :any
+
+  @doc """
+  Get the PIDs of all children of a parent agent.
+
+  See `Jido.Await.get_children/1` for details.
+  """
+  defdelegate get_children(parent_server), to: Jido.Await
+
+  @doc """
+  Get a specific child's PID by tag.
+
+  See `Jido.Await.get_child/2` for details.
+  """
+  defdelegate get_child(parent_server, child_tag), to: Jido.Await
+
+  @doc """
+  Check if an agent process is alive and responding.
+
+  See `Jido.Await.alive?/1` for details.
+  """
+  defdelegate alive?(server), to: Jido.Await
+
+  @doc """
+  Request graceful cancellation of an agent.
+
+  See `Jido.Await.cancel/2` for details.
+  """
+  defdelegate cancel(server, opts \\ []), to: Jido.Await
 end

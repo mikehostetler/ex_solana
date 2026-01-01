@@ -110,7 +110,7 @@ defmodule JidoTest.UtilTest do
 
   describe "via_tuple/2" do
     test "creates via tuple with default and custom registry", %{jido: jido} do
-      registry = Jido.registry(jido)
+      registry = Jido.registry_name(jido)
       result = Util.via_tuple(:my_process, registry: registry)
       assert {:via, Registry, {^registry, "my_process"}} = result
 
@@ -122,7 +122,7 @@ defmodule JidoTest.UtilTest do
     end
 
     test "converts atom name to string and preserves string name", %{jido: jido} do
-      registry = Jido.registry(jido)
+      registry = Jido.registry_name(jido)
       {:via, Registry, {_, name1}} = Util.via_tuple(:atom_name, registry: registry)
       assert is_binary(name1)
 
@@ -138,7 +138,7 @@ defmodule JidoTest.UtilTest do
     end
 
     test "returns not_found for unregistered names", %{jido: jido} do
-      registry = Jido.registry(jido)
+      registry = Jido.registry_name(jido)
 
       inputs = [
         :unregistered_process_xyz,
@@ -153,7 +153,7 @@ defmodule JidoTest.UtilTest do
     end
 
     test "uses custom registry option", %{jido: jido} do
-      registry = Jido.registry(jido)
+      registry = Jido.registry_name(jido)
       assert {:error, :not_found} = Util.whereis(:some_name_xyz, registry: registry)
     end
   end

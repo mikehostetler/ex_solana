@@ -63,7 +63,7 @@ defmodule Jido.AgentServer.ErrorPolicy do
 
     if Code.ensure_loaded?(Jido.Signal.Dispatch) do
       task_supervisor =
-        if state.jido, do: Jido.task_supervisor(state.jido), else: Jido.TaskSupervisor
+        if state.jido, do: Jido.task_supervisor_name(state.jido), else: Jido.TaskSupervisor
 
       Task.Supervisor.start_child(task_supervisor, fn ->
         Jido.Signal.Dispatch.dispatch(signal, dispatch_cfg)

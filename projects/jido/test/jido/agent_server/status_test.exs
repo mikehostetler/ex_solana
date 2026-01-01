@@ -124,7 +124,7 @@ defmodule JidoTest.AgentServer.StatusTest do
     test "works with agent ID", %{pid: pid, jido: jido} do
       {:ok, state} = AgentServer.state(pid)
       # Use whereis/2 with the test's jido registry to look up by ID
-      found_pid = AgentServer.whereis(Jido.registry(jido), state.id)
+      found_pid = AgentServer.whereis(Jido.registry_name(jido), state.id)
       assert {:ok, status} = AgentServer.status(found_pid)
       assert status.agent_id == state.id
     end
@@ -136,7 +136,7 @@ defmodule JidoTest.AgentServer.StatusTest do
 
     test "returns error for non-existent agent", %{jido: jido} do
       # Use whereis/2 with the test's jido registry to verify not found
-      assert nil == AgentServer.whereis(Jido.registry(jido), "non-existent-id")
+      assert nil == AgentServer.whereis(Jido.registry_name(jido), "non-existent-id")
     end
 
     test "reflects state changes", %{pid: pid} do
