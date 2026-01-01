@@ -825,7 +825,12 @@ defmodule Jido.AgentServer do
 
   defp handle_parent_down(%State{on_parent_death: :stop} = state, _pid, reason) do
     Logger.info("AgentServer #{state.id} stopping: parent died (#{inspect(reason)})")
-    {:stop, {:parent_down, reason}, State.set_status(state, :stopping)}
+    # Wrap the stop reason so OTP treats it as a clean shutdown (no error logs).
+    # OTP considers :normal, :shutdown, and {:shutdown, term} as "normal" exits.
+    # Benign reasons: :normal (parent stopped normally), :noproc (parent already gone),
+    # :shutdown (parent shutting down), {:shutdown, _} (parent shutdown with reason).
+    stop_reason = wrap_parent_down_reason(reason)
+    {:stop, stop_reason, State.set_status(state, :stopping)}
   end
 
   defp handle_parent_down(%State{on_parent_death: :continue} = state, _pid, reason) do
@@ -878,6 +883,15 @@ defmodule Jido.AgentServer do
       {:noreply, state}
     end
   end
+
+  # Wraps parent-down reasons so OTP treats them as clean shutdowns.
+  # OTP only considers :normal, :shutdown, and {:shutdown, term} as "normal" exits.
+  # All other reasons get logged as errors by the default GenServer logger.
+  defp wrap_parent_down_reason(:normal), do: {:shutdown, {:parent_down, :normal}}
+  defp wrap_parent_down_reason(:noproc), do: {:shutdown, {:parent_down, :noproc}}
+  defp wrap_parent_down_reason(:shutdown), do: {:shutdown, {:parent_down, :shutdown}}
+  defp wrap_parent_down_reason({:shutdown, _} = r), do: {:shutdown, {:parent_down, r}}
+  defp wrap_parent_down_reason(reason), do: {:parent_down, reason}
 
   # ---------------------------------------------------------------------------
   # Internal: Telemetry

@@ -168,7 +168,9 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
 
-      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, {:parent_down, reason}}, 1000
+      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, {:shutdown, {:parent_down, reason}}},
+                   1000
+
       assert reason in [:shutdown, :noproc]
     end
 
@@ -389,8 +391,14 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       # Child should stop when parent dies - reason may be :killed or :noproc
       # depending on timing (whether parent is still dying or already dead)
-      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, {:parent_down, reason}}, 1000
-      assert reason in [:killed, :noproc]
+      # :killed is not a benign reason, so it stays unwrapped as {:parent_down, :killed}
+      # :noproc is benign, so it becomes {:shutdown, {:parent_down, :noproc}}
+      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, exit_reason}, 1000
+
+      assert exit_reason in [
+               {:parent_down, :killed},
+               {:shutdown, {:parent_down, :noproc}}
+             ]
     end
   end
 
@@ -580,7 +588,7 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
 
-      assert_receive {:DOWN, ^child_ref, :process, _, {:parent_down, :shutdown}}, 1000
+      assert_receive {:DOWN, ^child_ref, :process, _, {:shutdown, {:parent_down, :shutdown}}}, 1000
     end
   end
 end

@@ -25,6 +25,9 @@ jido_workspace-*.tar
 # Workspace status cache
 /.cache/
 
+# CodeMapper cache
+.code_mapper_cache
+
 # Env Vars
 .env
 .env*
