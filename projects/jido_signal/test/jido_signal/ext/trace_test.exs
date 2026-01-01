@@ -44,15 +44,15 @@ defmodule Jido.Signal.Ext.TraceTest do
   describe "CloudEvents serialization" do
     test "serializes minimal data to CloudEvents attributes" do
       data = %{
-        trace_id: "trace-123",
-        span_id: "span-456"
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        span_id: "00f067aa0ba902b7"
       }
 
       attrs = Trace.to_attrs(data)
 
       assert %{
-               "trace_id" => "trace-123",
-               "span_id" => "span-456"
+               "trace_id" => "4bf92f3577b34da6a3ce929d0e0e4736",
+               "span_id" => "00f067aa0ba902b7"
              } = attrs
 
       refute Map.has_key?(attrs, "parent_span_id")
@@ -61,26 +61,26 @@ defmodule Jido.Signal.Ext.TraceTest do
 
     test "serializes full data to CloudEvents attributes" do
       data = %{
-        trace_id: "trace-123",
-        span_id: "span-456",
-        parent_span_id: "parent-789",
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        span_id: "00f067aa0ba902b7",
+        parent_span_id: "parent0123456789",
         causation_id: "signal-abc"
       }
 
       attrs = Trace.to_attrs(data)
 
       assert %{
-               "trace_id" => "trace-123",
-               "span_id" => "span-456",
-               "parent_span_id" => "parent-789",
+               "trace_id" => "4bf92f3577b34da6a3ce929d0e0e4736",
+               "span_id" => "00f067aa0ba902b7",
+               "parent_span_id" => "parent0123456789",
                "causation_id" => "signal-abc"
              } = attrs
     end
 
     test "omits nil optional fields" do
       data = %{
-        trace_id: "trace-123",
-        span_id: "span-456",
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        span_id: "00f067aa0ba902b7",
         parent_span_id: nil,
         causation_id: "signal-abc"
       }
@@ -88,17 +88,81 @@ defmodule Jido.Signal.Ext.TraceTest do
       attrs = Trace.to_attrs(data)
 
       assert %{
-               "trace_id" => "trace-123",
-               "span_id" => "span-456",
+               "trace_id" => "4bf92f3577b34da6a3ce929d0e0e4736",
+               "span_id" => "00f067aa0ba902b7",
                "causation_id" => "signal-abc"
              } = attrs
 
       refute Map.has_key?(attrs, "parent_span_id")
     end
+
+    test "includes W3C traceparent header" do
+      data = %{
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        span_id: "00f067aa0ba902b7"
+      }
+
+      attrs = Trace.to_attrs(data)
+
+      assert attrs["traceparent"] == "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    end
+
+    test "includes tracestate when present" do
+      data = %{
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        span_id: "00f067aa0ba902b7",
+        tracestate: "vendor1=value1,vendor2=value2"
+      }
+
+      attrs = Trace.to_attrs(data)
+
+      assert attrs["tracestate"] == "vendor1=value1,vendor2=value2"
+    end
   end
 
   describe "CloudEvents deserialization" do
-    test "deserializes minimal CloudEvents attributes" do
+    test "deserializes from W3C traceparent" do
+      attrs = %{
+        "traceparent" => "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+      }
+
+      data = Trace.from_attrs(attrs)
+
+      assert data.trace_id == "4bf92f3577b34da6a3ce929d0e0e4736"
+      assert data.span_id == "00f067aa0ba902b7"
+    end
+
+    test "deserializes traceparent with additional fields" do
+      attrs = %{
+        "traceparent" => "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        "tracestate" => "vendor=value",
+        "parent_span_id" => "abcdef0123456789",
+        "causation_id" => "signal-123"
+      }
+
+      data = Trace.from_attrs(attrs)
+
+      assert data.trace_id == "4bf92f3577b34da6a3ce929d0e0e4736"
+      assert data.span_id == "00f067aa0ba902b7"
+      assert data.tracestate == "vendor=value"
+      assert data.parent_span_id == "abcdef0123456789"
+      assert data.causation_id == "signal-123"
+    end
+
+    test "falls back to legacy attrs when traceparent is invalid" do
+      attrs = %{
+        "traceparent" => "invalid",
+        "trace_id" => "fallback1234567890123456789012",
+        "span_id" => "fallback12345678"
+      }
+
+      data = Trace.from_attrs(attrs)
+
+      assert data.trace_id == "fallback1234567890123456789012"
+      assert data.span_id == "fallback12345678"
+    end
+
+    test "deserializes minimal CloudEvents attributes (legacy)" do
       attrs = %{
         "trace_id" => "trace-123",
         "span_id" => "span-456"
@@ -111,7 +175,7 @@ defmodule Jido.Signal.Ext.TraceTest do
       refute Map.has_key?(data, :causation_id)
     end
 
-    test "deserializes full CloudEvents attributes" do
+    test "deserializes full CloudEvents attributes (legacy)" do
       attrs = %{
         "trace_id" => "trace-123",
         "span_id" => "span-456",
@@ -129,7 +193,7 @@ defmodule Jido.Signal.Ext.TraceTest do
              } = data
     end
 
-    test "returns nil when no trace_id present" do
+    test "returns nil when no trace_id or traceparent present" do
       attrs = %{
         "span_id" => "span-456",
         "other" => "data"
