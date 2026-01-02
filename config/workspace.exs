@@ -50,9 +50,18 @@ config :jido_workspace,
     %{
       name: "jido_ai",
       upstream_url: "git@github.com:agentjido/jido_ai.git",
-      branch: "main",
+      branch: "v2",
       type: :library,
       path: "projects/jido_ai"
+    },
+    # Read-only reference to Jido AI v1 (main branch) for comparison
+    %{
+      name: "jido_ai_v1",
+      upstream_url: "git@github.com:agentjido/jido_ai.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_ai_v1",
+      read_only: true
     },
     # EXPERIMENTAL - LLM evaluation framework
     %{
