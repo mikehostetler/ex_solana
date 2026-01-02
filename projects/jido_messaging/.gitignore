@@ -1,0 +1,35 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where third-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you have dependencies in :git
+/.fetch
+
+# If the VM crashes, it generates a crash dump.
+erl_crash.dump
+
+# If your CSV files end up in the `priv` directory.
+/priv/csv.csv
+
+# Ignore dialyzer PLT cache
+/priv/plts/
+
+*.plt
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# IDE
+.elixir_ls/
+.vscode/
+
+# OS
+.DS_Store
