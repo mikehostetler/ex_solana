@@ -1,9 +1,14 @@
 defmodule Jido.AgentServer.State do
-  @moduledoc false
-  # Internal state for AgentServer GenServer.
-  #
-  # This struct holds all runtime state for an agent instance including
-  # the agent itself, directive queue, hierarchy tracking, and configuration.
+  @moduledoc """
+  Internal state for AgentServer GenServer.
+
+  > #### Internal Module {: .warning}
+  > This module is internal to the AgentServer implementation. Its API may
+  > change without notice. Use `Jido.AgentServer.state/1` to retrieve state.
+
+  This struct holds all runtime state for an agent instance including
+  the agent itself, directive queue, hierarchy tracking, and configuration.
+  """
 
   alias Jido.AgentServer.{ChildInfo, Options}
 

@@ -1,8 +1,13 @@
 defmodule Jido.AgentServer.ChildInfo do
-  @moduledoc false
-  # Information about a child agent in the logical hierarchy.
-  #
-  # Used for parent agents to track spawned children.
+  @moduledoc """
+  Information about a child agent in the logical hierarchy.
+
+  > #### Internal Module {: .warning}
+  > This module is internal to the AgentServer implementation. Its API may
+  > change without notice.
+
+  Used for parent agents to track spawned children.
+  """
 
   @schema Zoi.struct(
             __MODULE__,

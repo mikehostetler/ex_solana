@@ -20,7 +20,7 @@ defprotocol Jido.AgentServer.DirectiveExec do
   - **Hooks don't run** - `on_after_cmd/3` and similar callbacks will NOT be invoked
   - **State may be incomplete** - External pollers may see partial state or get `:noproc`
 
-  ### When to use {:stop, ...}
+  ### When to use `{:stop, ...}`
 
   Reserved for **abnormal or framework-level termination only**:
 
@@ -28,7 +28,7 @@ defprotocol Jido.AgentServer.DirectiveExec do
   - Framework decisions (e.g., `on_parent_death: :stop`)
   - Explicit shutdown requests (with reason like `:shutdown`)
 
-  ### Do NOT use {:stop, ...} for normal completion
+  ### Do NOT use `{:stop, ...}` for normal completion
 
   For agents that complete their work (e.g., ReAct finishing a conversation):
 

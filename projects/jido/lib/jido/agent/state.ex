@@ -1,7 +1,13 @@
 defmodule Jido.Agent.State do
-  @moduledoc false
-  # Internal helper module for agent state management.
-  # Handles deep merging and validation of agent state.
+  @moduledoc """
+  Internal helper module for agent state management.
+
+  > #### Internal Module {: .warning}
+  > This module is internal to the Agent implementation. Its API may
+  > change without notice.
+
+  Handles deep merging and validation of agent state.
+  """
 
   alias Jido.Action.Schema
 

@@ -123,7 +123,7 @@ defmodule Jido.Skill do
   @callback skill_spec(config :: map()) :: Spec.t()
 
   @doc """
-  Called when the skill is mounted to an agent during `Agent.new/1`.
+  Called when the skill is mounted to an agent during `new/1`.
 
   Use this to initialize skill-specific state beyond schema defaults.
   This is a pure function - no side effects allowed.

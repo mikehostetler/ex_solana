@@ -71,111 +71,55 @@ defmodule Jido.MixProject do
       authors: ["Mike Hostetler <mike.hostetler@gmail.com>"],
       groups_for_extras: [
         "Start Here": [
-          "guides/getting-started.livemd"
+          "guides/getting-started.livemd",
+          "guides/core-concepts.md"
         ],
-        "About Jido": [
-          "guides/about/what-is-jido.md",
-          "guides/about/design-principles.md",
-          "guides/about/do-you-need-an-agent.md",
-          "guides/about/where-is-the-AI.md",
-          "guides/about/alternatives.md",
+        Guides: [
+          "guides/agents.md",
+          "guides/skills.md",
+          "guides/directives.md",
+          "guides/strategies.md",
+          "guides/runtime.md",
+          "guides/testing.md"
+        ],
+        "Deep Dives": [
+          "guides/fsm-strategy.livemd"
+        ],
+        Migration: [
+          "guides/migration.md"
+        ],
+        Project: [
           "CONTRIBUTING.md",
           "CHANGELOG.md",
           "LICENSE"
-        ],
-        Examples: [
-          "guides/examples/your-first-agent.livemd",
-          "guides/examples/tool-use.livemd",
-          "guides/examples/chain-of-thought.livemd",
-          "guides/examples/think-plan-act.livemd",
-          "guides/examples/multi-agent.livemd"
-        ],
-        Actions: [
-          "guides/actions/overview.md",
-          "guides/actions/workflows.md",
-          "guides/actions/instructions.md",
-          "guides/actions/directives.md",
-          "guides/actions/actions-as-tools.md",
-          "guides/actions/testing.md"
-        ],
-        Sensors: [
-          "guides/sensors/overview.md",
-          "guides/sensors/cron-heartbeat.md"
-        ],
-        Agents: [
-          "guides/agents/overview.md",
-          "guides/agents/stateless.md",
-          "guides/agents/stateful.md",
-          "guides/agents/directives.md",
-          "guides/agents/runtime.md",
-          "guides/agents/output.md",
-          "guides/agents/routing.md",
-          "guides/agents/sensors.md",
-          "guides/agents/callbacks.md",
-          "guides/agents/child-processes.md"
-        ],
-        Development: [
-          "guides/debugging.livemd"
-        ],
-        Skills: [
-          "guides/skills/overview.md",
-          "guides/skills/testing.md"
         ]
       ],
       extras: [
         # Home & Project
         {"README.md", title: "Home"},
 
-        # Getting Started Section
+        # Start Here
         {"guides/getting-started.livemd", title: "Quick Start"},
+        {"guides/core-concepts.md", title: "Core Concepts"},
 
-        # About Jido
-        {"guides/about/what-is-jido.md", title: "What is Jido?"},
-        {"guides/about/design-principles.md", title: "Design Principles"},
-        {"guides/about/do-you-need-an-agent.md", title: "Do You Need an Agent?"},
-        {"guides/about/where-is-the-AI.md", title: "Where is the AI?"},
-        {"guides/about/alternatives.md", title: "Alternatives"},
+        # Guides
+        {"guides/agents.md", title: "Agents"},
+        {"guides/skills.md", title: "Skills"},
+        {"guides/directives.md", title: "Directives"},
+        {"guides/strategies.md", title: "Strategies"},
+        {"guides/runtime.md", title: "Runtime"},
+        {"guides/testing.md", title: "Testing"},
+
+        # Deep Dives
+        {"guides/fsm-strategy.livemd", title: "FSM Strategy Deep Dive"},
+
+        # Migration
+        {"guides/migration.md", title: "Migrating from 1.x"},
+
+        # Project
         {"CONTRIBUTING.md", title: "Contributing"},
         {"CHANGELOG.md", title: "Changelog"},
-        {"LICENSE", title: "Apache 2.0 License"},
-
-        # Examples
-        {"guides/examples/hello-world.livemd", title: "Hello World"},
-        {"guides/examples/tool-use.livemd", title: "Agents with Tools"},
-        {"guides/examples/think-plan-act.livemd", title: "Think-Plan-Act"},
-        {"guides/examples/chain-of-thought.livemd", title: "Chain of Thought"},
-        {"guides/examples/multi-agent.livemd", title: "Multi-Agent Systems"},
-
-        # Actions
-        {"guides/actions/overview.md", title: "Overview"},
-        {"guides/actions/workflows.md", title: "Executing Actions"},
-        {"guides/actions/instructions.md", title: "Instructions"},
-        {"guides/actions/directives.md", title: "Directives"},
-        {"guides/actions/actions-as-tools.md", title: "Actions as LLM Tools"},
-        {"guides/actions/testing.md", title: "Testing"},
-
-        # Sensors
-        {"guides/sensors/overview.md", title: "Overview"},
-        {"guides/sensors/cron-heartbeat.md", title: "Cron & Heartbeat"},
-
-        # Agents
-        {"guides/agents/overview.md", title: "Overview"},
-        {"guides/agents/stateless.md", title: "Stateless Agents"},
-        {"guides/agents/stateful.md", title: "Stateful Agents"},
-        {"guides/agents/directives.md", title: "Directives"},
-        {"guides/agents/runtime.md", title: "Runtime"},
-        {"guides/agents/output.md", title: "Output"},
-        {"guides/agents/routing.md", title: "Routing"},
-        {"guides/agents/sensors.md", title: "Sensors"},
-        {"guides/agents/callbacks.md", title: "Callbacks"},
-        {"guides/agents/child-processes.md", title: "Child Processes"},
-
-        # Development
-        {"guides/debugging.livemd", title: "Debugging Agents"},
-
-        # Skills
-        {"guides/skills/overview.md", title: "Overview"},
-        {"guides/skills/testing.md", title: "Testing Skills"}
+        {"LICENSE", title: "Apache 2.0 License"}
       ],
       extra_section: "Guides",
       formatters: ["html"],
@@ -260,6 +204,7 @@ defmodule Jido.MixProject do
       {:proper_case, "~> 1.3"},
       {:splode, "~> 0.2.5"},
       {:telemetry, "~> 1.3"},
+      {:poolboy, "~> 1.5"},
       {:telemetry_metrics, "~> 1.1"},
       {:typed_struct, "~> 0.3.0"},
       {:typed_struct_nimble_options, "~> 0.1.1"},

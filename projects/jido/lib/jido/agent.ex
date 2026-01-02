@@ -121,7 +121,7 @@ defmodule Jido.Agent do
      })
      ```
 
-  Both are handled transparently by `Jido.Agent.State` via `Jido.Action.Schema`.
+  Both are handled transparently by the Agent module.
 
   ## Pure Functional Design
 

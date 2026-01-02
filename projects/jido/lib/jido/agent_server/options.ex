@@ -1,9 +1,14 @@
 defmodule Jido.AgentServer.Options do
-  @moduledoc false
-  # Options for starting an AgentServer.
-  #
-  # Validates and normalizes startup options including agent configuration,
-  # hierarchy settings, error policies, and dispatch configuration.
+  @moduledoc """
+  Options for starting an AgentServer.
+
+  > #### Internal Module {: .warning}
+  > This module is internal to the AgentServer implementation. Its API may
+  > change without notice.
+
+  Validates and normalizes startup options including agent configuration,
+  hierarchy settings, error policies, and dispatch configuration.
+  """
 
   alias Jido.AgentServer.ParentRef
 
