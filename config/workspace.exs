@@ -164,8 +164,15 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/jido_code"
+    },
+    %{
+      name: "jido_messaging",
+      upstream_url: "git@github.com:epic-creative/jido_messaging.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_messaging"
     }
-  ],
+    ],
   hex_packages: [
     # Core packages - publish together as version train
     %{
