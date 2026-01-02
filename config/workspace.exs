@@ -224,5 +224,12 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/github-actions"
+    },
+    %{
+      name: "karo",
+      upstream_url: "git@github.com:epic-creative/karo.git",
+      branch: "main",
+      type: :library,
+      path: "projects/karo"
     }
   ]
