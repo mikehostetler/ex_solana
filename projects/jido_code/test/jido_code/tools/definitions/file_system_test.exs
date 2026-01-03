@@ -23,15 +23,18 @@ defmodule JidoCode.Tools.Definitions.FileSystemTest do
   end
 
   describe "all/0" do
-    test "returns all 7 file system tools" do
+    test "returns all 10 file system tools" do
       tools = Definitions.all()
-      assert length(tools) == 7
+      assert length(tools) == 10
 
       names = Enum.map(tools, & &1.name)
       assert "read_file" in names
       assert "write_file" in names
       assert "edit_file" in names
+      assert "multi_edit_file" in names
+      assert "list_dir" in names
       assert "list_directory" in names
+      assert "glob_search" in names
       assert "file_info" in names
       assert "create_directory" in names
       assert "delete_file" in names
@@ -39,15 +42,25 @@ defmodule JidoCode.Tools.Definitions.FileSystemTest do
   end
 
   describe "tool definitions" do
-    test "read_file has correct schema" do
+    test "read_file has correct schema with offset and limit" do
       tool = Definitions.read_file()
       assert tool.name == "read_file"
       assert tool.description =~ "Read"
-      assert length(tool.parameters) == 1
+      assert length(tool.parameters) == 3
 
       path_param = Enum.find(tool.parameters, &(&1.name == "path"))
       assert path_param.type == :string
       assert path_param.required == true
+
+      offset_param = Enum.find(tool.parameters, &(&1.name == "offset"))
+      assert offset_param.type == :integer
+      assert offset_param.required == false
+      assert offset_param.default == 1
+
+      limit_param = Enum.find(tool.parameters, &(&1.name == "limit"))
+      assert limit_param.type == :integer
+      assert limit_param.required == false
+      assert limit_param.default == 2000
     end
 
     test "write_file has correct schema" do

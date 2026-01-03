@@ -182,7 +182,7 @@ defmodule JidoCode.Integration.SessionPhase2Test do
       assert lua_call.result == [3.0]
     end
 
-    test "session restart -> Manager and State both restart with correct context",
+    test "session restart -> Manager restarts with correct context, State preserved",
          %{tmp_base: tmp_base} do
       path = create_test_dir(tmp_base, "restart_both")
 
@@ -202,26 +202,29 @@ defmodule JidoCode.Integration.SessionPhase2Test do
 
       {:ok, _state} = Session.State.append_message(session.id, message)
 
-      # Kill Manager to trigger restart (one_for_all strategy)
+      # Kill Manager to trigger restart (one_for_one strategy - only Manager restarts)
       Process.exit(original_manager, :kill)
       Process.sleep(100)
 
-      # Verify new processes started
+      # Verify manager restarted with new pid
       {:ok, new_manager} = Session.Supervisor.get_manager(session.id)
       {:ok, new_state} = Session.Supervisor.get_state(session.id)
 
+      # Manager should be different (restarted)
       assert new_manager != original_manager
-      assert new_state != original_state
+      # State should be same (not restarted with :one_for_one)
+      assert new_state == original_state
       assert Process.alive?(new_manager)
       assert Process.alive?(new_state)
 
       # Verify Manager still has correct project_root
       assert {:ok, ^path} = Session.Manager.project_root(session.id)
 
-      # Note: State is reset after restart (messages lost)
-      # This is expected behavior for :one_for_all strategy
+      # State is preserved with :one_for_one strategy (messages kept)
       {:ok, state} = Session.State.get_state(session.id)
       assert state.session_id == session.id
+      # Messages should still be there
+      assert length(state.messages) >= 1
     end
 
     test "HandlerHelpers.get_project_root uses session context", %{tmp_base: tmp_base} do

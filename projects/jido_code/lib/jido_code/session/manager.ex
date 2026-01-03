@@ -68,6 +68,7 @@ defmodule JidoCode.Session.Manager do
   alias JidoCode.Session
   alias JidoCode.Session.ProcessRegistry
   alias JidoCode.Tools.Bridge
+  alias JidoCode.Tools.LuaUtils
   alias JidoCode.Tools.Security
 
   @typedoc """
@@ -192,27 +193,36 @@ defmodule JidoCode.Session.Manager do
   @doc """
   Reads a file within the session's project boundary.
 
-  Uses atomic read with TOCTOU protection via `Security.atomic_read/3`.
+  Uses the Lua sandbox to execute `jido.read_file(path, opts)` which provides:
+  - TOCTOU-safe reading via `Security.atomic_read/3`
+  - Line-numbered output formatting (cat -n style)
+  - Offset/limit pagination for large files
+  - Binary file detection and rejection
+  - Long line truncation at 2000 characters
 
   ## Parameters
 
   - `session_id` - The session identifier
   - `path` - The path to read (relative or absolute)
+  - `opts` - Optional keyword list:
+    - `:offset` - Line number to start from (1-indexed, default: 1)
+    - `:limit` - Maximum lines to read (default: 2000)
 
   ## Returns
 
-  - `{:ok, content}` - File contents as binary
+  - `{:ok, content}` - Line-numbered file contents
   - `{:error, :not_found}` - Session manager not found
   - `{:error, reason}` - Read failed (path validation or file error)
 
   ## Examples
 
       iex> {:ok, content} = Manager.read_file("session_123", "src/file.ex")
+      iex> {:ok, content} = Manager.read_file("session_123", "src/file.ex", offset: 10, limit: 50)
   """
-  @spec read_file(String.t(), String.t()) ::
+  @spec read_file(String.t(), String.t(), keyword()) ::
           {:ok, binary()} | {:error, :not_found | atom()}
-  def read_file(session_id, path) do
-    call_manager(session_id, {:read_file, path})
+  def read_file(session_id, path, opts \\ []) do
+    call_manager(session_id, {:read_file, path, opts})
   end
 
   @doc """
@@ -369,10 +379,27 @@ defmodule JidoCode.Session.Manager do
     {:reply, result, state}
   end
 
+  # Backward compatibility: 2-tuple format without options
   @impl true
   def handle_call({:read_file, path}, _from, state) do
-    result = Security.atomic_read(path, state.project_root, log_violations: true)
-    {:reply, result, state}
+    handle_call({:read_file, path, []}, {:read_file, path}, state)
+  end
+
+  # New format with options - routes through Lua sandbox
+  # Updates Lua state after successful execution
+  @impl true
+  def handle_call({:read_file, path, opts}, _from, state) do
+    case call_lua_read_file(path, opts, state.lua_state) do
+      {:ok, result, new_lua_state} ->
+        {:reply, {:ok, result}, %{state | lua_state: new_lua_state}}
+
+      {:ok, result} ->
+        # Fallback for backward compatibility
+        {:reply, {:ok, result}, state}
+
+      {:error, _} = error ->
+        {:reply, error, state}
+    end
   end
 
   @impl true
@@ -431,6 +458,56 @@ defmodule JidoCode.Session.Manager do
     case ProcessRegistry.lookup(:manager, session_id) do
       {:ok, pid} -> GenServer.call(pid, message, timeout)
       {:error, :not_found} -> {:error, :not_found}
+    end
+  end
+
+  # Calls jido.read_file(path, opts) through the Lua sandbox
+  # Returns {:ok, result, new_state} or {:error, reason}
+  defp call_lua_read_file(path, opts, lua_state) do
+    # Build Lua options table from keyword list
+    lua_opts = build_lua_opts(opts)
+
+    # Build and execute Lua script using LuaUtils for escaping
+    escaped_path = LuaUtils.escape_string(path)
+    script = "return jido.read_file(\"#{escaped_path}\"#{lua_opts})"
+
+    case :luerl.do(script, lua_state) do
+      {:ok, [nil, error_msg], _state} when is_binary(error_msg) ->
+        {:error, error_msg}
+
+      {:ok, [result], new_state} ->
+        {:ok, result, new_state}
+
+      {:ok, [], new_state} ->
+        {:ok, "", new_state}
+
+      {:error, reason, _state} ->
+        {:error, ErrorFormatter.format(reason)}
+    end
+  rescue
+    e ->
+      {:error, Exception.message(e)}
+  catch
+    kind, reason ->
+      {:error, "#{kind}: #{inspect(reason)}"}
+  end
+
+  # Build Lua table string from keyword options
+  # Uses Lua key-value syntax: {offset = 3, limit = 100}
+  # This decodes to [{"offset", 3}, {"limit", 100}] in luerl
+  defp build_lua_opts([]), do: ""
+
+  defp build_lua_opts(opts) do
+    items =
+      opts
+      |> Keyword.take([:offset, :limit])
+      |> Enum.map(fn {k, v} -> "#{k} = #{v}" end)
+      |> Enum.join(", ")
+
+    if items == "" do
+      ""
+    else
+      ", {#{items}}"
     end
   end
 

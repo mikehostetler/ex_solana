@@ -636,4 +636,126 @@ defmodule JidoCode.Session.StateTest do
       assert {:error, :not_found} = State.add_tool_call("unknown-session-id", tool_call)
     end
   end
+
+  describe "prompt_history" do
+    test "initializes with empty prompt_history list", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      state = :sys.get_state(pid)
+      assert state.prompt_history == []
+
+      GenServer.stop(pid)
+    end
+
+    test "get_prompt_history/1 returns empty list for new session", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      assert {:ok, history} = State.get_prompt_history(session.id)
+      assert history == []
+
+      GenServer.stop(pid)
+    end
+
+    test "get_prompt_history/1 returns :not_found for unknown session" do
+      assert {:error, :not_found} = State.get_prompt_history("unknown-session-id")
+    end
+
+    test "add_to_prompt_history/2 adds prompt to history", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      assert {:ok, history} = State.add_to_prompt_history(session.id, "Hello world")
+      assert history == ["Hello world"]
+
+      GenServer.stop(pid)
+    end
+
+    test "add_to_prompt_history/2 prepends new prompts (newest first)", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      {:ok, _} = State.add_to_prompt_history(session.id, "First")
+      {:ok, _} = State.add_to_prompt_history(session.id, "Second")
+      {:ok, history} = State.add_to_prompt_history(session.id, "Third")
+
+      assert history == ["Third", "Second", "First"]
+
+      GenServer.stop(pid)
+    end
+
+    test "add_to_prompt_history/2 ignores empty prompts", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      {:ok, _} = State.add_to_prompt_history(session.id, "Hello")
+      {:ok, history} = State.add_to_prompt_history(session.id, "")
+      assert history == ["Hello"]
+
+      {:ok, history} = State.add_to_prompt_history(session.id, "   ")
+      assert history == ["Hello"]
+
+      GenServer.stop(pid)
+    end
+
+    test "add_to_prompt_history/2 enforces max history limit", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      # Add more than max (100) prompts
+      for i <- 1..110 do
+        State.add_to_prompt_history(session.id, "Prompt #{i}")
+      end
+
+      {:ok, history} = State.get_prompt_history(session.id)
+
+      # Should be capped at 100
+      assert length(history) == 100
+      # Most recent should be first
+      assert hd(history) == "Prompt 110"
+      # Oldest should be Prompt 11 (first 10 were evicted)
+      assert List.last(history) == "Prompt 11"
+
+      GenServer.stop(pid)
+    end
+
+    test "add_to_prompt_history/2 returns :not_found for unknown session" do
+      assert {:error, :not_found} = State.add_to_prompt_history("unknown-session-id", "Hello")
+    end
+
+    test "set_prompt_history/2 sets entire history", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      history = ["Newest", "Middle", "Oldest"]
+      assert {:ok, ^history} = State.set_prompt_history(session.id, history)
+
+      assert {:ok, ^history} = State.get_prompt_history(session.id)
+
+      GenServer.stop(pid)
+    end
+
+    test "set_prompt_history/2 enforces max history limit", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, pid} = State.start_link(session: session)
+
+      # Create a history with more than 100 items
+      large_history = for i <- 1..150, do: "Prompt #{i}"
+
+      {:ok, history} = State.set_prompt_history(session.id, large_history)
+
+      # Should be capped at 100
+      assert length(history) == 100
+      # First 100 items should be preserved
+      assert hd(history) == "Prompt 1"
+      assert List.last(history) == "Prompt 100"
+
+      GenServer.stop(pid)
+    end
+
+    test "set_prompt_history/2 returns :not_found for unknown session" do
+      assert {:error, :not_found} = State.set_prompt_history("unknown-session-id", ["Hello"])
+    end
+  end
 end

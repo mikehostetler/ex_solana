@@ -258,17 +258,24 @@ defmodule JidoCode.Tools.Manager do
   @doc """
   Reads a file through the Lua sandbox.
 
-  The path is validated against the project boundary before reading.
+  Executes `jido.read_file(path, opts)` in the Lua sandbox which provides:
+  - TOCTOU-safe reading via `Security.atomic_read/3`
+  - Line-numbered output formatting (cat -n style)
+  - Offset/limit pagination for large files
+  - Binary file detection and rejection
+  - Long line truncation at 2000 characters
 
   ## Parameters
 
   - `path` - Path to the file (relative or absolute)
   - `opts` - Options:
-    - `:session_id` - When provided, delegates to `Session.Manager.read_file/2`
+    - `:session_id` - When provided, delegates to `Session.Manager.read_file/3`
+    - `:offset` - Line number to start from (1-indexed, default: 1)
+    - `:limit` - Maximum lines to read (default: 2000)
 
   ## Returns
 
-  - `{:ok, content}` - File contents as string
+  - `{:ok, content}` - Line-numbered file contents
   - `{:error, reason}` - Error message
   - `{:error, :not_found}` - Session manager not found (when using session_id)
 
@@ -276,19 +283,22 @@ defmodule JidoCode.Tools.Manager do
 
       # Session-aware (preferred)
       {:ok, content} = Manager.read_file("src/file.ex", session_id: "abc123")
+      {:ok, content} = Manager.read_file("src/file.ex", session_id: "abc123", offset: 10, limit: 50)
 
       # Global (deprecated)
       {:ok, content} = Manager.read_file("src/file.ex")
   """
   @spec read_file(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t() | :not_found}
   def read_file(path, opts \\ []) do
-    case Keyword.get(opts, :session_id) do
+    {session_id, read_opts} = Keyword.pop(opts, :session_id)
+
+    case session_id do
       nil ->
         warn_global_usage(:read_file)
-        GenServer.call(__MODULE__, {:sandbox_read_file, path})
+        GenServer.call(__MODULE__, {:sandbox_read_file, path, read_opts})
 
       session_id ->
-        Session.Manager.read_file(session_id, path)
+        Session.Manager.read_file(session_id, path, read_opts)
     end
   end
 
@@ -538,9 +548,20 @@ defmodule JidoCode.Tools.Manager do
   end
 
   # Sandbox file operations - call Bridge functions through Lua state
+
+  # Backward compatibility: 2-tuple format without options
   @impl true
   def handle_call({:sandbox_read_file, path}, _from, state) do
-    result = call_bridge_function(state.lua_state, "read_file", [path])
+    handle_call({:sandbox_read_file, path, []}, {:sandbox_read_file, path}, state)
+  end
+
+  # New format with options - passes options to Lua bridge
+  @impl true
+  def handle_call({:sandbox_read_file, path, opts}, _from, state) do
+    # Build Lua options table from keyword list
+    lua_opts = build_lua_read_opts(opts)
+    args = if lua_opts == [], do: [path], else: [path, lua_opts]
+    result = call_bridge_function(state.lua_state, "read_file", args)
     {:reply, result, state}
   end
 
@@ -634,6 +655,16 @@ defmodule JidoCode.Tools.Manager do
   # ============================================================================
   # Private Functions
   # ============================================================================
+
+  # Build Lua table format for read_file options
+  # Returns a list of tuples that luerl will encode as a table
+  defp build_lua_read_opts([]), do: []
+
+  defp build_lua_read_opts(opts) do
+    opts
+    |> Keyword.take([:offset, :limit])
+    |> Enum.map(fn {k, v} -> {Atom.to_string(k), v} end)
+  end
 
   # Parse ISO 8601 datetime string to erlang datetime tuple
   defp parse_mtime(nil), do: {{1970, 1, 1}, {0, 0, 0}}

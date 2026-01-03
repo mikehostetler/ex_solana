@@ -6,6 +6,15 @@ defmodule JidoCode.AgentSupervisorTest do
   alias JidoCode.TestAgent
 
   setup do
+    # Ensure AgentSupervisor is running (may have been stopped by another test)
+    case Process.whereis(AgentSupervisor) do
+      nil ->
+        {:ok, _} = AgentSupervisor.start_link([])
+
+      _pid ->
+        :ok
+    end
+
     # Ensure supervisor starts with no children
     for {_, pid, _, _} <- AgentSupervisor.which_children() do
       AgentSupervisor.stop_agent(pid)

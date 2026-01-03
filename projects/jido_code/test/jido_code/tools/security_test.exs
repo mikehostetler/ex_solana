@@ -323,6 +323,209 @@ defmodule JidoCode.Tools.SecurityTest do
     end
   end
 
+  describe "URL-encoded path traversal detection" do
+    test "blocks standard URL-encoded path traversal (%2e%2e%2f)" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path("%2e%2e%2f/etc/passwd", @test_root, log_violations: false)
+    end
+
+    test "blocks partial URL-encoded traversal (..%2f)" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path("..%2f..%2f/etc/passwd", @test_root, log_violations: false)
+    end
+
+    test "blocks mixed case URL-encoded traversal (%2E%2E%2F)" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path("%2E%2E%2F/etc/passwd", @test_root, log_violations: false)
+    end
+
+    test "blocks double URL-encoded traversal (%252e%252e%252f)" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path(
+                 "%252e%252e%252f/etc/passwd",
+                 @test_root,
+                 log_violations: false
+               )
+    end
+
+    test "blocks URL-encoded backslash traversal (..%5c)" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path("..%5c..%5c/etc/passwd", @test_root, log_violations: false)
+    end
+
+    test "blocks URL-encoded traversal embedded in valid path" do
+      assert {:error, :path_escapes_boundary} =
+               Security.validate_path("src/%2e%2e%2fsecret", @test_root, log_violations: false)
+    end
+
+    test "allows paths that look similar but are not traversal patterns" do
+      # %2d = hyphen, not a path separator
+      assert {:ok, _} =
+               Security.validate_path("file%2dname.txt", @test_root, log_violations: false)
+    end
+  end
+
+  describe "Unicode and special character paths" do
+    setup do
+      # Create files with Unicode names for testing
+      unicode_dir = Path.join(@test_root, "unicode_files")
+      File.mkdir_p!(unicode_dir)
+
+      # Create files with various special names
+      File.write!(Path.join(unicode_dir, "日本語.txt"), "japanese content")
+      File.write!(Path.join(unicode_dir, "émoji_📁.txt"), "emoji content")
+      File.write!(Path.join(unicode_dir, "spaces and tabs.txt"), "whitespace")
+      File.write!(Path.join(unicode_dir, "special!@#$%^&().txt"), "special chars")
+
+      on_exit(fn ->
+        File.rm_rf!(unicode_dir)
+      end)
+
+      {:ok, unicode_dir: unicode_dir}
+    end
+
+    test "accepts paths with Japanese characters", %{unicode_dir: unicode_dir} do
+      path = Path.join(unicode_dir, "日本語.txt")
+      relative_path = Path.relative_to(path, @test_root)
+
+      assert {:ok, resolved} =
+               Security.validate_path(relative_path, @test_root, log_violations: false)
+
+      assert resolved == path
+    end
+
+    test "accepts paths with emoji characters", %{unicode_dir: unicode_dir} do
+      path = Path.join(unicode_dir, "émoji_📁.txt")
+      relative_path = Path.relative_to(path, @test_root)
+
+      assert {:ok, resolved} =
+               Security.validate_path(relative_path, @test_root, log_violations: false)
+
+      assert resolved == path
+    end
+
+    test "accepts paths with spaces and special characters", %{unicode_dir: unicode_dir} do
+      path = Path.join(unicode_dir, "spaces and tabs.txt")
+      relative_path = Path.relative_to(path, @test_root)
+
+      assert {:ok, resolved} =
+               Security.validate_path(relative_path, @test_root, log_violations: false)
+
+      assert resolved == path
+    end
+
+    test "accepts paths with shell special characters", %{unicode_dir: unicode_dir} do
+      path = Path.join(unicode_dir, "special!@#$%^&().txt")
+      relative_path = Path.relative_to(path, @test_root)
+
+      assert {:ok, resolved} =
+               Security.validate_path(relative_path, @test_root, log_violations: false)
+
+      assert resolved == path
+    end
+
+    test "atomic_read works with Unicode filenames", %{unicode_dir: unicode_dir} do
+      relative_path =
+        Path.join(Path.relative_to(unicode_dir, @test_root), "日本語.txt")
+
+      assert {:ok, "japanese content"} =
+               Security.atomic_read(relative_path, @test_root, log_violations: false)
+    end
+
+    test "atomic_write works with Unicode filenames", %{unicode_dir: unicode_dir} do
+      new_file = Path.join(Path.relative_to(unicode_dir, @test_root), "新規ファイル.txt")
+      content = "new unicode content"
+
+      assert :ok = Security.atomic_write(new_file, content, @test_root, log_violations: false)
+
+      # Verify content was written
+      full_path = Path.join(@test_root, new_file)
+      assert File.read!(full_path) == content
+    end
+  end
+
+  describe "advanced symlink scenarios" do
+    setup do
+      symlink_dir = Path.join(@test_root, "symlink_test")
+      File.mkdir_p!(symlink_dir)
+
+      # Create a regular file
+      File.write!(Path.join(symlink_dir, "target.txt"), "target content")
+
+      # Create a directory with files
+      nested_dir = Path.join(symlink_dir, "nested")
+      File.mkdir_p!(nested_dir)
+      File.write!(Path.join(nested_dir, "nested_file.txt"), "nested content")
+
+      on_exit(fn ->
+        File.rm_rf!(symlink_dir)
+      end)
+
+      {:ok, symlink_dir: symlink_dir, nested_dir: nested_dir}
+    end
+
+    test "rejects symlink loop", %{symlink_dir: symlink_dir} do
+      # Create symlink loop: a -> b -> a
+      link_a = Path.join(symlink_dir, "loop_a")
+      link_b = Path.join(symlink_dir, "loop_b")
+
+      File.rm(link_a)
+      File.rm(link_b)
+
+      # Create circular symlinks (order matters)
+      File.ln_s(link_b, link_a)
+      File.ln_s(link_a, link_b)
+
+      # Should detect loop and return error
+      result = Security.validate_path(link_a, @test_root, log_violations: false)
+
+      assert {:error, :invalid_path} = result
+    end
+
+    test "accepts symlink to directory within boundary", %{
+      symlink_dir: symlink_dir,
+      nested_dir: nested_dir
+    } do
+      dir_link = Path.join(symlink_dir, "dir_link")
+      File.rm(dir_link)
+      File.ln_s(nested_dir, dir_link)
+
+      assert {:ok, _} = Security.validate_path(dir_link, @test_root, log_violations: false)
+    end
+
+    test "accepts relative symlink within boundary", %{symlink_dir: symlink_dir} do
+      relative_link = Path.join(symlink_dir, "relative_link")
+      File.rm(relative_link)
+
+      # Create relative symlink to sibling file
+      File.ln_s("target.txt", relative_link)
+
+      assert {:ok, resolved} =
+               Security.validate_path(relative_link, @test_root, log_violations: false)
+
+      # Verify symlink was followed
+      assert File.exists?(resolved)
+    end
+
+    test "rejects symlink chain that eventually escapes", %{symlink_dir: symlink_dir} do
+      # Create chain: link1 -> link2 -> /etc/hosts
+      link1 = Path.join(symlink_dir, "chain_escape_1")
+      link2 = Path.join(symlink_dir, "chain_escape_2")
+
+      File.rm(link1)
+      File.rm(link2)
+
+      # link2 points outside
+      File.ln_s("/etc/hosts", link2)
+      # link1 points to link2
+      File.ln_s(link2, link1)
+
+      # Should detect escape through chain
+      assert {:error, :symlink_escapes_boundary} =
+               Security.validate_path(link1, @test_root, log_violations: false)
+    end
+  end
+
   describe "atomic_read/3 - TOCTOU mitigation" do
     test "reads file within boundary" do
       assert {:ok, "test"} = Security.atomic_read("file.txt", @test_root, log_violations: false)

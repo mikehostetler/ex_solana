@@ -55,8 +55,8 @@ defmodule JidoCode.IntegrationTest do
       assert JidoCode.Settings.Cache in child_ids
       assert Phoenix.PubSub.Supervisor in child_ids
       assert JidoCode.AgentRegistry in child_ids
-      assert JidoCode.Tools.Registry in child_ids
       assert JidoCode.Tools.Manager in child_ids
+      assert JidoCode.RateLimit in child_ids
       assert JidoCode.AgentSupervisor in child_ids
     end
 

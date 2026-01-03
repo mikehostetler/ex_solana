@@ -1,0 +1,442 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+# Example Prompt Instances for JidoCode
+#################################################################
+
+#################################################################
+# Project Reference
+#################################################################
+
+jido:JidoCodeProject a jido:Project ;
+    jido:projectName "JidoCode" ;
+    jido:projectDescription "Agentic coding assistant built on the Jido framework." .
+
+#################################################################
+# Agent Authors
+#################################################################
+
+jido:PascalAuthor a jido:Agent ;
+    jido:agentName "Pascal" ;
+    jido:hasRole jido:Architect ;
+    jido:hasCapability jido:CanPlan, jido:CanWriteCode, jido:CanWriteMemory .
+
+jido:JidoCodeAgent a jido:Agent ;
+    jido:agentName "JidoCode Agent" ;
+    jido:agentDescription "Primary coding assistant agent." ;
+    jido:hasRole jido:Implementer, jido:Reviewer ;
+    jido:hasCapability jido:CanWriteCode, jido:CanReviewCode, jido:CanDebug .
+
+#################################################################
+# Prompt Collection
+#################################################################
+
+jido:JidoCodePromptLibrary a jido:PromptLibrary ;
+    rdfs:label "JidoCode Prompt Library" ;
+    rdfs:comment "Official prompt library for the JidoCode coding assistant." ;
+    jido:hasPromptMember jido:ElixirCredoReviewPrompt,
+                         jido:AshResourceGeneratorPrompt,
+                         jido:OTPSupervisorDesignPrompt,
+                         jido:ErrorHandlingFragment .
+
+#################################################################
+# EXAMPLE 1: Elixir Credo Code Review Prompt
+#################################################################
+
+jido:ElixirCredoReviewPrompt a jido:SystemPrompt ;
+    # Identity
+    jido:promptId "jc-credo-001" ;
+    jido:promptSlug "elixir-credo-review" ;
+    jido:promptName "Elixir Credo-Style Code Review" ;
+    jido:promptDescription "Comprehensive code review applying Credo-style analysis including consistency, readability, refactoring opportunities, and potential issues." ;
+    
+    # Content
+    jido:hasPromptContent jido:ElixirCredoReviewContent ;
+    
+    # Variables
+    jido:hasVariable jido:CodeVar, jido:ContextVar ;
+    
+    # Sections
+    jido:hasSection jido:CredoAnalysisSection, jido:CredoOutputSection ;
+    
+    # Multi-level categorization
+    jido:hasDomainCategory jido:CodeReviewDomain, jido:ElixirDevelopmentDomain ;
+    jido:hasTaskCategory jido:EvaluationTask ;
+    jido:hasTechniqueCategory jido:RolePlayTechnique, jido:ZeroShotTechnique ;
+    jido:hasComplexityCategory jido:IntermediateComplexity ;
+    jido:hasAudienceCategory jido:DeveloperAudience ;
+    
+    # Provenance (inherited from MemoryItem)
+    jido:assertedBy jido:PascalAuthor ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2024-12-29T10:00:00Z"^^xsd:dateTime ;
+    jido:appliesToProject jido:JidoCodeProject ;
+    
+    # Versioning
+    jido:currentPromptVersion jido:ElixirCredoReviewV1 ;
+    
+    # Agent integration
+    jido:usedByAgent jido:JidoCodeAgent ;
+    jido:definesAgentBehavior jido:JidoCodeAgent ;
+    
+    # Targeting
+    jido:targetLanguage "elixir" ;
+    jido:targetModel "claude-3-opus", "claude-3-sonnet" ;
+    jido:modelFamily "Claude" ;
+    jido:minContextLength 8000 ;
+    
+    # Tags
+    jido:hasPromptTag "elixir", "credo", "code-review", "static-analysis" ;
+    jido:hasPromptKeyword "code quality", "elixir review" ;
+    
+    # Collection
+    jido:inPromptCollection jido:JidoCodePromptLibrary .
+
+# Content instance
+jido:ElixirCredoReviewContent a jido:PromptContent ;
+    jido:hasContentFormat jido:MarkdownFormat ;
+    jido:contentText """# Elixir Code Review: Credo Analysis
+
+You are an expert Elixir code reviewer applying Credo-style analysis.
+Review the provided code with the same rigor as the Credo static analysis tool.
+
+## Analysis Categories
+
+### 1. Consistency
+- Module and function naming conventions
+- Indentation and formatting
+- Use of alias, import, use, require ordering
+
+### 2. Readability
+- Function and variable naming clarity
+- Documentation coverage (@moduledoc, @doc, @spec)
+- Code complexity (cyclomatic complexity, nesting depth)
+
+### 3. Refactoring Opportunities
+- Long functions that could be split
+- Repeated code patterns
+- Opportunities for pattern matching
+- Pipeline opportunities
+
+### 4. Warnings
+- Unused variables or imports
+- Deprecated function usage
+- Potential performance issues
+- Missing error handling
+
+### 5. Design Concerns
+- OTP pattern adherence
+- Separation of concerns
+- Public API surface
+
+## Code to Review
+
+```elixir
+{{code}}
+```
+
+## Context
+{{context}}
+
+## Output Format
+
+Provide your review as structured feedback:
+
+1. **Summary**: Overall assessment (1-2 sentences)
+2. **Critical Issues**: Must fix before merge
+3. **Warnings**: Should consider fixing
+4. **Suggestions**: Nice-to-have improvements
+5. **Positive Observations**: What's done well
+
+For each issue, include:
+- Line reference (if applicable)
+- Issue description
+- Suggested fix with code example
+""" .
+
+# Variable instances
+jido:CodeVar a jido:PromptVariable ;
+    jido:variableName "code" ;
+    jido:variableType "string" ;
+    jido:variableRequired true ;
+    jido:variableDescription "The Elixir code to review." .
+
+jido:ContextVar a jido:PromptVariable ;
+    jido:variableName "context" ;
+    jido:variableType "string" ;
+    jido:variableRequired false ;
+    jido:variableDefault "No additional context provided." ;
+    jido:variableDescription "Optional context about the code." .
+
+# Section instances
+jido:CredoAnalysisSection a jido:PromptSection ;
+    jido:sectionName "Analysis Categories" ;
+    jido:sectionOrder 1 .
+
+jido:CredoOutputSection a jido:PromptSection ;
+    jido:sectionName "Output Format" ;
+    jido:sectionOrder 2 .
+
+# Version instance
+jido:ElixirCredoReviewV1 a jido:PromptVersion ;
+    jido:versionNumber "1.0.0" ;
+    jido:majorVersion 1 ;
+    jido:minorVersion 0 ;
+    jido:patchVersion 0 ;
+    jido:versionOf jido:ElixirCredoReviewPrompt ;
+    jido:hasPromptStatus jido:PromptPublished ;
+    jido:changeLog "Initial release with Credo-style categories." .
+
+#################################################################
+# EXAMPLE 2: Ash Resource Generator Prompt
+#################################################################
+
+jido:AshResourceGeneratorPrompt a jido:SystemPrompt ;
+    jido:promptId "jc-ash-001" ;
+    jido:promptSlug "ash-resource-generator" ;
+    jido:promptName "Ash Framework Resource Generator" ;
+    jido:promptDescription "Generates Ash Framework resource definitions from natural language descriptions." ;
+    
+    jido:hasPromptContent [
+        a jido:PromptContent ;
+        jido:hasContentFormat jido:MarkdownFormat ;
+        jido:contentText """# Ash Framework Resource Generator
+
+You are an expert in the Ash Framework for Elixir. Generate well-structured
+Ash resources based on the provided requirements.
+
+## Guidelines
+
+1. **Resource Structure**: Use proper Ash DSL syntax with AshPostgres data layer
+2. **Relationships**: Use belongs_to, has_many, has_one appropriately
+3. **Actions**: Include CRUD actions with proper arguments and changes
+4. **Validations**: Add relevant validations and computed fields
+5. **Authorization**: Add basic policies if authorization is mentioned
+
+## Input
+{{input}}
+
+## Existing Schema (if provided)
+```elixir
+{{existing_schema}}
+```
+
+## Output
+
+Generate a complete Ash resource module with inline comments.
+"""
+    ] ;
+    
+    jido:hasVariable [
+        a jido:PromptVariable ;
+        jido:variableName "input" ;
+        jido:variableType "string" ;
+        jido:variableRequired true
+    ], [
+        a jido:PromptVariable ;
+        jido:variableName "existing_schema" ;
+        jido:variableType "string" ;
+        jido:variableRequired false ;
+        jido:variableDefault "# No existing schema"
+    ] ;
+    
+    jido:hasDomainCategory jido:CodeGenerationDomain, jido:AshFrameworkDomain ;
+    jido:hasTaskCategory jido:GenerationTask ;
+    jido:hasTechniqueCategory jido:ZeroShotTechnique ;
+    jido:hasComplexityCategory jido:AdvancedComplexity ;
+    jido:hasAudienceCategory jido:DeveloperAudience ;
+    
+    jido:assertedBy jido:PascalAuthor ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2024-12-29T11:00:00Z"^^xsd:dateTime ;
+    jido:appliesToProject jido:JidoCodeProject ;
+    
+    jido:currentPromptVersion [
+        a jido:PromptVersion ;
+        jido:versionNumber "1.0.0" ;
+        jido:versionOf jido:AshResourceGeneratorPrompt ;
+        jido:hasPromptStatus jido:PromptPublished
+    ] ;
+    
+    jido:targetLanguage "elixir" ;
+    jido:targetFramework "ash" ;
+    jido:hasPromptTag "ash", "resource", "generator", "elixir" ;
+    jido:inPromptCollection jido:JidoCodePromptLibrary .
+
+#################################################################
+# EXAMPLE 3: OTP Supervisor Design Prompt
+#################################################################
+
+jido:OTPSupervisorDesignPrompt a jido:SystemPrompt ;
+    jido:promptId "jc-otp-001" ;
+    jido:promptSlug "otp-supervisor-design" ;
+    jido:promptName "OTP Supervisor Tree Designer" ;
+    jido:promptDescription "Designs OTP supervision trees with proper restart strategies and process relationships." ;
+    
+    jido:hasPromptContent [
+        a jido:PromptContent ;
+        jido:hasContentFormat jido:MarkdownFormat ;
+        jido:contentText """# OTP Supervisor Tree Design
+
+You are an expert in OTP design patterns. Help design a supervision tree
+that ensures fault-tolerance and proper process organization.
+
+## Design Principles
+
+1. **Isolation**: Processes that can fail independently should be in separate subtrees
+2. **Restart Strategies**:
+   - :one_for_one - Only restart the failed child
+   - :one_for_all - Restart all children if one fails  
+   - :rest_for_one - Restart failed child and those started after it
+3. **Process Types**: :worker for GenServers, :supervisor for nested supervisors
+4. **Restart Values**: :permanent, :temporary, :transient
+
+## System Requirements
+{{requirements}}
+
+## Output
+
+1. **Supervision Tree Diagram** (ASCII art)
+2. **Rationale** for structure decisions
+3. **Module Code** for each supervisor
+4. **Failure Scenarios** and how the tree handles them
+"""
+    ] ;
+    
+    jido:hasVariable [
+        a jido:PromptVariable ;
+        jido:variableName "requirements" ;
+        jido:variableType "string" ;
+        jido:variableRequired true
+    ] ;
+    
+    jido:hasDomainCategory jido:OTPPatternsDomain, jido:SupervisorDomain ;
+    jido:hasTaskCategory jido:GenerationTask, jido:ReasoningTask ;
+    jido:hasTechniqueCategory jido:ChainOfThoughtTechnique ;
+    jido:hasComplexityCategory jido:AdvancedComplexity ;
+    jido:hasAudienceCategory jido:DeveloperAudience ;
+    
+    jido:assertedBy jido:PascalAuthor ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2024-12-29T12:00:00Z"^^xsd:dateTime ;
+    jido:appliesToProject jido:JidoCodeProject ;
+    
+    jido:currentPromptVersion [
+        a jido:PromptVersion ;
+        jido:versionNumber "1.0.0" ;
+        jido:versionOf jido:OTPSupervisorDesignPrompt ;
+        jido:hasPromptStatus jido:PromptPublished
+    ] ;
+    
+    jido:targetLanguage "elixir" ;
+    jido:targetFramework "otp" ;
+    jido:hasPromptTag "otp", "supervisor", "fault-tolerance", "design" ;
+    jido:inPromptCollection jido:JidoCodePromptLibrary .
+
+#################################################################
+# EXAMPLE 4: Reusable Prompt Fragment
+#################################################################
+
+jido:ErrorHandlingFragment a jido:PromptFragment ;
+    jido:promptId "jc-frag-error-001" ;
+    jido:promptName "Elixir Error Handling Instructions" ;
+    jido:promptDescription "Reusable fragment for Elixir error handling guidance." ;
+    
+    jido:hasPromptContent [
+        a jido:PromptContent ;
+        jido:hasContentFormat jido:MarkdownFormat ;
+        jido:contentText """## Error Handling Guidelines
+
+When generating Elixir code, follow these error handling conventions:
+
+1. **Tagged Tuples**: Use {:ok, result} and {:error, reason} consistently
+2. **With Statements**: Prefer `with` for chaining operations that may fail
+3. **Rescue Clauses**: Use sparingly, only for truly exceptional conditions
+4. **Custom Exceptions**: Define when domain-specific errors are needed
+5. **Let It Crash**: Rely on supervision for recovery, don't over-handle errors
+
+Example:
+```elixir
+with {:ok, user} <- find_user(id),
+     {:ok, order} <- create_order(user, params) do
+  {:ok, order}
+else
+  {:error, :user_not_found} -> {:error, "User not found"}
+  {:error, :insufficient_funds} -> {:error, "Insufficient funds"}
+end
+```
+"""
+    ] ;
+    
+    jido:fragmentPosition 3 ;
+    jido:hasDomainCategory jido:ElixirDevelopmentDomain ;
+    
+    jido:assertedBy jido:PascalAuthor ;
+    jido:hasConfidence jido:High ;
+    jido:hasTimestamp "2024-12-29T14:00:00Z"^^xsd:dateTime ;
+    jido:appliesToProject jido:JidoCodeProject ;
+    
+    jido:currentPromptVersion [
+        a jido:PromptVersion ;
+        jido:versionNumber "1.0.0" ;
+        jido:versionOf jido:ErrorHandlingFragment ;
+        jido:hasPromptStatus jido:PromptPublished
+    ] ;
+    
+    jido:hasPromptTag "elixir", "error-handling", "fragment" ;
+    jido:inPromptCollection jido:JidoCodePromptLibrary .
+
+#################################################################
+# EXAMPLE 5: Version Chain Demonstration
+#################################################################
+
+jido:ExampleVersionedPrompt a jido:UserPrompt ;
+    jido:promptId "jc-demo-versioning" ;
+    jido:promptName "Versioned Prompt Example" ;
+    jido:promptDescription "Demonstrates version chain with supersession." ;
+    
+    jido:hasPromptContent [
+        a jido:PromptContent ;
+        jido:hasContentFormat jido:MarkdownFormat ;
+        jido:contentText "Latest version content here."
+    ] ;
+    
+    jido:assertedBy jido:PascalAuthor ;
+    jido:hasConfidence jido:Medium ;
+    jido:hasTimestamp "2024-12-29T15:00:00Z"^^xsd:dateTime ;
+    jido:appliesToProject jido:JidoCodeProject ;
+    
+    # Version chain
+    jido:hasPromptVersion jido:ExampleV1, jido:ExampleV2, jido:ExampleV3 ;
+    jido:currentPromptVersion jido:ExampleV3 .
+
+jido:ExampleV1 a jido:PromptVersion ;
+    jido:versionNumber "1.0.0" ;
+    jido:versionOf jido:ExampleVersionedPrompt ;
+    jido:hasPromptStatus jido:PromptDeprecated ;
+    jido:changeLog "Initial release." .
+
+jido:ExampleV2 a jido:PromptVersion ;
+    jido:versionNumber "1.1.0" ;
+    jido:versionOf jido:ExampleVersionedPrompt ;
+    jido:previousPromptVersion jido:ExampleV1 ;
+    jido:hasPromptStatus jido:PromptDeprecated ;
+    jido:changeLog "Added structured output." .
+
+jido:ExampleV3 a jido:PromptVersion ;
+    jido:versionNumber "2.0.0" ;
+    jido:versionOf jido:ExampleVersionedPrompt ;
+    jido:previousPromptVersion jido:ExampleV2 ;
+    jido:hasPromptStatus jido:PromptPublished ;
+    jido:changeLog "Major rewrite with improved instructions." .
+
+#################################################################
+# End of Example Instances
+#################################################################
+

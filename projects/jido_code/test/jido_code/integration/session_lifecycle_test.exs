@@ -111,12 +111,13 @@ defmodule JidoCode.Integration.SessionLifecycleTest do
     assert Process.alive?(state_pid)
 
     # Step 2: Use agent (send message, verify state updated)
-    assert :ok = State.append_message(session_id, %{
-             id: "msg1",
-             role: :user,
-             content: "Hello",
-             timestamp: DateTime.utc_now()
-           })
+    assert :ok =
+             State.append_message(session_id, %{
+               id: "msg1",
+               role: :user,
+               content: "Hello",
+               timestamp: DateTime.utc_now()
+             })
 
     assert {:ok, messages} = State.get_messages(session_id)
     assert length(messages) == 1
@@ -241,7 +242,8 @@ defmodule JidoCode.Integration.SessionLifecycleTest do
         config: config
       )
 
-    assert {:error, {:session_limit_reached, 10, 10}} = SessionSupervisor.start_session(session_11)
+    assert {:error, {:session_limit_reached, 10, 10}} =
+             SessionSupervisor.start_session(session_11)
 
     # Step 3: Close one session
     first_id = hd(session_ids)

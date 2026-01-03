@@ -28,6 +28,7 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
 
     # Clean up persisted sessions
     sessions_dir = Path.expand("~/.jido_code/sessions")
+
     if File.exists?(sessions_dir) do
       File.rm_rf!(sessions_dir)
     end
@@ -46,13 +47,16 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
       Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
 
       # Profile 100 switches
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
+            end)
 
-        time_us / 1000  # Convert to milliseconds
-      end
+          # Convert to milliseconds
+          time_us / 1000
+        end
 
       avg_ms = Enum.sum(measurements) / length(measurements)
       median_ms = Enum.sort(measurements) |> Enum.at(div(length(measurements), 2))
@@ -83,13 +87,15 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
       add_messages(session2.id, 10)
 
       # Profile 100 switches
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       avg_ms = Enum.sum(measurements) / length(measurements)
       p95_ms = Enum.sort(measurements) |> Enum.at(round(length(measurements) * 0.95))
@@ -115,13 +121,15 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
       IO.puts("Messages added. Starting profiling...")
 
       # Profile 100 switches
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Model.switch_session(%Model{active_session_id: session1.id}, session2.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       avg_ms = Enum.sum(measurements) / length(measurements)
       p95_ms = Enum.sort(measurements) |> Enum.at(round(length(measurements) * 0.95))
@@ -138,25 +146,29 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
     @tag :profile
     test "switching between 10 sessions (worst case)" do
       # Create 10 sessions
-      sessions = for i <- 1..10 do
-        {:ok, session} = create_test_session("Session #{i}")
-        add_messages(session.id, 50)  # 50 messages each
-        session
-      end
+      sessions =
+        for i <- 1..10 do
+          {:ok, session} = create_test_session("Session #{i}")
+          # 50 messages each
+          add_messages(session.id, 50)
+          session
+        end
 
       session_ids = Enum.map(sessions, & &1.id)
 
       # Profile switches across all 10 sessions
-      measurements = for _ <- 1..100 do
-        from_id = Enum.random(session_ids)
-        to_id = Enum.random(session_ids -- [from_id])
+      measurements =
+        for _ <- 1..100 do
+          from_id = Enum.random(session_ids)
+          to_id = Enum.random(session_ids -- [from_id])
 
-        {time_us, _result} = :timer.tc(fn ->
-          Model.switch_session(%Model{active_session_id: from_id}, to_id)
-        end)
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Model.switch_session(%Model{active_session_id: from_id}, to_id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       avg_ms = Enum.sum(measurements) / length(measurements)
       p95_ms = Enum.sort(measurements) |> Enum.at(round(length(measurements) * 0.95))
@@ -174,14 +186,15 @@ defmodule JidoCode.Performance.SessionSwitchingTest do
   # Helper functions
 
   defp create_test_session(name) do
-    session = Session.new!(
-      name: name,
-      project_path: System.tmp_dir!(),
-      config: %{
-        provider: :anthropic,
-        model: "claude-3-5-sonnet-20241022"
-      }
-    )
+    session =
+      Session.new!(
+        name: name,
+        project_path: System.tmp_dir!(),
+        config: %{
+          provider: :anthropic,
+          model: "claude-3-5-sonnet-20241022"
+        }
+      )
 
     {:ok, session_id} = SessionSupervisor.start_session(session)
     {:ok, %{session | id: session_id}}

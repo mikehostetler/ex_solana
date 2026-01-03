@@ -101,7 +101,10 @@ defmodule JidoCode.Commands.ErrorSanitizer do
   def sanitize_error(:project_path_changed), do: "Project path properties changed unexpectedly."
   def sanitize_error(:project_already_open), do: "Project already open in another session."
   def sanitize_error(:session_limit_reached), do: "Maximum sessions reached."
-  def sanitize_error(:path_permission_denied), do: "Permission denied. Check directory read/write permissions."
+
+  def sanitize_error(:path_permission_denied),
+    do: "Permission denied. Check directory read/write permissions."
+
   def sanitize_error(:path_no_space), do: "Insufficient disk space."
 
   # Path validation errors from Session.new/1

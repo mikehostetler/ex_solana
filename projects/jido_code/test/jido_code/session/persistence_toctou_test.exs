@@ -103,6 +103,7 @@ defmodule JidoCode.Session.PersistenceTOCTOUTest do
 
       # Write the session file
       sessions_dir = Persistence.sessions_dir()
+      File.mkdir_p!(sessions_dir)
       session_file = Path.join(sessions_dir, "#{session_id}.json")
       File.write!(session_file, Jason.encode!(session_data))
 

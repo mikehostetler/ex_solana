@@ -67,6 +67,8 @@ defmodule JidoCode.Commands do
     /models                  - List models for current provider
     /models <provider>       - List models for a specific provider
     /providers               - List available providers
+    /language                - Show current programming language
+    /language <lang>         - Set programming language (elixir, python, js, etc.)
     /theme                   - List available themes
     /theme <name>            - Switch to a theme (dark, light, high_contrast)
 
@@ -193,6 +195,15 @@ defmodule JidoCode.Commands do
 
   defp parse_and_execute("/theme", _config) do
     execute_theme_list_command()
+  end
+
+  defp parse_and_execute("/language " <> rest, _config) do
+    language = String.trim(rest)
+    {:language, {:set, language}}
+  end
+
+  defp parse_and_execute("/language", _config) do
+    {:language, :show}
   end
 
   defp parse_and_execute("/sandbox-test" <> _, _config) do
@@ -519,7 +530,8 @@ defmodule JidoCode.Commands do
         {:error, "Maximum 10 sessions reached. Close a session first."}
 
       {:error, {:session_limit_reached, current, max}} ->
-        {:error, "Maximum sessions reached (#{current}/#{max} sessions open). Close a session first."}
+        {:error,
+         "Maximum sessions reached (#{current}/#{max} sessions open). Close a session first."}
 
       {:error, :project_already_open} ->
         {:error, "Project already open in another session."}
@@ -723,7 +735,8 @@ defmodule JidoCode.Commands do
           {:error, "Maximum 10 sessions reached. Close a session first."}
 
         {:error, {:session_limit_reached, current, max}} ->
-          {:error, "Maximum sessions reached (#{current}/#{max} sessions open). Close a session first."}
+          {:error,
+           "Maximum sessions reached (#{current}/#{max} sessions open). Close a session first."}
 
         {:error, {:rate_limit_exceeded, retry_after}} ->
           {:error, "Rate limit exceeded. Try again in #{retry_after} seconds."}
@@ -900,6 +913,63 @@ defmodule JidoCode.Commands do
         else
           {:error, "Session not found: #{target_trimmed}"}
         end
+    end
+  end
+
+  # ============================================================================
+  # Language Command Execution
+  # ============================================================================
+
+  @doc """
+  Executes a language command.
+
+  ## Parameters
+
+  - `subcommand` - The language subcommand (`:show` or `{:set, language}`)
+  - `model` - The TUI model (used to get current session)
+
+  ## Returns
+
+  - `{:ok, message}` - Informational message (when showing current language)
+  - `{:language_action, {:set, language}}` - Action for TUI to perform (when setting language)
+  - `{:error, message}` - Error message
+  """
+  @spec execute_language(atom() | tuple(), map()) ::
+          {:ok, String.t()} | {:language_action, tuple()} | {:error, String.t()}
+  def execute_language(:show, model) do
+    active_id = Map.get(model, :active_session_id)
+
+    if is_nil(active_id) do
+      {:error, "No active session. Create a session first with /session new."}
+    else
+      sessions = Map.get(model, :sessions, %{})
+      session = Map.get(sessions, active_id)
+
+      if session do
+        language = Map.get(session, :language, :elixir)
+        display_name = JidoCode.Language.display_name(language)
+        icon = JidoCode.Language.icon(language)
+        {:ok, "Current language: #{icon} #{display_name} (#{language})"}
+      else
+        {:error, "Session not found."}
+      end
+    end
+  end
+
+  def execute_language({:set, language_str}, model) do
+    active_id = Map.get(model, :active_session_id)
+
+    if is_nil(active_id) do
+      {:error, "No active session. Create a session first with /session new."}
+    else
+      case JidoCode.Language.normalize(language_str) do
+        {:ok, language} ->
+          {:language_action, {:set, active_id, language}}
+
+        {:error, :invalid_language} ->
+          available = JidoCode.Language.all_languages() |> Enum.map_join(", ", &to_string/1)
+          {:error, "Unknown language: #{language_str}\n\nSupported languages: #{available}"}
+      end
     end
   end
 

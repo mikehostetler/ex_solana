@@ -4,6 +4,15 @@ defmodule JidoCode.TUI.PubSubBridgeTest do
   alias JidoCode.TUI.PubSubBridge
 
   setup do
+    # Ensure PubSub is running (may have been stopped by another test)
+    case Process.whereis(JidoCode.PubSub) do
+      nil ->
+        {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: JidoCode.PubSub)
+
+      _pid ->
+        :ok
+    end
+
     # Create a test runtime that receives messages
     test_pid = self()
 

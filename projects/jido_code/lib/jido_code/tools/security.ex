@@ -45,6 +45,23 @@ defmodule JidoCode.Tools.Security do
 
   @type validate_opts :: [log_violations: boolean()]
 
+  # URL-encoded path traversal patterns
+  @url_encoded_traversal_patterns [
+    # Standard URL encoding
+    "%2e%2e%2f",
+    "%2e%2e/",
+    "..%2f",
+    "%2e%2e\\",
+    "..%5c",
+    "%2e%2e%5c",
+    # Double encoding
+    "%252e%252e%252f",
+    "%252e%252e/",
+    # Mixed case
+    "%2E%2E%2F",
+    "%2E%2E/"
+  ]
+
   # ============================================================================
   # Public API
   # ============================================================================
@@ -100,6 +117,21 @@ defmodule JidoCode.Tools.Security do
   def validate_path(path, project_root, opts) when is_binary(path) and is_binary(project_root) do
     log_violations = Keyword.get(opts, :log_violations, true)
 
+    # Normalize empty path to "." (current directory)
+    # This allows "" to work as project root while maintaining clear semantics
+    normalized_path = if path == "", do: ".", else: path
+
+    # Check for URL-encoded path traversal attacks
+    if contains_url_encoded_traversal?(normalized_path) do
+      emit_security_telemetry(:path_escapes_boundary, path)
+      maybe_log_violation(:path_escapes_boundary, path, log_violations)
+      {:error, :path_escapes_boundary}
+    else
+      do_validate_path(normalized_path, project_root, log_violations)
+    end
+  end
+
+  defp do_validate_path(path, project_root, log_violations) do
     # Normalize project root (ensure no trailing slash, expanded)
     normalized_root = normalize_path(project_root)
 
@@ -116,6 +148,7 @@ defmodule JidoCode.Tools.Security do
     if within_boundary?(resolved, normalized_root) do
       # Check for protected settings file
       if is_protected_settings_file?(resolved) do
+        emit_security_telemetry(:protected_settings_file, path)
         maybe_log_violation(:protected_settings_file, path, log_violations)
         {:error, :protected_settings_file}
       else
@@ -124,9 +157,19 @@ defmodule JidoCode.Tools.Security do
       end
     else
       reason = determine_violation_reason(path)
+      emit_security_telemetry(reason, path)
       maybe_log_violation(reason, path, log_violations)
       {:error, reason}
     end
+  end
+
+  # Check for URL-encoded path traversal patterns
+  defp contains_url_encoded_traversal?(path) do
+    lower_path = String.downcase(path)
+
+    Enum.any?(@url_encoded_traversal_patterns, fn pattern ->
+      String.contains?(lower_path, pattern)
+    end)
   end
 
   def validate_path(_, _, _), do: {:error, :invalid_path}
@@ -353,6 +396,26 @@ defmodule JidoCode.Tools.Security do
   end
 
   defp maybe_log_violation(_reason, _path, false), do: :ok
+
+  # Emit telemetry event for security violations
+  # This allows monitoring/alerting on security events
+  defp emit_security_telemetry(violation_type, path) do
+    :telemetry.execute(
+      [:jido_code, :security, :violation],
+      %{count: 1},
+      %{type: violation_type, path: sanitize_path_for_telemetry(path)}
+    )
+  end
+
+  # Sanitize path for telemetry to avoid leaking sensitive information
+  # Only include the first/last few characters and length
+  defp sanitize_path_for_telemetry(path) when byte_size(path) > 20 do
+    prefix = String.slice(path, 0, 8)
+    suffix = String.slice(path, -8, 8)
+    "#{prefix}...#{suffix} (#{byte_size(path)} chars)"
+  end
+
+  defp sanitize_path_for_telemetry(path), do: path
 
   defp normalize_path(path) do
     # Expand to absolute path, resolving . and ..

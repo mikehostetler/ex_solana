@@ -59,6 +59,13 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
           color: atom()
         }
 
+  @typedoc "Text selection position within messages"
+  @type selection_pos :: %{
+          message_idx: non_neg_integer(),
+          line_idx: non_neg_integer(),
+          char_idx: non_neg_integer()
+        }
+
   @typedoc "Internal widget state"
   @type state :: %{
           # Messages
@@ -72,10 +79,14 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
           expanded: MapSet.t(String.t()),
           # Focus state
           cursor_message_idx: non_neg_integer(),
-          # Mouse drag state
+          # Mouse drag state (scrollbar)
           dragging: boolean(),
           drag_start_y: non_neg_integer() | nil,
           drag_start_offset: non_neg_integer() | nil,
+          # Text selection state
+          selection_start: selection_pos() | nil,
+          selection_end: selection_pos() | nil,
+          selecting: boolean(),
           # Streaming state
           streaming_id: String.t() | nil,
           was_at_bottom: boolean(),
@@ -86,7 +97,14 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
           indent: pos_integer(),
           scroll_lines: pos_integer(),
           role_styles: %{role() => role_style()},
-          on_copy: (String.t() -> any()) | nil
+          on_copy: (String.t() -> any()) | nil,
+          # TextInput integration
+          text_input: map() | nil,
+          input_focused: boolean(),
+          # Interactive element focus (code blocks)
+          interactive_mode: boolean(),
+          focused_element_id: String.t() | nil,
+          interactive_elements: [map()]
         }
 
   @default_role_styles %{
@@ -112,6 +130,12 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
   - `:scroll_lines` - Lines to scroll per wheel event (default: 3)
   - `:role_styles` - Per-role styling configuration
   - `:on_copy` - Clipboard callback function
+  - `:on_submit` - Callback when input is submitted
+  - `:text_input` - TextInput widget state (default: nil, created automatically if input_placeholder is set)
+  - `:input_focused` - Whether input has focus (default: true)
+  - `:input_placeholder` - Placeholder text for input (default: "Type a message...")
+  - `:max_input_lines` - Maximum visible lines for input (default: 5)
+  - `:viewport_width` - Viewport width for TextInput (default: 80)
   """
   @spec new(keyword()) :: map()
   def new(opts \\ []) do
@@ -119,11 +143,17 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       messages: Keyword.get(opts, :messages, []),
       max_collapsed_lines: Keyword.get(opts, :max_collapsed_lines, 15),
       show_timestamps: Keyword.get(opts, :show_timestamps, true),
-      scrollbar_width: Keyword.get(opts, :scrollbar_width, 2),
+      scrollbar_width: Keyword.get(opts, :scrollbar_width, 1),
       indent: Keyword.get(opts, :indent, 2),
       scroll_lines: Keyword.get(opts, :scroll_lines, 3),
       role_styles: Keyword.get(opts, :role_styles, @default_role_styles),
-      on_copy: Keyword.get(opts, :on_copy)
+      on_copy: Keyword.get(opts, :on_copy),
+      on_submit: Keyword.get(opts, :on_submit),
+      text_input: Keyword.get(opts, :text_input),
+      input_focused: Keyword.get(opts, :input_focused, true),
+      input_placeholder: Keyword.get(opts, :input_placeholder, "Type a message..."),
+      max_input_lines: Keyword.get(opts, :max_input_lines, 5),
+      viewport_width: Keyword.get(opts, :viewport_width, 80)
     }
   end
 
@@ -133,7 +163,32 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
 
   @impl true
   def init(props) do
+    alias TermUI.Widgets.TextInput
+
     messages = props.messages
+
+    # Initialize TextInput - use provided one or create new with multiline support
+    text_input =
+      case props.text_input do
+        nil ->
+          # Create a new TextInput with the provided options
+          text_input_props =
+            TextInput.new(
+              value: "",
+              placeholder: props.input_placeholder,
+              width: props.viewport_width,
+              multiline: true,
+              max_visible_lines: props.max_input_lines,
+              focused: true
+            )
+
+          # TextInput.init returns {:ok, state}, so we need to extract the state
+          {:ok, text_input_state} = TextInput.init(text_input_props)
+          text_input_state
+
+        existing ->
+          existing
+      end
 
     state = %{
       # Messages
@@ -141,16 +196,26 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       # Scroll state
       scroll_offset: 0,
       viewport_height: 20,
-      viewport_width: 80,
-      total_lines: calculate_total_lines(messages, props.max_collapsed_lines, MapSet.new(), 80),
+      viewport_width: props.viewport_width,
+      total_lines:
+        calculate_total_lines(
+          messages,
+          props.max_collapsed_lines,
+          MapSet.new(),
+          props.viewport_width
+        ),
       # Expansion state
       expanded: MapSet.new(),
       # Focus state
       cursor_message_idx: 0,
-      # Mouse drag state
+      # Mouse drag state (scrollbar)
       dragging: false,
       drag_start_y: nil,
       drag_start_offset: nil,
+      # Text selection state
+      selection_start: nil,
+      selection_end: nil,
+      selecting: false,
       # Streaming state
       streaming_id: nil,
       was_at_bottom: true,
@@ -161,7 +226,14 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       indent: props.indent,
       scroll_lines: props.scroll_lines,
       role_styles: props.role_styles,
-      on_copy: props.on_copy
+      on_copy: props.on_copy,
+      # TextInput integration
+      text_input: text_input,
+      input_focused: props.input_focused,
+      # Interactive element focus (code blocks)
+      interactive_mode: false,
+      focused_element_id: nil,
+      interactive_elements: []
     }
 
     {:ok, state}
@@ -255,6 +327,27 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
     end
   end
 
+  # Interactive Element Navigation (Ctrl+B to cycle through code blocks)
+  # Note: Tab is used by main_layout for pane focus, so we use Ctrl+B instead
+
+  def handle_event(%TermUI.Event.Key{char: "b", modifiers: [:ctrl]}, state) do
+    {:ok, cycle_interactive_focus(state, :forward)}
+  end
+
+  def handle_event(%TermUI.Event.Key{char: "B", modifiers: [:ctrl, :shift]}, state) do
+    {:ok, cycle_interactive_focus(state, :backward)}
+  end
+
+  # Escape exits interactive mode
+  def handle_event(%TermUI.Event.Key{key: :escape}, state) when state.interactive_mode do
+    {:ok, %{state | interactive_mode: false, focused_element_id: nil}}
+  end
+
+  # Enter or 'C' copies focused code block (capital C to distinguish from collapse)
+  def handle_event(%TermUI.Event.Key{key: :enter}, state) when state.interactive_mode do
+    {:ok, copy_focused_element(state)}
+  end
+
   # ============================================================================
   # Mouse Event Handling (Section 9.5)
   # ============================================================================
@@ -285,8 +378,18 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
     handle_mouse_drag(state, y)
   end
 
+  # Text Selection Drag Handling
+  def handle_event(%TermUI.Event.Mouse{action: :drag, x: x, y: y}, state) when state.selecting do
+    handle_selection_drag(state, x, y)
+  end
+
   def handle_event(%TermUI.Event.Mouse{action: :release}, state) when state.dragging do
     {:ok, %{state | dragging: false, drag_start_y: nil, drag_start_offset: nil}}
+  end
+
+  # Text Selection Release
+  def handle_event(%TermUI.Event.Mouse{action: :release}, state) when state.selecting do
+    {:ok, %{state | selecting: false}}
   end
 
   # Catch-all handler for unrecognized events
@@ -363,8 +466,10 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       scrollbar = render_scrollbar(state, area.height)
 
       # Combine content and scrollbar in horizontal stack
+      # Wrap content in a box with explicit width to fill the available space
       content_stack = stack(:vertical, padded_nodes)
-      stack(:horizontal, [content_stack, scrollbar])
+      content_box = box([content_stack], width: content_width, height: area.height)
+      stack(:horizontal, [content_box, scrollbar])
     end
   end
 
@@ -643,16 +748,141 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
   # ============================================================================
 
   @doc """
-  Gets the content of the currently focused message.
+  Gets the selected text, or the focused message content if no selection.
 
+  If there is an active text selection, returns the selected text range.
+  Otherwise, returns the full content of the currently focused message.
   Returns empty string if no message is focused.
   """
   @spec get_selected_text(state()) :: String.t()
   def get_selected_text(state) do
-    case Enum.at(state.messages, state.cursor_message_idx) do
-      nil -> ""
-      msg -> msg.content
+    if has_selection?(state) do
+      extract_selected_text(state)
+    else
+      case Enum.at(state.messages, state.cursor_message_idx) do
+        nil -> ""
+        msg -> msg.content
+      end
     end
+  end
+
+  # Extract text between selection_start and selection_end
+  defp extract_selected_text(state) do
+    {start_pos, end_pos} = normalize_selection(state.selection_start, state.selection_end)
+
+    if start_pos.message_idx == end_pos.message_idx do
+      # Selection within single message
+      extract_text_from_message(state, start_pos, end_pos)
+    else
+      # Selection spans multiple messages
+      extract_text_across_messages(state, start_pos, end_pos)
+    end
+  end
+
+  # Ensure start comes before end
+  defp normalize_selection(start_pos, end_pos) do
+    cond do
+      start_pos.message_idx < end_pos.message_idx ->
+        {start_pos, end_pos}
+
+      start_pos.message_idx > end_pos.message_idx ->
+        {end_pos, start_pos}
+
+      start_pos.line_idx < end_pos.line_idx ->
+        {start_pos, end_pos}
+
+      start_pos.line_idx > end_pos.line_idx ->
+        {end_pos, start_pos}
+
+      start_pos.char_idx <= end_pos.char_idx ->
+        {start_pos, end_pos}
+
+      true ->
+        {end_pos, start_pos}
+    end
+  end
+
+  defp extract_text_from_message(state, start_pos, end_pos) do
+    case Enum.at(state.messages, start_pos.message_idx) do
+      nil -> ""
+      message -> do_extract_text_from_message(state, message, start_pos, end_pos)
+    end
+  end
+
+  defp do_extract_text_from_message(state, message, start_pos, end_pos) do
+    content_width = max(1, state.viewport_width - state.scrollbar_width - state.indent)
+    wrapped_lines = wrap_text(message.content, content_width)
+
+    if start_pos.line_idx == end_pos.line_idx do
+      extract_same_line_text(wrapped_lines, start_pos)
+    else
+      extract_multiline_text(wrapped_lines, start_pos, end_pos)
+    end
+  end
+
+  defp extract_same_line_text(wrapped_lines, start_pos) do
+    case Enum.at(wrapped_lines, start_pos.line_idx) do
+      nil -> ""
+      line -> String.slice(line, start_pos.char_idx, start_pos.char_idx)
+    end
+  end
+
+  defp extract_multiline_text(wrapped_lines, start_pos, end_pos) do
+    wrapped_lines
+    |> Enum.with_index()
+    |> Enum.filter(fn {_line, idx} -> idx >= start_pos.line_idx and idx <= end_pos.line_idx end)
+    |> Enum.map_join("\n", fn {line, idx} ->
+      slice_line_for_selection(line, idx, start_pos, end_pos)
+    end)
+  end
+
+  defp slice_line_for_selection(line, idx, start_pos, end_pos) do
+    cond do
+      idx == start_pos.line_idx -> String.slice(line, start_pos.char_idx..-1//1)
+      idx == end_pos.line_idx -> String.slice(line, 0, end_pos.char_idx)
+      true -> line
+    end
+  end
+
+  defp extract_text_across_messages(state, start_pos, end_pos) do
+    content_width = max(1, state.viewport_width - state.scrollbar_width - state.indent)
+
+    state.messages
+    |> Enum.with_index()
+    |> Enum.filter(fn {_msg, idx} ->
+      idx >= start_pos.message_idx and idx <= end_pos.message_idx
+    end)
+    |> Enum.map_join("\n\n", fn {msg, idx} ->
+      extract_message_portion(msg, idx, content_width, start_pos, end_pos)
+    end)
+  end
+
+  defp extract_message_portion(msg, idx, content_width, start_pos, end_pos) do
+    cond do
+      idx == start_pos.message_idx -> extract_from_start(msg.content, content_width, start_pos)
+      idx == end_pos.message_idx -> extract_to_end(msg.content, content_width, end_pos)
+      true -> msg.content
+    end
+  end
+
+  defp extract_from_start(content, content_width, start_pos) do
+    content
+    |> wrap_text(content_width)
+    |> Enum.with_index()
+    |> Enum.filter(fn {_line, idx} -> idx >= start_pos.line_idx end)
+    |> Enum.map_join("\n", fn {line, idx} ->
+      if idx == start_pos.line_idx, do: String.slice(line, start_pos.char_idx..-1//1), else: line
+    end)
+  end
+
+  defp extract_to_end(content, content_width, end_pos) do
+    content
+    |> wrap_text(content_width)
+    |> Enum.with_index()
+    |> Enum.filter(fn {_line, idx} -> idx <= end_pos.line_idx end)
+    |> Enum.map_join("\n", fn {line, idx} ->
+      if idx == end_pos.line_idx, do: String.slice(line, 0, end_pos.char_idx), else: line
+    end)
   end
 
   # ============================================================================
@@ -702,6 +932,87 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       nil -> state
       id -> append_to_message(state, id, chunk)
     end
+  end
+
+  # ============================================================================
+  # Public API - TextInput Integration
+  # ============================================================================
+
+  @doc """
+  Sets the TextInput widget state.
+
+  Pass nil to remove the input.
+  """
+  @spec set_text_input(state(), map() | nil) :: state()
+  def set_text_input(state, text_input) do
+    %{state | text_input: text_input}
+  end
+
+  @doc """
+  Gets the current TextInput widget state.
+  """
+  @spec get_text_input(state()) :: map() | nil
+  def get_text_input(state) do
+    state.text_input
+  end
+
+  @doc """
+  Sets whether the input has focus.
+  """
+  @spec set_input_focused(state(), boolean()) :: state()
+  def set_input_focused(state, focused) do
+    %{state | input_focused: focused}
+  end
+
+  @doc """
+  Returns whether the input has focus.
+  """
+  @spec input_focused?(state()) :: boolean()
+  def input_focused?(state) do
+    state.input_focused
+  end
+
+  @doc """
+  Gets the current input value from the TextInput widget.
+
+  Returns empty string if no text_input is set.
+  """
+  @spec get_input_value(state()) :: String.t()
+  def get_input_value(state) do
+    alias TermUI.Widgets.TextInput
+
+    case state.text_input do
+      nil -> ""
+      text_input -> TextInput.get_value(text_input)
+    end
+  end
+
+  @doc """
+  Sets the input value in the TextInput widget.
+
+  No-op if no text_input is set.
+  """
+  @spec set_input_value(state(), String.t()) :: state()
+  def set_input_value(state, value) do
+    alias TermUI.Widgets.TextInput
+
+    case state.text_input do
+      nil ->
+        state
+
+      text_input ->
+        %{state | text_input: TextInput.set_value(text_input, value)}
+    end
+  end
+
+  @doc """
+  Clears the input value.
+
+  No-op if no text_input is set.
+  """
+  @spec clear_input(state()) :: state()
+  def clear_input(state) do
+    set_input_value(state, "")
   end
 
   # ============================================================================
@@ -804,6 +1115,105 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
   def get_focused_message(state) do
     Enum.at(state.messages, state.cursor_message_idx)
   end
+
+  # ============================================================================
+  # Public API - Interactive Element Navigation
+  # ============================================================================
+
+  @doc """
+  Cycles focus through interactive elements (code blocks).
+
+  Direction can be :forward or :backward.
+  - First Tab: enters interactive mode and focuses first element
+  - Subsequent Tabs: cycle through elements
+  - Escape: exits interactive mode
+
+  Elements are computed on-demand from assistant messages.
+  """
+  @spec cycle_interactive_focus(state(), :forward | :backward) :: state()
+  def cycle_interactive_focus(state, direction) do
+    # Compute elements on-demand from current messages
+    elements =
+      if state.interactive_mode do
+        # Already have elements cached
+        state.interactive_elements
+      else
+        # Compute fresh elements when entering interactive mode
+        compute_interactive_elements(state)
+      end
+
+    cond do
+      # No elements to focus
+      Enum.empty?(elements) ->
+        state
+
+      # Not in interactive mode - enter it and focus first/last element
+      not state.interactive_mode ->
+        first_element = if direction == :forward, do: hd(elements), else: List.last(elements)
+        %{state | interactive_mode: true, focused_element_id: first_element.id, interactive_elements: elements}
+
+      # In interactive mode - cycle to next/previous
+      true ->
+        current_idx = Enum.find_index(elements, &(&1.id == state.focused_element_id)) || 0
+
+        next_idx =
+          case direction do
+            :forward -> rem(current_idx + 1, length(elements))
+            :backward -> rem(current_idx - 1 + length(elements), length(elements))
+          end
+
+        next_element = Enum.at(elements, next_idx)
+        %{state | focused_element_id: next_element.id}
+    end
+  end
+
+  # Compute interactive elements from all assistant messages
+  defp compute_interactive_elements(state) do
+    alias JidoCode.TUI.Markdown
+
+    content_width = max(1, state.viewport_width - state.scrollbar_width - state.indent)
+
+    state.messages
+    |> Enum.filter(&(&1.role == :assistant))
+    |> Enum.flat_map(fn msg ->
+      %{elements: elements} = Markdown.render_with_elements(msg.content, content_width)
+      elements
+    end)
+  end
+
+  @doc """
+  Returns the currently focused interactive element, or nil if none.
+  """
+  @spec get_focused_element(state()) :: map() | nil
+  def get_focused_element(state) do
+    if state.interactive_mode and state.focused_element_id do
+      Enum.find(state.interactive_elements, &(&1.id == state.focused_element_id))
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Copies the focused element's content using the on_copy callback.
+
+  Returns state unchanged if no callback or no focused element.
+  """
+  @spec copy_focused_element(state()) :: state()
+  def copy_focused_element(state) do
+    with element when not is_nil(element) <- get_focused_element(state),
+         callback when is_function(callback, 1) <- state.on_copy do
+      callback.(element.content)
+    end
+
+    # Exit interactive mode after copying
+    %{state | interactive_mode: false, focused_element_id: nil}
+  end
+
+  @doc """
+  Returns whether interactive mode is active.
+  """
+  @spec interactive_mode?(state()) :: boolean()
+  def interactive_mode?(state), do: state.interactive_mode
 
   # ============================================================================
   # Public API - Viewport Calculation
@@ -983,8 +1393,8 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       # Press on scrollbar - check if on thumb to start drag
       handle_scrollbar_press(state, y)
     else
-      # Press on content is handled same as click
-      handle_content_click(state, x, y)
+      # Press on content - start text selection
+      start_text_selection(state, x, y)
     end
   end
 
@@ -1074,6 +1484,88 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
   end
 
   # ============================================================================
+  # Text Selection Helpers
+  # ============================================================================
+
+  # Start text selection at the given screen coordinates
+  defp start_text_selection(state, x, y) do
+    if Enum.empty?(state.messages) do
+      {:ok, state}
+    else
+      pos = screen_to_selection_pos(state, x, y)
+
+      new_state = %{
+        state
+        | selection_start: pos,
+          selection_end: pos,
+          selecting: true,
+          cursor_message_idx: pos.message_idx
+      }
+
+      {:ok, new_state}
+    end
+  end
+
+  # Handle drag during text selection
+  defp handle_selection_drag(state, x, y) do
+    if Enum.empty?(state.messages) do
+      {:ok, state}
+    else
+      pos = screen_to_selection_pos(state, x, y)
+      {:ok, %{state | selection_end: pos}}
+    end
+  end
+
+  # Convert screen (x, y) coordinates to a selection position
+  defp screen_to_selection_pos(state, x, y) do
+    # Get absolute line position (viewport y + scroll offset)
+    absolute_line = y + state.scroll_offset
+
+    # Find which message contains this line
+    line_info = get_message_line_info(state)
+    message_idx = find_message_index_at_line(line_info, absolute_line)
+    message_idx = max(0, min(message_idx, length(state.messages) - 1))
+
+    # Get the message and calculate line within message
+    case Enum.at(state.messages, message_idx) do
+      nil ->
+        %{message_idx: 0, line_idx: 0, char_idx: 0}
+
+      message ->
+        # Calculate which line within the message
+        {msg_start_line, _} = Enum.at(line_info, message_idx, {0, 1})
+        line_within_msg = max(0, absolute_line - msg_start_line)
+
+        # Skip header line (line 0 is header)
+        content_line_idx = max(0, line_within_msg - 1)
+
+        # Get wrapped lines for this message
+        content_width = max(1, state.viewport_width - state.scrollbar_width - state.indent)
+        wrapped_lines = wrap_text(message.content, content_width)
+
+        # Get the actual line and calculate char position
+        line_text = Enum.at(wrapped_lines, content_line_idx, "")
+
+        # Calculate character index from x position (accounting for indent)
+        char_idx = max(0, x - state.indent)
+        char_idx = min(char_idx, String.length(line_text))
+
+        %{message_idx: message_idx, line_idx: content_line_idx, char_idx: char_idx}
+    end
+  end
+
+  # Check if a selection is active (has start and end positions)
+  defp has_selection?(state) do
+    state.selection_start != nil and state.selection_end != nil
+  end
+
+  # Clear the current selection
+  @doc false
+  def clear_selection(state) do
+    %{state | selection_start: nil, selection_end: nil, selecting: false}
+  end
+
+  # ============================================================================
   # Rendering Helpers
   # ============================================================================
 
@@ -1089,11 +1581,27 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
     # Calculate content width (accounting for indent)
     content_width = max(1, width - state.indent)
 
-    # Wrap and potentially truncate content
+    # Use markdown rendering for assistant messages, plain text for others
+    content_nodes =
+      if message.role == :assistant do
+        render_markdown_content(state, message, idx, content_width, is_streaming)
+      else
+        render_plain_content(state, message, idx, content_width, role_style, is_streaming)
+      end
+
+    # Add separator (blank line)
+    separator = text("", nil)
+
+    [header] ++ content_nodes ++ [separator]
+  end
+
+  # Render plain text content (for user and system messages)
+  defp render_plain_content(state, message, idx, content_width, role_style, is_streaming) do
+    # Wrap content (no truncation - only tool results should be truncated)
     wrapped_lines = wrap_text(message.content, content_width)
 
-    {display_lines, truncated?} =
-      truncate_content(wrapped_lines, state.max_collapsed_lines, state.expanded, message.id)
+    # Never truncate conversation messages - users can scroll to see full content
+    {display_lines, truncated?} = {wrapped_lines, false}
 
     # Add streaming cursor if this is the streaming message
     display_lines =
@@ -1104,30 +1612,126 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
         display_lines
       end
 
-    # Render content lines with indent and role color
+    # Render content lines with indent, role color, and selection highlighting
     indent_str = String.duplicate(" ", state.indent)
     content_style = Style.new(fg: role_style.color)
+    selection_style = Style.new(fg: :black, bg: :white)
+
+    # Get normalized selection if present
+    selection_info =
+      if has_selection?(state) do
+        normalize_selection(state.selection_start, state.selection_end)
+      else
+        nil
+      end
 
     content_nodes =
-      Enum.map(display_lines, fn line ->
-        text(indent_str <> line, content_style)
+      display_lines
+      |> Enum.with_index()
+      |> Enum.map(fn {line, line_idx} ->
+        render_content_line(
+          line,
+          line_idx,
+          idx,
+          indent_str,
+          content_style,
+          selection_style,
+          selection_info
+        )
       end)
 
     # Add truncation indicator if truncated
-    content_nodes =
-      if truncated? do
-        hidden_count = length(wrapped_lines) - (state.max_collapsed_lines - 1)
-        indicator = "#{indent_str}┄┄┄ #{hidden_count} more lines ┄┄┄"
-        indicator_style = Style.new(fg: :white, attrs: [:dim])
-        content_nodes ++ [text(indicator, indicator_style)]
+    if truncated? do
+      hidden_count = length(wrapped_lines) - (state.max_collapsed_lines - 1)
+      indicator = "#{indent_str}┄┄┄ #{hidden_count} more lines ┄┄┄"
+      indicator_style = Style.new(fg: :white, attrs: [:dim])
+      content_nodes ++ [text(indicator, indicator_style)]
+    else
+      content_nodes
+    end
+  end
+
+  # Render markdown content (for assistant messages)
+  # Note: idx (message index) is accepted for API consistency but not currently used
+  # since markdown rendering doesn't support text selection yet
+  defp render_markdown_content(state, message, _idx, content_width, is_streaming) do
+    alias JidoCode.TUI.Markdown
+
+    # Get styled lines from markdown processor, with focus highlighting if in interactive mode
+    opts =
+      if state.interactive_mode and state.focused_element_id do
+        [focused_element_id: state.focused_element_id]
       else
-        content_nodes
+        []
       end
 
-    # Add separator (blank line)
-    separator = text("", nil)
+    %{lines: styled_lines} = Markdown.render_with_elements(message.content, content_width, opts)
 
-    [header] ++ content_nodes ++ [separator]
+    # Never truncate LLM responses (assistant messages) - only tool results should be truncated
+    # Users can scroll to see full content
+    {display_lines, truncated?} = {styled_lines, false}
+
+    # Convert styled lines to render nodes
+    indent_str = String.duplicate(" ", state.indent)
+
+    content_nodes =
+      display_lines
+      |> Enum.with_index()
+      |> Enum.map(fn {styled_line, line_idx} ->
+        # Add streaming cursor to last line if streaming
+        styled_line =
+          if is_streaming and line_idx == length(display_lines) - 1 do
+            append_streaming_cursor(styled_line)
+          else
+            styled_line
+          end
+
+        render_styled_line_with_indent(styled_line, indent_str)
+      end)
+
+    # Add truncation indicator if truncated
+    if truncated? do
+      hidden_count = length(styled_lines) - (state.max_collapsed_lines - 1)
+      indicator = "#{indent_str}┄┄┄ #{hidden_count} more lines ┄┄┄"
+      indicator_style = Style.new(fg: :white, attrs: [:dim])
+      content_nodes ++ [text(indicator, indicator_style)]
+    else
+      content_nodes
+    end
+  end
+
+  # Append streaming cursor to the last segment of a styled line
+  defp append_streaming_cursor([]), do: [{"▌", nil}]
+
+  defp append_streaming_cursor(segments) do
+    {last_text, last_style} = List.last(segments)
+    List.replace_at(segments, -1, {last_text <> "▌", last_style})
+  end
+
+  # Render a styled line (list of {text, style} tuples) with indentation
+  defp render_styled_line_with_indent([], indent_str) do
+    text(indent_str, nil)
+  end
+
+  defp render_styled_line_with_indent([{single_text, style}], indent_str) do
+    text(indent_str <> single_text, style)
+  end
+
+  defp render_styled_line_with_indent(segments, indent_str) do
+    # For multiple segments, create a horizontal stack
+    nodes =
+      segments
+      |> Enum.with_index()
+      |> Enum.map(fn {{segment_text, style}, idx} ->
+        # Add indent to first segment
+        if idx == 0 do
+          text(indent_str <> segment_text, style)
+        else
+          text(segment_text, style)
+        end
+      end)
+
+    stack(:horizontal, nodes)
   end
 
   defp render_message_header(state, message, role_style, is_focused) do
@@ -1155,6 +1759,150 @@ defmodule JidoCode.TUI.Widgets.ConversationView do
       end
 
     text(header_text, header_style)
+  end
+
+  # Render a content line with optional selection highlighting
+  defp render_content_line(
+         line,
+         _line_idx,
+         _message_idx,
+         indent_str,
+         content_style,
+         _selection_style,
+         nil
+       ) do
+    # No selection - render normally
+    text(indent_str <> line, content_style)
+  end
+
+  defp render_content_line(
+         line,
+         line_idx,
+         message_idx,
+         indent_str,
+         content_style,
+         selection_style,
+         {start_pos, end_pos}
+       ) do
+    # Check if this line is within the selection
+    cond do
+      # Message is before selection
+      message_idx < start_pos.message_idx ->
+        text(indent_str <> line, content_style)
+
+      # Message is after selection
+      message_idx > end_pos.message_idx ->
+        text(indent_str <> line, content_style)
+
+      # Message is within selection range
+      true ->
+        render_line_with_selection(
+          line,
+          line_idx,
+          message_idx,
+          indent_str,
+          content_style,
+          selection_style,
+          start_pos,
+          end_pos
+        )
+    end
+  end
+
+  defp render_line_with_selection(
+         line,
+         line_idx,
+         message_idx,
+         indent_str,
+         content_style,
+         selection_style,
+         start_pos,
+         end_pos
+       ) do
+    {sel_start, sel_end} =
+      calculate_line_selection_bounds(line, line_idx, message_idx, start_pos, end_pos)
+
+    render_line_with_bounds(line, sel_start, sel_end, indent_str, content_style, selection_style)
+  end
+
+  defp calculate_line_selection_bounds(line, line_idx, message_idx, start_pos, end_pos) do
+    cond do
+      start_pos.message_idx == end_pos.message_idx and message_idx == start_pos.message_idx ->
+        single_message_bounds(line, line_idx, start_pos, end_pos)
+
+      message_idx == start_pos.message_idx ->
+        first_message_bounds(line, line_idx, start_pos)
+
+      message_idx == end_pos.message_idx ->
+        last_message_bounds(line, line_idx, end_pos)
+
+      true ->
+        {0, String.length(line)}
+    end
+  end
+
+  defp single_message_bounds(line, line_idx, start_pos, end_pos) do
+    cond do
+      line_idx < start_pos.line_idx -> {nil, nil}
+      line_idx > end_pos.line_idx -> {nil, nil}
+      start_pos.line_idx == end_pos.line_idx -> {start_pos.char_idx, end_pos.char_idx}
+      line_idx == start_pos.line_idx -> {start_pos.char_idx, String.length(line)}
+      line_idx == end_pos.line_idx -> {0, end_pos.char_idx}
+      true -> {0, String.length(line)}
+    end
+  end
+
+  defp first_message_bounds(line, line_idx, start_pos) do
+    cond do
+      line_idx < start_pos.line_idx -> {nil, nil}
+      line_idx == start_pos.line_idx -> {start_pos.char_idx, String.length(line)}
+      true -> {0, String.length(line)}
+    end
+  end
+
+  defp last_message_bounds(line, line_idx, end_pos) do
+    cond do
+      line_idx > end_pos.line_idx -> {nil, nil}
+      line_idx == end_pos.line_idx -> {0, end_pos.char_idx}
+      true -> {0, String.length(line)}
+    end
+  end
+
+  defp render_line_with_bounds(line, nil, nil, indent_str, content_style, _selection_style) do
+    text(indent_str <> line, content_style)
+  end
+
+  defp render_line_with_bounds(
+         line,
+         start_char,
+         end_char,
+         indent_str,
+         content_style,
+         _selection_style
+       )
+       when start_char >= end_char do
+    text(indent_str <> line, content_style)
+  end
+
+  defp render_line_with_bounds(
+         line,
+         start_char,
+         end_char,
+         indent_str,
+         content_style,
+         selection_style
+       ) do
+    before = String.slice(line, 0, start_char)
+    selected = String.slice(line, start_char, end_char - start_char)
+    after_sel = String.slice(line, end_char..-1//1)
+
+    spans = [
+      text(indent_str <> before, content_style),
+      text(selected, selection_style),
+      text(after_sel, content_style)
+    ]
+
+    stack(:horizontal, spans)
   end
 
   # ============================================================================

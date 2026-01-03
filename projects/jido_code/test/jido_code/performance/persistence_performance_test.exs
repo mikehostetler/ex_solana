@@ -30,9 +30,11 @@ defmodule JidoCode.Performance.PersistenceTest do
 
     # Clean up persisted sessions
     sessions_dir = Path.expand("~/.jido_code/sessions")
+
     if File.exists?(sessions_dir) do
       File.rm_rf!(sessions_dir)
     end
+
     File.mkdir_p!(sessions_dir)
 
     :ok
@@ -47,13 +49,16 @@ defmodule JidoCode.Performance.PersistenceTest do
       Persistence.save(session.id)
 
       # Profile 100 save operations
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.save(session.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.save(session.id)
+            end)
 
-        time_us / 1000  # Convert to milliseconds
-      end
+          # Convert to milliseconds
+          time_us / 1000
+        end
 
       report_performance("Save (Empty Conversation)", measurements, 100)
 
@@ -70,13 +75,15 @@ defmodule JidoCode.Performance.PersistenceTest do
       Persistence.save(session.id)
 
       # Profile 100 save operations
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.save(session.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.save(session.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       report_performance("Save (10 Messages)", measurements, 100)
 
@@ -93,13 +100,15 @@ defmodule JidoCode.Performance.PersistenceTest do
       Persistence.save(session.id)
 
       # Profile 50 save operations
-      measurements = for _ <- 1..50 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.save(session.id)
-        end)
+      measurements =
+        for _ <- 1..50 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.save(session.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       report_performance("Save (100 Messages)", measurements, 100)
 
@@ -118,13 +127,16 @@ defmodule JidoCode.Performance.PersistenceTest do
 
       # Profile 20 save operations
       IO.puts("Profiling save operations...")
-      measurements = for _ <- 1..20 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.save(session.id)
-        end)
 
-        time_us / 1000
-      end
+      measurements =
+        for _ <- 1..20 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.save(session.id)
+            end)
+
+          time_us / 1000
+        end
 
       report_performance("Save (500 Messages)", measurements, 100)
 
@@ -143,13 +155,16 @@ defmodule JidoCode.Performance.PersistenceTest do
 
       # Profile 10 save operations
       IO.puts("Profiling save operations...")
-      measurements = for _ <- 1..10 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.save(session.id)
-        end)
 
-        time_us / 1000
-      end
+      measurements =
+        for _ <- 1..10 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.save(session.id)
+            end)
+
+          time_us / 1000
+        end
 
       report_performance("Save (1000 Messages - Max)", measurements, 100)
 
@@ -166,13 +181,15 @@ defmodule JidoCode.Performance.PersistenceTest do
       SessionSupervisor.stop_session(session.id)
 
       # Profile 100 load operations
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.load(session.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.load(session.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       report_performance("Load (Empty Conversation)", measurements, 200)
     end
@@ -185,13 +202,15 @@ defmodule JidoCode.Performance.PersistenceTest do
       SessionSupervisor.stop_session(session.id)
 
       # Profile 100 load operations
-      measurements = for _ <- 1..100 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.load(session.id)
-        end)
+      measurements =
+        for _ <- 1..100 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.load(session.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       report_performance("Load (10 Messages)", measurements, 200)
     end
@@ -204,13 +223,15 @@ defmodule JidoCode.Performance.PersistenceTest do
       SessionSupervisor.stop_session(session.id)
 
       # Profile 50 load operations
-      measurements = for _ <- 1..50 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.load(session.id)
-        end)
+      measurements =
+        for _ <- 1..50 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.load(session.id)
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       report_performance("Load (100 Messages)", measurements, 200)
     end
@@ -225,13 +246,16 @@ defmodule JidoCode.Performance.PersistenceTest do
 
       # Profile 20 load operations
       IO.puts("Profiling load operations...")
-      measurements = for _ <- 1..20 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.load(session.id)
-        end)
 
-        time_us / 1000
-      end
+      measurements =
+        for _ <- 1..20 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.load(session.id)
+            end)
+
+          time_us / 1000
+        end
 
       report_performance("Load (500 Messages)", measurements, 200)
     end
@@ -246,13 +270,16 @@ defmodule JidoCode.Performance.PersistenceTest do
 
       # Profile 10 load operations
       IO.puts("Profiling load operations...")
-      measurements = for _ <- 1..10 do
-        {time_us, _result} = :timer.tc(fn ->
-          Persistence.load(session.id)
-        end)
 
-        time_us / 1000
-      end
+      measurements =
+        for _ <- 1..10 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              Persistence.load(session.id)
+            end)
+
+          time_us / 1000
+        end
 
       report_performance("Load (1000 Messages - Max)", measurements, 200)
     end
@@ -262,25 +289,28 @@ defmodule JidoCode.Performance.PersistenceTest do
     @tag :profile
     test "save-close-resume cycle with realistic session" do
       {:ok, session} = create_test_session("Realistic Session")
-      add_messages(session.id, 50)  # Typical conversation size
+      # Typical conversation size
+      add_messages(session.id, 50)
 
       # Profile the complete cycle 20 times
-      measurements = for _ <- 1..20 do
-        {time_us, _result} = :timer.tc(fn ->
-          # Save
-          {:ok, _} = Persistence.save(session.id)
+      measurements =
+        for _ <- 1..20 do
+          {time_us, _result} =
+            :timer.tc(fn ->
+              # Save
+              {:ok, _} = Persistence.save(session.id)
 
-          # Close
-          :ok = SessionSupervisor.stop_session(session.id)
+              # Close
+              :ok = SessionSupervisor.stop_session(session.id)
 
-          # Resume
-          {:ok, resumed_session} = Persistence.resume(session.id)
+              # Resume
+              {:ok, resumed_session} = Persistence.resume(session.id)
 
-          resumed_session
-        end)
+              resumed_session
+            end)
 
-        time_us / 1000
-      end
+          time_us / 1000
+        end
 
       avg_ms = Enum.sum(measurements) / length(measurements)
       p95_ms = Enum.sort(measurements) |> Enum.at(round(length(measurements) * 0.95))
@@ -299,14 +329,15 @@ defmodule JidoCode.Performance.PersistenceTest do
   # Helper functions
 
   defp create_test_session(name) do
-    session = Session.new!(
-      name: name,
-      project_path: System.tmp_dir!(),
-      config: %{
-        provider: :anthropic,
-        model: "claude-3-5-sonnet-20241022"
-      }
-    )
+    session =
+      Session.new!(
+        name: name,
+        project_path: System.tmp_dir!(),
+        config: %{
+          provider: :anthropic,
+          model: "claude-3-5-sonnet-20241022"
+        }
+      )
 
     {:ok, session_id} = SessionSupervisor.start_session(session)
     {:ok, %{session | id: session_id}}
@@ -316,8 +347,9 @@ defmodule JidoCode.Performance.PersistenceTest do
     for i <- 1..count do
       message = %{
         role: if(rem(i, 2) == 0, do: "user", else: "assistant"),
-        content: "Test message #{i}. " <>
-                 String.duplicate("Lorem ipsum dolor sit amet, consectetur adipiscing elit. ", 5)
+        content:
+          "Test message #{i}. " <>
+            String.duplicate("Lorem ipsum dolor sit amet, consectetur adipiscing elit. ", 5)
       }
 
       Session.State.append_message(session_id, message)

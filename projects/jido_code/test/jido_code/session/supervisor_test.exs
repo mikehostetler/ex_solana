@@ -107,28 +107,35 @@ defmodule JidoCode.Session.SupervisorTest do
       # Check supervisor info
       info = Supervisor.count_children(pid)
       assert is_map(info)
-      # Now has 3 children: Manager, State, and Agent
-      assert info.active == 3
-      assert info.specs == 3
-      assert info.workers == 3
+      # Has 2 children initially: Manager and State
+      # Agent is started lazily on first message
+      assert info.active == 2
+      assert info.specs == 2
+      assert info.workers == 2
 
       # Cleanup
       Supervisor.stop(pid)
     end
 
-    test "starts Manager, State, and Agent children", %{tmp_dir: tmp_dir, config: config} do
+    test "starts Manager and State children (Agent is started lazily)", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
       {:ok, session} = create_session(tmp_dir, config)
 
       {:ok, pid} = SessionSupervisor.start_link(session: session)
 
       children = Supervisor.which_children(pid)
-      assert length(children) == 3
+      # Only Manager and State are started on init; Agent is lazy
+      assert length(children) == 2
 
       # Check child IDs
       child_ids = Enum.map(children, fn {id, _, _, _} -> id end)
       assert {:session_manager, session.id} in child_ids
       assert {:session_state, session.id} in child_ids
-      assert JidoCode.Agents.LLMAgent in child_ids
+
+      # Agent is NOT started on init (lazy startup)
+      refute JidoCode.Agents.LLMAgent in child_ids
 
       # Cleanup
       Supervisor.stop(pid)
@@ -149,15 +156,11 @@ defmodule JidoCode.Session.SupervisorTest do
       assert is_pid(state_pid)
       assert Process.alive?(state_pid)
 
-      # Agent should be findable
-      assert [{agent_pid, _}] = Registry.lookup(@registry, {:agent, session.id})
-      assert is_pid(agent_pid)
-      assert Process.alive?(agent_pid)
+      # Agent is NOT registered on init (lazy startup)
+      assert [] = Registry.lookup(@registry, {:agent, session.id})
 
-      # They should all be different processes
+      # Manager and State should be different processes
       assert manager_pid != state_pid
-      assert manager_pid != agent_pid
-      assert state_pid != agent_pid
     end
 
     test "children have access to session", %{tmp_dir: tmp_dir, config: config} do
@@ -175,35 +178,30 @@ defmodule JidoCode.Session.SupervisorTest do
       assert {:ok, state_session} = JidoCode.Session.State.get_session(state_pid)
       assert state_session.id == session.id
 
-      # Get Agent and verify it has session_id
-      [{agent_pid, _}] = Registry.lookup(@registry, {:agent, session.id})
-      {:ok, agent_session_id, _topic} = JidoCode.Agents.LLMAgent.get_session_info(agent_pid)
-      assert agent_session_id == session.id
+      # Agent is NOT started on init (lazy startup)
+      assert [] = Registry.lookup(@registry, {:agent, session.id})
     end
   end
 
   describe "integration with SessionSupervisor" do
     setup %{tmp_dir: tmp_dir, config: config} do
-      # Also start SessionSupervisor and SessionRegistry for integration test
-      if pid = Process.whereis(JidoCode.SessionSupervisor) do
-        Supervisor.stop(pid)
-      end
+      # Use the existing SessionSupervisor from application.ex
+      # If it's not running, start it (may have been stopped by another test)
+      sup_pid =
+        case Process.whereis(JidoCode.SessionSupervisor) do
+          nil ->
+            {:ok, pid} = JidoCode.SessionSupervisor.start_link([])
+            pid
 
-      {:ok, sup_pid} = JidoCode.SessionSupervisor.start_link([])
+          pid ->
+            pid
+        end
 
       JidoCode.SessionRegistry.create_table()
       JidoCode.SessionRegistry.clear()
 
       on_exit(fn ->
         JidoCode.SessionRegistry.clear()
-
-        if Process.alive?(sup_pid) do
-          try do
-            Supervisor.stop(sup_pid)
-          catch
-            :exit, _ -> :ok
-          end
-        end
       end)
 
       {:ok, sup_pid: sup_pid, tmp_dir: tmp_dir, config: config}
@@ -358,14 +356,23 @@ defmodule JidoCode.Session.SupervisorTest do
       {:ok, session} = create_session(tmp_dir, config)
       {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
 
+      # Agent is started lazily, so start it first
+      {:ok, _agent_pid} = SessionSupervisor.start_agent(session)
+
       assert {:ok, pid} = SessionSupervisor.get_agent(session.id)
       assert is_pid(pid)
       assert Process.alive?(pid)
     end
 
-    test "returns same pid as direct Registry lookup", %{tmp_dir: tmp_dir, config: config} do
+    test "returns same pid as direct Registry lookup (after lazy start)", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
       {:ok, session} = create_session(tmp_dir, config)
       {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Start agent lazily first
+      {:ok, _agent_pid} = SessionSupervisor.start_agent(session)
 
       {:ok, pid} = SessionSupervisor.get_agent(session.id)
       [{registry_pid, _}] = Registry.lookup(@registry, {:agent, session.id})
@@ -377,10 +384,26 @@ defmodule JidoCode.Session.SupervisorTest do
       assert {:error, :not_found} = SessionSupervisor.get_agent("unknown-session-id")
     end
 
-    test "returns error after session stopped", %{tmp_dir: tmp_dir, config: config} do
+    test "returns error when agent not started (lazy startup)", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Agent is not started by default (lazy startup)
+      assert {:error, :not_found} = SessionSupervisor.get_agent(session.id)
+    end
+
+    test "returns error after session stopped (with lazy started agent)", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
       {:ok, session} = create_session(tmp_dir, config)
       {:ok, sup_pid} = SessionSupervisor.start_link(session: session)
 
+      # Start agent lazily first
+      {:ok, _agent_pid} = SessionSupervisor.start_agent(session)
       assert {:ok, _pid} = SessionSupervisor.get_agent(session.id)
 
       Supervisor.stop(sup_pid)
@@ -397,13 +420,34 @@ defmodule JidoCode.Session.SupervisorTest do
   end
 
   describe "get_manager/1, get_state/1, and get_agent/1 return different pids" do
-    test "Manager, State, and Agent are different processes", %{tmp_dir: tmp_dir, config: config} do
+    test "Manager and State are different processes (Agent is lazy)", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
       {:ok, session} = create_session(tmp_dir, config)
       {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
 
       {:ok, manager_pid} = SessionSupervisor.get_manager(session.id)
       {:ok, state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, agent_pid} = SessionSupervisor.get_agent(session.id)
+
+      # Agent is NOT started on init (lazy startup)
+      assert {:error, :not_found} = SessionSupervisor.get_agent(session.id)
+
+      assert manager_pid != state_pid
+    end
+
+    test "Agent can be started lazily and is different from Manager/State", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      {:ok, manager_pid} = SessionSupervisor.get_manager(session.id)
+      {:ok, state_pid} = SessionSupervisor.get_state(session.id)
+
+      # Start agent lazily
+      {:ok, agent_pid} = SessionSupervisor.start_agent(session)
 
       assert manager_pid != state_pid
       assert manager_pid != agent_pid
@@ -412,11 +456,11 @@ defmodule JidoCode.Session.SupervisorTest do
   end
 
   # ============================================================================
-  # Crash Recovery Tests (:one_for_all strategy)
+  # Crash Recovery Tests (:one_for_one strategy)
   # ============================================================================
 
-  describe ":one_for_all crash recovery" do
-    test "Manager crash restarts all children due to :one_for_all", %{
+  describe ":one_for_one crash recovery" do
+    test "Manager crash restarts only Manager (one_for_one)", %{
       tmp_dir: tmp_dir,
       config: config
     } do
@@ -426,34 +470,31 @@ defmodule JidoCode.Session.SupervisorTest do
       # Get initial pids
       {:ok, manager_pid} = SessionSupervisor.get_manager(session.id)
       {:ok, state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, agent_pid} = SessionSupervisor.get_agent(session.id)
 
       # Kill Manager process
       Process.exit(manager_pid, :kill)
 
-      # Wait for restart (supervisor will restart children)
+      # Wait for restart (supervisor will restart only Manager)
       Process.sleep(50)
 
-      # All should have new pids (due to :one_for_all)
+      # Only Manager should have new pid (due to :one_for_one)
       {:ok, new_manager_pid} = SessionSupervisor.get_manager(session.id)
-      {:ok, new_state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, new_agent_pid} = SessionSupervisor.get_agent(session.id)
+      {:ok, same_state_pid} = SessionSupervisor.get_state(session.id)
 
-      # All restarted
+      # Manager restarted
       assert new_manager_pid != manager_pid
-      assert new_state_pid != state_pid
-      assert new_agent_pid != agent_pid
+      # State unchanged
+      assert same_state_pid == state_pid
 
       # All are alive
       assert Process.alive?(new_manager_pid)
-      assert Process.alive?(new_state_pid)
-      assert Process.alive?(new_agent_pid)
+      assert Process.alive?(same_state_pid)
 
       # Cleanup
       Supervisor.stop(sup_pid)
     end
 
-    test "State crash restarts all children due to :one_for_all", %{
+    test "State crash restarts only State (one_for_one)", %{
       tmp_dir: tmp_dir,
       config: config
     } do
@@ -463,7 +504,6 @@ defmodule JidoCode.Session.SupervisorTest do
       # Get initial pids
       {:ok, manager_pid} = SessionSupervisor.get_manager(session.id)
       {:ok, state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, agent_pid} = SessionSupervisor.get_agent(session.id)
 
       # Kill State process
       Process.exit(state_pid, :kill)
@@ -471,36 +511,36 @@ defmodule JidoCode.Session.SupervisorTest do
       # Wait for restart
       Process.sleep(50)
 
-      # All should have new pids (due to :one_for_all)
-      {:ok, new_manager_pid} = SessionSupervisor.get_manager(session.id)
+      # Only State should have new pid (due to :one_for_one)
+      {:ok, same_manager_pid} = SessionSupervisor.get_manager(session.id)
       {:ok, new_state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, new_agent_pid} = SessionSupervisor.get_agent(session.id)
 
-      # All restarted
+      # State restarted
       assert new_state_pid != state_pid
-      assert new_manager_pid != manager_pid
-      assert new_agent_pid != agent_pid
+      # Manager unchanged
+      assert same_manager_pid == manager_pid
 
       # All are alive
-      assert Process.alive?(new_manager_pid)
+      assert Process.alive?(same_manager_pid)
       assert Process.alive?(new_state_pid)
-      assert Process.alive?(new_agent_pid)
 
       # Cleanup
       Supervisor.stop(sup_pid)
     end
 
-    test "Agent crash restarts all children due to :one_for_all", %{
+    test "Agent crash restarts only Agent (one_for_one, after lazy start)", %{
       tmp_dir: tmp_dir,
       config: config
     } do
       {:ok, session} = create_session(tmp_dir, config)
       {:ok, sup_pid} = SessionSupervisor.start_link(session: session)
 
+      # Start agent lazily first
+      {:ok, agent_pid} = SessionSupervisor.start_agent(session)
+
       # Get initial pids
       {:ok, manager_pid} = SessionSupervisor.get_manager(session.id)
       {:ok, state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, agent_pid} = SessionSupervisor.get_agent(session.id)
 
       # Kill Agent process
       Process.exit(agent_pid, :kill)
@@ -508,19 +548,20 @@ defmodule JidoCode.Session.SupervisorTest do
       # Wait for restart
       Process.sleep(50)
 
-      # All should have new pids (due to :one_for_all)
-      {:ok, new_manager_pid} = SessionSupervisor.get_manager(session.id)
-      {:ok, new_state_pid} = SessionSupervisor.get_state(session.id)
+      # Only Agent should have new pid (due to :one_for_one)
+      {:ok, same_manager_pid} = SessionSupervisor.get_manager(session.id)
+      {:ok, same_state_pid} = SessionSupervisor.get_state(session.id)
       {:ok, new_agent_pid} = SessionSupervisor.get_agent(session.id)
 
-      # All restarted
+      # Agent restarted
       assert new_agent_pid != agent_pid
-      assert new_manager_pid != manager_pid
-      assert new_state_pid != state_pid
+      # Manager and State unchanged
+      assert same_manager_pid == manager_pid
+      assert same_state_pid == state_pid
 
       # All are alive
-      assert Process.alive?(new_manager_pid)
-      assert Process.alive?(new_state_pid)
+      assert Process.alive?(same_manager_pid)
+      assert Process.alive?(same_state_pid)
       assert Process.alive?(new_agent_pid)
 
       # Cleanup
@@ -543,17 +584,14 @@ defmodule JidoCode.Session.SupervisorTest do
 
       # Registry lookups should return the new pids
       {:ok, new_manager_pid} = SessionSupervisor.get_manager(session.id)
-      {:ok, new_state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, new_agent_pid} = SessionSupervisor.get_agent(session.id)
+      {:ok, same_state_pid} = SessionSupervisor.get_state(session.id)
 
       # Direct Registry lookup should match helper function results
       [{registry_manager, _}] = Registry.lookup(@registry, {:manager, session.id})
       [{registry_state, _}] = Registry.lookup(@registry, {:state, session.id})
-      [{registry_agent, _}] = Registry.lookup(@registry, {:agent, session.id})
 
       assert new_manager_pid == registry_manager
-      assert new_state_pid == registry_state
-      assert new_agent_pid == registry_agent
+      assert same_state_pid == registry_state
 
       # Cleanup
       Supervisor.stop(sup_pid)
@@ -570,22 +608,83 @@ defmodule JidoCode.Session.SupervisorTest do
       # Wait for restart
       Process.sleep(50)
 
-      # Get new pids
+      # Get new pids (State should be same due to :one_for_one)
       {:ok, new_manager_pid} = SessionSupervisor.get_manager(session.id)
-      {:ok, new_state_pid} = SessionSupervisor.get_state(session.id)
-      {:ok, new_agent_pid} = SessionSupervisor.get_agent(session.id)
+      {:ok, same_state_pid} = SessionSupervisor.get_state(session.id)
 
       # All should still have the session
       assert {:ok, manager_session} = JidoCode.Session.Manager.get_session(new_manager_pid)
-      assert {:ok, state_session} = JidoCode.Session.State.get_session(new_state_pid)
-      {:ok, agent_session_id, _topic} = JidoCode.Agents.LLMAgent.get_session_info(new_agent_pid)
+      assert {:ok, state_session} = JidoCode.Session.State.get_session(same_state_pid)
 
       assert manager_session.id == session.id
       assert state_session.id == session.id
-      assert agent_session_id == session.id
 
       # Cleanup
       Supervisor.stop(sup_pid)
+    end
+  end
+
+  # ============================================================================
+  # Lazy Agent Startup Tests
+  # ============================================================================
+
+  describe "lazy agent startup" do
+    test "start_agent/1 starts the agent", %{tmp_dir: tmp_dir, config: config} do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Agent is not running initially
+      refute SessionSupervisor.agent_running?(session.id)
+
+      # Start agent
+      {:ok, agent_pid} = SessionSupervisor.start_agent(session)
+      assert is_pid(agent_pid)
+      assert Process.alive?(agent_pid)
+
+      # Agent is now running
+      assert SessionSupervisor.agent_running?(session.id)
+    end
+
+    test "start_agent/1 returns already_started if agent is running", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Start agent first time
+      {:ok, _agent_pid} = SessionSupervisor.start_agent(session)
+
+      # Try to start again
+      assert {:error, :already_started} = SessionSupervisor.start_agent(session)
+    end
+
+    test "stop_agent/1 stops the agent", %{tmp_dir: tmp_dir, config: config} do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Start agent
+      {:ok, _agent_pid} = SessionSupervisor.start_agent(session)
+      assert SessionSupervisor.agent_running?(session.id)
+
+      # Stop agent
+      :ok = SessionSupervisor.stop_agent(session.id)
+      refute SessionSupervisor.agent_running?(session.id)
+    end
+
+    test "stop_agent/1 returns not_running if agent is not started", %{
+      tmp_dir: tmp_dir,
+      config: config
+    } do
+      {:ok, session} = create_session(tmp_dir, config)
+      {:ok, _sup_pid} = SessionSupervisor.start_link(session: session)
+
+      # Agent not started
+      assert {:error, :not_running} = SessionSupervisor.stop_agent(session.id)
+    end
+
+    test "agent_running?/1 returns false for unknown session", %{} do
+      refute SessionSupervisor.agent_running?("unknown-session-id")
     end
   end
 end

@@ -197,36 +197,34 @@ defmodule JidoCode.Integration.SessionPhase1Test do
 
       # Monitor original pids
       manager_ref = Process.monitor(manager_pid)
-      state_ref = Process.monitor(state_pid)
 
-      # Kill the manager (should trigger :one_for_all restart)
+      # Kill the manager (with :one_for_one, only manager restarts)
       Process.exit(manager_pid, :kill)
 
-      # Wait for restart
+      # Wait for manager to die
       receive do
         {:DOWN, ^manager_ref, :process, ^manager_pid, :killed} -> :ok
       after
         1000 -> flunk("Manager didn't die")
       end
 
-      # State should also restart due to :one_for_all
-      receive do
-        {:DOWN, ^state_ref, :process, ^state_pid, _} -> :ok
-      after
-        1000 -> flunk("State didn't restart")
-      end
-
-      # Wait for supervisor to restart children
+      # Wait for supervisor to restart manager
       Process.sleep(100)
 
-      # Verify session still running with new pids
+      # Verify session still running with new manager pid
       assert SessionSupervisor.session_running?(session.id)
       assert {:ok, new_manager_pid} = JidoCode.Session.Supervisor.get_manager(session.id)
       assert {:ok, new_state_pid} = JidoCode.Session.Supervisor.get_state(session.id)
 
-      # Pids should be different (restarted)
+      # Manager should be different (restarted)
       assert new_manager_pid != manager_pid
-      assert new_state_pid != state_pid
+
+      # State should be same (not restarted with :one_for_one)
+      assert new_state_pid == state_pid
+
+      # Both should be alive
+      assert Process.alive?(new_manager_pid)
+      assert Process.alive?(new_state_pid)
 
       # Registry should be intact
       assert {:ok, ^session} = SessionRegistry.lookup(session.id)
@@ -599,14 +597,14 @@ defmodule JidoCode.Integration.SessionPhase1Test do
       assert state1 != state2
     end
 
-    test "child pids change after supervisor restart", %{tmp_base: tmp_base} do
+    test "killed child pid changes after supervisor restart", %{tmp_base: tmp_base} do
       path = create_test_dir(tmp_base, "restart_pids")
 
       {:ok, session} = SessionSupervisor.create_session(project_path: path)
       {:ok, original_manager} = JidoCode.Session.Supervisor.get_manager(session.id)
       {:ok, original_state} = JidoCode.Session.Supervisor.get_state(session.id)
 
-      # Kill one child to trigger restart
+      # Kill manager to trigger restart (with :one_for_one, only manager restarts)
       Process.exit(original_manager, :kill)
 
       # Wait for restart
@@ -616,11 +614,13 @@ defmodule JidoCode.Integration.SessionPhase1Test do
       {:ok, new_manager} = JidoCode.Session.Supervisor.get_manager(session.id)
       {:ok, new_state} = JidoCode.Session.Supervisor.get_state(session.id)
 
-      # Should be different (restarted)
+      # Manager should be different (restarted)
       assert new_manager != original_manager
-      assert new_state != original_state
 
-      # But should be alive
+      # State should be same (not killed, so not restarted)
+      assert new_state == original_state
+
+      # Both should be alive
       assert Process.alive?(new_manager)
       assert Process.alive?(new_state)
     end

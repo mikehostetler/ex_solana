@@ -59,11 +59,11 @@ defmodule JidoCode.TUI.ModelTest do
     test "has correct UI state defaults" do
       model = %Model{}
 
-      assert model.text_input == nil
+      # text_input is now managed inside ConversationView per session
       assert model.window == {80, 24}
       assert model.show_reasoning == false
       assert model.show_tool_details == false
-      assert model.agent_status == :unconfigured
+      # agent_status is now per-session in ui_state, not on Model
       assert model.config == %{provider: nil, model: nil}
     end
 
@@ -353,7 +353,11 @@ defmodule JidoCode.TUI.ModelTest do
 
       result = Model.add_session(model, session)
 
-      assert result.sessions["s1"] == session
+      # Session is stored with ui_state added
+      assert result.sessions["s1"].id == session.id
+      assert result.sessions["s1"].name == session.name
+      assert result.sessions["s1"].project_path == session.project_path
+      assert result.sessions["s1"].ui_state != nil
       assert result.session_order == ["s1"]
       assert result.active_session_id == "s1"
     end
@@ -367,8 +371,12 @@ defmodule JidoCode.TUI.ModelTest do
         created_at: DateTime.utc_now()
       }
 
+      # Add ui_state to match what would be in a real model
+      existing_session_with_ui =
+        Map.put(existing_session, :ui_state, Model.default_ui_state({80, 24}))
+
       model = %Model{
-        sessions: %{"s1" => existing_session},
+        sessions: %{"s1" => existing_session_with_ui},
         session_order: ["s1"],
         active_session_id: "s1"
       }
@@ -384,8 +392,9 @@ defmodule JidoCode.TUI.ModelTest do
       result = Model.add_session(model, new_session)
 
       assert map_size(result.sessions) == 2
-      assert result.sessions["s1"] == existing_session
-      assert result.sessions["s2"] == new_session
+      assert result.sessions["s1"].id == existing_session.id
+      assert result.sessions["s2"].id == new_session.id
+      assert result.sessions["s2"].ui_state != nil
       assert result.session_order == ["s1", "s2"]
       # New session becomes active
       assert result.active_session_id == "s2"

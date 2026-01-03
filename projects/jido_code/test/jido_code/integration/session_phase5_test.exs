@@ -212,7 +212,7 @@ defmodule JidoCode.Integration.SessionPhase5Test do
       result = create_session_via_command(project_path)
 
       assert {:error, message} = result
-      assert message =~ "Maximum 10 sessions"
+      assert message =~ "Maximum sessions reached"
 
       # Cleanup
       for session <- sessions do

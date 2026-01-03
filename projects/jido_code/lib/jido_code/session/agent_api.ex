@@ -13,11 +13,25 @@ defmodule JidoCode.Session.AgentAPI do
       # Send a streaming message (response via PubSub)
       :ok = AgentAPI.send_message_stream(session_id, "Tell me about Elixir")
 
+      # Explicitly connect the agent (start lazily)
+      {:ok, pid} = AgentAPI.ensure_connected(session_id)
+
+  ## Lazy Agent Startup
+
+  The LLM agent is NOT started when a session is created. Instead, it is
+  started lazily when:
+  - `ensure_connected/1` is called explicitly
+  - A message is sent and agent needs to be started
+
+  This allows sessions to exist without valid LLM credentials and provides
+  a better UX when credentials are not yet configured.
+
   ## Error Handling
 
   All functions return tagged tuples:
   - `{:ok, result}` - Success
-  - `{:error, :agent_not_found}` - Session has no agent
+  - `{:error, :agent_not_found}` - Session has no agent (and couldn't start one)
+  - `{:error, :agent_not_connected}` - Agent not running, use ensure_connected first
   - `{:error, reason}` - Other errors (validation, agent errors)
 
   ### Error Atom Convention
@@ -28,6 +42,7 @@ defmodule JidoCode.Session.AgentAPI do
 
   - `:not_found` - Generic "resource not found" (used internally)
   - `:agent_not_found` - Specific "session has no agent" (API-level)
+  - `:agent_not_connected` - Agent exists but not started (API-level)
 
   This semantic distinction helps callers understand exactly what was
   not found without needing to know the internal lookup hierarchy.
@@ -48,8 +63,10 @@ defmodule JidoCode.Session.AgentAPI do
   """
 
   alias JidoCode.Agents.LLMAgent
+  alias JidoCode.Session
   alias JidoCode.Session.State
   alias JidoCode.Session.Supervisor, as: SessionSupervisor
+  alias JidoCode.SessionRegistry
 
   # ============================================================================
   # Type Definitions
@@ -320,6 +337,132 @@ defmodule JidoCode.Session.AgentAPI do
   end
 
   # ============================================================================
+  # Connection API (Lazy Agent Startup)
+  # ============================================================================
+
+  @doc """
+  Ensures the LLM agent is connected for the session.
+
+  If the agent is already running, returns its pid. If not, attempts to start
+  it using the session's configuration. This is the primary way to lazily
+  start the LLM agent after a session is created.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+
+  ## Returns
+
+  - `{:ok, pid}` - Agent is running (either already was or just started)
+  - `{:error, :session_not_found}` - Session doesn't exist
+  - `{:error, reason}` - Failed to start agent (e.g., invalid credentials)
+
+  ## Examples
+
+      iex> AgentAPI.ensure_connected("session-123")
+      {:ok, #PID<0.123.0>}
+
+      iex> AgentAPI.ensure_connected("session-no-creds")
+      {:error, "No API key found for provider 'anthropic'..."}
+  """
+  @spec ensure_connected(String.t()) :: {:ok, pid()} | {:error, term()}
+  def ensure_connected(session_id) when is_binary(session_id) do
+    # First check if agent is already running
+    if SessionSupervisor.agent_running?(session_id) do
+      get_agent(session_id)
+    else
+      # Try to start the agent
+      case SessionRegistry.lookup(session_id) do
+        {:ok, session} ->
+          case SessionSupervisor.start_agent(session) do
+            {:ok, pid} ->
+              # Update session connection_status
+              update_connection_status(session_id, :connected)
+              {:ok, pid}
+
+            {:error, reason} ->
+              # Update session connection_status to error
+              update_connection_status(session_id, :error)
+              {:error, reason}
+          end
+
+        {:error, :not_found} ->
+          {:error, :session_not_found}
+      end
+    end
+  end
+
+  @doc """
+  Disconnects the LLM agent for the session.
+
+  Stops the agent if it's running. The session remains active and the agent
+  can be reconnected later with `ensure_connected/1`.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+
+  ## Returns
+
+  - `:ok` - Agent disconnected (or wasn't running)
+  - `{:error, :session_not_found}` - Session doesn't exist
+  """
+  @spec disconnect(String.t()) :: :ok | {:error, term()}
+  def disconnect(session_id) when is_binary(session_id) do
+    case SessionSupervisor.stop_agent(session_id) do
+      :ok ->
+        update_connection_status(session_id, :disconnected)
+        :ok
+
+      {:error, :not_running} ->
+        # Already disconnected
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Checks if the LLM agent is connected for the session.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+
+  ## Returns
+
+  - `true` if agent is running
+  - `false` if agent is not running
+  """
+  @spec connected?(String.t()) :: boolean()
+  def connected?(session_id) when is_binary(session_id) do
+    SessionSupervisor.agent_running?(session_id)
+  end
+
+  @doc """
+  Gets the connection status of the session's LLM agent.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+
+  ## Returns
+
+  - `{:ok, :connected}` - Agent is running
+  - `{:ok, :disconnected}` - Agent not started
+  - `{:ok, :error}` - Agent failed to start
+  - `{:error, :session_not_found}` - Session doesn't exist
+  """
+  @spec get_connection_status(String.t()) :: {:ok, Session.connection_status()} | {:error, term()}
+  def get_connection_status(session_id) when is_binary(session_id) do
+    case SessionRegistry.lookup(session_id) do
+      {:ok, session} -> {:ok, session.connection_status}
+      {:error, :not_found} -> {:error, :session_not_found}
+    end
+  end
+
+  # ============================================================================
   # Private Helpers
   # ============================================================================
 
@@ -331,6 +474,18 @@ defmodule JidoCode.Session.AgentAPI do
       {:ok, pid} -> {:ok, pid}
       {:error, :not_found} -> {:error, :agent_not_found}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Updates the connection status in the session registry
+  defp update_connection_status(session_id, status) do
+    case SessionRegistry.lookup(session_id) do
+      {:ok, session} ->
+        updated_session = %{session | connection_status: status}
+        SessionRegistry.update(updated_session)
+
+      {:error, _} ->
+        :ok
     end
   end
 end

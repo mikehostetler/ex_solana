@@ -1,0 +1,344 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Jido Prompt CI Validation Ruleset (SHACL)
+# Enforces correctness of prompt memory graphs
+#################################################################
+
+#################################################################
+# SHAPE 1 — Every Prompt must have unique ID and name
+#################################################################
+
+jido:PromptIdentityShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:property [
+        sh:path jido:promptId ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Every Prompt must have exactly one unique promptId."
+    ] ;
+    sh:property [
+        sh:path jido:promptName ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Every Prompt must have a name."
+    ] .
+
+#################################################################
+# SHAPE 2 — Every Prompt must have content
+#################################################################
+
+jido:PromptContentRequiredShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:property [
+        sh:path jido:hasPromptContent ;
+        sh:minCount 1 ;
+        sh:class jido:PromptContent ;
+        sh:message "Every Prompt must have content."
+    ] .
+
+#################################################################
+# SHAPE 3 — PromptContent must have text and format
+#################################################################
+
+jido:PromptContentShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptContent ;
+    sh:property [
+        sh:path jido:contentText ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Prompt content must include text."
+    ] ;
+    sh:property [
+        sh:path jido:hasContentFormat ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class jido:ContentFormat ;
+        sh:message "Prompt content must specify a format."
+    ] .
+
+#################################################################
+# SHAPE 4 — Every Prompt must have provenance (as MemoryItem)
+#################################################################
+
+jido:PromptProvenanceShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:property [
+        sh:path jido:hasConfidence ;
+        sh:minCount 1 ;
+        sh:message "Every Prompt must specify a confidence level (inherited from MemoryItem)."
+    ] ;
+    sh:property [
+        sh:path jido:hasTimestamp ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "Every Prompt must include a timestamp."
+    ] ;
+    sh:property [
+        sh:path jido:appliesToProject ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "Every Prompt must belong to exactly one Project."
+    ] .
+
+#################################################################
+# SHAPE 5 — PromptVersion must have valid semver format
+#################################################################
+
+jido:PromptVersionShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptVersion ;
+    sh:property [
+        sh:path jido:versionNumber ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^\\d+\\.\\d+\\.\\d+$" ;
+        sh:message "Version number must follow semver format (e.g., 1.0.0)."
+    ] ;
+    sh:property [
+        sh:path jido:versionOf ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class jido:Prompt ;
+        sh:message "Every PromptVersion must reference its parent Prompt."
+    ] ;
+    sh:property [
+        sh:path jido:hasPromptStatus ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class jido:PromptStatus ;
+        sh:message "Every PromptVersion must have a status."
+    ] .
+
+#################################################################
+# SHAPE 6 — Published Prompts must have categorization
+#################################################################
+
+jido:PublishedPromptCategoryShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:sparql [
+        sh:message "Published prompts must have at least one category." ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this jido:currentPromptVersion ?version .
+                ?version jido:hasPromptStatus jido:PromptPublished .
+                
+                FILTER NOT EXISTS {
+                    $this jido:hasPromptCategory ?cat .
+                }
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 7 — PromptVariable must have name and type
+#################################################################
+
+jido:PromptVariableShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptVariable ;
+    sh:property [
+        sh:path jido:variableName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[a-zA-Z_][a-zA-Z0-9_]*$" ;
+        sh:message "Variable name must be a valid identifier."
+    ] ;
+    sh:property [
+        sh:path jido:variableType ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Every PromptVariable must specify a type."
+    ] .
+
+#################################################################
+# SHAPE 8 — Required variables must not have defaults
+#################################################################
+
+jido:RequiredVariableNoDefaultShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptVariable ;
+    sh:sparql [
+        sh:message "Required variables should not have default values." ;
+        sh:severity sh:Warning ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this jido:variableRequired true .
+                $this jido:variableDefault ?default .
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 9 — SystemPrompts should define agent behavior
+#################################################################
+
+jido:SystemPromptAgentShape
+    a sh:NodeShape ;
+    sh:targetClass jido:SystemPrompt ;
+    sh:sparql [
+        sh:message "SystemPrompts should specify which agent behavior they define." ;
+        sh:severity sh:Info ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this a jido:SystemPrompt .
+                
+                FILTER NOT EXISTS {
+                    $this jido:definesAgentBehavior ?agent .
+                }
+                FILTER NOT EXISTS {
+                    $this jido:usedByAgent ?agent .
+                }
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 10 — PromptFragment must have position when composed
+#################################################################
+
+jido:PromptFragmentPositionShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptFragment ;
+    sh:sparql [
+        sh:message "PromptFragments used in composition must have a position." ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                ?parent jido:composedOfFragment $this .
+                
+                FILTER NOT EXISTS {
+                    $this jido:fragmentPosition ?pos .
+                }
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 11 — No circular version dependencies
+#################################################################
+
+jido:NoCyclicVersionShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptVersion ;
+    sh:sparql [
+        sh:message "Version chain must not contain cycles." ;
+        sh:severity sh:Violation ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this jido:previousPromptVersion+ $this .
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 12 — PromptCollection must have members
+#################################################################
+
+jido:PromptCollectionMembersShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptCollection ;
+    sh:property [
+        sh:path jido:hasPromptMember ;
+        sh:minCount 1 ;
+        sh:message "Every PromptCollection must have at least one member."
+    ] .
+
+#################################################################
+# SHAPE 13 — Deprecated prompts should have replacement
+#################################################################
+
+jido:DeprecatedPromptReplacementShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:sparql [
+        sh:message "Deprecated prompts should specify a replacement via supersededBy." ;
+        sh:severity sh:Warning ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this jido:currentPromptVersion ?version .
+                ?version jido:hasPromptStatus jido:PromptDeprecated .
+                
+                FILTER NOT EXISTS {
+                    $this jido:supersededBy ?replacement .
+                }
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 14 — Prompts with target model should specify family
+#################################################################
+
+jido:TargetModelFamilyShape
+    a sh:NodeShape ;
+    sh:targetClass jido:Prompt ;
+    sh:sparql [
+        sh:message "Prompts targeting specific models should also specify model family." ;
+        sh:severity sh:Info ;
+        sh:prefixes jido: ;
+        sh:select """
+            PREFIX jido: <https://jido.ai/ontology#>
+            
+            SELECT $this
+            WHERE {
+                $this jido:targetModel ?model .
+                
+                FILTER NOT EXISTS {
+                    $this jido:modelFamily ?family .
+                }
+            }
+        """
+    ] .
+
+#################################################################
+# SHAPE 15 — PromptTestCase must link to Prompt
+#################################################################
+
+jido:PromptTestCaseShape
+    a sh:NodeShape ;
+    sh:targetClass jido:PromptTestCase ;
+    sh:property [
+        sh:path [ sh:inversePath jido:hasPromptTestCase ] ;
+        sh:minCount 1 ;
+        sh:message "Every PromptTestCase must be linked to a Prompt."
+    ] .
+
+#################################################################
+# End of Prompt CI Validation Ruleset
+#################################################################
+

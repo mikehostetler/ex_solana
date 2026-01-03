@@ -66,6 +66,9 @@ defmodule JidoCode.Test.SessionTestHelpers do
   """
   @spec setup_session_registry(String.t()) :: {:ok, map()}
   def setup_session_registry(suffix \\ "test") do
+    # Ensure core infrastructure is running
+    ensure_infrastructure()
+
     # Ensure registry is available - either use existing or start new
     case Process.whereis(@registry) do
       nil ->
@@ -95,16 +98,9 @@ defmodule JidoCode.Test.SessionTestHelpers do
   """
   @spec cleanup_session_registry(String.t()) :: :ok
   def cleanup_session_registry(tmp_dir) do
+    # Only clean up temp directory, don't stop the registry
+    # The registry is shared across all tests
     File.rm_rf!(tmp_dir)
-
-    if pid = Process.whereis(@registry) do
-      try do
-        GenServer.stop(pid)
-      catch
-        :exit, _ -> :ok
-      end
-    end
-
     :ok
   end
 
@@ -136,38 +132,27 @@ defmodule JidoCode.Test.SessionTestHelpers do
   """
   @spec setup_session_supervisor(String.t()) :: {:ok, map()}
   def setup_session_supervisor(suffix \\ "test") do
-    # Stop SessionSupervisor if already running and wait for termination
-    if pid = Process.whereis(SessionSupervisor) do
-      ref = Process.monitor(pid)
-      Supervisor.stop(pid)
+    # Ensure core infrastructure is running
+    ensure_infrastructure()
 
-      receive do
-        {:DOWN, ^ref, :process, ^pid, _} -> :ok
-      after
-        100 -> Process.demonitor(ref, [:flush])
+    # Use the existing SessionSupervisor from application.ex if available,
+    # or start a new one if not running
+    sup_pid =
+      case Process.whereis(SessionSupervisor) do
+        nil ->
+          {:ok, pid} = SessionSupervisor.start_link([])
+          pid
+
+        pid ->
+          pid
       end
-    end
 
-    # Start SessionProcessRegistry for via tuples and wait for any existing to terminate
-    if pid = Process.whereis(JidoCode.SessionProcessRegistry) do
-      ref = Process.monitor(pid)
-      GenServer.stop(pid)
-
-      receive do
-        {:DOWN, ^ref, :process, ^pid, _} -> :ok
-      after
-        100 -> Process.demonitor(ref, [:flush])
-      end
-    end
-
-    {:ok, _} = Registry.start_link(keys: :unique, name: JidoCode.SessionProcessRegistry)
-
-    # Start SessionSupervisor
-    {:ok, sup_pid} = SessionSupervisor.start_link([])
-
-    # Ensure SessionRegistry table exists and is empty
+    # Ensure SessionRegistry table exists and is clear
     SessionRegistry.create_table()
     SessionRegistry.clear()
+
+    # Ensure Persistence lock tables exist
+    JidoCode.Session.Persistence.init()
 
     # Create a temp directory for sessions
     tmp_dir = Path.join(System.tmp_dir!(), "session_#{suffix}_#{:rand.uniform(100_000)}")
@@ -181,31 +166,126 @@ defmodule JidoCode.Test.SessionTestHelpers do
   end
 
   @doc """
+  Ensures all core infrastructure is running.
+
+  Call this at the start of tests that depend on global infrastructure
+  like PubSub, registries, and supervisors. This handles cases where
+  previous tests may have stopped the infrastructure.
+  """
+  @spec ensure_infrastructure() :: :ok
+  def ensure_infrastructure do
+    # If the main application supervisor is not running, restart the whole application
+    case Process.whereis(JidoCode.Supervisor) do
+      nil ->
+        # Application was stopped, restart it
+        {:ok, _} = Application.ensure_all_started(:jido_code)
+        :ok
+
+      _pid ->
+        # Application is running, just ensure individual components
+        ensure_components()
+    end
+  end
+
+  defp ensure_components do
+    # Ensure PubSub is running
+    case Process.whereis(JidoCode.PubSub) do
+      nil ->
+        {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: JidoCode.PubSub)
+
+      _pid ->
+        :ok
+    end
+
+    # Ensure SessionProcessRegistry is running
+    case Process.whereis(JidoCode.SessionProcessRegistry) do
+      nil ->
+        {:ok, _} = Registry.start_link(keys: :unique, name: JidoCode.SessionProcessRegistry)
+
+      _pid ->
+        :ok
+    end
+
+    # Ensure AgentRegistry is running
+    case Process.whereis(JidoCode.AgentRegistry) do
+      nil ->
+        {:ok, _} = Registry.start_link(keys: :unique, name: JidoCode.AgentRegistry)
+
+      _pid ->
+        :ok
+    end
+
+    # Ensure AgentSupervisor is running
+    case Process.whereis(JidoCode.AgentSupervisor) do
+      nil ->
+        {:ok, _} = JidoCode.AgentSupervisor.start_link([])
+
+      _pid ->
+        :ok
+    end
+
+    # Ensure SessionSupervisor is running
+    case Process.whereis(JidoCode.SessionSupervisor) do
+      nil ->
+        {:ok, _} = JidoCode.SessionSupervisor.start_link([])
+
+      _pid ->
+        :ok
+    end
+
+    :ok
+  end
+
+  @doc """
   Cleans up session supervisor test resources.
 
   Called automatically via on_exit when using setup_session_supervisor/1,
   but can be called manually if needed.
   """
   @spec cleanup_session_supervisor(pid(), String.t()) :: :ok
-  def cleanup_session_supervisor(sup_pid, tmp_dir) do
+  def cleanup_session_supervisor(_sup_pid, tmp_dir) do
+    # Only clear sessions, don't stop registries or supervisors
+    # These are shared across all tests and should remain running
     SessionRegistry.clear()
     File.rm_rf!(tmp_dir)
+    :ok
+  end
 
-    if Process.alive?(sup_pid) do
+  @doc """
+  Stops all running sessions for test isolation.
+
+  This ensures tests start with a clean slate by stopping all session
+  processes under the SessionSupervisor.
+  """
+  @spec stop_all_sessions() :: :ok
+  def stop_all_sessions do
+    # Get all sessions from the registry
+    sessions = SessionRegistry.list_all()
+
+    # Stop each session
+    Enum.each(sessions, fn session ->
       try do
-        Supervisor.stop(sup_pid)
+        SessionSupervisor.stop_session(session.id)
       catch
         :exit, _ -> :ok
       end
+    end)
+
+    # Also stop any orphan session processes not in the registry
+    if pid = Process.whereis(SessionSupervisor) do
+      children = DynamicSupervisor.which_children(pid)
+
+      Enum.each(children, fn {_, child_pid, _, _} ->
+        try do
+          DynamicSupervisor.terminate_child(pid, child_pid)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
     end
 
-    if pid = Process.whereis(JidoCode.SessionProcessRegistry) do
-      try do
-        GenServer.stop(pid)
-      catch
-        :exit, _ -> :ok
-      end
-    end
+    # Clear the registry
+    SessionRegistry.clear()
 
     :ok
   end

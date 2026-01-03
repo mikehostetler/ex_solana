@@ -1,0 +1,386 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoPromptTaxonomyOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Prompt Taxonomy Ontology" ;
+    rdfs:comment "Taxonomy module defining prompt categories for multi-level classification within JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoPromptOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Category Scheme
+#################################################################
+
+jido:JidoPromptCategoryScheme a jido:PromptCategoryScheme, skos:ConceptScheme ;
+    rdfs:label "Jido Prompt Category Scheme" ;
+    rdfs:comment "The default category scheme for JidoCode prompts." ;
+    skos:hasTopConcept jido:DomainCategories, jido:TaskCategories, 
+                       jido:TechniqueCategories, jido:ComplexityCategories,
+                       jido:AudienceCategories .
+
+#################################################################
+# Top-Level Domain Categories
+#################################################################
+
+jido:DomainCategories a jido:PromptCategory ;
+    skos:prefLabel "Domain Categories" ;
+    skos:topConceptOf jido:JidoPromptCategoryScheme .
+
+# Coding Domain Hierarchy
+jido:CodingDomain a jido:DomainCategory ;
+    skos:prefLabel "Coding" ;
+    skos:broader jido:DomainCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:CodeGenerationDomain a jido:DomainCategory ;
+    skos:prefLabel "Code Generation" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:CodeReviewDomain a jido:DomainCategory ;
+    skos:prefLabel "Code Review" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:DebuggingDomain a jido:DomainCategory ;
+    skos:prefLabel "Debugging" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:RefactoringDomain a jido:DomainCategory ;
+    skos:prefLabel "Refactoring" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:TestingDomain a jido:DomainCategory ;
+    skos:prefLabel "Testing" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Elixir/BEAM Specific Categories
+jido:ElixirDevelopmentDomain a jido:DomainCategory ;
+    skos:prefLabel "Elixir Development" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:OTPPatternsDomain a jido:DomainCategory ;
+    skos:prefLabel "OTP Patterns" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:GenServerDomain a jido:DomainCategory ;
+    skos:prefLabel "GenServer" ;
+    skos:broader jido:OTPPatternsDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:SupervisorDomain a jido:DomainCategory ;
+    skos:prefLabel "Supervisor" ;
+    skos:broader jido:OTPPatternsDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:PhoenixDomain a jido:DomainCategory ;
+    skos:prefLabel "Phoenix Framework" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:LiveViewDomain a jido:DomainCategory ;
+    skos:prefLabel "LiveView" ;
+    skos:broader jido:PhoenixDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ChannelsDomain a jido:DomainCategory ;
+    skos:prefLabel "Channels" ;
+    skos:broader jido:PhoenixDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:EctoDomain a jido:DomainCategory ;
+    skos:prefLabel "Ecto" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:AshFrameworkDomain a jido:DomainCategory ;
+    skos:prefLabel "Ash Framework" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:CommandedDomain a jido:DomainCategory ;
+    skos:prefLabel "Commanded" ;
+    skos:definition "CQRS/ES framework for Elixir" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:JidoFrameworkDomain a jido:DomainCategory ;
+    skos:prefLabel "Jido Framework" ;
+    skos:broader jido:ElixirDevelopmentDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Documentation Domain
+jido:DocumentationDomain a jido:DomainCategory ;
+    skos:prefLabel "Documentation" ;
+    skos:broader jido:DomainCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Analysis Domain
+jido:AnalysisDomain a jido:DomainCategory ;
+    skos:prefLabel "Analysis" ;
+    skos:broader jido:DomainCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Planning Domain
+jido:PlanningDomain a jido:DomainCategory ;
+    skos:prefLabel "Planning" ;
+    skos:broader jido:DomainCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Semantic Web Domain
+jido:SemanticWebDomain a jido:DomainCategory ;
+    skos:prefLabel "Semantic Web" ;
+    skos:broader jido:DomainCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:RDFModelingDomain a jido:DomainCategory ;
+    skos:prefLabel "RDF Modeling" ;
+    skos:broader jido:SemanticWebDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:OWLOntologiesDomain a jido:DomainCategory ;
+    skos:prefLabel "OWL Ontologies" ;
+    skos:broader jido:SemanticWebDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:SHACLValidationDomain a jido:DomainCategory ;
+    skos:prefLabel "SHACL Validation" ;
+    skos:broader jido:SemanticWebDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:SPARQLQueriesDomain a jido:DomainCategory ;
+    skos:prefLabel "SPARQL Queries" ;
+    skos:broader jido:SemanticWebDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+# Agentic Coding Domain
+jido:AgenticCodingDomain a jido:DomainCategory ;
+    skos:prefLabel "Agentic Coding" ;
+    skos:broader jido:CodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ToolUseDomain a jido:DomainCategory ;
+    skos:prefLabel "Tool Use" ;
+    skos:definition "Prompts related to LLM tool/function calling in coding contexts." ;
+    skos:broader jido:AgenticCodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:CodeNavigationDomain a jido:DomainCategory ;
+    skos:prefLabel "Code Navigation" ;
+    skos:broader jido:AgenticCodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ContextManagementDomain a jido:DomainCategory ;
+    skos:prefLabel "Context Management" ;
+    skos:broader jido:AgenticCodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:PlanExecutionDomain a jido:DomainCategory ;
+    skos:prefLabel "Plan Execution" ;
+    skos:broader jido:AgenticCodingDomain ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+#################################################################
+# Task Categories
+#################################################################
+
+jido:TaskCategories a jido:PromptCategory ;
+    skos:prefLabel "Task Categories" ;
+    skos:topConceptOf jido:JidoPromptCategoryScheme .
+
+jido:GenerationTask a jido:TaskCategory ;
+    skos:prefLabel "Generation" ;
+    skos:definition "Tasks that create new content from specifications." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:TransformationTask a jido:TaskCategory ;
+    skos:prefLabel "Transformation" ;
+    skos:definition "Tasks that convert content from one form to another." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:EvaluationTask a jido:TaskCategory ;
+    skos:prefLabel "Evaluation" ;
+    skos:definition "Tasks that assess or judge content quality." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ExtractionTask a jido:TaskCategory ;
+    skos:prefLabel "Extraction" ;
+    skos:definition "Tasks that pull specific information from content." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:SummarizationTask a jido:TaskCategory ;
+    skos:prefLabel "Summarization" ;
+    skos:definition "Tasks that condense content while preserving key information." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ClassificationTask a jido:TaskCategory ;
+    skos:prefLabel "Classification" ;
+    skos:definition "Tasks that categorize or label content." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ReasoningTask a jido:TaskCategory ;
+    skos:prefLabel "Reasoning" ;
+    skos:definition "Tasks requiring logical deduction or inference." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ValidationTask a jido:TaskCategory ;
+    skos:prefLabel "Validation" ;
+    skos:definition "Tasks that verify correctness or compliance." ;
+    skos:broader jido:TaskCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+#################################################################
+# Technique Categories
+#################################################################
+
+jido:TechniqueCategories a jido:PromptCategory ;
+    skos:prefLabel "Technique Categories" ;
+    skos:topConceptOf jido:JidoPromptCategoryScheme .
+
+jido:ZeroShotTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Zero-Shot" ;
+    skos:definition "Prompts with no examples, relying on task description alone." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:FewShotTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Few-Shot" ;
+    skos:definition "Prompts including a small number of examples." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ChainOfThoughtTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Chain-of-Thought" ;
+    skos:altLabel "CoT" ;
+    skos:definition "Prompts encouraging step-by-step reasoning." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:TreeOfThoughtTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Tree-of-Thought" ;
+    skos:altLabel "ToT" ;
+    skos:definition "Prompts exploring multiple reasoning paths." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:SelfConsistencyTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Self-Consistency" ;
+    skos:definition "Prompts generating multiple solutions and selecting the most consistent." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ReActTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "ReAct" ;
+    skos:definition "Reasoning and Acting - interleaved reasoning with tool use." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ReflectionTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Reflection" ;
+    skos:definition "Prompts that include self-critique and iterative improvement." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:RolePlayTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Role Play" ;
+    skos:altLabel "Persona" ;
+    skos:definition "Prompts assigning a specific role or persona to the model." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:StructuredOutputTechnique a jido:TechniqueCategory ;
+    skos:prefLabel "Structured Output" ;
+    skos:definition "Prompts that enforce specific output formats (JSON, XML, etc.)." ;
+    skos:broader jido:TechniqueCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+#################################################################
+# Complexity Categories
+#################################################################
+
+jido:ComplexityCategories a jido:PromptCategory ;
+    skos:prefLabel "Complexity Categories" ;
+    skos:topConceptOf jido:JidoPromptCategoryScheme .
+
+jido:SimpleComplexity a jido:ComplexityCategory ;
+    skos:prefLabel "Simple" ;
+    skos:definition "Single-turn, straightforward prompts." ;
+    skos:broader jido:ComplexityCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:IntermediateComplexity a jido:ComplexityCategory ;
+    skos:prefLabel "Intermediate" ;
+    skos:definition "Multi-step prompts with moderate complexity." ;
+    skos:broader jido:ComplexityCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:AdvancedComplexity a jido:ComplexityCategory ;
+    skos:prefLabel "Advanced" ;
+    skos:definition "Complex prompts requiring sophisticated reasoning." ;
+    skos:broader jido:ComplexityCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:ExpertComplexity a jido:ComplexityCategory ;
+    skos:prefLabel "Expert" ;
+    skos:definition "Highly specialized prompts for domain experts." ;
+    skos:broader jido:ComplexityCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+#################################################################
+# Audience Categories
+#################################################################
+
+jido:AudienceCategories a jido:PromptCategory ;
+    skos:prefLabel "Audience Categories" ;
+    skos:topConceptOf jido:JidoPromptCategoryScheme .
+
+jido:BeginnerAudience a jido:AudienceCategory ;
+    skos:prefLabel "Beginner" ;
+    skos:definition "Suitable for users new to the domain." ;
+    skos:broader jido:AudienceCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:PractitionerAudience a jido:AudienceCategory ;
+    skos:prefLabel "Practitioner" ;
+    skos:definition "Suitable for working professionals in the domain." ;
+    skos:broader jido:AudienceCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:AdvancedAudience a jido:AudienceCategory ;
+    skos:prefLabel "Advanced User" ;
+    skos:definition "Suitable for users with deep domain expertise." ;
+    skos:broader jido:AudienceCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+jido:DeveloperAudience a jido:AudienceCategory ;
+    skos:prefLabel "Developer" ;
+    skos:definition "Specifically designed for software developers." ;
+    skos:broader jido:AudienceCategories ;
+    skos:inScheme jido:JidoPromptCategoryScheme .
+
+#################################################################
+# End of Jido Prompt Taxonomy
+#################################################################
+
