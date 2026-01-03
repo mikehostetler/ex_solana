@@ -15,14 +15,6 @@ defmodule Kodo.MixProject do
       deps: deps(),
       aliases: aliases(),
 
-      # Documentation
-      name: "Kodo",
-      description: @description,
-      source_url: @source_url,
-      homepage_url: @source_url,
-      package: package(),
-      docs: docs(),
-
       # Test Coverage
       test_coverage: [
         tool: ExCoveralls,
@@ -35,7 +27,18 @@ defmodule Kodo.MixProject do
         plt_core_path: "priv/plts/core.plt",
         flags: [:error_handling, :unknown],
         ignore_warnings: ".dialyzer_ignore.exs"
-      ]
+      ],
+
+      # Package
+      package: package(),
+
+      # Documentation
+      name: "Kodo",
+      description: @description,
+      source_url: @source_url,
+      homepage_url: @source_url,
+      source_ref: "v#{@version}",
+      docs: docs()
     ]
   end
 
@@ -65,7 +68,7 @@ defmodule Kodo.MixProject do
       {:jason, "~> 1.4"},
       {:uniq, "~> 0.6"},
       {:zoi, "~> 0.14"},
-      jido_dep(:hako, "../hako", "~> 1.0"),
+      {:hako, github: "agentjido/hako"},
 
       # Dev/Test dependencies
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -77,20 +80,6 @@ defmodule Kodo.MixProject do
       {:mimic, "~> 2.0", only: :test},
       {:stream_data, "~> 1.0", only: [:dev, :test]}
     ]
-  end
-
-  defp jido_dep(app, rel_path, hex_req, extra_opts \\ []) do
-    path = Path.expand(rel_path, __DIR__)
-
-    if File.dir?(path) and File.exists?(Path.join(path, "mix.exs")) do
-      {app, Keyword.merge([path: rel_path, override: true], extra_opts)}
-    else
-      {app, hex_req, extra_opts}
-    end
-    |> case do
-      {app, opts} when is_list(opts) -> {app, opts}
-      {app, req, opts} -> {app, req, opts}
-    end
   end
 
   defp aliases do
@@ -109,8 +98,8 @@ defmodule Kodo.MixProject do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README.md", "LICENSE", "CHANGELOG.md", "usage-rules.md"],
-      maintainers: ["AgentJido Team"],
+      files: ~w(lib mix.exs LICENSE README.md CHANGELOG.md CONTRIBUTING.md AGENTS.md usage-rules.md .formatter.exs),
+      maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
       links: %{
         "Changelog" => "https://hexdocs.pm/kodo/changelog.html",
@@ -127,9 +116,32 @@ defmodule Kodo.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       extras: [
-        "README.md",
+        {"README.md", title: "Overview"},
         "CHANGELOG.md",
         "CONTRIBUTING.md"
+      ],
+      groups_for_modules: [
+        Core: [
+          Kodo,
+          Kodo.Agent,
+          Kodo.Session,
+          Kodo.SessionServer,
+          Kodo.Session.State,
+          Kodo.Error
+        ],
+        Commands: ~r/Kodo\.Command.*/,
+        "Virtual Filesystem": [
+          Kodo.VFS,
+          Kodo.VFS.MountTable
+        ],
+        Transports: [
+          Kodo.Transport.IEx,
+          Kodo.Transport.TermUI
+        ],
+        Internals: [
+          Kodo.CommandRunner,
+          Kodo.Application
+        ]
       ]
     ]
   end
