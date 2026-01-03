@@ -1,20 +1,27 @@
 defmodule Karo.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
 
   @impl true
   def start(_type, _args) do
-    children = [
-      # Starts a worker by calling: Karo.Worker.start_link(arg)
-      # {Karo.Worker, arg}
-    ]
+    children =
+      [
+        {Registry, keys: :unique, name: Karo.ChatRegistry},
+        {DynamicSupervisor, strategy: :one_for_one, name: Karo.ChatSupervisor},
+        {Karo.Governor, []}
+      ]
+      |> maybe_add_repo()
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Karo.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp maybe_add_repo(children) do
+    if Application.get_env(:karo, Karo.Repo) do
+      [Karo.Repo | children]
+    else
+      children
+    end
   end
 end
