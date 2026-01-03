@@ -40,3 +40,6 @@ npm-debug.log
 
 # Temp
 /petal_pro
+
+# Dialyzer PLT files
+/priv/plts/
