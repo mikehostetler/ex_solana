@@ -17,7 +17,19 @@ defmodule Jido.BehaviorTree.Tick do
             %{
               blackboard: Zoi.any(description: "The shared blackboard for the tick"),
               timestamp: Zoi.any(description: "The timestamp when the tick was created"),
-              sequence: Zoi.integer(description: "The sequence number of the tick") |> Zoi.min(0)
+              sequence:
+                Zoi.integer(description: "The sequence number of the tick")
+                |> Zoi.min(0)
+                |> Zoi.default(0),
+              agent:
+                Zoi.any(description: "The Jido agent (for strategy integration)")
+                |> Zoi.optional(),
+              directives:
+                Zoi.list(Zoi.any(description: "Accumulated directives"))
+                |> Zoi.default([]),
+              context:
+                Zoi.any(description: "Execution context from strategy")
+                |> Zoi.default(%{})
             },
             coerce: true
           )
@@ -68,7 +80,40 @@ defmodule Jido.BehaviorTree.Tick do
     %__MODULE__{
       blackboard: blackboard,
       timestamp: timestamp,
-      sequence: sequence
+      sequence: sequence,
+      agent: nil,
+      directives: [],
+      context: %{}
+    }
+  end
+
+  @doc """
+  Creates a new tick with Jido agent context for strategy integration.
+
+  This constructor is used by `Jido.Agent.Strategy.BehaviorTree` to pass
+  agent state and execution context through the tree during traversal.
+
+  ## Parameters
+
+  - `blackboard` - The shared blackboard
+  - `agent` - The current Jido agent struct
+  - `directives` - Initial list of directives (usually empty)
+  - `context` - Strategy execution context
+
+  ## Examples
+
+      tick = Tick.new_with_context(blackboard, agent, [], %{strategy_opts: opts})
+
+  """
+  @spec new_with_context(Blackboard.t(), term(), list(), map()) :: t()
+  def new_with_context(blackboard, agent, directives \\ [], context \\ %{}) do
+    %__MODULE__{
+      blackboard: blackboard,
+      timestamp: DateTime.utc_now(),
+      sequence: 0,
+      agent: agent,
+      directives: directives,
+      context: context
     }
   end
 
@@ -186,5 +231,37 @@ defmodule Jido.BehaviorTree.Tick do
   @spec timed_out?(t(), non_neg_integer()) :: boolean()
   def timed_out?(tick, timeout_ms) do
     elapsed_time(tick) > timeout_ms
+  end
+
+  @doc """
+  Updates the agent in the tick.
+
+  Used by Action nodes to update agent state after executing Jido actions.
+  """
+  @spec update_agent(t(), term()) :: t()
+  def update_agent(%__MODULE__{} = tick, agent) do
+    %{tick | agent: agent}
+  end
+
+  @doc """
+  Appends directives to the tick's directive list.
+
+  Used by Action nodes to accumulate directives from Jido Effects.
+  """
+  @spec append_directives(t(), list()) :: t()
+  def append_directives(%__MODULE__{directives: existing} = tick, new_directives) do
+    %{tick | directives: existing ++ List.wrap(new_directives)}
+  end
+
+  @doc """
+  Updates both agent and appends directives in one call.
+
+  Convenience function for Action nodes applying Jido Effects.
+  """
+  @spec apply_agent_update(t(), term(), list()) :: t()
+  def apply_agent_update(%__MODULE__{} = tick, agent, directives) do
+    tick
+    |> update_agent(agent)
+    |> append_directives(directives)
   end
 end
