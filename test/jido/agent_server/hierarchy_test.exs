@@ -166,13 +166,15 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       child_ref = Process.monitor(child_pid)
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
 
-      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, {:parent_down, reason}}, 1000
+      assert_receive {:DOWN, ^child_ref, :process, ^child_pid,
+                      {:shutdown, {:parent_down, reason}}},
+                     1000
+
       assert reason in [:shutdown, :noproc]
     end
 
-    @tag :skip
     test "logs when stopping due to parent death", %{jido: jido} do
       # Start parent under DynamicSupervisor to avoid linking to test process
       {:ok, parent_pid} = AgentServer.start(agent: ParentAgent, id: "parent-stop-log", jido: jido)
@@ -193,7 +195,7 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       log =
         capture_log(fn ->
-          DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+          DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
           assert_receive {:DOWN, ^child_ref, :process, ^child_pid, _}, 1000
         end)
 
@@ -204,7 +206,6 @@ defmodule JidoTest.AgentServer.HierarchyTest do
   end
 
   describe "on_parent_death: :continue" do
-    @tag :skip
     test "child continues when parent dies", %{jido: jido} do
       {:ok, parent_pid} =
         AgentServer.start_link(agent: ParentAgent, id: "parent-continue-1", jido: jido)
@@ -234,7 +235,6 @@ defmodule JidoTest.AgentServer.HierarchyTest do
   end
 
   describe "on_parent_death: :emit_orphan" do
-    @tag :flaky
     test "child emits orphan signal when parent dies", %{jido: jido} do
       {:ok, parent_pid} =
         AgentServer.start_link(agent: ParentAgent, id: "parent-orphan-1", jido: jido)
@@ -389,8 +389,14 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       # Child should stop when parent dies - reason may be :killed or :noproc
       # depending on timing (whether parent is still dying or already dead)
-      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, {:parent_down, reason}}, 1000
-      assert reason in [:killed, :noproc]
+      # :killed is not a benign reason, so it stays unwrapped as {:parent_down, :killed}
+      # :noproc is benign, so it becomes {:shutdown, {:parent_down, :noproc}}
+      assert_receive {:DOWN, ^child_ref, :process, ^child_pid, exit_reason}, 1000
+
+      assert exit_reason in [
+               {:parent_down, :killed},
+               {:shutdown, {:parent_down, :noproc}}
+             ]
     end
   end
 
@@ -456,8 +462,8 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       assert child_state.parent.id == parent_id
       assert child_state.parent.tag == :worker_1
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), child_info.pid)
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), child_info.pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
     end
 
     test "spawns child with custom ID from opts", %{jido: jido} do
@@ -477,8 +483,8 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       child_info = await_child(parent_pid, :custom)
       assert child_info.id == custom_child_id
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), child_info.pid)
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), child_info.pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
     end
 
     test "passes metadata to child via parent reference", %{jido: jido} do
@@ -499,8 +505,8 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       {:ok, child_state} = AgentServer.state(child_info.pid)
       assert child_state.parent.meta == %{role: "processor", priority: 1}
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), child_info.pid)
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), child_info.pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
     end
 
     test "spawns multiple children with different tags", %{jido: jido} do
@@ -529,10 +535,10 @@ defmodule JidoTest.AgentServer.HierarchyTest do
 
       for tag <- [:worker_1, :worker_2, :worker_3] do
         child_info = parent_state.children[tag]
-        DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), child_info.pid)
+        DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), child_info.pid)
       end
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
     end
 
     test "child exit notifies parent via ChildExit signal", %{jido: jido} do
@@ -547,7 +553,7 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       child_info = await_child(parent_pid, :dying_child)
       child_ref = Process.monitor(child_info.pid)
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), child_info.pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), child_info.pid)
       assert_receive {:DOWN, ^child_ref, :process, _, :shutdown}, 500
 
       await_condition(fn ->
@@ -565,7 +571,7 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       assert event.tag == :dying_child
       assert event.reason == :shutdown
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
     end
 
     test "child inherits default on_parent_death: :stop", %{jido: jido} do
@@ -578,9 +584,10 @@ defmodule JidoTest.AgentServer.HierarchyTest do
       child_info = await_child(parent_pid, :auto_stop)
       child_ref = Process.monitor(child_info.pid)
 
-      DynamicSupervisor.terminate_child(Jido.agent_supervisor(jido), parent_pid)
+      DynamicSupervisor.terminate_child(Jido.agent_supervisor_name(jido), parent_pid)
 
-      assert_receive {:DOWN, ^child_ref, :process, _, {:parent_down, :shutdown}}, 1000
+      assert_receive {:DOWN, ^child_ref, :process, _, {:shutdown, {:parent_down, :shutdown}}},
+                     1000
     end
   end
 end

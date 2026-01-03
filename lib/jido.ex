@@ -6,32 +6,44 @@ defmodule Jido do
 
   ## Architecture
 
-  Jido 2.0 uses **instance-scoped supervisors** instead of global singletons. Each Jido instance
+  Jido uses **instance-scoped supervisors** instead of global singletons. Each Jido instance
   manages its own Registry, TaskSupervisor, and AgentSupervisor, providing complete isolation
   between different parts of your application.
 
   ## Getting Started
 
-  Add a Jido instance to your application's supervision tree:
+  Define a Jido instance module in your application:
+
+      defmodule MyApp.Jido do
+        use Jido, otp_app: :my_app
+      end
+
+  Configure it in your `config/config.exs`:
+
+      config :my_app, MyApp.Jido,
+        max_tasks: 1000,
+        agent_pools: []
+
+  Add it to your application's supervision tree:
 
       # In your application.ex
       children = [
-        {Jido, name: MyApp.Jido}
+        MyApp.Jido
       ]
 
   Then use the instance to manage agents:
 
       # Start an agent
-      {:ok, pid} = Jido.start_agent(MyApp.Jido, MyAgent, id: "agent-1")
+      {:ok, pid} = MyApp.Jido.start_agent(MyAgent, id: "agent-1")
 
       # Look up an agent by ID
-      pid = Jido.whereis(MyApp.Jido, "agent-1")
+      pid = MyApp.Jido.whereis("agent-1")
 
       # List all agents
-      agents = Jido.list_agents(MyApp.Jido)
+      agents = MyApp.Jido.list_agents()
 
       # Stop an agent
-      :ok = Jido.stop_agent(MyApp.Jido, "agent-1")
+      :ok = MyApp.Jido.stop_agent("agent-1")
 
   ## Test Isolation
 
@@ -79,7 +91,130 @@ defmodule Jido do
             counter: [type: :integer, default: 0]
           ]
       end
+
+  ## Instance Module API
+
+  When you define an instance module with `use Jido, otp_app: :my_app`, the following
+  functions are generated:
+
+  - `child_spec/1` - Returns a supervisor child spec
+  - `start_link/1` - Starts the Jido instance supervisor
+  - `config/1` - Returns the runtime configuration
+  - `start_agent/2` - Starts an agent under this instance
+  - `stop_agent/1` - Stops an agent by pid or id
+  - `whereis/1` - Looks up an agent by ID
+  - `list_agents/0` - Lists all agents
+  - `agent_count/0` - Returns the count of running agents
   """
+
+  @doc """
+  Defines a Jido instance module.
+
+  ## Options
+
+    - `:otp_app` - Required. The OTP application that holds the configuration.
+
+  ## Example
+
+      defmodule MyApp.Jido do
+        use Jido, otp_app: :my_app
+      end
+
+  Then configure in `config/config.exs`:
+
+      config :my_app, MyApp.Jido,
+        max_tasks: 2000,
+        agent_pools: []
+
+  And add to your supervision tree:
+
+      children = [
+        MyApp.Jido
+      ]
+
+  """
+  defmacro __using__(opts) do
+    otp_app = Keyword.fetch!(opts, :otp_app)
+
+    quote location: :keep do
+      @otp_app unquote(otp_app)
+
+      @doc false
+      def child_spec(init_arg \\ []) do
+        opts =
+          config(init_arg)
+          |> Keyword.put_new(:name, __MODULE__)
+
+        Jido.child_spec(opts)
+      end
+
+      @doc false
+      def start_link(init_arg \\ []) do
+        opts =
+          config(init_arg)
+          |> Keyword.put_new(:name, __MODULE__)
+
+        Jido.start_link(opts)
+      end
+
+      @doc """
+      Returns the runtime config for this Jido instance.
+
+      Configuration is loaded from `config :#{@otp_app}, #{inspect(__MODULE__)}` and
+      overridden by any runtime options passed in.
+      """
+      @spec config(keyword()) :: keyword()
+      def config(overrides \\ []) do
+        @otp_app
+        |> Application.get_env(__MODULE__, [])
+        |> Keyword.merge(overrides)
+      end
+
+      defoverridable config: 1
+
+      @doc "Starts an agent under this Jido instance."
+      @spec start_agent(module() | struct(), keyword()) :: DynamicSupervisor.on_start_child()
+      def start_agent(agent, opts \\ []) do
+        Jido.start_agent(__MODULE__, agent, opts)
+      end
+
+      @doc "Stops an agent (by pid or id) under this Jido instance."
+      @spec stop_agent(pid() | String.t()) :: :ok | {:error, :not_found}
+      def stop_agent(pid_or_id) do
+        Jido.stop_agent(__MODULE__, pid_or_id)
+      end
+
+      @doc "Looks up an agent by ID under this Jido instance."
+      @spec whereis(String.t()) :: pid() | nil
+      def whereis(id) when is_binary(id) do
+        Jido.whereis(__MODULE__, id)
+      end
+
+      @doc "Lists all agents under this Jido instance."
+      @spec list_agents() :: [{String.t(), pid()}]
+      def list_agents do
+        Jido.list_agents(__MODULE__)
+      end
+
+      @doc "Returns the count of running agents under this Jido instance."
+      @spec agent_count() :: non_neg_integer()
+      def agent_count do
+        Jido.agent_count(__MODULE__)
+      end
+
+      @doc "Returns the Registry name for this Jido instance."
+      @spec registry_name() :: atom()
+      def registry_name, do: Jido.registry_name(__MODULE__)
+
+      @doc "Returns the AgentSupervisor name for this Jido instance."
+      @spec agent_supervisor_name() :: atom()
+      def agent_supervisor_name, do: Jido.agent_supervisor_name(__MODULE__)
+
+      @doc "Returns the TaskSupervisor name for this Jido instance."
+      @spec task_supervisor_name() :: atom()
+      def task_supervisor_name, do: Jido.task_supervisor_name(__MODULE__)
+    end
+  end
 
   @type agent_id :: String.t() | atom()
 
@@ -115,7 +250,7 @@ defmodule Jido do
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
 
-    children = [
+    base_children = [
       {Task.Supervisor,
        name: task_supervisor_name(name), max_children: Keyword.get(opts, :max_tasks, 1000)},
       {Registry, keys: :unique, name: registry_name(name)},
@@ -126,7 +261,10 @@ defmodule Jido do
        max_seconds: 5}
     ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    pool_children =
+      Jido.AgentPool.build_pool_child_specs(name, Keyword.get(opts, :agent_pools, []))
+
+    Supervisor.init(base_children ++ pool_children, strategy: :one_for_one)
   end
 
   @doc """
@@ -152,36 +290,9 @@ defmodule Jido do
   @spec scheduler_name(atom()) :: atom()
   def scheduler_name(name), do: Module.concat(name, Scheduler)
 
-  @doc "Returns the configured default Jido instance."
-  @spec default() :: atom()
-  def default do
-    Application.get_env(:jido, :default) ||
-      raise ArgumentError, "Configure :jido, :default or pass instance name explicitly"
-  end
-
-  @doc "Returns the TaskSupervisor name for a specific Jido instance."
-  @spec task_supervisor(atom()) :: atom()
-  def task_supervisor(name), do: task_supervisor_name(name)
-
-  @doc "Returns the TaskSupervisor name for the default Jido instance."
-  @spec task_supervisor() :: atom()
-  def task_supervisor, do: task_supervisor(default())
-
-  @doc "Returns the Registry name for a specific Jido instance."
-  @spec registry(atom()) :: atom()
-  def registry(name), do: registry_name(name)
-
-  @doc "Returns the Registry name for the default Jido instance."
-  @spec registry() :: atom()
-  def registry, do: registry(default())
-
-  @doc "Returns the AgentSupervisor name for a specific Jido instance."
-  @spec agent_supervisor(atom()) :: atom()
-  def agent_supervisor(name), do: agent_supervisor_name(name)
-
-  @doc "Returns the AgentSupervisor name for the default Jido instance."
-  @spec agent_supervisor() :: atom()
-  def agent_supervisor, do: agent_supervisor(default())
+  @doc "Returns the AgentPool name for a specific pool in a Jido instance."
+  @spec agent_pool_name(atom(), atom()) :: atom()
+  def agent_pool_name(name, pool_name), do: Module.concat([name, AgentPool, pool_name])
 
   # ---------------------------------------------------------------------------
   # Agent Lifecycle
@@ -298,24 +409,70 @@ defmodule Jido do
   defdelegate refresh_discovery(), to: Jido.Discovery, as: :refresh
 
   # ---------------------------------------------------------------------------
-  # Multi-Agent Coordination
+  # Agent Coordination
   # ---------------------------------------------------------------------------
 
   @doc """
   Wait for an agent to reach a terminal status.
 
-  See `Jido.MultiAgent.await_completion/3` for details.
+  See `Jido.Await.completion/3` for details.
   """
   defdelegate await(server, timeout_ms \\ 10_000, opts \\ []),
-    to: Jido.MultiAgent,
-    as: :await_completion
+    to: Jido.Await,
+    as: :completion
 
   @doc """
   Wait for a child agent to reach a terminal status.
 
-  See `Jido.MultiAgent.await_child_completion/4` for details.
+  See `Jido.Await.child/4` for details.
   """
   defdelegate await_child(server, child_tag, timeout_ms \\ 30_000, opts \\ []),
-    to: Jido.MultiAgent,
-    as: :await_child_completion
+    to: Jido.Await,
+    as: :child
+
+  @doc """
+  Wait for all agents to reach terminal status.
+
+  See `Jido.Await.all/3` for details.
+  """
+  defdelegate await_all(servers, timeout_ms \\ 10_000, opts \\ []),
+    to: Jido.Await,
+    as: :all
+
+  @doc """
+  Wait for any agent to reach terminal status.
+
+  See `Jido.Await.any/3` for details.
+  """
+  defdelegate await_any(servers, timeout_ms \\ 10_000, opts \\ []),
+    to: Jido.Await,
+    as: :any
+
+  @doc """
+  Get the PIDs of all children of a parent agent.
+
+  See `Jido.Await.get_children/1` for details.
+  """
+  defdelegate get_children(parent_server), to: Jido.Await
+
+  @doc """
+  Get a specific child's PID by tag.
+
+  See `Jido.Await.get_child/2` for details.
+  """
+  defdelegate get_child(parent_server, child_tag), to: Jido.Await
+
+  @doc """
+  Check if an agent process is alive and responding.
+
+  See `Jido.Await.alive?/1` for details.
+  """
+  defdelegate alive?(server), to: Jido.Await
+
+  @doc """
+  Request graceful cancellation of an agent.
+
+  See `Jido.Await.cancel/2` for details.
+  """
+  defdelegate cancel(server, opts \\ []), to: Jido.Await
 end

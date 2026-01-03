@@ -1,273 +1,250 @@
-# Jido (自動)
+# Jido
 
-Jido is a toolkit for building autonomous, distributed agent systems in Elixir.
-
-The name "Jido" (自動) comes from the Japanese word meaning "automatic" or "automated", where 自 (ji) means "self" and 動 (dō) means "movement".
-
-[![Hex Version](https://img.shields.io/hexpm/v/jido.svg)](https://hex.pm/packages/jido)
-[![Hex Docs](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat)](https://hexdocs.pm/jido)
-[![Mix Test](https://github.com/agentjido/jido/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido/actions/workflows/elixir-ci.yml)
+[![Hex.pm](https://img.shields.io/hexpm/v/jido.svg)](https://hex.pm/packages/jido)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/jido/)
+[![CI](https://github.com/agentjido/jido/actions/workflows/elixir-ci.yml/badge.svg)](https://github.com/agentjido/jido/actions/workflows/elixir-ci.yml)
+[![License](https://img.shields.io/hexpm/l/jido.svg)](https://github.com/agentjido/jido/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/agentjido/jido/badge.svg?branch=main)](https://coveralls.io/github/agentjido/jido?branch=main)
-[![Apache 2 License](https://img.shields.io/hexpm/l/jido)](https://opensource.org/licenses/Apache-2.0)
 
-## 🚨 Important Notice
+> **Autonomous Agent Framework for Elixir**
 
-As of December 2025, Jido v2.0 has been released with a new instance-scoped architecture. The `main` branch will always represent the latest release. I welcome input and contributions! You can find me in the usual Elixir community locations.
+_The name "Jido" (自動) comes from the Japanese word meaning "automatic" or "automated", where 自 (ji) means "self" and 動 (dō) means "movement"._
+
+_Learn more about Jido at [agentjido.xyz](https://agentjido.xyz)._
 
 ## Overview
 
-Jido provides the foundation for building autonomous agents that can plan, execute, and adapt their behavior in distributed Elixir applications. Think of it as a toolkit for creating smart, composable workflows that can evolve and respond to their environment.
+Jido is a toolkit for building autonomous, distributed agent systems in Elixir. It provides the foundation for creating agents that can plan, execute, and adapt their behavior in distributed applications.
 
-This package is geared towards Agent builders. It contains the basis building blocks for creating advanced agentic systems. This is why there's no AI baked into the core of this framework.
+This package is designed for agent builders. It contains the core building blocks for creating advanced agentic systems without AI baked into the framework itself. AI capabilities are provided through companion packages in the Jido ecosystem.
 
-To see demo's and examples, check out our [Jido Workbench](https://github.com/agentjido/jido_workbench). It includes many examples of agents and workflows, including:
+Whether you're building workflow automation, multi-agent coordination systems, or AI-powered applications, Jido provides the foundation for robust, observable, and scalable agent-driven architecture.
 
-- Agents with Tools
-- ChatBots
-- Agents acting as a Team
-- Multi-modal input & output
-- ... and many more examples
+## The Jido Ecosystem
 
-Jido Workbench relies on the following packages to extend Jido's capabilities:
+Jido is the core framework in a family of packages designed to work together:
 
-- [`jido_ai`](https://github.com/agentjido/jido_ai) package for the AI capabilities.
-- [`jido_chat`](https://github.com/agentjido/jido_chat) package for the chat capabilities.
-- [`jido_memory`](https://github.com/agentjido/jido_memory) package for the memory capabilities.
+| Package | Description |
+|---------|-------------|
+| [jido](https://github.com/agentjido/jido) | Core agent framework with state management, directives, and runtime |
+| [jido_action](https://github.com/agentjido/jido_action) | Composable, validated actions with AI tool integration |
+| [jido_signal](https://github.com/agentjido/jido_signal) | CloudEvents-based signal routing and pub/sub messaging |
+| [jido_ai](https://github.com/agentjido/jido_ai) | AI/LLM integration for agents |
+| [jido_chat](https://github.com/agentjido/jido_chat) | Conversational agent capabilities |
+| [jido_memory](https://github.com/agentjido/jido_memory) | Persistent memory and context for agents |
+
+For demos and examples, see the [Jido Workbench](https://github.com/agentjido/jido_workbench).
 
 ## Key Features
 
-- 📦 **State Management**: Core state primitives for agents
-- 🧩 **Composable Actions**: Build complex behaviors from simple, reusable actions
-- 🤖 **Agent Data Structures**: Stateless agentic data structures for planning and execution
-- 🔥 **Agent GenServer**: OTP integration for agents, with dynamic supervisors
-- 📡 **Real-time Sensors**: Event-driven data gathering and monitoring
+### Immutable Agent Architecture
+- Pure functional agent design inspired by Elm/Redux
+- `cmd/2` as the core operation: actions in, updated agent + directives out
+- Schema-validated state with NimbleOptions or Zoi
 
-- 🧠 **Skills**: Reusable, composable behavior modules - Plugins for agents
-- ⚡ **Distributed by Design**: Built for multi-node Elixir clusters
-- 🧪 **Testing Tools**: Rich helpers for unit and property-based testing
+### Directive-Based Effects
+- Actions transform state; directives describe external effects
+- Built-in directives: Emit, Spawn, SpawnAgent, StopChild, Schedule, Stop
+- Protocol-based extensibility for custom directives
+
+### OTP Runtime Integration
+- GenServer-based AgentServer for production deployment
+- Parent-child agent hierarchies with lifecycle management
+- Signal routing with configurable strategies
+- Instance-scoped supervision for multi-tenant deployments
+
+### Composable Skills
+- Reusable behavior modules that extend agents
+- State isolation per skill with automatic schema merging
+- Lifecycle hooks for initialization and signal handling
+
+### Execution Strategies
+- Direct execution for simple workflows
+- FSM (Finite State Machine) strategy for state-driven workflows
+- Extensible strategy protocol for custom execution patterns
 
 ## Installation
 
-Add Jido to your dependencies:
+Add `jido` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:jido, "~> 2.0.0"}
+    {:jido, "~> 2.0"}
   ]
 end
 ```
 
-Then add Jido to your application's supervision tree:
+Then define a Jido instance module and add it to your supervision tree:
+
+```elixir
+# In lib/my_app/jido.ex
+defmodule MyApp.Jido do
+  use Jido, otp_app: :my_app
+end
+```
+
+```elixir
+# In config/config.exs
+config :my_app, MyApp.Jido,
+  max_tasks: 1000,
+  agent_pools: []
+```
 
 ```elixir
 # In your application.ex
 children = [
-  {Jido, name: MyApp.Jido}
+  MyApp.Jido
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+## Quick Start
+
+### 1. Define an Agent
+
+```elixir
+defmodule MyApp.CounterAgent do
+  use Jido.Agent,
+    name: "counter",
+    description: "A simple counter agent",
+    schema: [
+      count: [type: :integer, default: 0]
+    ]
+end
+```
+
+### 2. Define an Action
+
+```elixir
+defmodule MyApp.Actions.Increment do
+  use Jido.Action,
+    name: "increment",
+    description: "Increments the counter by a given amount",
+    schema: [
+      amount: [type: :integer, default: 1]
+    ]
+
+  def run(params, context) do
+    current = context.state[:count] || 0
+    {:ok, %{count: current + params.amount}}
+  end
+end
+```
+
+### 3. Execute Commands
+
+```elixir
+# Create an agent
+agent = MyApp.CounterAgent.new()
+
+# Execute an action - returns updated agent + directives
+{agent, directives} = MyApp.CounterAgent.cmd(agent, {MyApp.Actions.Increment, %{amount: 5}})
+
+# Check the state
+agent.state.count
+# => 5
+```
+
+### 4. Run with AgentServer
+
+```elixir
+# Start the agent server
+{:ok, pid} = MyApp.Jido.start_agent(MyApp.CounterAgent, id: "counter-1")
+
+# Send signals to the running agent
+Jido.AgentServer.signal(pid, Jido.Signal.new!("increment", %{amount: 10}))
+
+# Look up the agent by ID
+pid = MyApp.Jido.whereis("counter-1")
+
+# List all running agents
+agents = MyApp.Jido.list_agents()
 ```
 
 ## Core Concepts
 
-### Actions
+### The `cmd/2` Contract
 
-Actions are the fundamental building blocks in Jido. Each Action is a discrete, reusable unit of work with a clear interface:
-
-```elixir
-defmodule MyApp.Actions.FormatUser do
-  use Jido.Action,
-    name: "format_user",
-    description: "Formats user data by trimming whitespace and normalizing email",
-    schema: [
-      name: [type: :string, required: true],
-      email: [type: :string, required: true]
-    ]
-
-  def run(params, _context) do
-    {:ok, %{
-      formatted_name: String.trim(params.name),
-      email: String.downcase(params.email)
-    }}
-  end
-end
-
-# Execute a single Action via the Workflow system
-{:ok, result} = Jido.Workflow.run(FormatUser, %{name: "John Doe", email: "john@example.com"})
-```
-
-[Learn more about Actions →](guides/actions/overview.md)
-
-### Agents
-
-Agents are stateful entities that can plan and execute Actions. They maintain their state through a schema and can adapt their behavior:
+The fundamental operation in Jido:
 
 ```elixir
-defmodule MyApp.CalculatorAgent do
-  use Jido.Agent,
-    name: "calculator",
-    description: "An adaptive calculating agent",
-    actions: [
-      MyApp.Actions.Add,
-      MyApp.Actions.Multiply,
-      Jido.Actions.Directives.RegisterAction
-    ],
-    schema: [
-      value: [type: :float, default: 0.0],
-      operations: [type: {:list, :atom}, default: []]
-    ]
-end
-
-# Start the agent under a Jido instance
-{:ok, pid} = Jido.start_agent(MyApp.Jido, MyApp.CalculatorAgent, id: "calc-1")
-
-# Or start directly with jido option
-{:ok, pid} = MyApp.CalculatorAgent.start_link(jido: MyApp.Jido)
-
-# Send instructions directly to the agent
-{:ok, result} = MyApp.CalculatorAgent.cmd(pid, [
-  %Jido.Instruction{action: "add", params: %{a: 1, b: 2}}
-])
+{agent, directives} = MyAgent.cmd(agent, action)
 ```
 
-[Learn more about Agents →](guides/agents/overview.md)
+Key invariants:
+- The returned `agent` is always complete - no "apply directives" step needed
+- `directives` describe external effects only - they never modify agent state
+- `cmd/2` is a pure function - same inputs always produce same outputs
 
-### Sensors
+### Actions vs Directives
 
-Sensors provide real-time monitoring and data gathering for your agents:
+| Actions | Directives |
+|---------|------------|
+| Describe state transformations | Describe external effects |
+| Executed by `cmd/2`, update `agent.state` | Bare structs emitted by agents |
+| Never perform side effects | Runtime (AgentServer) interprets them |
 
-```elixir
-defmodule MyApp.Sensors.OperationCounter do
-  use Jido.Sensor,
-    name: "operation_counter",
-    description: "Tracks operation usage metrics",
-    schema: [
-      emit_interval: [type: :pos_integer, default: 1000]
-    ]
+### Directive Types
 
-  def mount(opts) do
-    {:ok, Map.merge(opts, %{counts: %{}})}
-  end
-
-  def handle_info({:operation, name}, state) do
-    new_counts = Map.update(state.counts, name, 1, & &1 + 1)
-    {:noreply, %{state | counts: new_counts}}
-  end
-end
-```
-
-[Learn more about Sensors →](guides/sensors/overview.md)
-
-## Running in Production
-
-Start your agents under a Jido instance in your supervision tree:
-
-```elixir
-# In your application.ex
-children = [
-  # First start the Jido instance
-  {Jido, name: MyApp.Jido},
-  # Then add agents under its supervision
-  {MyApp.CalculatorAgent, id: "calculator_1", jido: MyApp.Jido}
-]
-
-Supervisor.start_link(children, strategy: :one_for_one)
-```
-
-## Migrating from 1.x
-
-Jido 2.0 introduces instance-scoped supervisors instead of global singletons. Each Jido instance manages its own Registry, TaskSupervisor, and AgentSupervisor.
-
-**Key changes:**
-
-1. **Add Jido to your supervision tree** - Users must now explicitly add `{Jido, name: MyApp.Jido}` to their supervision tree
-2. **Pass the jido option to agents** - Use `jido: MyApp.Jido` when starting agents
-
-```elixir
-# Before (1.x)
-{:ok, pid} = MyApp.CalculatorAgent.start_link(id: "calc-1")
-
-# After (2.0)
-{:ok, pid} = MyApp.CalculatorAgent.start_link(id: "calc-1", jido: MyApp.Jido)
-# Or use the Jido API
-{:ok, pid} = Jido.start_agent(MyApp.Jido, MyApp.CalculatorAgent, id: "calc-1")
-```
+| Directive | Purpose |
+|-----------|---------|
+| `Emit` | Dispatch a signal via configured adapters |
+| `Error` | Signal an error from cmd/2 |
+| `Spawn` | Spawn a generic BEAM child process |
+| `SpawnAgent` | Spawn a child Jido agent with hierarchy tracking |
+| `StopChild` | Gracefully stop a tracked child agent |
+| `Schedule` | Schedule a delayed message |
+| `Stop` | Stop the agent process |
 
 ## Documentation
 
-- [📘 Getting Started Guide](guides/getting-started.livemd)
-- [🧩 Actions & Workflows](guides/actions/overview.md)
-- [🤖 Building Agents](guides/agents/overview.md)
-- [📡 Sensors & Monitoring](guides/sensors/overview.md)
-- [🔄 Agent Directives](guides/agents/directives.md)
+- [Getting Started Guide](guides/getting-started.livemd)
+- [Core Concepts](guides/core-concepts.md)
+- [Building Agents](guides/agents.md)
+- [Agent Directives](guides/directives.md)
+- [Runtime and AgentServer](guides/runtime.md)
+- [Skills](guides/skills.md)
+- [Strategies](guides/strategies.md)
 
-## Contributing
+## Development
 
-We welcome contributions! Here's how to get started:
+### Prerequisites
 
-1. Fork the repository
-2. Run tests: `mix test`
-3. Run quality checks: `mix quality`
-4. Submit a PR
-
-Please include tests for any new features or bug fixes.
-
-See our [Contributing Guide](CONTRIBUTING.md) for detailed guidelines.
-
-## Testing
-
-Jido is built with a test-driven mindset and provides comprehensive testing tools for building reliable agent systems. Our testing philosophy emphasizes:
-
-- Thorough test coverage for core functionality
-- Property-based testing for complex behaviors
-- Regression tests for every bug fix
-- Extensive testing helpers and utilities
-
-### Testing Utilities
-
-Jido provides several testing helpers:
-
-- `JidoTest.Case` - Test case module for isolated Jido instances per test
-- `Jido.TestSupport` - Common testing utilities
-- Property-based testing via StreamData
-- Mocking support through Mimic
-- PubSub testing helpers
-
-Use `JidoTest.Case` for test isolation with per-test Jido instances:
-
-```elixir
-defmodule MyAgentTest do
-  use JidoTest.Case, async: true
-
-  test "my agent works", %{jido: jido} do
-    {:ok, pid} = Jido.start_agent(jido, MyAgent)
-    # Test in isolation...
-  end
-end
-```
+- Elixir 1.17+
+- Erlang/OTP 26+
 
 ### Running Tests
 
 ```bash
-# Run the test suite
 mix test
-
-# Run with coverage reporting
-mix test --cover
-
-# Run the full quality check suite
-mix quality
 ```
 
-While we strive for 100% test coverage, we prioritize meaningful tests that verify behavior over simple line coverage. Every new feature and bug fix includes corresponding tests to prevent regressions.
+### Quality Checks
+
+```bash
+mix quality  # Runs formatter, dialyzer, and credo
+```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Setting up your development environment
+- Running tests and quality checks
+- Submitting pull requests
+- Code style guidelines
 
 ## License
 
-Apache License 2.0 - See [LICENSE](LICENSE) for details.
+Copyright 2024-2025 Mike Hostetler
 
-## Support
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
-- 📚 [Documentation](https://hexdocs.pm/jido)
-- 💬 [GitHub Discussions](https://github.com/agentjido/jido/discussions)
-- 🐛 [Issue Tracker](https://github.com/agentjido/jido/issues)
+## Links
+
+- **Documentation**: [https://hexdocs.pm/jido](https://hexdocs.pm/jido)
+- **GitHub**: [https://github.com/agentjido/jido](https://github.com/agentjido/jido)
+- **AgentJido**: [https://agentjido.xyz](https://agentjido.xyz)
+- **Jido Workbench**: [https://github.com/agentjido/jido_workbench](https://github.com/agentjido/jido_workbench)

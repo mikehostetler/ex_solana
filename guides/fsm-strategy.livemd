@@ -1,0 +1,380 @@
+# FSM Strategy Deep Dive
+
+```elixir
+Mix.install([
+  {:jido, path: "."}
+])
+```
+
+## Overview
+
+The FSM (Finite State Machine) Strategy enables you to build agents with explicit state machines that control workflow progression. This is ideal for:
+
+- Order processing workflows
+- Document approval flows
+- Multi-step wizards
+- Any process with defined states and transitions
+
+The FSM Strategy stores its state in `agent.state.__strategy__` and automatically validates transitions.
+
+## Configuration
+
+Configure the FSM Strategy in your agent definition:
+
+```elixir
+defmodule OrderAgent do
+  use Jido.Agent,
+    name: "order_agent",
+    schema: [
+      order_id: [type: :string],
+      customer: [type: :string],
+      items: [type: {:list, :map}, default: []],
+      total: [type: :float, default: 0.0],
+      cancelled_reason: [type: :string, default: nil],
+      shipped_at: [type: :any, default: nil],
+      delivered_at: [type: :any, default: nil]
+    ],
+    strategy: {Jido.Agent.Strategy.FSM,
+      initial_state: "pending",
+      transitions: %{
+        "pending" => ["confirmed", "cancelled"],
+        "confirmed" => ["shipped", "cancelled"],
+        "shipped" => ["delivered"],
+        "delivered" => [],
+        "cancelled" => []
+      },
+      auto_transition: false
+    }
+end
+```
+
+### FSM Strategy Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `:initial_state` | The starting FSM state | `"idle"` |
+| `:transitions` | Map of valid transitions `%{from => [to_states]}` | Default workflow (see below) |
+| `:auto_transition` | Auto-return to initial state after processing | `true` |
+
+### Default Transitions
+
+If no transitions are provided, the strategy uses:
+
+```elixir
+%{
+  "idle" => ["processing"],
+  "processing" => ["idle", "completed", "failed"],
+  "completed" => ["idle"],
+  "failed" => ["idle"]
+}
+```
+
+## Inspecting FSM State
+
+Use `strategy_snapshot/1` to inspect the current FSM state without accessing internals:
+
+```elixir
+snap = OrderAgent.strategy_snapshot(agent)
+
+snap.status   # :idle, :running, :success, :failure
+snap.done?    # boolean - whether in terminal state
+snap.result   # last action result
+snap.details  # %{fsm_state: "shipped", processed_count: 5, ...}
+```
+
+The `details.fsm_state` contains the current FSM state string.
+
+## Complete Example: Order Fulfillment
+
+Let's build a complete order fulfillment workflow with the following states:
+
+```
+pending → confirmed → shipped → delivered
+    ↓         ↓
+ cancelled  cancelled
+```
+
+### Step 1: Define the Actions
+
+```elixir
+defmodule ConfirmOrder do
+  use Jido.Action,
+    name: "confirm_order",
+    description: "Confirm a pending order",
+    schema: []
+
+  @impl true
+  def run(_params, context) do
+    order_id = context.state[:order_id]
+    IO.puts("✓ Order #{order_id} confirmed")
+    {:ok, %{}}
+  end
+end
+
+defmodule ShipOrder do
+  use Jido.Action,
+    name: "ship_order",
+    description: "Ship a confirmed order",
+    schema: [
+      carrier: [type: :string, default: "Standard Shipping"]
+    ]
+
+  @impl true
+  def run(params, context) do
+    order_id = context.state[:order_id]
+    IO.puts("📦 Order #{order_id} shipped via #{params.carrier}")
+    {:ok, %{shipped_at: DateTime.utc_now()}}
+  end
+end
+
+defmodule DeliverOrder do
+  use Jido.Action,
+    name: "deliver_order",
+    description: "Mark an order as delivered",
+    schema: []
+
+  @impl true
+  def run(_params, context) do
+    order_id = context.state[:order_id]
+    IO.puts("✅ Order #{order_id} delivered!")
+    {:ok, %{delivered_at: DateTime.utc_now()}}
+  end
+end
+
+defmodule CancelOrder do
+  use Jido.Action,
+    name: "cancel_order",
+    description: "Cancel an order",
+    schema: [
+      reason: [type: :string, required: true]
+    ]
+
+  @impl true
+  def run(params, context) do
+    order_id = context.state[:order_id]
+    IO.puts("❌ Order #{order_id} cancelled: #{params.reason}")
+    {:ok, %{cancelled_reason: params.reason}}
+  end
+end
+```
+
+### Step 2: Define the Order Agent
+
+```elixir
+defmodule OrderAgent do
+  use Jido.Agent,
+    name: "order_agent",
+    description: "Handles order lifecycle with FSM",
+    schema: [
+      order_id: [type: :string],
+      customer: [type: :string],
+      items: [type: {:list, :map}, default: []],
+      total: [type: :float, default: 0.0],
+      cancelled_reason: [type: :string, default: nil],
+      shipped_at: [type: :any, default: nil],
+      delivered_at: [type: :any, default: nil]
+    ],
+    strategy: {Jido.Agent.Strategy.FSM,
+      initial_state: "pending",
+      transitions: %{
+        "pending" => ["confirmed", "cancelled"],
+        "confirmed" => ["shipped", "cancelled"],
+        "shipped" => ["delivered"],
+        "delivered" => [],
+        "cancelled" => []
+      },
+      auto_transition: false
+    }
+end
+```
+
+### Step 3: Happy Path - Complete Order Flow
+
+```elixir
+agent = OrderAgent.new(
+  id: "order-001",
+  state: %{
+    order_id: "ORD-12345",
+    customer: "Alice",
+    items: [%{sku: "WIDGET-A", qty: 2}],
+    total: 49.99
+  }
+)
+
+IO.puts("Initial FSM state:")
+snap = OrderAgent.strategy_snapshot(agent)
+IO.inspect(snap.details[:fsm_state], label: "FSM State")
+```
+
+Now let's process the order through its lifecycle:
+
+```elixir
+{agent, _directives} = OrderAgent.cmd(agent, ConfirmOrder)
+
+snap = OrderAgent.strategy_snapshot(agent)
+IO.inspect(snap.details[:fsm_state], label: "After confirm")
+IO.inspect(snap.details[:processed_count], label: "Actions processed")
+```
+
+```elixir
+{agent, _directives} = OrderAgent.cmd(agent, {ShipOrder, %{carrier: "FedEx Express"}})
+
+snap = OrderAgent.strategy_snapshot(agent)
+IO.inspect(snap.details[:fsm_state], label: "After ship")
+IO.inspect(agent.state[:shipped_at], label: "Shipped at")
+```
+
+```elixir
+{agent, _directives} = OrderAgent.cmd(agent, DeliverOrder)
+
+snap = OrderAgent.strategy_snapshot(agent)
+IO.inspect(snap.details[:fsm_state], label: "After deliver")
+IO.inspect(agent.state[:delivered_at], label: "Delivered at")
+IO.inspect(snap.status, label: "Status")
+```
+
+### Step 4: Cancellation Flow
+
+Let's create a new order and cancel it:
+
+```elixir
+cancelled_agent = OrderAgent.new(
+  id: "order-002",
+  state: %{
+    order_id: "ORD-12346",
+    customer: "Bob",
+    items: [%{sku: "GADGET-B", qty: 1}],
+    total: 99.99
+  }
+)
+
+{cancelled_agent, _} = OrderAgent.cmd(cancelled_agent, ConfirmOrder)
+
+snap = OrderAgent.strategy_snapshot(cancelled_agent)
+IO.inspect(snap.details[:fsm_state], label: "Before cancel")
+```
+
+```elixir
+{cancelled_agent, _} = OrderAgent.cmd(
+  cancelled_agent, 
+  {CancelOrder, %{reason: "Customer requested cancellation"}}
+)
+
+snap = OrderAgent.strategy_snapshot(cancelled_agent)
+IO.inspect(snap.details[:fsm_state], label: "After cancel")
+IO.inspect(cancelled_agent.state[:cancelled_reason], label: "Reason")
+```
+
+### Step 5: Invalid Transition Handling
+
+The FSM Strategy prevents invalid transitions. Let's try to ship a cancelled order:
+
+```elixir
+{agent_after_invalid, directives} = OrderAgent.cmd(cancelled_agent, ShipOrder)
+
+IO.inspect(directives, label: "Directives from invalid transition")
+
+snap = OrderAgent.strategy_snapshot(agent_after_invalid)
+IO.inspect(snap.details[:fsm_state], label: "FSM state unchanged")
+```
+
+The FSM Strategy returns an `Error` directive when an invalid transition is attempted, and the FSM state remains unchanged.
+
+## State-Dependent Action Routing
+
+You can use `handle_signal/2` to route signals based on FSM state:
+
+```elixir
+defmodule SmartOrderAgent do
+  use Jido.Agent,
+    name: "smart_order_agent",
+    schema: [
+      order_id: [type: :string],
+      customer: [type: :string]
+    ],
+    strategy: {Jido.Agent.Strategy.FSM,
+      initial_state: "pending",
+      transitions: %{
+        "pending" => ["confirmed", "cancelled"],
+        "confirmed" => ["shipped", "cancelled"],
+        "shipped" => ["delivered"],
+        "delivered" => [],
+        "cancelled" => []
+      },
+      auto_transition: false
+    }
+
+  alias Jido.Signal
+
+  @impl true
+  def handle_signal(agent, %Signal{type: "order.process"} = signal) do
+    snap = strategy_snapshot(agent)
+    fsm_state = snap.details[:fsm_state]
+    
+    action = case fsm_state do
+      "pending" -> ConfirmOrder
+      "confirmed" -> {ShipOrder, %{carrier: signal.data[:carrier] || "Standard"}}
+      "shipped" -> DeliverOrder
+      _ -> nil
+    end
+    
+    if action do
+      cmd(agent, action)
+    else
+      {agent, []}
+    end
+  end
+
+  def handle_signal(agent, %Signal{type: "order.cancel"} = signal) do
+    snap = strategy_snapshot(agent)
+    fsm_state = snap.details[:fsm_state]
+    
+    if fsm_state in ["pending", "confirmed"] do
+      reason = signal.data[:reason] || "No reason provided"
+      cmd(agent, {CancelOrder, %{reason: reason}})
+    else
+      {agent, []}
+    end
+  end
+
+  def handle_signal(agent, _signal), do: {agent, []}
+end
+```
+
+```elixir
+smart_agent = SmartOrderAgent.new(
+  id: "smart-001",
+  state: %{order_id: "ORD-99999", customer: "Charlie"}
+)
+
+alias Jido.Signal
+
+process_signal = Signal.new!("order.process", %{}, source: "/api")
+
+{smart_agent, _} = SmartOrderAgent.handle_signal(smart_agent, process_signal)
+IO.inspect(SmartOrderAgent.strategy_snapshot(smart_agent).details[:fsm_state], label: "Step 1")
+
+{smart_agent, _} = SmartOrderAgent.handle_signal(smart_agent, process_signal)
+IO.inspect(SmartOrderAgent.strategy_snapshot(smart_agent).details[:fsm_state], label: "Step 2")
+
+{smart_agent, _} = SmartOrderAgent.handle_signal(smart_agent, process_signal)
+IO.inspect(SmartOrderAgent.strategy_snapshot(smart_agent).details[:fsm_state], label: "Step 3")
+```
+
+## Summary
+
+| Concept | Purpose |
+|---------|---------|
+| `strategy: {FSM, opts}` | Configure FSM-based execution |
+| `:initial_state` | Starting state for the FSM |
+| `:transitions` | Map of valid state transitions |
+| `:auto_transition` | Auto-return to initial state (default: true) |
+| `strategy_snapshot/1` | Inspect FSM state without internal access |
+| `snap.details[:fsm_state]` | Current FSM state string |
+| `snap.status` | Coarse status (:idle, :running, :success, :failure) |
+
+## Next Steps
+
+- **[Agents Guide](agents.md)** - Core agent concepts
+- **[Directives Guide](directives.md)** - Handling side effects
+- **[Runtime Guide](runtime.md)** - Running agents in production

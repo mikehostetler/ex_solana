@@ -22,7 +22,7 @@ defmodule Jido.Agent.Effects do
   @doc """
   Merges action result into agent state.
 
-  Uses deep merge semantics via `Jido.Agent.State.merge/2`.
+  Uses deep merge semantics.
   """
   @spec apply_result(Agent.t(), map()) :: Agent.t()
   def apply_result(%Agent{} = agent, result) when is_map(result) do

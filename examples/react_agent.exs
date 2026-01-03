@@ -53,7 +53,7 @@ defmodule ReActRunner do
       Stream.repeatedly(fn ->
         Process.sleep(30)
 
-        case Jido.state(ReActRunner.Jido, pid) do
+        case Jido.AgentServer.state(pid) do
           {:ok, %{agent: %{state: %{completed: true, last_answer: answer}}}}
           when is_binary(answer) and answer != "" ->
             {:done, answer}

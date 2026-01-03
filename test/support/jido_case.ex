@@ -48,21 +48,21 @@ defmodule JidoTest.Case do
       Returns the registry for this test's Jido instance.
       """
       def test_registry(context) do
-        Jido.registry(context.jido)
+        Jido.registry_name(context.jido)
       end
 
       @doc """
       Returns the task supervisor for this test's Jido instance.
       """
       def test_task_supervisor(context) do
-        Jido.task_supervisor(context.jido)
+        Jido.task_supervisor_name(context.jido)
       end
 
       @doc """
       Returns the agent supervisor for this test's Jido instance.
       """
       def test_agent_supervisor(context) do
-        Jido.agent_supervisor(context.jido)
+        Jido.agent_supervisor_name(context.jido)
       end
     end
   end

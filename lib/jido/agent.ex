@@ -121,7 +121,7 @@ defmodule Jido.Agent do
      })
      ```
 
-  Both are handled transparently by `Jido.Agent.State` via `Jido.Action.Schema`.
+  Both are handled transparently by the Agent module.
 
   ## Pure Functional Design
 
@@ -463,6 +463,30 @@ defmodule Jido.Agent do
           schema: schema(),
           state: initial_state
         }
+
+        # Run skill mount hooks (pure initialization)
+        agent =
+          Enum.reduce(@skill_specs, agent, fn spec, agent_acc ->
+            mod = spec.module
+            config = spec.config || %{}
+
+            case mod.mount(agent_acc, config) do
+              {:ok, skill_state} when is_map(skill_state) ->
+                current_skill_state = Map.get(agent_acc.state, spec.state_key, %{})
+                merged_skill_state = Map.merge(current_skill_state, skill_state)
+                new_state = Map.put(agent_acc.state, spec.state_key, merged_skill_state)
+                %{agent_acc | state: new_state}
+
+              {:ok, nil} ->
+                agent_acc
+
+              {:error, reason} ->
+                raise Jido.Error.internal_error(
+                        "Skill mount failed for #{inspect(mod)}",
+                        %{skill: mod, reason: reason}
+                      )
+            end
+          end)
 
         # Run strategy initialization (directives are dropped here;
         # AgentServer handles init directives separately)

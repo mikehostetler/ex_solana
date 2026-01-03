@@ -1,9 +1,14 @@
 defmodule Jido.AgentServer.State do
-  @moduledoc false
-  # Internal state for AgentServer GenServer.
-  #
-  # This struct holds all runtime state for an agent instance including
-  # the agent itself, directive queue, hierarchy tracking, and configuration.
+  @moduledoc """
+  Internal state for AgentServer GenServer.
+
+  > #### Internal Module {: .warning}
+  > This module is internal to the AgentServer implementation. Its API may
+  > change without notice. Use `Jido.AgentServer.state/1` to retrieve state.
+
+  This struct holds all runtime state for an agent instance including
+  the agent itself, directive queue, hierarchy tracking, and configuration.
+  """
 
   alias Jido.AgentServer.{ChildInfo, Options}
 
@@ -55,7 +60,10 @@ defmodule Jido.AgentServer.State do
               error_count:
                 Zoi.integer(description: "Count of errors for max_errors policy")
                 |> Zoi.default(0),
-              metrics: Zoi.map(description: "Runtime metrics") |> Zoi.default(%{})
+              metrics: Zoi.map(description: "Runtime metrics") |> Zoi.default(%{}),
+              completion_waiters:
+                Zoi.map(description: "Map of ref => waiter for completion notifications")
+                |> Zoi.default(%{})
             },
             coerce: true
           )
@@ -95,7 +103,8 @@ defmodule Jido.AgentServer.State do
       spawn_fun: opts.spawn_fun,
       cron_jobs: %{},
       error_count: 0,
-      metrics: %{}
+      metrics: %{},
+      completion_waiters: %{}
     }
 
     Zoi.parse(@schema, attrs)
