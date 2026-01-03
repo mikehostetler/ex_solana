@@ -348,11 +348,62 @@ defmodule JidoCode.Tools.ManagerTest do
       File.write!(test_file, "test content")
 
       {:ok, content} = Manager.read_file("test_read.txt", session_id: session.id)
-      assert content == "test content"
+      # Now returns line-numbered content via Lua bridge
+      assert content == "     1→test content"
     end
 
     test "read_file/2 returns error for unknown session_id" do
       assert {:error, :not_found} = Manager.read_file("test.txt", session_id: "non_existent")
+    end
+
+    test "read_file/2 with offset option skips initial lines", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      # Create a multi-line file
+      test_file = Path.join(tmp_dir, "multiline.txt")
+      File.write!(test_file, "line1\nline2\nline3\nline4\nline5")
+
+      {:ok, content} = Manager.read_file("multiline.txt", session_id: session.id, offset: 3)
+      # Should start from line 3
+      assert content =~ "3→line3"
+      assert content =~ "4→line4"
+      assert content =~ "5→line5"
+      refute content =~ "1→line1"
+      refute content =~ "2→line2"
+    end
+
+    test "read_file/2 with limit option caps output lines", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      # Create a multi-line file
+      test_file = Path.join(tmp_dir, "multiline_limit.txt")
+      File.write!(test_file, "line1\nline2\nline3\nline4\nline5")
+
+      {:ok, content} = Manager.read_file("multiline_limit.txt", session_id: session.id, limit: 2)
+      # Should only return first 2 lines
+      assert content =~ "1→line1"
+      assert content =~ "2→line2"
+      refute content =~ "3→line3"
+    end
+
+    test "read_file/2 with offset and limit options combined", %{
+      session: session,
+      tmp_dir: tmp_dir
+    } do
+      # Create a multi-line file
+      test_file = Path.join(tmp_dir, "offset_limit.txt")
+      File.write!(test_file, "a\nb\nc\nd\ne\nf\ng")
+
+      {:ok, content} =
+        Manager.read_file("offset_limit.txt", session_id: session.id, offset: 3, limit: 2)
+
+      # Should return lines 3 and 4 only
+      assert content =~ "3→c"
+      assert content =~ "4→d"
+      refute content =~ "1→a"
+      refute content =~ "5→e"
     end
 
     test "write_file/3 delegates to Session.Manager when session_id provided", %{

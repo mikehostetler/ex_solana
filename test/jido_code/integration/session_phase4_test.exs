@@ -98,22 +98,27 @@ defmodule JidoCode.Integration.SessionPhase4Test do
   # Helper to create a test model with sessions
   defp init_model_with_sessions(sessions, active_session_id \\ nil) do
     session_order = Enum.map(sessions, & &1.id)
-    session_map = Map.new(sessions, fn s -> {s.id, s} end)
+    window = {80, 24}
+
+    # Add ui_state to each session (required for streaming handlers)
+    session_map =
+      Map.new(sessions, fn s ->
+        session_with_ui = Map.put(s, :ui_state, Model.default_ui_state(window))
+        {s.id, session_with_ui}
+      end)
 
     %Model{
       sessions: session_map,
       session_order: session_order,
       active_session_id: active_session_id || hd(session_order),
+      window: window,
       # Activity tracking fields
       streaming_sessions: MapSet.new(),
       unread_counts: %{},
       active_tools: %{},
       last_activity: %{},
       # Other required fields
-      text_input: nil,
-      conversation_view: nil,
       messages: [],
-      agent_status: :idle,
       config: %{provider: "anthropic", model: "claude-3-5-sonnet-20241022"},
       sidebar_expanded: MapSet.new(),
       sidebar_width: 20
@@ -135,16 +140,17 @@ defmodule JidoCode.Integration.SessionPhase4Test do
 
       # Verify initial state
       assert model.active_session_id == session_a_id
-      assert model.streaming_message == nil
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == nil
       assert MapSet.size(model.streaming_sessions) == 0
       assert map_size(model.unread_counts) == 0
 
       # Simulate streaming event from Session B (inactive)
       {model, _effects} = MessageHandlers.handle_stream_chunk(session_b_id, "chunk from B", model)
 
-      # Assert: Session A's conversation view unchanged
-      assert model.streaming_message == nil, "Active session streaming message should be nil"
-      assert model.messages == [], "Active session messages should be empty"
+      # Assert: Session A's UI state unchanged (streaming_message should be nil)
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == nil, "Active session streaming message should be nil"
 
       # Assert: Session B shows streaming indicator in sidebar
       assert MapSet.member?(model.streaming_sessions, session_b_id),
@@ -157,11 +163,12 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       {model, _effects} = MessageHandlers.handle_stream_chunk(session_b_id, " more chunks", model)
 
       # Assert: Still no corruption of active session
-      assert model.streaming_message == nil
-      assert model.messages == []
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == nil
 
       # Stream end in Session B
-      {model, _effects} = MessageHandlers.handle_stream_end(session_b_id, "chunk from B more chunks", model)
+      {model, _effects} =
+        MessageHandlers.handle_stream_end(session_b_id, "chunk from B more chunks", model)
 
       # Assert: Session B streaming indicator cleared
       refute MapSet.member?(model.streaming_sessions, session_b_id),
@@ -187,11 +194,13 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       # Simulate streaming event from Session A (active)
       {model, _effects} = MessageHandlers.handle_stream_chunk(session_a_id, "chunk from A", model)
 
-      # Assert: Active session streaming message updated
-      assert model.streaming_message == "chunk from A",
+      # Assert: Active session streaming message updated (in per-session UI state)
+      active_ui = Model.get_active_ui_state(model)
+
+      assert active_ui.streaming_message == "chunk from A",
              "Active session should accumulate streaming message"
 
-      assert model.is_streaming == true, "is_streaming flag should be true"
+      assert active_ui.is_streaming == true, "is_streaming flag should be true"
 
       # Assert: Session A has streaming indicator
       assert MapSet.member?(model.streaming_sessions, session_a_id),
@@ -200,19 +209,23 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       # Simulate more chunks
       {model, _effects} = MessageHandlers.handle_stream_chunk(session_a_id, " more", model)
 
-      assert model.streaming_message == "chunk from A more",
+      active_ui = Model.get_active_ui_state(model)
+
+      assert active_ui.streaming_message == "chunk from A more",
              "Streaming message should accumulate"
 
       # Stream end
-      {model, _effects} = MessageHandlers.handle_stream_end(session_a_id, "chunk from A more", model)
+      {model, _effects} =
+        MessageHandlers.handle_stream_end(session_a_id, "chunk from A more", model)
 
-      # Assert: Message added to messages list
-      assert length(model.messages) == 1, "Should have 1 message"
-      assert hd(model.messages).content == "chunk from A more"
+      # Assert: Message added to session's messages list (in per-session UI state)
+      active_ui = Model.get_active_ui_state(model)
+      assert length(active_ui.messages) == 1, "Should have 1 message"
+      assert hd(active_ui.messages).content == "chunk from A more"
 
       # Assert: Streaming state cleared
-      assert model.streaming_message == nil
-      assert model.is_streaming == false
+      assert active_ui.streaming_message == nil
+      assert active_ui.is_streaming == false
       refute MapSet.member?(model.streaming_sessions, session_a_id)
 
       # Assert: No unread count for active session
@@ -239,14 +252,16 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       assert MapSet.member?(model.streaming_sessions, session_b_id)
       assert MapSet.member?(model.streaming_sessions, session_c_id)
 
-      # Assert: Only active session A has streaming_message
-      assert model.streaming_message == "A1"
+      # Assert: Only active session A has streaming_message (in per-session UI state)
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == "A1"
 
       # Continue streaming
       {model, _} = MessageHandlers.handle_stream_chunk(session_a_id, "A2", model)
       {model, _} = MessageHandlers.handle_stream_chunk(session_b_id, "B2", model)
 
-      assert model.streaming_message == "A1A2"
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == "A1A2"
 
       # End streaming in B first
       {model, _} = MessageHandlers.handle_stream_end(session_b_id, "B1B2", model)
@@ -255,13 +270,15 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       assert Map.get(model.unread_counts, session_b_id) == 1
 
       # Active session still streaming
-      assert model.streaming_message == "A1A2"
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == "A1A2"
       assert MapSet.member?(model.streaming_sessions, session_a_id)
 
       # End streaming in A
       {model, _} = MessageHandlers.handle_stream_end(session_a_id, "A1A2", model)
 
-      assert model.streaming_message == nil
+      active_ui = Model.get_active_ui_state(model)
+      assert active_ui.streaming_message == nil
       refute MapSet.member?(model.streaming_sessions, session_a_id)
       assert Map.get(model.unread_counts, session_a_id, 0) == 0
 
@@ -316,7 +333,9 @@ defmodule JidoCode.Integration.SessionPhase4Test do
 
       # Assert: Unread count cleared
       unread = Map.get(model.unread_counts, session_b_id, 0)
-      assert unread == 0, "Unread count should be cleared when switching to session, got #{unread}"
+
+      assert unread == 0,
+             "Unread count should be cleared when switching to session, got #{unread}"
     end
 
     test "switching sessions updates active_session_id", %{tmp_base: tmp_base} do
@@ -382,22 +401,25 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       {model, _} = MessageHandlers.handle_stream_chunk(session_b_id, "chunk", model)
 
       # Build sidebar
-      sidebar = SessionSidebar.new(
-        sessions: Map.values(model.sessions),
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: Map.values(model.sessions),
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Check title contains streaming indicator
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
+
       assert String.contains?(session_b_title, "[...]"),
              "Session B title should contain streaming indicator [...], got: #{session_b_title}"
 
       # Active session A should not have streaming indicator (even though it could)
       session_a_title = SessionSidebar.build_title(sidebar, session_a)
+
       refute String.contains?(session_a_title, "[...]"),
              "Session A title should not contain streaming indicator"
     end
@@ -414,17 +436,19 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       {model, _} = MessageHandlers.handle_stream_end(session_b_id, "full content", model)
 
       # Build sidebar
-      sidebar = SessionSidebar.new(
-        sessions: Map.values(model.sessions),
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: Map.values(model.sessions),
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Check unread count shown
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
+
       assert String.contains?(session_b_title, "[1]"),
              "Session B should show unread count [1], got: #{session_b_title}"
 
@@ -441,20 +465,28 @@ defmodule JidoCode.Integration.SessionPhase4Test do
 
       # Simulate tool call in inactive session B
       {model, _} =
-        MessageHandlers.handle_tool_call(session_b_id, "grep", %{pattern: "test"}, "call-1", model)
+        MessageHandlers.handle_tool_call(
+          session_b_id,
+          "grep",
+          %{pattern: "test"},
+          "call-1",
+          model
+        )
 
       # Build sidebar
-      sidebar = SessionSidebar.new(
-        sessions: Map.values(model.sessions),
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: Map.values(model.sessions),
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Check tool badge shown
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
+
       assert String.contains?(session_b_title, "⚙1"),
              "Session B should show tool badge ⚙1, got: #{session_b_title}"
     end
@@ -481,17 +513,19 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       {model, _} = MessageHandlers.handle_tool_result(session_b_id, tool_result, model)
 
       # Build sidebar
-      sidebar = SessionSidebar.new(
-        sessions: Map.values(model.sessions),
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: Map.values(model.sessions),
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Tool badge should be cleared
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
+
       refute String.contains?(session_b_title, "⚙"),
              "Session B should not show tool badge after completion, got: #{session_b_title}"
     end
@@ -513,14 +547,15 @@ defmodule JidoCode.Integration.SessionPhase4Test do
       model = %{model | unread_counts: Map.put(model.unread_counts, session_b_id, 2)}
 
       # Build sidebar
-      sidebar = SessionSidebar.new(
-        sessions: Map.values(model.sessions),
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: Map.values(model.sessions),
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Check all three indicators present
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
@@ -535,22 +570,25 @@ defmodule JidoCode.Integration.SessionPhase4Test do
 
       model = init_model_with_sessions([session_a, session_b], session_a_id)
 
-      sidebar = SessionSidebar.new(
-        sessions: model.sessions,
-        order: model.session_order,
-        active_id: model.active_session_id,
-        streaming_sessions: model.streaming_sessions,
-        unread_counts: model.unread_counts,
-        active_tools: model.active_tools
-      )
+      sidebar =
+        SessionSidebar.new(
+          sessions: model.sessions,
+          order: model.session_order,
+          active_id: model.active_session_id,
+          streaming_sessions: model.streaming_sessions,
+          unread_counts: model.unread_counts,
+          active_tools: model.active_tools
+        )
 
       # Session A (active) should have → prefix
       session_a_title = SessionSidebar.build_title(sidebar, session_a)
+
       assert String.starts_with?(session_a_title, "→ "),
              "Active session should start with → , got: #{session_a_title}"
 
       # Session B (inactive) should not have → prefix
       session_b_title = SessionSidebar.build_title(sidebar, session_b)
+
       refute String.starts_with?(session_b_title, "→ "),
              "Inactive session should not start with → , got: #{session_b_title}"
     end

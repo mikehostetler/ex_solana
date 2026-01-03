@@ -34,7 +34,7 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
   import TermUI.Component.Helpers
 
   alias TermUI.Widgets.SplitPane, as: SP
-  alias JidoCode.TUI.Widgets.{FolderTabs, Accordion}
+  alias JidoCode.TUI.Widgets.{FolderTabs, Accordion, Frame}
   # alias JidoCode.Session
   alias TermUI.Renderer.Style
 
@@ -143,8 +143,9 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
     state = state |> build_sidebar_state() |> build_tabs_state()
 
     # Get optional views
-    # input_view goes inside tabs (per-session), help_view at bottom of whole layout
+    # input_view and mode_bar_view go inside tabs (per-session), help_view at bottom of whole layout
     input_view = Keyword.get(opts, :input_view)
+    mode_bar_view = Keyword.get(opts, :mode_bar_view)
     help_view = Keyword.get(opts, :help_view)
 
     # Calculate heights for bottom bar (only help, input is inside tabs)
@@ -158,9 +159,9 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
     sidebar_width = round(area.width * state.sidebar_proportion)
     sidebar_view = render_sidebar(state, sidebar_width, main_height)
 
-    # Render tabs content (status bar + conversation + input)
+    # Render tabs content (status bar + conversation + input + mode bar)
     tabs_width = area.width - sidebar_width - gap_width
-    tabs_view = render_tabs_pane(state, tabs_width, main_height, input_view)
+    tabs_view = render_tabs_pane(state, tabs_width, main_height, input_view, mode_bar_view)
 
     # Render gap (empty space between panes)
     gap_view = render_gap(main_height)
@@ -478,10 +479,23 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
   end
 
   defp build_tab_status(session_data) do
+    provider = Map.get(session_data, :provider)
+    model = Map.get(session_data, :model)
     status = Map.get(session_data, :status, :idle)
-    status_text = Atom.to_string(status) |> String.capitalize()
-    "Status: #{status_text}"
+
+    provider_text = if provider, do: "#{provider}", else: "none"
+    model_text = if model, do: "#{model}", else: "none"
+    status_text = format_status(status)
+
+    # ⬢ = provider, ◆ = model
+    "⬢ #{provider_text} | ◆ #{model_text} | #{status_text}"
   end
+
+  defp format_status(:idle), do: "⚙  Idle"
+  defp format_status(:processing), do: "⚙  Processing"
+  defp format_status(:error), do: "⚙  Error"
+  defp format_status(:unconfigured), do: "⚙  Idle"
+  defp format_status(other), do: "⚙  " <> (Atom.to_string(other) |> String.capitalize())
 
   defp build_split_state(state) do
     # Build SplitPane state for resizable layout
@@ -561,7 +575,7 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
     text(String.pad_trailing(line, width), style)
   end
 
-  # Render sidebar header (2 lines + separator)
+  # Render sidebar header (2 lines to match tab height)
   defp render_sidebar_header(width) do
     title = "JidoCode"
     header_style = Style.new(fg: :cyan, attrs: [:bold])
@@ -570,65 +584,79 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
     # Line 1: Title
     line1 = String.pad_trailing(" " <> title, width)
 
-    # Line 2: Empty line
-    line2 = String.duplicate(" ", width)
-
-    # Horizontal separator
+    # Line 2: Horizontal separator
     separator = String.duplicate(@border.horizontal, width)
 
     stack(:vertical, [
       text(line1, header_style),
-      text(line2, nil),
       text(separator, separator_style)
     ])
   end
 
-  defp render_tabs_pane(state, width, height, input_view) do
+  defp render_tabs_pane(state, width, height, input_view, mode_bar_view) do
     border_style = Style.new(fg: :bright_black)
 
-    # Content dimensions (inside top/bottom borders)
-    inner_height = max(height - 2, 1)
+    if state.tabs_state do
+      # Render folder tabs (tab bar only - 2 rows) - outside the frame
+      tab_bar = FolderTabs.render(state.tabs_state)
+      tab_bar_height = 2
 
-    # Build inner content
-    inner_content =
-      if state.tabs_state do
-        # Render folder tabs (tab bar only - 2 rows)
-        tab_bar = FolderTabs.render(state.tabs_state)
+      # Frame dimensions (below tab bar)
+      frame_height = max(height - tab_bar_height, 3)
+      inner_width = max(width - 2, 1)
+      inner_height = max(frame_height - 2, 1)
 
-        # Get selected tab's status and content
-        status_text = FolderTabs.get_selected_status(state.tabs_state) || ""
-        content = FolderTabs.get_selected_content(state.tabs_state)
+      # Get selected tab's status and content
+      status_text = FolderTabs.get_selected_status(state.tabs_state) || ""
+      content = FolderTabs.get_selected_content(state.tabs_state)
 
-        # Build status bar (top, after tab bar)
-        status_style = Style.new(fg: :bright_black)
-        status_bar = text(String.pad_trailing(status_text, width), status_style)
+      # Build status bar (top of frame content)
+      status_style = Style.new(fg: :bright_black)
+      status_bar = text(String.pad_trailing(status_text, inner_width), status_style)
 
-        # Calculate content height (inner - tab_bar(3) - status(1) - input(1 if present))
-        input_height = if input_view, do: 1, else: 0
-        content_height = max(inner_height - 4 - input_height, 1)
+      # Build separator bar below status
+      separator_style = Style.new(fg: :bright_black)
+      separator = text(String.duplicate("─", inner_width), separator_style)
 
-        # Build content area - conversation view (fills remaining space)
-        content_view = if content, do: content, else: empty()
-        content_box = box([content_view], width: width, height: content_height)
+      # Calculate content height (inner - status(1) - separator(1) - input(1) - mode_bar(1) if present)
+      input_height = if input_view, do: 1, else: 0
+      mode_bar_height = if mode_bar_view, do: 1, else: 0
+      content_height = max(inner_height - 2 - input_height - mode_bar_height, 1)
 
-        # Layout: tab_bar | status_bar | conversation | input (per-session)
-        elements = [tab_bar, status_bar, content_box]
-        elements = if input_view, do: elements ++ [input_view], else: elements
+      # Build content area - conversation view (fills remaining space)
+      content_view = if content, do: content, else: empty()
+      content_box = box([content_view], width: inner_width, height: content_height)
 
-        stack(:vertical, elements)
-      else
-        empty()
-      end
+      # Layout inside frame: status_bar | separator | conversation | input | mode_bar
+      frame_elements = [status_bar, separator, content_box]
+      frame_elements = if input_view, do: frame_elements ++ [input_view], else: frame_elements
 
-    # Wrap content in box to fill inner height
-    content_box = box([inner_content], width: width, height: inner_height)
+      frame_elements =
+        if mode_bar_view, do: frame_elements ++ [mode_bar_view], else: frame_elements
 
-    # Top and bottom borders only
-    top_border = text(String.duplicate(@border.horizontal, width), border_style)
-    bottom_border = text(String.duplicate(@border.horizontal, width), border_style)
+      frame_content = stack(:vertical, frame_elements)
 
-    # Stack: top border, content, bottom border
-    stack(:vertical, [top_border, content_box, bottom_border])
+      # Frame around content (not including tab bar)
+      content_frame =
+        Frame.render(
+          content: frame_content,
+          width: width,
+          height: frame_height,
+          style: border_style,
+          charset: :rounded
+        )
+
+      # Stack: tab_bar above frame
+      stack(:vertical, [tab_bar, content_frame])
+    else
+      # No tabs - just render empty frame
+      Frame.render(
+        content: empty(),
+        width: width,
+        height: height,
+        style: border_style
+      )
+    end
   end
 
   defp render_gap(height) do
@@ -655,5 +683,4 @@ defmodule JidoCode.TUI.Widgets.MainLayout do
   defp status_icon(:processing), do: "⟳"
   defp status_icon(:error), do: "✗"
   defp status_icon(_), do: "○"
-
 end

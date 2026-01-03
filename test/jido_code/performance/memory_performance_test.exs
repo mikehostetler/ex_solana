@@ -29,6 +29,7 @@ defmodule JidoCode.Performance.MemoryTest do
 
     # Clean up persisted sessions
     sessions_dir = Path.expand("~/.jido_code/sessions")
+
     if File.exists?(sessions_dir) do
       File.rm_rf!(sessions_dir)
     end
@@ -47,10 +48,11 @@ defmodule JidoCode.Performance.MemoryTest do
       baseline_memory = get_memory_mb()
 
       # Create 10 sessions
-      sessions = for i <- 1..10 do
-        {:ok, session} = create_test_session("Session #{i}")
-        session
-      end
+      sessions =
+        for i <- 1..10 do
+          {:ok, session} = create_test_session("Session #{i}")
+          session
+        end
 
       # Measure memory after creating sessions
       after_create_memory = get_memory_mb()
@@ -81,11 +83,14 @@ defmodule JidoCode.Performance.MemoryTest do
 
       # Create 10 sessions with 1000 messages each (max limit)
       IO.puts("\nCreating 10 sessions with 1000 messages each...")
-      sessions = for i <- 1..10 do
-        {:ok, session} = create_test_session("Session #{i}")
-        add_messages(session.id, 1000)
-        session
-      end
+
+      sessions =
+        for i <- 1..10 do
+          {:ok, session} = create_test_session("Session #{i}")
+          add_messages(session.id, 1000)
+          session
+        end
+
       IO.puts("Sessions created. Measuring memory...")
 
       # Force garbage collection to get accurate measurement
@@ -102,7 +107,10 @@ defmodule JidoCode.Performance.MemoryTest do
       IO.puts("Sessions cost:  #{Float.round(sessions_memory, 2)} MB")
       IO.puts("Per session:    #{Float.round(sessions_memory / 10, 2)} MB")
       IO.puts("Target:         < 100 MB total")
-      IO.puts("Status:         #{if sessions_memory < 100, do: "✓ PASS", else: "⚠ WARNING (expected with max data)"}")
+
+      IO.puts(
+        "Status:         #{if sessions_memory < 100, do: "✓ PASS", else: "⚠ WARNING (expected with max data)"}"
+      )
 
       # With max data, we're just documenting the memory usage, not strictly enforcing limit
       # This helps us understand worst-case memory footprint
@@ -131,7 +139,8 @@ defmodule JidoCode.Performance.MemoryTest do
       # Perform 100 create/close cycles
       for i <- 1..100 do
         {:ok, session} = create_test_session("Cycle #{i}")
-        add_messages(session.id, 10)  # Add some messages
+        # Add some messages
+        add_messages(session.id, 10)
         SessionSupervisor.stop_session(session.id)
 
         # Print progress every 25 cycles
@@ -139,7 +148,10 @@ defmodule JidoCode.Performance.MemoryTest do
           :erlang.garbage_collect()
           current_memory = get_memory_mb()
           delta = current_memory - baseline_memory
-          IO.puts("  Cycle #{i}: #{Float.round(current_memory, 2)} MB (Δ #{Float.round(delta, 2)} MB)")
+
+          IO.puts(
+            "  Cycle #{i}: #{Float.round(current_memory, 2)} MB (Δ #{Float.round(delta, 2)} MB)"
+          )
         end
       end
 
@@ -183,7 +195,10 @@ defmodule JidoCode.Performance.MemoryTest do
           :erlang.garbage_collect()
           current_memory = get_memory_mb()
           delta = current_memory - baseline_memory
-          IO.puts("  Cycle #{cycle}: #{Float.round(current_memory, 2)} MB (Δ #{Float.round(delta, 2)} MB)")
+
+          IO.puts(
+            "  Cycle #{cycle}: #{Float.round(current_memory, 2)} MB (Δ #{Float.round(delta, 2)} MB)"
+          )
         end
       end
 
@@ -249,14 +264,15 @@ defmodule JidoCode.Performance.MemoryTest do
   end
 
   defp create_test_session(name) do
-    session = Session.new!(
-      name: name,
-      project_path: System.tmp_dir!(),
-      config: %{
-        provider: :anthropic,
-        model: "claude-3-5-sonnet-20241022"
-      }
-    )
+    session =
+      Session.new!(
+        name: name,
+        project_path: System.tmp_dir!(),
+        config: %{
+          provider: :anthropic,
+          model: "claude-3-5-sonnet-20241022"
+        }
+      )
 
     {:ok, session_id} = SessionSupervisor.start_session(session)
     {:ok, %{session | id: session_id}}
@@ -266,8 +282,9 @@ defmodule JidoCode.Performance.MemoryTest do
     for i <- 1..count do
       message = %{
         role: if(rem(i, 2) == 0, do: "user", else: "assistant"),
-        content: "Test message #{i} with some content to simulate realistic size. " <>
-                 String.duplicate("Lorem ipsum dolor sit amet. ", 10)
+        content:
+          "Test message #{i} with some content to simulate realistic size. " <>
+            String.duplicate("Lorem ipsum dolor sit amet. ", 10)
       }
 
       Session.State.append_message(session_id, message)

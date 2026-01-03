@@ -85,7 +85,7 @@ defmodule JidoCode.TUI.Widgets.SessionSidebar do
     idle: "✓",
     processing: "⟳",
     error: "✗",
-    unconfigured: "○"
+    unconfigured: "✓"
   }
 
   # ============================================================================

@@ -48,10 +48,14 @@ defmodule JidoCode.TUI.ViewHelpers do
 
   # Status indicator characters for tab rendering
   @status_indicators %{
-    processing: "⟳",  # Rotating arrow (U+27F3)
-    idle: "✓",        # Check mark (U+2713)
-    error: "✗",       # X mark (U+2717)
-    unconfigured: "○" # Empty circle (U+25CB)
+    # Rotating arrow (U+27F3)
+    processing: "⟳",
+    # Check mark (U+2713)
+    idle: "✓",
+    # X mark (U+2717)
+    error: "✗",
+    # Use same as idle when unconfigured
+    unconfigured: "✓"
   }
 
   # ============================================================================
@@ -224,8 +228,15 @@ defmodule JidoCode.TUI.ViewHelpers do
   # Individual content elements handle their own padding; separators span full width
   defp render_middle_rows(content, content_width, content_height, border_style) do
     # Create multi-line border strings that span the full height
-    left_border_str = (@border_chars.vertical <> "\n") |> String.duplicate(content_height) |> String.trim_trailing("\n")
-    right_border_str = (@border_chars.vertical <> "\n") |> String.duplicate(content_height) |> String.trim_trailing("\n")
+    left_border_str =
+      (@border_chars.vertical <> "\n")
+      |> String.duplicate(content_height)
+      |> String.trim_trailing("\n")
+
+    right_border_str =
+      (@border_chars.vertical <> "\n")
+      |> String.duplicate(content_height)
+      |> String.trim_trailing("\n")
 
     left_border = text(left_border_str, border_style)
     right_border = text(right_border_str, border_style)
@@ -256,7 +267,9 @@ defmodule JidoCode.TUI.ViewHelpers do
     separator_style = Style.new(fg: Theme.get_color(:secondary) || :bright_black)
 
     # Use T-connectors at edges to connect to the double-line vertical border
-    separator_line = @border_chars.t_left <> String.duplicate("─", line_width) <> @border_chars.t_right
+    separator_line =
+      @border_chars.t_left <> String.duplicate("─", line_width) <> @border_chars.t_right
+
     text(separator_line, separator_style)
   end
 
@@ -288,7 +301,7 @@ defmodule JidoCode.TUI.ViewHelpers do
   # Status bar when no active session
   defp render_status_bar_no_session(state, content_width) do
     config_text = format_config(state.config)
-    status_text = format_status(state.agent_status)
+    status_text = format_status(Model.get_active_agent_status(state))
 
     full_text = "No active session | #{config_text} | #{status_text}"
     padded_text = pad_or_truncate(full_text, content_width)
@@ -300,6 +313,8 @@ defmodule JidoCode.TUI.ViewHelpers do
 
   # Status bar with active session info
   defp render_status_bar_with_session(state, session, content_width) do
+    alias JidoCode.TUI.MessageHandlers
+
     # Session count and position
     session_count = Model.session_count(state)
     session_index = Enum.find_index(state.session_order, &(&1 == session.id))
@@ -311,11 +326,20 @@ defmodule JidoCode.TUI.ViewHelpers do
     # Project path (truncated, show last 2 segments)
     path_text = format_project_path(session.project_path, 25)
 
+    # Programming language (with icon)
+    language = Map.get(session, :language, :elixir)
+    language_text = JidoCode.Language.display_name(language)
+
     # Model info from session config or global config
     session_config = Map.get(session, :config) || %{}
     provider = Map.get(session_config, :provider) || state.config.provider
     model = Map.get(session_config, :model) || state.config.model
     model_text = format_model(provider, model)
+
+    # Get cumulative usage from session UI state
+    ui_state = Model.get_active_ui_state(state)
+    usage = if ui_state, do: Map.get(ui_state, :usage), else: nil
+    usage_text = MessageHandlers.format_usage_compact(usage)
 
     # Agent status for this session
     session_status = Model.get_session_status(session.id)
@@ -324,9 +348,9 @@ defmodule JidoCode.TUI.ViewHelpers do
     # CoT indicator
     cot_indicator = if has_active_reasoning?(state), do: " [CoT]", else: ""
 
-    # Build full text: "[1/3] project-name | ~/path/to/project | anthropic:claude-3-5-sonnet | Idle"
+    # Build full text: "[1/3] project-name | ~/path | Language | model | usage | status"
     full_text =
-      "#{position_text} #{session_name} | #{path_text} | #{model_text} | #{status_text}#{cot_indicator}"
+      "#{position_text} #{session_name} | #{path_text} | #{language_text} | #{model_text} | #{usage_text} | #{status_text}#{cot_indicator}"
 
     padded_text = pad_or_truncate(full_text, content_width)
 
@@ -352,16 +376,17 @@ defmodule JidoCode.TUI.ViewHelpers do
   end
 
   # Format model text
-  defp format_model(nil, _), do: "No provider"
-  defp format_model(_, nil), do: "No model"
-  defp format_model(provider, model), do: "#{provider}:#{model}"
+  defp format_model(provider, model) do
+    provider_text = if provider, do: "#{provider}", else: "none"
+    model_text = if model, do: "#{model}", else: "none"
+    "⬢ #{provider_text} | ◆ #{model_text}"
+  end
 
   # Build status bar style based on session status
   defp build_status_bar_style_for_session(state, session_status) do
     fg_color =
       cond do
         session_status == :error -> Theme.get_semantic(:error) || :red
-        session_status == :unconfigured -> Theme.get_semantic(:error) || :red
         session_status == :processing -> Theme.get_semantic(:warning) || :yellow
         has_active_reasoning?(state) -> Theme.get_color(:accent) || :magenta
         true -> Theme.get_color(:foreground) || :white
@@ -382,7 +407,7 @@ defmodule JidoCode.TUI.ViewHelpers do
 
     reasoning_hint = if state.show_reasoning, do: "Ctrl+R: Hide", else: "Ctrl+R: Reasoning"
     tools_hint = if state.show_tool_details, do: "Ctrl+T: Hide", else: "Ctrl+T: Tools"
-    hints = "#{reasoning_hint} | #{tools_hint} | Ctrl+M: Model | Ctrl+C: Quit"
+    hints = "#{reasoning_hint} | #{tools_hint} | Ctrl+M: Model | Ctrl+X: Quit"
 
     padded_text = pad_or_truncate(hints, content_width)
     bar_style = Style.new(fg: Theme.get_color(:foreground) || :white, bg: :black)
@@ -403,13 +428,12 @@ defmodule JidoCode.TUI.ViewHelpers do
   end
 
   defp build_status_bar_style(state) do
+    agent_status = Model.get_active_agent_status(state)
+
     fg_color =
       cond do
-        state.agent_status == :error -> Theme.get_semantic(:error) || :red
-        state.agent_status == :unconfigured -> Theme.get_semantic(:error) || :red
-        state.config.provider == nil -> Theme.get_semantic(:error) || :red
-        state.config.model == nil -> Theme.get_semantic(:warning) || :yellow
-        state.agent_status == :processing -> Theme.get_semantic(:warning) || :yellow
+        agent_status == :error -> Theme.get_semantic(:error) || :red
+        agent_status == :processing -> Theme.get_semantic(:warning) || :yellow
         has_active_reasoning?(state) -> Theme.get_color(:accent) || :magenta
         true -> Theme.get_color(:foreground) || :white
       end
@@ -427,14 +451,16 @@ defmodule JidoCode.TUI.ViewHelpers do
       end)
   end
 
-  defp format_status(:idle), do: "Idle"
-  defp format_status(:processing), do: "Streaming..."
-  defp format_status(:error), do: "Error"
-  defp format_status(:unconfigured), do: "Not Configured"
+  defp format_status(:idle), do: "⚙  Idle"
+  defp format_status(:processing), do: "⚙  Streaming..."
+  defp format_status(:error), do: "⚙  Error"
+  defp format_status(:unconfigured), do: "⚙  Idle"
 
-  defp format_config(%{provider: nil}), do: "No provider"
-  defp format_config(%{model: nil, provider: p}), do: "#{p} (no model)"
-  defp format_config(%{provider: p, model: m}), do: "#{p}:#{m}"
+  defp format_config(config) do
+    provider = config[:provider] || "none"
+    model = config[:model] || "none"
+    "⬢ #{provider} | ◆ #{model}"
+  end
 
   # ============================================================================
   # Conversation Area
@@ -570,7 +596,7 @@ defmodule JidoCode.TUI.ViewHelpers do
     end)
   end
 
-  defp format_message(%{role: role, content: content, timestamp: timestamp}, width) do
+  defp format_message(%{role: role, content: content, timestamp: timestamp} = message, width) do
     ts = TUI.format_timestamp(timestamp)
     prefix = role_prefix(role)
     style = role_style(role)
@@ -579,16 +605,27 @@ defmodule JidoCode.TUI.ViewHelpers do
     content_width = max(width - prefix_len, 20)
     lines = TUI.wrap_text(content, content_width)
 
-    lines
-    |> Enum.with_index()
-    |> Enum.map(fn {line, index} ->
-      if index == 0 do
-        text("#{ts} #{prefix}#{line}", style)
-      else
-        padding = String.duplicate(" ", prefix_len)
-        text("#{padding}#{line}", style)
-      end
-    end)
+    message_lines =
+      lines
+      |> Enum.with_index()
+      |> Enum.map(fn {line, index} ->
+        if index == 0 do
+          text("#{ts} #{prefix}#{line}", style)
+        else
+          padding = String.duplicate(" ", prefix_len)
+          text("#{padding}#{line}", style)
+        end
+      end)
+
+    # Add usage line above assistant messages if usage data is present
+    case {role, Map.get(message, :usage)} do
+      {:assistant, usage} when is_map(usage) ->
+        usage_line = render_usage_line(usage)
+        [usage_line | message_lines]
+
+      _ ->
+        message_lines
+    end
   end
 
   # Fallback for messages without timestamp (legacy format)
@@ -603,6 +640,14 @@ defmodule JidoCode.TUI.ViewHelpers do
   defp role_style(:user), do: Style.new(fg: Theme.get_semantic(:info) || :cyan)
   defp role_style(:assistant), do: Style.new(fg: Theme.get_color(:foreground) || :white)
   defp role_style(:system), do: Style.new(fg: Theme.get_semantic(:warning) || :yellow)
+
+  # Renders a usage line for display above assistant messages
+  defp render_usage_line(usage) do
+    alias JidoCode.TUI.MessageHandlers
+    usage_text = MessageHandlers.format_usage_detailed(usage)
+    muted_style = Style.new(fg: Theme.get_semantic(:muted) || :bright_black)
+    text(usage_text, muted_style)
+  end
 
   # ============================================================================
   # Tool Calls
@@ -693,6 +738,88 @@ defmodule JidoCode.TUI.ViewHelpers do
       text(" ")
     ])
   end
+
+  # ============================================================================
+  # Mode Bar
+  # ============================================================================
+
+  @doc """
+  Renders the mode bar showing the current agent mode and language.
+  Displays below the input bar with the active thinking/reasoning mode on the left
+  and the current programming language on the right.
+  """
+  @spec render_mode_bar(Model.t()) :: TermUI.View.t()
+  def render_mode_bar(state) do
+    {width, _height} = state.window
+    # Content width excludes borders (2) and padding (2)
+    content_width = max(width - 4, 20)
+
+    # Get current mode from agent_activity
+    mode = get_display_mode(state)
+    mode_text = format_mode_name(mode)
+
+    # Get language from active session
+    language = get_session_language(state)
+    language_icon = JidoCode.Language.icon(language)
+    language_name = JidoCode.Language.display_name(language)
+    language_text = "#{language_icon} #{language_name}"
+
+    # Style for mode bar
+    label_style = Style.new(fg: :bright_black)
+    mode_style = Style.new(fg: Theme.get_color(:accent) || :cyan)
+    language_style = Style.new(fg: Theme.get_color(:accent) || :cyan)
+
+    # Left side: "Mode: chat"
+    mode_label = text("Mode: ", label_style)
+    mode_display = text(mode_text, mode_style)
+
+    # Right side: "💧 Elixir"
+    language_display = text(language_text, language_style)
+
+    # Calculate padding to fill width between mode and language
+    # "Mode: " (6) + mode_text + language_text + 2 (side padding)
+    left_width = 6 + String.length(mode_text)
+    right_width = String.length(language_text)
+    padding_width = max(content_width - left_width - right_width, 1)
+    padding = text(String.duplicate(" ", padding_width))
+
+    # Layout: " Mode: chat          💧 Elixir "
+    stack(:horizontal, [
+      text(" "),
+      mode_label,
+      mode_display,
+      padding,
+      language_display,
+      text(" ")
+    ])
+  end
+
+  # Get the language from the active session, defaulting to :elixir
+  defp get_session_language(state) do
+    case Model.get_active_session(state) do
+      nil -> JidoCode.Language.default()
+      session -> Map.get(session, :language, JidoCode.Language.default())
+    end
+  end
+
+  # Get the display mode from agent activity or default to chat
+  defp get_display_mode(state) do
+    case Model.get_active_agent_activity(state) do
+      {:thinking, mode} -> mode
+      _ -> :chat
+    end
+  end
+
+  # Format mode name for display
+  defp format_mode_name(:chat), do: "chat"
+  defp format_mode_name(:chain_of_thought), do: "chain-of-thought"
+  defp format_mode_name(:react), do: "react"
+  defp format_mode_name(:tree_of_thoughts), do: "tree-of-thoughts"
+  defp format_mode_name(:self_consistency), do: "self-consistency"
+  defp format_mode_name(:program_of_thought), do: "program-of-thought"
+  defp format_mode_name(:gepa), do: "gepa"
+  defp format_mode_name(other) when is_atom(other), do: Atom.to_string(other)
+  defp format_mode_name(_other), do: "unknown"
 
   # ============================================================================
   # Reasoning Panel
@@ -818,7 +945,7 @@ defmodule JidoCode.TUI.ViewHelpers do
   """
   @spec render_config_info(Model.t()) :: TermUI.View.t()
   def render_config_info(state) do
-    case state.agent_status do
+    case Model.get_active_agent_status(state) do
       :unconfigured ->
         warning_style = Style.new(fg: Theme.get_semantic(:warning) || :yellow, attrs: [:bold])
         muted_style = Style.new(fg: Theme.get_semantic(:muted) || :bright_black)
@@ -925,6 +1052,7 @@ defmodule JidoCode.TUI.ViewHelpers do
   """
   @spec render_tabs(Model.t()) :: TermUI.View.t() | nil
   def render_tabs(%Model{sessions: sessions}) when map_size(sessions) == 0, do: nil
+
   def render_tabs(%Model{sessions: sessions, session_order: order, active_session_id: active_id}) do
     tabs =
       order
@@ -941,7 +1069,9 @@ defmodule JidoCode.TUI.ViewHelpers do
     # Render tabs horizontally with separators
     tab_elements =
       tabs
-      |> Enum.intersperse(text(" │ ", Style.new(fg: Theme.get_color(:secondary) || :bright_black)))
+      |> Enum.intersperse(
+        text(" │ ", Style.new(fg: Theme.get_color(:secondary) || :bright_black))
+      )
 
     # Add 1-char padding on each side
     stack(:horizontal, [text(" ") | tab_elements] ++ [text(" ")])

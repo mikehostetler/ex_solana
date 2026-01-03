@@ -101,7 +101,8 @@ defmodule JidoCode.CommandsTest do
       setup_api_key("anthropic")
       config = %{provider: nil, model: nil}
 
-      {:ok, message, new_config} = Commands.execute("/model anthropic:claude-3-5-haiku-20241022", config)
+      {:ok, message, new_config} =
+        Commands.execute("/model anthropic:claude-3-5-haiku-20241022", config)
 
       assert message =~ "Model set to anthropic:claude-3-5-haiku-20241022"
       assert new_config.provider == "anthropic"
@@ -1836,6 +1837,13 @@ defmodule JidoCode.CommandsTest do
       # Clear registry
       JidoCode.SessionRegistry.clear()
 
+      # Clear any persisted session files from previous tests
+      sessions_dir = JidoCode.Session.Persistence.sessions_dir()
+
+      if File.exists?(sessions_dir) do
+        File.rm_rf!(sessions_dir)
+      end
+
       # Create temp directory for test projects
       tmp_base = Path.join(System.tmp_dir!(), "resume_test_#{:rand.uniform(100_000)}")
       File.mkdir_p!(tmp_base)
@@ -2177,7 +2185,7 @@ defmodule JidoCode.CommandsTest do
       ])
 
       # Run cleanup (30 days)
-      result = JidoCode.Session.Persistence.cleanup(30)
+      {:ok, result} = JidoCode.Session.Persistence.cleanup(30)
 
       # Verify old session deleted
       assert result.deleted == 1
@@ -2255,7 +2263,7 @@ defmodule JidoCode.CommandsTest do
       })
 
       # Run cleanup - should delete OLD file
-      result = JidoCode.Session.Persistence.cleanup(30)
+      {:ok, result} = JidoCode.Session.Persistence.cleanup(30)
 
       # Old file should be deleted (it's >30 days old)
       assert result.deleted == 1
@@ -2440,5 +2448,176 @@ defmodule JidoCode.CommandsTest do
 
     # Reuse helper functions from /resume command integration describe block
     # (create_and_close_session, wait_for_persisted_file, wait_for_supervisor)
+  end
+
+  describe "/language command parsing" do
+    test "/language returns {:language, :show}" do
+      config = %{provider: nil, model: nil}
+
+      result = Commands.execute("/language", config)
+
+      assert result == {:language, :show}
+    end
+
+    test "/language <lang> returns {:language, {:set, lang}}" do
+      config = %{provider: nil, model: nil}
+
+      result = Commands.execute("/language elixir", config)
+
+      assert result == {:language, {:set, "elixir"}}
+    end
+
+    test "/language with alias returns {:language, {:set, alias}}" do
+      config = %{provider: nil, model: nil}
+
+      result = Commands.execute("/language js", config)
+
+      assert result == {:language, {:set, "js"}}
+    end
+
+    test "/language with uppercase returns {:language, {:set, uppercase}}" do
+      config = %{provider: nil, model: nil}
+
+      result = Commands.execute("/language Python", config)
+
+      assert result == {:language, {:set, "Python"}}
+    end
+
+    test "/help includes language command" do
+      config = %{provider: nil, model: nil}
+
+      {:ok, message, _} = Commands.execute("/help", config)
+
+      assert message =~ "/language"
+    end
+  end
+
+  describe "execute_language/2" do
+    test ":show with no active session returns error" do
+      model = %{
+        sessions: %{},
+        session_order: [],
+        active_session_id: nil
+      }
+
+      result = Commands.execute_language(:show, model)
+
+      assert {:error, message} = result
+      assert message =~ "No active session"
+    end
+
+    test ":show with active session returns language info" do
+      session = %{
+        id: "s1",
+        name: "test",
+        language: :python
+      }
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language(:show, model)
+
+      assert {:ok, message} = result
+      assert message =~ "Python"
+      assert message =~ "python"
+      assert message =~ "🐍"
+    end
+
+    test ":show with active session defaults to elixir" do
+      session = %{
+        id: "s1",
+        name: "test"
+        # language not set
+      }
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language(:show, model)
+
+      assert {:ok, message} = result
+      assert message =~ "Elixir"
+      assert message =~ "elixir"
+      assert message =~ "💧"
+    end
+
+    test "{:set, lang} with no active session returns error" do
+      model = %{
+        sessions: %{},
+        session_order: [],
+        active_session_id: nil
+      }
+
+      result = Commands.execute_language({:set, "python"}, model)
+
+      assert {:error, message} = result
+      assert message =~ "No active session"
+    end
+
+    test "{:set, lang} with valid language returns action" do
+      session = %{id: "s1", name: "test", language: :elixir}
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language({:set, "python"}, model)
+
+      assert {:language_action, {:set, "s1", :python}} = result
+    end
+
+    test "{:set, lang} normalizes alias" do
+      session = %{id: "s1", name: "test", language: :elixir}
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language({:set, "js"}, model)
+
+      assert {:language_action, {:set, "s1", :javascript}} = result
+    end
+
+    test "{:set, lang} normalizes case" do
+      session = %{id: "s1", name: "test", language: :elixir}
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language({:set, "RUST"}, model)
+
+      assert {:language_action, {:set, "s1", :rust}} = result
+    end
+
+    test "{:set, lang} with invalid language returns error" do
+      session = %{id: "s1", name: "test", language: :elixir}
+
+      model = %{
+        sessions: %{"s1" => session},
+        session_order: ["s1"],
+        active_session_id: "s1"
+      }
+
+      result = Commands.execute_language({:set, "invalid"}, model)
+
+      assert {:error, message} = result
+      assert message =~ "Unknown language"
+      assert message =~ "invalid"
+      assert message =~ "elixir"
+    end
   end
 end

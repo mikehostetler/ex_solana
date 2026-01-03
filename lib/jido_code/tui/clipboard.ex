@@ -1,78 +1,114 @@
 defmodule JidoCode.TUI.Clipboard do
   @moduledoc """
-  Cross-platform clipboard integration for the TUI.
+  Cross-platform clipboard support for the TUI.
 
-  Detects available clipboard commands based on the operating system and provides
-  a `copy_to_clipboard/1` function that pipes text to the system clipboard.
+  Provides multiple methods for copying text to the system clipboard:
 
-  ## Supported Platforms
+  1. **OSC 52** - Modern terminals support this escape sequence for clipboard access.
+     Works in: iTerm2, kitty, alacritty, WezTerm, Windows Terminal, etc.
 
-  - macOS: `pbcopy`
-  - Linux X11: `xclip` or `xsel`
-  - Linux Wayland: `wl-copy`
-  - WSL/Windows: `clip.exe`
+  2. **System commands** - Fallback to platform-specific clipboard commands:
+     - macOS: `pbcopy`
+     - Linux (X11): `xclip` or `xsel`
+     - Linux (Wayland): `wl-copy`
+     - Windows/WSL: `clip.exe`
 
   ## Usage
 
-      iex> JidoCode.TUI.Clipboard.copy_to_clipboard("Hello, World!")
-      :ok
+      # Copy text to clipboard
+      Clipboard.copy("Hello, world!")
 
-      iex> JidoCode.TUI.Clipboard.available?()
-      true
+      # Check if clipboard is available
+      Clipboard.available?()
+
+  ## OSC 52
+
+  The OSC 52 escape sequence allows terminal applications to access the
+  system clipboard without needing external tools. Format:
+
+      \\e]52;c;<base64-encoded-text>\\a
+
+  Not all terminals support this, and some require explicit configuration.
   """
 
-  require Logger
-
-  @clipboard_commands [
-    # macOS
-    {"pbcopy", []},
-    # Linux Wayland
-    {"wl-copy", []},
-    # Linux X11 - xclip
-    {"xclip", ["-selection", "clipboard"]},
-    # Linux X11 - xsel
-    {"xsel", ["--clipboard", "--input"]},
-    # WSL/Windows
-    {"clip.exe", []}
-  ]
-
-  # Cache the detected command at compile time for performance
-  # This will be re-evaluated at runtime on first call
-  @detected_command :not_checked
+  # Cache key for detected clipboard command
+  @cache_key :jido_code_clipboard_command
 
   @doc """
-  Returns the detected clipboard command and arguments, or nil if none available.
+  Copies text to the system clipboard.
 
-  The result is cached after first detection.
-
-  ## Examples
-
-      iex> JidoCode.TUI.Clipboard.detect_clipboard_command()
-      {"pbcopy", []}
-
-      iex> JidoCode.TUI.Clipboard.detect_clipboard_command()
-      nil
+  Tries OSC 52 first, then falls back to system commands.
+  Returns `:ok` on success, `{:error, reason}` on failure.
   """
-  @spec detect_clipboard_command() :: {String.t(), [String.t()]} | nil
-  def detect_clipboard_command do
-    case :persistent_term.get({__MODULE__, :clipboard_command}, @detected_command) do
-      :not_checked ->
-        command = do_detect_clipboard_command()
-        :persistent_term.put({__MODULE__, :clipboard_command}, command)
-        command
+  @spec copy(String.t()) :: :ok | {:error, String.t() | atom()}
+  def copy(text) when is_binary(text) do
+    # Try OSC 52 first (works in many modern terminals)
+    copy_osc52(text)
 
-      cached ->
-        cached
+    # Also try system command for terminals that don't support OSC 52
+    case copy_system(text) do
+      :ok -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+  def copy(_text), do: {:error, :invalid_text}
+
+  @doc """
+  Copies text using OSC 52 escape sequence.
+
+  This writes directly to the terminal. The terminal must support OSC 52
+  for this to work. Most modern terminals do.
+  """
+  @spec copy_osc52(String.t()) :: :ok
+  def copy_osc52(text) when is_binary(text) do
+    encoded = Base.encode64(text)
+    # OSC 52: \e]52;c;<base64>\a
+    # c = clipboard (could also be p for primary selection on X11)
+    IO.write("\e]52;c;#{encoded}\a")
+    :ok
+  end
+
+  @doc """
+  Copies text using system clipboard commands.
+
+  Automatically detects the platform and uses the appropriate command.
+  """
+  @spec copy_system(String.t()) :: :ok | {:error, atom() | String.t()}
+  def copy_system(text) when is_binary(text) do
+    case detect_clipboard_command() do
+      nil ->
+        {:error, :clipboard_unavailable}
+
+      {cmd, args} ->
+        # Use Port to pipe stdin to the clipboard command
+        port =
+          Port.open({:spawn_executable, System.find_executable(cmd)}, [
+            :binary,
+            :exit_status,
+            args: args
+          ])
+
+        Port.command(port, text)
+        Port.close(port)
+
+        # Give the command a moment to process
+        receive do
+          {^port, {:exit_status, 0}} -> :ok
+          {^port, {:exit_status, status}} -> {:error, "Clipboard command exited with status #{status}"}
+        after
+          1000 -> :ok
+        end
     end
   end
 
   @doc """
-  Returns true if a clipboard command is available.
+  Checks if clipboard functionality is available.
 
-  ## Examples
-
-      iex> JidoCode.TUI.Clipboard.available?()
-      true
+  Returns true if either OSC 52 or a system command is available.
+  Note: OSC 52 availability depends on terminal support which can't be
+  reliably detected, so we assume it's available and rely on the system
+  command fallback.
   """
   @spec available?() :: boolean()
   def available? do
@@ -80,91 +116,140 @@ defmodule JidoCode.TUI.Clipboard do
   end
 
   @doc """
-  Copies the given text to the system clipboard.
+  Returns the detected clipboard command and arguments.
 
-  Returns `:ok` on success, `{:error, reason}` on failure.
-
-  ## Examples
-
-      iex> JidoCode.TUI.Clipboard.copy_to_clipboard("Hello!")
-      :ok
-
-      iex> JidoCode.TUI.Clipboard.copy_to_clipboard("Hello!")
-      {:error, :clipboard_unavailable}
+  Returns `nil` if no clipboard command is found.
+  Results are cached after first detection.
   """
-  @spec copy_to_clipboard(String.t()) :: :ok | {:error, atom() | String.t()}
-  def copy_to_clipboard(text) when is_binary(text) do
-    case detect_clipboard_command() do
-      nil ->
-        Logger.warning("No clipboard command available - copy operation skipped")
-        {:error, :clipboard_unavailable}
+  @spec detect_clipboard_command() :: {String.t(), [String.t()]} | nil
+  def detect_clipboard_command do
+    case :persistent_term.get(@cache_key, :not_cached) do
+      :not_cached ->
+        result = do_detect_clipboard_command()
+        :persistent_term.put(@cache_key, result)
+        result
 
-      {command, args} ->
-        do_copy(command, args, text)
-    end
-  end
-
-  def copy_to_clipboard(_text) do
-    {:error, :invalid_text}
-  end
-
-  # Private functions
-
-  @spec do_detect_clipboard_command() :: {String.t(), [String.t()]} | nil
-  defp do_detect_clipboard_command do
-    Enum.find(@clipboard_commands, fn {command, _args} ->
-      command_available?(command)
-    end)
-  end
-
-  @spec command_available?(String.t()) :: boolean()
-  defp command_available?(command) do
-    case System.find_executable(command) do
-      nil -> false
-      _path -> true
-    end
-  end
-
-  @spec do_copy(String.t(), [String.t()], String.t()) :: :ok | {:error, atom() | String.t()}
-  defp do_copy(command, args, text) do
-    port_opts = [
-      :binary,
-      :exit_status,
-      :hide,
-      args: args
-    ]
-
-    try do
-      port = Port.open({:spawn_executable, System.find_executable(command)}, port_opts)
-      Port.command(port, text)
-      Port.close(port)
-
-      # Give a small amount of time for the clipboard command to process
-      receive do
-        {^port, {:exit_status, 0}} -> :ok
-        {^port, {:exit_status, status}} -> {:error, "exit status #{status}"}
-      after
-        100 ->
-          # Command likely succeeded if no exit status received quickly
-          :ok
-      end
-    rescue
-      e ->
-        Logger.warning("Clipboard copy failed: #{inspect(e)}")
-        {:error, :copy_failed}
+      cached ->
+        cached
     end
   end
 
   @doc """
-  Clears the cached clipboard command detection.
+  Clears the cached clipboard command.
 
-  Useful for testing or when system state changes.
+  Forces re-detection on the next call to `detect_clipboard_command/0`.
   """
   @spec clear_cache() :: :ok
   def clear_cache do
-    :persistent_term.erase({__MODULE__, :clipboard_command})
+    try do
+      :persistent_term.erase(@cache_key)
+    rescue
+      ArgumentError -> :ok
+    end
+
     :ok
-  rescue
-    ArgumentError -> :ok
+  end
+
+  # Actually detect the clipboard command
+  defp do_detect_clipboard_command do
+    cond do
+      # macOS
+      command_available?("pbcopy") ->
+        {"pbcopy", []}
+
+      # Linux with Wayland
+      command_available?("wl-copy") ->
+        {"wl-copy", []}
+
+      # Linux with X11 (xclip)
+      command_available?("xclip") ->
+        {"xclip", ["-selection", "clipboard"]}
+
+      # Linux with X11 (xsel)
+      command_available?("xsel") ->
+        {"xsel", ["--clipboard", "--input"]}
+
+      # Windows/WSL
+      command_available?("clip.exe") ->
+        {"clip.exe", []}
+
+      # No clipboard command found
+      true ->
+        nil
+    end
+  end
+
+  # Check if a command is available in PATH
+  defp command_available?(command) do
+    case System.find_executable(command) do
+      nil -> false
+      _ -> true
+    end
+  end
+
+  # ============================================================================
+  # Compatibility aliases (used by TUI)
+  # ============================================================================
+
+  @doc """
+  Alias for `copy/1` for compatibility with TUI.
+
+  Copies text to the system clipboard.
+  """
+  @spec copy_to_clipboard(String.t()) :: :ok | {:error, atom() | String.t()}
+  def copy_to_clipboard(text) when is_binary(text), do: copy(text)
+  def copy_to_clipboard(_text), do: {:error, :invalid_text}
+
+  @doc """
+  Pastes text from the system clipboard.
+
+  Returns `{:ok, text}` on success, `{:error, reason}` on failure.
+  """
+  @spec paste_from_clipboard() :: {:ok, String.t()} | {:error, String.t()}
+  def paste_from_clipboard do
+    case detect_paste_command() do
+      nil ->
+        {:error, "No clipboard command available"}
+
+      {cmd, args} ->
+        case System.cmd(cmd, args, stderr_to_stdout: true) do
+          {output, 0} -> {:ok, output}
+          {output, _} -> {:error, "Clipboard command failed: #{output}"}
+        end
+    end
+  end
+
+  @doc """
+  Returns the detected paste command and arguments.
+
+  Returns `nil` if no paste command is found.
+  """
+  @spec detect_paste_command() :: {String.t(), [String.t()]} | nil
+  def detect_paste_command do
+    cond do
+      # macOS
+      command_available?("pbpaste") ->
+        {"pbpaste", []}
+
+      # Linux with Wayland
+      command_available?("wl-paste") ->
+        {"wl-paste", []}
+
+      # Linux with X11 (xclip)
+      command_available?("xclip") ->
+        {"xclip", ["-selection", "clipboard", "-o"]}
+
+      # Linux with X11 (xsel)
+      command_available?("xsel") ->
+        {"xsel", ["--clipboard", "--output"]}
+
+      # Windows/WSL - PowerShell
+      command_available?("powershell.exe") ->
+        {"powershell.exe", ["-command", "Get-Clipboard"]}
+
+      # No paste command found
+      true ->
+        nil
+    end
   end
 end

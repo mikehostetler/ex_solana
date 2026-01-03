@@ -131,6 +131,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewIntegrationTest do
     setup do
       messages = create_messages(50)
       state = init_conversation_view(messages: messages, height: 20)
+      # Set input_focused: false so arrow keys control scrolling instead of text input
+      state = %{state | input_focused: false}
       {:ok, state: state}
     end
 
@@ -219,6 +221,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewIntegrationTest do
     test "space key expands truncated message" do
       message = create_long_message("1", :assistant, 30)
       state = init_conversation_view(messages: [message], max_collapsed_lines: 15)
+      # Set input_focused: false so space key expands message instead of going to text input
+      state = %{state | input_focused: false}
 
       # Focus is on message 0 by default, press space to expand
       event = Event.key(:space)
@@ -355,6 +359,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewIntegrationTest do
         )
 
       {:ok, state} = ConversationView.init(props)
+      # Set input_focused: false so 'y' key triggers copy instead of going to text input
+      state = %{state | input_focused: false}
 
       # Press 'y' to copy
       event = %Event.Key{char: "y"}
@@ -388,6 +394,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewIntegrationTest do
         )
 
       {:ok, state} = ConversationView.init(props)
+      # Set input_focused: false so 'y' key triggers copy instead of going to text input
+      state = %{state | input_focused: false}
 
       # Move focus to second message (Ctrl+Down)
       event = %Event.Key{key: :down, modifiers: [:ctrl]}
@@ -423,6 +431,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewIntegrationTest do
         )
 
       {:ok, state} = ConversationView.init(props)
+      # Set input_focused: false so 'y' key triggers copy instead of going to text input
+      state = %{state | input_focused: false}
 
       # Press 'y' to copy
       event = %Event.Key{char: "y"}

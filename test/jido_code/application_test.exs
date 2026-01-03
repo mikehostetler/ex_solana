@@ -1,5 +1,11 @@
 defmodule JidoCode.ApplicationTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
+
+  setup do
+    # Ensure infrastructure is running (may have been stopped by another test)
+    JidoCode.Test.SessionTestHelpers.ensure_infrastructure()
+    :ok
+  end
 
   describe "supervision tree" do
     test "application starts successfully" do
@@ -44,7 +50,7 @@ defmodule JidoCode.ApplicationTest do
       # Should have 11 children:
       # - Settings.Cache, Jido.AI.Model.Registry.Cache, TermUI.Theme
       # - PubSub, AgentRegistry, SessionProcessRegistry
-      # - Tools.Registry, Tools.Manager, TaskSupervisor
+      # - Tools.Manager, TaskSupervisor, RateLimit
       # - AgentSupervisor, SessionSupervisor
       assert length(children) == 11
 
@@ -62,12 +68,12 @@ defmodule JidoCode.ApplicationTest do
       assert JidoCode.AgentRegistry in child_ids
       # SessionProcessRegistry for session process lookup
       assert JidoCode.SessionProcessRegistry in child_ids
-      # Tools.Registry for LLM function calling
-      assert JidoCode.Tools.Registry in child_ids
       # TaskSupervisor for monitored async tasks (ARCH-1 fix)
       assert JidoCode.TaskSupervisor in child_ids
       # Tools.Manager for Lua sandbox
       assert JidoCode.Tools.Manager in child_ids
+      # RateLimit for session operations
+      assert JidoCode.RateLimit in child_ids
       assert JidoCode.AgentSupervisor in child_ids
       # SessionSupervisor for session processes
       assert JidoCode.SessionSupervisor in child_ids

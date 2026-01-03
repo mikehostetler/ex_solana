@@ -15,6 +15,7 @@ defmodule JidoCode.Tools.RegistryTest do
     catch
       :exit, _ -> :ok
     end
+
     :ok
   end
 

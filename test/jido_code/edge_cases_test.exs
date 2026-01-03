@@ -240,11 +240,12 @@ defmodule JidoCode.EdgeCasesTest do
 
     test "rejects nonexistent paths with clear error" do
       # Session.new should reject nonexistent paths upfront
-      result = Session.new(
-        name: "Nonexistent",
-        project_path: "/nonexistent/path",
-        config: SessionTestHelpers.valid_session_config()
-      )
+      result =
+        Session.new(
+          name: "Nonexistent",
+          project_path: "/nonexistent/path",
+          config: SessionTestHelpers.valid_session_config()
+        )
 
       assert {:error, :path_not_found} = result
 
@@ -258,11 +259,12 @@ defmodule JidoCode.EdgeCasesTest do
       File.write!(file_path, "content")
 
       # Session.new should reject files (non-directories) upfront
-      result = Session.new(
-        name: "File Not Dir",
-        project_path: file_path,
-        config: SessionTestHelpers.valid_session_config()
-      )
+      result =
+        Session.new(
+          name: "File Not Dir",
+          project_path: file_path,
+          config: SessionTestHelpers.valid_session_config()
+        )
 
       assert {:error, :path_not_directory} = result
 

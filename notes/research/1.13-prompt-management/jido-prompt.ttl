@@ -1,0 +1,631 @@
+@base <https://jido.ai/ontology#> .
+@prefix jido: <https://jido.ai/ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+# Ontology Header
+#################################################################
+
+jido:JidoPromptOntology
+    a owl:Ontology ;
+    rdfs:label "Jido Prompt Ontology" ;
+    rdfs:comment "Ontology module defining LLM prompts, their structure, versioning, categorization, and provenance for JidoCode." ;
+    owl:imports <https://jido.ai/ontology#JidoCoreOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoAgentOntology> ;
+    owl:imports <https://jido.ai/ontology#JidoKnowledgeOntology> ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+# Core Prompt Classes
+#################################################################
+
+jido:Prompt a owl:Class ;
+    rdfs:subClassOf jido:MemoryItem ;
+    rdfs:label "Prompt" ;
+    rdfs:comment "An LLM prompt consisting of content (typically markdown), metadata, categorization, and provenance. Prompts are versioned memory items." .
+
+jido:SystemPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "System Prompt" ;
+    rdfs:comment "A prompt establishing system-level context and behavior for an LLM." .
+
+jido:UserPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "User Prompt" ;
+    rdfs:comment "A prompt template designed for end-user interactions." .
+
+jido:AssistantPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "Assistant Prompt" ;
+    rdfs:comment "A response template from the assistant's perspective." .
+
+jido:MetaPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "Meta Prompt" ;
+    rdfs:comment "A prompt used to generate or refine other prompts." .
+
+jido:PromptFragment a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "Prompt Fragment" ;
+    rdfs:comment "A reusable partial prompt composable into larger prompts." .
+
+jido:ToolPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "Tool Prompt" ;
+    rdfs:comment "A prompt defining tools/functions available to the LLM agent." .
+
+jido:ValidationPrompt a owl:Class ;
+    rdfs:subClassOf jido:Prompt ;
+    rdfs:label "Validation Prompt" ;
+    rdfs:comment "A prompt used to validate agent output against quality criteria." .
+
+#################################################################
+# Prompt Content and Structure
+#################################################################
+
+jido:PromptContent a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Content" ;
+    rdfs:comment "The actual content of a prompt including raw text and format." .
+
+jido:PromptSection a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Section" ;
+    rdfs:comment "A logical section within a prompt (e.g., context, instructions, output format)." .
+
+jido:PromptVariable a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Variable" ;
+    rdfs:comment "A placeholder within a prompt for dynamic runtime content." .
+
+#################################################################
+# Prompt Version
+#################################################################
+
+jido:PromptVersion a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Version" ;
+    rdfs:comment "An immutable version snapshot enabling prompt evolution tracking." .
+
+#################################################################
+# Prompt Collection
+#################################################################
+
+jido:PromptCollection a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Collection" ;
+    rdfs:comment "A curated collection of related prompts organized by domain or purpose." .
+
+jido:PromptLibrary a owl:Class ;
+    rdfs:subClassOf jido:PromptCollection ;
+    rdfs:label "Prompt Library" ;
+    rdfs:comment "An organization-level collection of prompts and prompt collections." .
+
+#################################################################
+# Categorization System (Multi-Level Taxonomy)
+#################################################################
+
+jido:PromptCategory a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Prompt Category" ;
+    rdfs:comment "A category in the prompt taxonomy forming hierarchical classification." .
+
+jido:PromptCategoryScheme a owl:Class ;
+    rdfs:subClassOf skos:ConceptScheme ;
+    rdfs:label "Prompt Category Scheme" ;
+    rdfs:comment "A concept scheme organizing prompt categories." .
+
+# Category Dimensions
+jido:DomainCategory a owl:Class ;
+    rdfs:subClassOf jido:PromptCategory ;
+    rdfs:label "Domain Category" ;
+    rdfs:comment "Category based on application domain (e.g., coding, analysis)." .
+
+jido:TaskCategory a owl:Class ;
+    rdfs:subClassOf jido:PromptCategory ;
+    rdfs:label "Task Category" ;
+    rdfs:comment "Category based on task type (e.g., generation, evaluation)." .
+
+jido:TechniqueCategory a owl:Class ;
+    rdfs:subClassOf jido:PromptCategory ;
+    rdfs:label "Technique Category" ;
+    rdfs:comment "Category based on prompting technique (e.g., chain-of-thought)." .
+
+jido:ComplexityCategory a owl:Class ;
+    rdfs:subClassOf jido:PromptCategory ;
+    rdfs:label "Complexity Category" ;
+    rdfs:comment "Category indicating prompt complexity level." .
+
+jido:AudienceCategory a owl:Class ;
+    rdfs:subClassOf jido:PromptCategory ;
+    rdfs:label "Audience Category" ;
+    rdfs:comment "Category indicating intended user expertise level." .
+
+#################################################################
+# Prompt Status Modeling
+#################################################################
+
+jido:PromptStatus a owl:Class ;
+    rdfs:label "Prompt Status" ;
+    rdfs:comment "Lifecycle state of a prompt or prompt version." .
+
+jido:PromptDraft a owl:NamedIndividual, jido:PromptStatus ;
+    rdfs:label "Draft" .
+
+jido:PromptReview a owl:NamedIndividual, jido:PromptStatus ;
+    rdfs:label "In Review" .
+
+jido:PromptPublished a owl:NamedIndividual, jido:PromptStatus ;
+    rdfs:label "Published" .
+
+jido:PromptDeprecated a owl:NamedIndividual, jido:PromptStatus ;
+    rdfs:label "Deprecated" .
+
+jido:PromptArchived a owl:NamedIndividual, jido:PromptStatus ;
+    rdfs:label "Archived" .
+
+#################################################################
+# Prompt Content Format
+#################################################################
+
+jido:ContentFormat a owl:Class ;
+    rdfs:label "Content Format" ;
+    rdfs:comment "The format of prompt content." .
+
+jido:MarkdownFormat a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "Markdown" .
+
+jido:PlaintextFormat a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "Plaintext" .
+
+jido:XMLFormat a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "XML" .
+
+jido:HandlebarsFormat a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "Handlebars" .
+
+jido:Jinja2Format a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "Jinja2" .
+
+jido:EExFormat a owl:NamedIndividual, jido:ContentFormat ;
+    rdfs:label "EEx" .
+
+#################################################################
+# Prompt Provenance Activities
+#################################################################
+
+jido:PromptActivity a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Activity" ;
+    rdfs:comment "An activity related to prompt lifecycle." .
+
+jido:PromptCreation a owl:Class ;
+    rdfs:subClassOf jido:PromptActivity ;
+    rdfs:label "Prompt Creation" ;
+    rdfs:comment "The activity of creating a new prompt." .
+
+jido:PromptRevision a owl:Class ;
+    rdfs:subClassOf jido:PromptActivity ;
+    rdfs:label "Prompt Revision" ;
+    rdfs:comment "The activity of revising a prompt to create a new version." .
+
+jido:PromptDerivation a owl:Class ;
+    rdfs:subClassOf jido:PromptActivity ;
+    rdfs:label "Prompt Derivation" ;
+    rdfs:comment "The activity of deriving a new prompt from source prompts." .
+
+jido:PromptComposition a owl:Class ;
+    rdfs:subClassOf jido:PromptActivity ;
+    rdfs:label "Prompt Composition" ;
+    rdfs:comment "The activity of composing a prompt from fragments." .
+
+jido:PromptEvaluation a owl:Class ;
+    rdfs:subClassOf jido:PromptActivity ;
+    rdfs:label "Prompt Evaluation" ;
+    rdfs:comment "The activity of evaluating prompt effectiveness." .
+
+#################################################################
+# Quality and Evaluation
+#################################################################
+
+jido:PromptTestCase a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Test Case" ;
+    rdfs:comment "A test case validating prompt behavior with expected inputs/outputs." .
+
+jido:PromptEvaluationResult a owl:Class ;
+    rdfs:subClassOf jido:Entity ;
+    rdfs:label "Prompt Evaluation Result" ;
+    rdfs:comment "The result of evaluating a prompt against test cases." .
+
+#################################################################
+# Prompt Content Properties
+#################################################################
+
+jido:hasPromptContent a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptContent ;
+    rdfs:label "has prompt content" .
+
+jido:contentText a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptContent ;
+    rdfs:range xsd:string ;
+    rdfs:label "content text" ;
+    rdfs:comment "The raw text content, typically in markdown format." .
+
+jido:hasContentFormat a owl:ObjectProperty ;
+    rdfs:domain jido:PromptContent ;
+    rdfs:range jido:ContentFormat ;
+    rdfs:label "has content format" .
+
+jido:hasSection a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptSection ;
+    rdfs:label "has section" .
+
+jido:sectionName a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptSection ;
+    rdfs:range xsd:string ;
+    rdfs:label "section name" .
+
+jido:sectionOrder a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptSection ;
+    rdfs:range xsd:integer ;
+    rdfs:label "section order" .
+
+jido:sectionContent a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptSection ;
+    rdfs:range xsd:string ;
+    rdfs:label "section content" .
+
+jido:hasVariable a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptVariable ;
+    rdfs:label "has variable" .
+
+jido:variableName a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVariable ;
+    rdfs:range xsd:string ;
+    rdfs:label "variable name" .
+
+jido:variableType a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVariable ;
+    rdfs:range xsd:string ;
+    rdfs:label "variable type" .
+
+jido:variableRequired a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVariable ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "variable required" .
+
+jido:variableDefault a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVariable ;
+    rdfs:range xsd:string ;
+    rdfs:label "variable default" .
+
+jido:variableDescription a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVariable ;
+    rdfs:range xsd:string ;
+    rdfs:label "variable description" .
+
+#################################################################
+# Prompt Identification Properties
+#################################################################
+
+jido:promptId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "prompt ID" ;
+    rdfs:comment "Unique identifier for the prompt." .
+
+jido:promptSlug a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "prompt slug" ;
+    rdfs:comment "URL-safe human-readable identifier." .
+
+jido:promptName a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "prompt name" .
+
+jido:promptDescription a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "prompt description" .
+
+#################################################################
+# Prompt Versioning Properties
+#################################################################
+
+jido:hasPromptVersion a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptVersion ;
+    rdfs:label "has prompt version" .
+
+jido:currentPromptVersion a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:subPropertyOf jido:hasPromptVersion ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptVersion ;
+    rdfs:label "current prompt version" .
+
+jido:versionNumber a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:string ;
+    rdfs:label "version number" ;
+    rdfs:comment "Semantic version number (e.g., 1.2.3)." .
+
+jido:majorVersion a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:integer ;
+    rdfs:label "major version" .
+
+jido:minorVersion a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minor version" .
+
+jido:patchVersion a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:integer ;
+    rdfs:label "patch version" .
+
+jido:previousPromptVersion a owl:ObjectProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range jido:PromptVersion ;
+    rdfs:label "previous prompt version" ;
+    owl:inverseOf jido:nextPromptVersion .
+
+jido:nextPromptVersion a owl:ObjectProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range jido:PromptVersion ;
+    rdfs:label "next prompt version" .
+
+jido:versionOf a owl:ObjectProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range jido:Prompt ;
+    rdfs:label "version of" ;
+    owl:inverseOf jido:hasPromptVersion .
+
+jido:hasPromptStatus a owl:ObjectProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range jido:PromptStatus ;
+    rdfs:label "has prompt status" .
+
+jido:changeLog a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:string ;
+    rdfs:label "change log" .
+
+jido:versionContentSnapshot a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptVersion ;
+    rdfs:range xsd:string ;
+    rdfs:label "version content snapshot" ;
+    rdfs:comment "Immutable snapshot of the content text for this version." .
+
+#################################################################
+# Prompt Categorization Properties
+#################################################################
+
+jido:hasPromptCategory a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptCategory ;
+    rdfs:label "has prompt category" .
+
+jido:hasDomainCategory a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:hasPromptCategory ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:DomainCategory ;
+    rdfs:label "has domain category" .
+
+jido:hasTaskCategory a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:hasPromptCategory ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:TaskCategory ;
+    rdfs:label "has task category" .
+
+jido:hasTechniqueCategory a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:hasPromptCategory ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:TechniqueCategory ;
+    rdfs:label "has technique category" .
+
+jido:hasComplexityCategory a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:hasPromptCategory ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:ComplexityCategory ;
+    rdfs:label "has complexity category" .
+
+jido:hasAudienceCategory a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:hasPromptCategory ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:AudienceCategory ;
+    rdfs:label "has audience category" .
+
+jido:inCategoryScheme a owl:ObjectProperty ;
+    rdfs:domain jido:PromptCategory ;
+    rdfs:range jido:PromptCategoryScheme ;
+    rdfs:label "in category scheme" .
+
+#################################################################
+# Prompt Composition Properties
+#################################################################
+
+jido:composedOfFragment a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptFragment ;
+    rdfs:label "composed of fragment" .
+
+jido:fragmentPosition a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptFragment ;
+    rdfs:range xsd:integer ;
+    rdfs:label "fragment position" .
+
+jido:includesPrompt a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:Prompt ;
+    rdfs:label "includes prompt" ;
+    rdfs:comment "Indicates this prompt includes another by reference." .
+
+#################################################################
+# Prompt Collection Properties
+#################################################################
+
+jido:inPromptCollection a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptCollection ;
+    rdfs:label "in prompt collection" .
+
+jido:hasPromptMember a owl:ObjectProperty ;
+    rdfs:domain jido:PromptCollection ;
+    rdfs:range jido:Prompt ;
+    rdfs:label "has prompt member" ;
+    owl:inverseOf jido:inPromptCollection .
+
+#################################################################
+# Prompt Agent Integration Properties
+# (Integrates with existing jido:Agent from jido-agent.ttl)
+#################################################################
+
+jido:promptCreatedBy a owl:ObjectProperty ;
+    rdfs:subPropertyOf jido:assertedBy ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:Agent ;
+    rdfs:label "prompt created by" .
+
+jido:promptContributedBy a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:Agent ;
+    rdfs:label "prompt contributed by" .
+
+jido:usedByAgent a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:Agent ;
+    rdfs:label "used by agent" ;
+    rdfs:comment "Links a prompt to agents that use it." .
+
+jido:definesAgentBehavior a owl:ObjectProperty ;
+    rdfs:domain jido:SystemPrompt ;
+    rdfs:range jido:Agent ;
+    rdfs:label "defines agent behavior" ;
+    rdfs:comment "Links a system prompt to the agent it configures." .
+
+#################################################################
+# Prompt Target Model Properties
+#################################################################
+
+jido:targetModel a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "target model" ;
+    rdfs:comment "LLM model this prompt is optimized for." .
+
+jido:modelFamily a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "model family" ;
+    rdfs:comment "Family of models this prompt targets (e.g., Claude, GPT)." .
+
+jido:minContextLength a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:integer ;
+    rdfs:label "minimum context length" .
+
+jido:targetLanguage a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "target language" ;
+    rdfs:comment "Programming language the prompt targets." .
+
+jido:targetFramework a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "target framework" ;
+    rdfs:comment "Framework the prompt targets (e.g., phoenix, ash)." .
+
+#################################################################
+# Prompt Quality Properties
+#################################################################
+
+jido:hasPromptEvaluation a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptEvaluationResult ;
+    rdfs:label "has prompt evaluation" .
+
+jido:hasPromptTestCase a owl:ObjectProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range jido:PromptTestCase ;
+    rdfs:label "has prompt test case" .
+
+jido:effectivenessScore a owl:DatatypeProperty ;
+    rdfs:domain jido:PromptEvaluationResult ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "effectiveness score" ;
+    rdfs:comment "Normalized score (0-1) indicating effectiveness." .
+
+jido:promptUsageCount a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:integer ;
+    rdfs:label "prompt usage count" .
+
+#################################################################
+# Prompt Tagging Properties
+#################################################################
+
+jido:hasPromptTag a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "has prompt tag" .
+
+jido:hasPromptKeyword a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "has prompt keyword" .
+
+#################################################################
+# Prompt Source & License Properties
+#################################################################
+
+jido:sourceUrl a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "source URL" ;
+    rdfs:comment "URL of original source if adapted from external content." .
+
+jido:sourceLicense a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:string ;
+    rdfs:label "source license" .
+
+#################################################################
+# Prompt Temporal Properties
+#################################################################
+
+jido:promptCreatedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "prompt created at" .
+
+jido:promptModifiedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "prompt modified at" .
+
+jido:promptPublishedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "prompt published at" .
+
+jido:promptDeprecatedAt a owl:DatatypeProperty ;
+    rdfs:domain jido:Prompt ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "prompt deprecated at" .
+
+#################################################################
+# End of Jido Prompt Ontology
+#################################################################
+

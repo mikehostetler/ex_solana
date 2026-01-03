@@ -9,6 +9,9 @@ defmodule JidoCode.Session.AgentAPITest do
   @moduletag :agent_api
 
   setup do
+    # Ensure infrastructure is running (may have been stopped by another test)
+    JidoCode.Test.SessionTestHelpers.ensure_infrastructure()
+
     # Trap exits in test process to avoid test crashes
     Process.flag(:trap_exit, true)
 
@@ -46,6 +49,9 @@ defmodule JidoCode.Session.AgentAPITest do
       case Session.new(project_path: tmp_dir, config: config) do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
+
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
 
           # Test send_message - will fail without real API but tests the flow
           result = AgentAPI.send_message(session.id, "Hello!")
@@ -124,6 +130,9 @@ defmodule JidoCode.Session.AgentAPITest do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
 
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
+
           # Subscribe to PubSub to receive stream events
           topic = JidoCode.PubSubTopics.llm_stream(session.id)
           Phoenix.PubSub.subscribe(JidoCode.PubSub, topic)
@@ -163,6 +172,9 @@ defmodule JidoCode.Session.AgentAPITest do
       case Session.new(project_path: tmp_dir, config: config) do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
+
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
 
           # Test with custom timeout
           result = AgentAPI.send_message_stream(session.id, "Hello!", timeout: 30_000)
@@ -229,6 +241,9 @@ defmodule JidoCode.Session.AgentAPITest do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
 
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
+
           result = AgentAPI.get_status(session.id)
 
           case result do
@@ -286,6 +301,9 @@ defmodule JidoCode.Session.AgentAPITest do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
 
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
+
           result = AgentAPI.is_processing?(session.id)
 
           case result do
@@ -341,6 +359,9 @@ defmodule JidoCode.Session.AgentAPITest do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
 
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
+
           result = AgentAPI.update_config(session.id, %{temperature: 0.5})
 
           assert result == :ok
@@ -375,6 +396,9 @@ defmodule JidoCode.Session.AgentAPITest do
       case Session.new(project_path: tmp_dir, config: config) do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
+
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
 
           result = AgentAPI.update_config(session.id, temperature: 0.3, max_tokens: 2048)
 
@@ -411,6 +435,9 @@ defmodule JidoCode.Session.AgentAPITest do
       case Session.new(project_path: tmp_dir, config: config) do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
+
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
 
           :ok = AgentAPI.update_config(session.id, %{temperature: 0.8})
 
@@ -459,6 +486,9 @@ defmodule JidoCode.Session.AgentAPITest do
       case Session.new(project_path: tmp_dir, config: config) do
         {:ok, session} ->
           {:ok, _sup_pid} = JidoCode.SessionSupervisor.start_session(session)
+
+          # Agent is started lazily, so start it first
+          {:ok, _agent_pid} = JidoCode.Session.Supervisor.start_agent(session)
 
           result = AgentAPI.get_config(session.id)
 

@@ -1,0 +1,466 @@
+@prefix secsh: <https://w3id.org/elixir-code/security-shapes#> .
+@prefix sec: <https://w3id.org/elixir-code/security#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix core: <https://w3id.org/elixir-code/core#> .
+@prefix struct: <https://w3id.org/elixir-code/structure#> .
+@prefix otp: <https://w3id.org/elixir-code/otp#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+
+# =============================================================================
+# Shapes Graph Declaration
+# =============================================================================
+
+<https://w3id.org/elixir-code/security-shapes> a owl:Ontology ;
+    owl:versionInfo "1.0.0" ;
+    dc:title "Elixir Security SHACL Shapes"@en ;
+    dc:description """SHACL shapes for detecting security vulnerabilities in 
+    Elixir code knowledge graphs. Based on ERLEF Security Working Group 
+    recommendations."""@en .
+
+# =============================================================================
+# Atom Exhaustion Detection Shapes
+# =============================================================================
+
+secsh:AtomCreationShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "Atom Creation Detection"@en ;
+    sh:description "Detects calls to functions that create atoms from strings."@en ;
+    sh:sparql [
+        sh:message "BEAM-001: Potential atom exhaustion via {?funcSig}. Use String.to_existing_atom/1 or a lookup map instead."@en ;
+        sh:severity sh:Violation ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            PREFIX sec: <https://w3id.org/elixir-code/security#>
+            
+            SELECT $this ?funcSig ?module ?line
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name ?moduleName .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName ?funcName .
+                ?funcRef struct:arity ?arity .
+                
+                BIND(CONCAT(?moduleName, ".", ?funcName, "/", STR(?arity)) AS ?funcSig)
+                
+                FILTER(?funcSig IN (
+                    "String.to_atom/1",
+                    "List.to_atom/1",
+                    "Module.concat/1",
+                    "Module.concat/2"
+                ))
+                
+                OPTIONAL {
+                    $this core:hasSourceLocation ?loc .
+                    ?loc core:inSourceFile ?file .
+                    ?file core:filePath ?module .
+                    ?loc core:startLine ?line .
+                }
+            }
+        """
+    ] .
+
+secsh:ErlangAtomCreationShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "Erlang Atom Creation Detection"@en ;
+    sh:sparql [
+        sh:message "BEAM-001: Potential atom exhaustion via Erlang function. Use binary_to_existing_atom/2 instead."@en ;
+        sh:severity sh:Violation ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?funcSig
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name ?moduleName .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName ?funcName .
+                ?funcRef struct:arity ?arity .
+                
+                BIND(CONCAT(":", ?moduleName, ".", ?funcName, "/", STR(?arity)) AS ?funcSig)
+                
+                FILTER(
+                    (?moduleName = "erlang" && ?funcName = "binary_to_atom" && ?arity = 1) ||
+                    (?moduleName = "erlang" && ?funcName = "binary_to_atom" && ?arity = 2) ||
+                    (?moduleName = "erlang" && ?funcName = "list_to_atom" && ?arity = 1)
+                )
+            }
+        """
+    ] .
+
+# =============================================================================
+# Code Injection Detection Shapes
+# =============================================================================
+
+secsh:CodeEvalShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "Code Evaluation Detection"@en ;
+    sh:description "Detects dangerous code evaluation functions."@en ;
+    sh:sparql [
+        sh:message "BEAM-008: CRITICAL - Code evaluation detected ({?funcSig}). This allows remote code execution. Use embedded sandbox instead."@en ;
+        sh:severity sh:Violation ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?funcSig
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name ?moduleName .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName ?funcName .
+                
+                FILTER(?moduleName = "Code")
+                FILTER(STRSTARTS(?funcName, "eval_"))
+                
+                BIND(CONCAT(?moduleName, ".", ?funcName) AS ?funcSig)
+            }
+        """
+    ] .
+
+# =============================================================================
+# Command Injection Detection Shapes
+# =============================================================================
+
+secsh:OsCmdShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "OS Command Detection"@en ;
+    sh:sparql [
+        sh:message "BEAM-010: CRITICAL - :os.cmd detected. Use System.cmd/3 with arguments as a list instead."@en ;
+        sh:severity sh:Violation ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name "os" .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName "cmd" .
+            }
+        """
+    ] .
+
+secsh:SystemShellShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "System Shell Detection"@en ;
+    sh:sparql [
+        sh:message "BEAM-010: System.shell detected. Use System.cmd/3 with arguments as a list instead."@en ;
+        sh:severity sh:Warning ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name "System" .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName "shell" .
+            }
+        """
+    ] .
+
+# =============================================================================
+# Unsafe Deserialization Shapes
+# =============================================================================
+
+secsh:UnsafeBinaryToTermShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "Unsafe binary_to_term Detection"@en ;
+    sh:sparql [
+        sh:message "BEAM-006: CRITICAL - :erlang.binary_to_term/1 without [:safe] option. Use binary_to_term(data, [:safe]) or Plug.Crypto.non_executable_binary_to_term/2."@en ;
+        sh:severity sh:Violation ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name "erlang" .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName "binary_to_term" .
+                ?funcRef struct:arity 1 .
+            }
+        """
+    ] .
+
+# =============================================================================
+# XSS Detection Shapes
+# =============================================================================
+
+secsh:RawHtmlShape a sh:NodeShape ;
+    sh:targetClass core:RemoteCall ;
+    sh:name "Raw HTML Detection"@en ;
+    sh:sparql [
+        sh:message "WEB-001: Phoenix.HTML.raw/1 detected. Ensure input is not user-controlled or properly sanitized."@en ;
+        sh:severity sh:Warning ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?module ?line
+            WHERE {
+                $this a core:RemoteCall .
+                $this core:refersToModule ?modRef .
+                ?modRef core:name ?moduleName .
+                $this struct:callsFunction ?funcRef .
+                ?funcRef struct:functionName "raw" .
+                ?funcRef struct:arity 1 .
+                
+                FILTER(?moduleName IN ("Phoenix.HTML", "Phoenix.HTML.Raw"))
+                
+                OPTIONAL {
+                    $this core:hasSourceLocation ?loc .
+                    ?loc core:inSourceFile ?file .
+                    ?file core:filePath ?module .
+                    ?loc core:startLine ?line .
+                }
+            }
+        """
+    ] .
+
+# =============================================================================
+# GenServer Security Shapes
+# =============================================================================
+
+secsh:GenServerMissingFormatStatusShape a sh:NodeShape ;
+    sh:targetClass otp:GenServerImplementation ;
+    sh:name "GenServer Missing format_status Detection"@en ;
+    sh:description "Detects GenServers with sensitive state but no format_status/2 callback."@en ;
+    sh:sparql [
+        sh:message "BEAM-013: GenServer module {?moduleName} may handle sensitive data but lacks format_status/2 callback. Secrets may be exposed via :sys.get_state/1."@en ;
+        sh:severity sh:Warning ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            PREFIX otp: <https://w3id.org/elixir-code/otp#>
+            PREFIX sec: <https://w3id.org/elixir-code/security#>
+            
+            SELECT $this ?moduleName
+            WHERE {
+                $this a otp:GenServerImplementation .
+                $this struct:belongsTo ?module .
+                ?module struct:moduleName ?moduleName .
+                
+                # Check for sensitive-looking fields in state struct
+                ?module struct:containsStruct ?struct .
+                ?struct struct:hasField ?field .
+                ?field struct:fieldName ?fieldName .
+                
+                FILTER(REGEX(?fieldName, "(password|secret|key|token|credential)", "i"))
+                
+                # No format_status callback
+                FILTER NOT EXISTS {
+                    ?module struct:containsFunction ?formatFunc .
+                    ?formatFunc struct:functionName "format_status" .
+                    ?formatFunc struct:arity 2 .
+                }
+            }
+        """
+    ] .
+
+# =============================================================================
+# Struct Security Shapes
+# =============================================================================
+
+secsh:StructMissingDeriveInspectShape a sh:NodeShape ;
+    sh:targetClass struct:Struct ;
+    sh:name "Struct Missing @derive Inspect Detection"@en ;
+    sh:sparql [
+        sh:message "BEAM-014: Struct has sensitive field '{?fieldName}' but no @derive {Inspect, except: [...]}. Sensitive data may be exposed in logs/errors."@en ;
+        sh:severity sh:Warning ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?fieldName ?moduleName
+            WHERE {
+                $this a struct:Struct .
+                $this struct:hasField ?field .
+                ?field struct:fieldName ?fieldName .
+                
+                # Sensitive field patterns
+                FILTER(REGEX(?fieldName, "(password|secret|token|key|credential|ssn|credit_card|api_key)", "i"))
+                
+                # Get module name for context
+                ?module struct:containsStruct $this .
+                ?module struct:moduleName ?moduleName .
+                
+                # No @derive Inspect annotation
+                FILTER NOT EXISTS {
+                    ?module struct:hasAttribute ?deriveAttr .
+                    ?deriveAttr a struct:DeriveAttribute .
+                    ?deriveAttr struct:attributeValue ?val .
+                    FILTER(CONTAINS(?val, "Inspect"))
+                }
+            }
+        """
+    ] .
+
+# =============================================================================
+# LiveView Authorization Shape
+# =============================================================================
+
+secsh:LiveViewMissingAuthShape a sh:NodeShape ;
+    sh:targetClass struct:Module ;
+    sh:name "LiveView Missing Authorization Detection"@en ;
+    sh:sparql [
+        sh:message "WEB-020: LiveView module {?moduleName} has handle_event but may lack authorization checks. Verify authorization in both mount/3 and handle_event/3."@en ;
+        sh:severity sh:Info ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX core: <https://w3id.org/elixir-code/core#>
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?moduleName
+            WHERE {
+                $this a struct:Module .
+                $this struct:moduleName ?moduleName .
+                
+                # Uses Phoenix.LiveView
+                $this struct:usesModule ?liveView .
+                ?liveView struct:moduleName "Phoenix.LiveView" .
+                
+                # Has handle_event
+                $this struct:containsFunction ?func .
+                ?func struct:functionName "handle_event" .
+            }
+        """
+    ] .
+
+# =============================================================================
+# Process Supervision Shape  
+# =============================================================================
+
+secsh:UnsupervisedProcessShape a sh:NodeShape ;
+    sh:targetClass otp:GenServerImplementation ;
+    sh:name "Unsupervised GenServer Detection"@en ;
+    sh:description "Detects GenServer implementations not under supervision."@en ;
+    sh:sparql [
+        sh:message "OTP-001: GenServer {?moduleName} may not be under supervision. Place all GenServers in supervision tree for fault tolerance."@en ;
+        sh:severity sh:Info ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            PREFIX otp: <https://w3id.org/elixir-code/otp#>
+            
+            SELECT $this ?moduleName
+            WHERE {
+                $this a otp:GenServerImplementation .
+                $this struct:belongsTo ?module .
+                ?module struct:moduleName ?moduleName .
+                
+                # No supervision relationship found
+                FILTER NOT EXISTS {
+                    ?supervisor otp:supervises ?process .
+                    ?process otp:implementsOTPBehaviour $this .
+                }
+            }
+        """
+    ] .
+
+# =============================================================================
+# Phoenix Controller Authorization Shape
+# =============================================================================
+
+secsh:ControllerMissingAuthShape a sh:NodeShape ;
+    sh:targetClass struct:Module ;
+    sh:name "Controller Missing Authorization Detection"@en ;
+    sh:sparql [
+        sh:message "WEB-009: Controller {?moduleName} action {?actionName} may lack authorization checks."@en ;
+        sh:severity sh:Info ;
+        sh:prefixes secsh: ;
+        sh:select """
+            PREFIX struct: <https://w3id.org/elixir-code/structure#>
+            
+            SELECT $this ?moduleName ?actionName
+            WHERE {
+                $this a struct:Module .
+                $this struct:moduleName ?moduleName .
+                
+                # Is a Phoenix controller
+                FILTER(STRENDS(?moduleName, "Controller"))
+                
+                # Has public action functions
+                $this struct:containsFunction ?action .
+                ?action a struct:PublicFunction .
+                ?action struct:functionName ?actionName .
+                ?action struct:arity 2 .
+                
+                # No plug for authorization
+                FILTER NOT EXISTS {
+                    $this struct:hasAttribute ?plugAttr .
+                    ?plugAttr struct:attributeName "plug" .
+                    ?plugAttr struct:attributeValue ?plugVal .
+                    FILTER(REGEX(?plugVal, "(authorize|ensure_auth|require_auth)", "i"))
+                }
+            }
+        """
+    ] .
+
+# =============================================================================
+# Validation Result Shape
+# =============================================================================
+
+secsh:SecurityVulnerabilityShape a sh:NodeShape ;
+    sh:targetClass sec:SecurityVulnerability ;
+    sh:name "Security Vulnerability Validation"@en ;
+    sh:property [
+        sh:path sec:severity ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ("CRITICAL" "HIGH" "MEDIUM" "LOW") ;
+        sh:message "Security vulnerability must have valid severity"@en
+    ] ;
+    sh:property [
+        sh:path sec:erlefId ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^(BEAM|WEB)-[0-9]{3}$" ;
+        sh:message "ERLEF ID must match pattern BEAM-NNN or WEB-NNN"@en
+    ] .
+
+# =============================================================================
+# Prefix Declarations for SPARQL
+# =============================================================================
+
+secsh: sh:declare [
+    sh:prefix "core" ;
+    sh:namespace "https://w3id.org/elixir-code/core#"^^xsd:anyURI
+] , [
+    sh:prefix "struct" ;
+    sh:namespace "https://w3id.org/elixir-code/structure#"^^xsd:anyURI
+] , [
+    sh:prefix "otp" ;
+    sh:namespace "https://w3id.org/elixir-code/otp#"^^xsd:anyURI
+] , [
+    sh:prefix "sec" ;
+    sh:namespace "https://w3id.org/elixir-code/security#"^^xsd:anyURI
+] , [
+    sh:prefix "secsh" ;
+    sh:namespace "https://w3id.org/elixir-code/security-shapes#"^^xsd:anyURI
+] .
+

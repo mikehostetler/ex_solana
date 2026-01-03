@@ -1695,6 +1695,7 @@ defmodule JidoCode.Session.PersistenceTest do
         name: "Test Session",
         project_path: "/tmp/test-project",
         config: %{provider: :anthropic, model: "test-model", temperature: 0.7},
+        language: :elixir,
         created_at: ~U[2024-01-01 00:00:00Z],
         updated_at: ~U[2024-01-01 12:00:00Z]
       },
@@ -1732,6 +1733,401 @@ defmodule JidoCode.Session.PersistenceTest do
       conversation: [],
       todos: []
     }
+  end
+
+  describe "find_by_project_path/1" do
+    setup do
+      # Ensure sessions directory exists
+      :ok = Persistence.ensure_sessions_dir()
+      sessions_dir = Persistence.sessions_dir()
+
+      # Create unique test session IDs
+      test_ids = [
+        "find-path-test-#{:rand.uniform(999_999)}-1",
+        "find-path-test-#{:rand.uniform(999_999)}-2",
+        "find-path-test-#{:rand.uniform(999_999)}-3",
+        "find-path-test-#{:rand.uniform(999_999)}-4"
+      ]
+
+      on_exit(fn ->
+        # Clean up test files
+        for id <- test_ids do
+          file = Path.join(sessions_dir, "#{id}.json")
+          File.rm(file)
+        end
+      end)
+
+      {:ok, sessions_dir: sessions_dir, test_ids: test_ids}
+    end
+
+    test "returns {:ok, nil} when no persisted sessions match path" do
+      # Use a unique path that won't match any real sessions
+      assert {:ok, nil} =
+               Persistence.find_by_project_path(
+                 "/nonexistent/unique/path/#{:rand.uniform(999_999)}"
+               )
+    end
+
+    test "returns {:ok, nil} when path doesn't match any session", %{
+      sessions_dir: sessions_dir,
+      test_ids: test_ids
+    } do
+      [test_id | _] = test_ids
+
+      # Create a persisted session with a different path
+      session = %{
+        version: 1,
+        id: test_id,
+        name: "Other Project",
+        project_path: "/other/project/#{:rand.uniform(999_999)}",
+        config: %{},
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        closed_at: "2024-01-01T00:00:00Z",
+        conversation: [],
+        todos: []
+      }
+
+      file_path = Path.join(sessions_dir, "#{session.id}.json")
+      File.write!(file_path, Jason.encode!(session))
+
+      assert {:ok, nil} =
+               Persistence.find_by_project_path("/different/path/#{:rand.uniform(999_999)}")
+    end
+
+    test "returns {:ok, session} when path matches", %{
+      sessions_dir: sessions_dir,
+      test_ids: test_ids
+    } do
+      [_, test_id | _] = test_ids
+      target_path = "/my/project/find-test-#{:rand.uniform(999_999)}"
+
+      session = %{
+        version: 1,
+        id: test_id,
+        name: "My Project",
+        project_path: target_path,
+        config: %{},
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        closed_at: "2024-01-01T00:00:00Z",
+        conversation: [],
+        todos: []
+      }
+
+      file_path = Path.join(sessions_dir, "#{session.id}.json")
+      File.write!(file_path, Jason.encode!(session))
+
+      assert {:ok, found} = Persistence.find_by_project_path(target_path)
+      assert found.id == session.id
+      assert found.project_path == target_path
+    end
+
+    test "returns most recent session when multiple match same path", %{
+      sessions_dir: sessions_dir,
+      test_ids: test_ids
+    } do
+      [_, _, test_id1, test_id2] = test_ids
+      target_path = "/shared/project/find-test-#{:rand.uniform(999_999)}"
+
+      older_session = %{
+        version: 1,
+        id: test_id1,
+        name: "Older Session",
+        project_path: target_path,
+        config: %{},
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        closed_at: "2024-01-01T00:00:00Z",
+        conversation: [],
+        todos: []
+      }
+
+      newer_session = %{
+        version: 1,
+        id: test_id2,
+        name: "Newer Session",
+        project_path: target_path,
+        config: %{},
+        created_at: "2024-01-02T00:00:00Z",
+        updated_at: "2024-01-02T00:00:00Z",
+        closed_at: "2024-01-02T12:00:00Z",
+        conversation: [],
+        todos: []
+      }
+
+      File.write!(
+        Path.join(sessions_dir, "#{older_session.id}.json"),
+        Jason.encode!(older_session)
+      )
+
+      File.write!(
+        Path.join(sessions_dir, "#{newer_session.id}.json"),
+        Jason.encode!(newer_session)
+      )
+
+      assert {:ok, found} = Persistence.find_by_project_path(target_path)
+      # Should return the newer session (sorted by closed_at descending)
+      assert found.id == newer_session.id
+    end
+  end
+
+  describe "message usage serialization" do
+    test "serializes message without usage" do
+      # Use build_persisted_session/1 to test serialization
+      alias JidoCode.Session.Persistence.Serialization
+
+      state = %{
+        session: %JidoCode.Session{
+          id: "test-123",
+          name: "Test",
+          project_path: "/test",
+          config: %{},
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        },
+        messages: [
+          %{
+            id: "msg-1",
+            role: :user,
+            content: "Hello",
+            timestamp: DateTime.utc_now()
+          }
+        ],
+        todos: []
+      }
+
+      persisted = Serialization.build_persisted_session(state)
+      [msg | _] = persisted.conversation
+
+      refute Map.has_key?(msg, :usage)
+    end
+
+    test "serializes message with usage" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      state = %{
+        session: %JidoCode.Session{
+          id: "test-123",
+          name: "Test",
+          project_path: "/test",
+          config: %{},
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        },
+        messages: [
+          %{
+            id: "msg-1",
+            role: :assistant,
+            content: "Hello back!",
+            timestamp: DateTime.utc_now(),
+            usage: %{input_tokens: 100, output_tokens: 200, total_cost: 0.0015}
+          }
+        ],
+        todos: []
+      }
+
+      persisted = Serialization.build_persisted_session(state)
+      [msg | _] = persisted.conversation
+
+      assert msg.usage.input_tokens == 100
+      assert msg.usage.output_tokens == 200
+      assert msg.usage.total_cost == 0.0015
+    end
+
+    test "deserializes message with usage" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      data = %{
+        "version" => 1,
+        "id" => "test-123",
+        "name" => "Test",
+        "project_path" => "/test",
+        "config" => %{},
+        "created_at" => "2024-01-01T00:00:00Z",
+        "updated_at" => "2024-01-01T00:00:00Z",
+        "closed_at" => "2024-01-01T00:00:00Z",
+        "conversation" => [
+          %{
+            "id" => "msg-1",
+            "role" => "assistant",
+            "content" => "Hello",
+            "timestamp" => "2024-01-01T00:00:00Z",
+            "usage" => %{
+              "input_tokens" => 150,
+              "output_tokens" => 300,
+              "total_cost" => 0.002
+            }
+          }
+        ],
+        "todos" => []
+      }
+
+      {:ok, session} = Serialization.deserialize_session(data)
+      [msg | _] = session.conversation
+
+      assert msg.usage.input_tokens == 150
+      assert msg.usage.output_tokens == 300
+      assert msg.usage.total_cost == 0.002
+    end
+
+    test "deserializes message without usage (legacy format)" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      data = %{
+        "version" => 1,
+        "id" => "test-123",
+        "name" => "Test",
+        "project_path" => "/test",
+        "config" => %{},
+        "created_at" => "2024-01-01T00:00:00Z",
+        "updated_at" => "2024-01-01T00:00:00Z",
+        "closed_at" => "2024-01-01T00:00:00Z",
+        "conversation" => [
+          %{
+            "id" => "msg-1",
+            "role" => "user",
+            "content" => "Hello",
+            "timestamp" => "2024-01-01T00:00:00Z"
+          }
+        ],
+        "todos" => []
+      }
+
+      {:ok, session} = Serialization.deserialize_session(data)
+      [msg | _] = session.conversation
+
+      refute Map.has_key?(msg, :usage)
+    end
+  end
+
+  describe "session cumulative usage" do
+    test "calculates cumulative usage from messages" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      state = %{
+        session: %JidoCode.Session{
+          id: "test-123",
+          name: "Test",
+          project_path: "/test",
+          config: %{},
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        },
+        messages: [
+          %{
+            id: "msg-1",
+            role: :user,
+            content: "Hello",
+            timestamp: DateTime.utc_now()
+          },
+          %{
+            id: "msg-2",
+            role: :assistant,
+            content: "Hi!",
+            timestamp: DateTime.utc_now(),
+            usage: %{input_tokens: 50, output_tokens: 100, total_cost: 0.001}
+          },
+          %{
+            id: "msg-3",
+            role: :user,
+            content: "More",
+            timestamp: DateTime.utc_now()
+          },
+          %{
+            id: "msg-4",
+            role: :assistant,
+            content: "Response",
+            timestamp: DateTime.utc_now(),
+            usage: %{input_tokens: 75, output_tokens: 150, total_cost: 0.0015}
+          }
+        ],
+        todos: []
+      }
+
+      persisted = Serialization.build_persisted_session(state)
+
+      assert persisted.cumulative_usage.input_tokens == 125
+      assert persisted.cumulative_usage.output_tokens == 250
+      assert persisted.cumulative_usage.total_cost == 0.0025
+    end
+
+    test "omits cumulative usage when no messages have usage" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      state = %{
+        session: %JidoCode.Session{
+          id: "test-123",
+          name: "Test",
+          project_path: "/test",
+          config: %{},
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        },
+        messages: [
+          %{
+            id: "msg-1",
+            role: :user,
+            content: "Hello",
+            timestamp: DateTime.utc_now()
+          }
+        ],
+        todos: []
+      }
+
+      persisted = Serialization.build_persisted_session(state)
+
+      refute Map.has_key?(persisted, :cumulative_usage)
+    end
+
+    test "deserializes session with cumulative usage" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      data = %{
+        "version" => 1,
+        "id" => "test-123",
+        "name" => "Test",
+        "project_path" => "/test",
+        "config" => %{},
+        "created_at" => "2024-01-01T00:00:00Z",
+        "updated_at" => "2024-01-01T00:00:00Z",
+        "closed_at" => "2024-01-01T00:00:00Z",
+        "conversation" => [],
+        "todos" => [],
+        "cumulative_usage" => %{
+          "input_tokens" => 500,
+          "output_tokens" => 1000,
+          "total_cost" => 0.01
+        }
+      }
+
+      {:ok, session} = Serialization.deserialize_session(data)
+
+      assert session.cumulative_usage.input_tokens == 500
+      assert session.cumulative_usage.output_tokens == 1000
+      assert session.cumulative_usage.total_cost == 0.01
+    end
+
+    test "deserializes session without cumulative usage (legacy format)" do
+      alias JidoCode.Session.Persistence.Serialization
+
+      data = %{
+        "version" => 1,
+        "id" => "test-123",
+        "name" => "Test",
+        "project_path" => "/test",
+        "config" => %{},
+        "created_at" => "2024-01-01T00:00:00Z",
+        "updated_at" => "2024-01-01T00:00:00Z",
+        "closed_at" => "2024-01-01T00:00:00Z",
+        "conversation" => [],
+        "todos" => []
+      }
+
+      {:ok, session} = Serialization.deserialize_session(data)
+
+      refute Map.has_key?(session, :cumulative_usage)
+    end
   end
 
   defp valid_message do

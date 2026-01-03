@@ -44,7 +44,6 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
   @top_left "╭"
   @top_right "╮"
   @bottom_left "╰"
-  @bottom_right "╯"
   @vertical "│"
   @horizontal "─"
 
@@ -127,12 +126,11 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
     if tabs == [] do
       empty()
     else
-      {top_row, middle_row, bottom_row} = build_tab_rows(tabs, state)
+      {top_row, middle_row, _bottom_row} = build_tab_rows(tabs, state)
 
       stack(:vertical, [
         stack(:horizontal, top_row),
-        stack(:horizontal, middle_row),
-        stack(:horizontal, bottom_row)
+        stack(:horizontal, middle_row)
       ])
     end
   end
@@ -591,29 +589,44 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
             activity_style
           )
 
-        # Add space between tabs (except after last)
-        space = if is_last, do: [], else: [text(" ", nil)]
-
-        {top_acc ++ [top_part] ++ space, mid_acc ++ [middle_part] ++ space, bottom_acc ++ [bottom_part] ++ space}
+        # No space between tabs - they connect via ╰ to │
+        {top_acc ++ [top_part], mid_acc ++ [middle_part], bottom_acc ++ [bottom_part]}
       end)
 
     {top_elements, middle_elements, bottom_elements}
   end
 
-  defp render_single_tab(label, width, _is_last, is_closeable, style, close_style, activity_icon \\ nil, activity_style \\ nil) do
-    # Simple rounded box style: ╭───────╮ on top, ╰───────╯ on bottom
+  defp render_single_tab(
+         label,
+         width,
+         is_last,
+         is_closeable,
+         style,
+         close_style,
+         activity_icon,
+         activity_style
+       ) do
+    # Folder tab style (Option 5):
+    # Top: ╭───────╮ (standard rounded top)
+    # Bottom: │ Label ╰ (with ╰ connecting to next tab) or │ Label │ for last tab
     inner_width = width - 2
-    top_line = @top_left <> String.duplicate(@horizontal, inner_width) <> @top_right
-    bottom_line = @bottom_left <> String.duplicate(@horizontal, inner_width) <> @bottom_right
 
-    # Build label with padding (accounting for activity icon space)
+    # Top line: ╭───────╮
+    top_line = @top_left <> String.duplicate(@horizontal, inner_width) <> @top_right
+
+    # Build label with padding
     has_activity = activity_icon != nil
-    {label_part, _close_part} = build_label_with_close(label, inner_width, is_closeable, has_activity)
+
+    # Right edge character: ╰ for connecting tabs, │ for last tab
+    right_edge = if is_last, do: @vertical, else: @bottom_left
+
+    {label_part, _close_part} =
+      build_label_with_close(label, inner_width, is_closeable, has_activity)
 
     # Top element: ╭───────╮
     top_element = text(top_line, style)
 
-    # Bottom element: │ [icon] Label │ (with optional activity icon and close button)
+    # Bottom element: │ [icon] Label ╰ or │ Label │
     bottom_element =
       cond do
         # Has both activity icon and close button
@@ -623,7 +636,7 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
             text(activity_icon <> " ", activity_style || style),
             text(label_part, style),
             text(@close_button, close_style),
-            text(" " <> @vertical, style)
+            text(" " <> right_edge, style)
           ])
 
         # Has activity icon only
@@ -631,7 +644,7 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
           stack(:horizontal, [
             text(@vertical, style),
             text(activity_icon <> " ", activity_style || style),
-            text(label_part <> @vertical, style)
+            text(label_part <> right_edge, style)
           ])
 
         # Has close button only
@@ -639,19 +652,22 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
           stack(:horizontal, [
             text(@vertical <> label_part, style),
             text(@close_button, close_style),
-            text(" " <> @vertical, style)
+            text(" " <> right_edge, style)
           ])
 
         # Neither
         true ->
-          text(@vertical <> label_part <> @vertical, style)
+          text(@vertical <> label_part <> right_edge, style)
       end
 
-    # Return 3-row structure but we'll flatten in build_tab_rows
-    {top_element, bottom_element, text(bottom_line, style)}
+    # Third row: empty space to maintain 3-row structure
+    empty_row = text(String.duplicate(" ", width), nil)
+
+    # Return 3-row structure
+    {top_element, bottom_element, empty_row}
   end
 
-  defp build_label_with_close(label, inner_width, is_closeable, has_activity \\ false) do
+  defp build_label_with_close(label, inner_width, is_closeable, has_activity) do
     # Activity icon takes 2 chars (icon + space), handled separately in render
     activity_width = if has_activity, do: 2, else: 0
 
@@ -752,7 +768,7 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
   end
 
   defp default_active_style do
-    Style.new(fg: :white, bg: :blue, attrs: [:bold])
+    Style.new(fg: :cyan, attrs: [:bold])
   end
 
   defp default_inactive_style do
@@ -764,7 +780,7 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
   end
 
   defp default_close_style do
-    Style.new(fg: :red, attrs: [:bold])
+    Style.new(fg: :white)
   end
 
   defp update_tab_field(state, tab_id, field, value) do
@@ -825,7 +841,7 @@ defmodule JidoCode.TUI.Widgets.FolderTabs do
   defp render_padded_content(nil, width, _height, padding) do
     # Empty content - just show padding
     padding_str = String.duplicate(" ", padding)
-    inner_width = width - (padding * 2)
+    inner_width = width - padding * 2
     empty_line = padding_str <> String.duplicate(" ", inner_width) <> padding_str
     text(empty_line)
   end

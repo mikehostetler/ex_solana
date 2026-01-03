@@ -130,10 +130,10 @@ defmodule JidoCode.Session.ManagerTest do
       state = :sys.get_state(pid)
       lua_state = state.lua_state
 
-      # Read the file through the Lua bridge
+      # Read the file through the Lua bridge - now returns line-numbered content
       {:ok, [content], _} = :luerl.do("return jido.read_file('test.txt')", lua_state)
 
-      assert content == "hello world"
+      assert content == "     1→hello world"
 
       # Cleanup
       GenServer.stop(pid)
@@ -237,7 +237,7 @@ defmodule JidoCode.Session.ManagerTest do
   end
 
   describe "read_file/2" do
-    test "reads file within boundary", %{tmp_dir: tmp_dir} do
+    test "reads file within boundary with line numbers", %{tmp_dir: tmp_dir} do
       {:ok, session} = Session.new(project_path: tmp_dir)
       {:ok, _pid} = Manager.start_link(session: session)
 
@@ -245,21 +245,43 @@ defmodule JidoCode.Session.ManagerTest do
       test_file = Path.join(tmp_dir, "test_read.txt")
       File.write!(test_file, "hello world")
 
-      assert {:ok, "hello world"} = Manager.read_file(session.id, "test_read.txt")
+      # Now returns line-numbered content via Lua bridge
+      assert {:ok, "     1→hello world"} = Manager.read_file(session.id, "test_read.txt")
     end
 
     test "rejects path outside boundary", %{tmp_dir: tmp_dir} do
       {:ok, session} = Session.new(project_path: tmp_dir)
       {:ok, _pid} = Manager.start_link(session: session)
 
-      assert {:error, :path_outside_boundary} = Manager.read_file(session.id, "/etc/passwd")
+      # Error message now comes from Bridge as a string
+      {:error, msg} = Manager.read_file(session.id, "/etc/passwd")
+      assert msg =~ "Security error" or msg =~ "outside"
     end
 
     test "returns error for non-existent file", %{tmp_dir: tmp_dir} do
       {:ok, session} = Session.new(project_path: tmp_dir)
       {:ok, _pid} = Manager.start_link(session: session)
 
-      assert {:error, :enoent} = Manager.read_file(session.id, "nonexistent.txt")
+      # Error message now comes from Bridge as a string
+      {:error, msg} = Manager.read_file(session.id, "nonexistent.txt")
+      assert msg =~ "not found" or msg =~ "enoent" or msg =~ "No such file"
+    end
+
+    test "returns error for permission denied", %{tmp_dir: tmp_dir} do
+      {:ok, session} = Session.new(project_path: tmp_dir)
+      {:ok, _pid} = Manager.start_link(session: session)
+
+      # Create file and remove read permissions
+      file_path = Path.join(tmp_dir, "no_read.txt")
+      File.write!(file_path, "secret")
+      File.chmod!(file_path, 0o200)
+
+      {:error, msg} = Manager.read_file(session.id, "no_read.txt")
+
+      # Restore permissions for cleanup
+      File.chmod!(file_path, 0o644)
+
+      assert msg =~ "permission" or msg =~ "eacces" or msg =~ "denied"
     end
 
     test "returns error for non-existent session" do
@@ -366,7 +388,8 @@ defmodule JidoCode.Session.ManagerTest do
 
       {:ok, _pid} = Manager.start_link(session: session)
 
-      assert {:ok, ["content from file"]} =
+      # read_file now returns line-numbered content
+      assert {:ok, ["     1→content from file"]} =
                Manager.run_lua(session.id, "return jido.read_file('lua_test.txt')")
     end
 

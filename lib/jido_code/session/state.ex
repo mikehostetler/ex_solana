@@ -62,6 +62,10 @@ defmodule JidoCode.Session.State do
   @max_messages 1000
   @max_reasoning_steps 100
   @max_tool_calls 500
+  @max_prompt_history 100
+  # Maximum file operations to track (reads + writes)
+  # When limit is exceeded, oldest entries are removed
+  @max_file_operations 1000
 
   # ============================================================================
   # Type Definitions
@@ -128,6 +132,17 @@ defmodule JidoCode.Session.State do
         }
 
   @typedoc """
+  A file operation record for tracking reads and writes.
+
+  - `path` - The file path (relative to project root)
+  - `timestamp` - When the operation occurred
+  """
+  @type file_operation :: %{
+          path: String.t(),
+          timestamp: DateTime.t()
+        }
+
+  @typedoc """
   Session State process state.
 
   - `session` - The Session struct (for backwards compatibility with get_session/1)
@@ -140,6 +155,9 @@ defmodule JidoCode.Session.State do
   - `streaming_message` - Content being streamed (nil when not streaming)
   - `streaming_message_id` - ID of the message being streamed (nil when not streaming)
   - `is_streaming` - Whether currently receiving a streaming response
+  - `prompt_history` - List of previous user prompts (newest first, max 100)
+  - `file_reads` - Map of file paths to read timestamps for read-before-write tracking
+  - `file_writes` - Map of file paths to write timestamps for tracking modifications
   """
   @type state :: %{
           session: Session.t(),
@@ -151,7 +169,10 @@ defmodule JidoCode.Session.State do
           scroll_offset: non_neg_integer(),
           streaming_message: String.t() | nil,
           streaming_message_id: String.t() | nil,
-          is_streaming: boolean()
+          is_streaming: boolean(),
+          prompt_history: [String.t()],
+          file_reads: %{String.t() => DateTime.t()},
+          file_writes: %{String.t() => DateTime.t()}
         }
 
   # ============================================================================
@@ -525,6 +546,217 @@ defmodule JidoCode.Session.State do
     call_state(session_id, {:update_session_config, config})
   end
 
+  @doc """
+  Updates the session's programming language.
+
+  This sets the language for the session using `Session.set_language/2`,
+  which validates and normalizes the language value.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+  - `language` - Language atom, string, or alias (e.g., `:python`, `"python"`, `"py"`)
+
+  ## Returns
+
+  - `{:ok, session}` - Successfully updated session with new language
+  - `{:error, :not_found}` - Session not found
+  - `{:error, :invalid_language}` - Language is not a supported value
+
+  ## Examples
+
+      iex> {:ok, session} = State.update_language("session-123", :python)
+      iex> session.language
+      :python
+
+      iex> {:ok, session} = State.update_language("session-123", "js")
+      iex> session.language
+      :javascript
+
+      iex> {:error, :not_found} = State.update_language("unknown", :python)
+  """
+  @spec update_language(String.t(), JidoCode.Language.language() | String.t()) ::
+          {:ok, Session.t()} | {:error, :not_found | :invalid_language}
+  def update_language(session_id, language) when is_binary(session_id) do
+    call_state(session_id, {:update_language, language})
+  end
+
+  @doc """
+  Gets the prompt history for a session.
+
+  Returns prompts in reverse chronological order (newest first).
+
+  ## Examples
+
+      iex> {:ok, history} = State.get_prompt_history("session-123")
+      iex> hd(history)
+      "most recent prompt"
+      iex> {:error, :not_found} = State.get_prompt_history("unknown")
+  """
+  @spec get_prompt_history(String.t()) :: {:ok, [String.t()]} | {:error, :not_found}
+  def get_prompt_history(session_id) when is_binary(session_id) do
+    call_state(session_id, :get_prompt_history)
+  end
+
+  @doc """
+  Adds a prompt to the history.
+
+  The prompt is prepended to the history list (newest first).
+  Empty prompts are ignored.
+  History is limited to #{@max_prompt_history} entries.
+
+  ## Examples
+
+      iex> {:ok, history} = State.add_to_prompt_history("session-123", "Hello world")
+      iex> hd(history)
+      "Hello world"
+      iex> {:error, :not_found} = State.add_to_prompt_history("unknown", "Hello")
+  """
+  @spec add_to_prompt_history(String.t(), String.t()) ::
+          {:ok, [String.t()]} | {:error, :not_found}
+  def add_to_prompt_history(session_id, prompt)
+      when is_binary(session_id) and is_binary(prompt) do
+    # Ignore empty prompts
+    if String.trim(prompt) == "" do
+      get_prompt_history(session_id)
+    else
+      call_state(session_id, {:add_to_prompt_history, prompt})
+    end
+  end
+
+  @doc """
+  Sets the prompt history for a session.
+
+  Used during session restoration to set the complete history at once.
+  The history should be a list of strings in reverse chronological order (newest first).
+
+  ## Examples
+
+      iex> {:ok, history} = State.set_prompt_history("session-123", ["newest", "older", "oldest"])
+      iex> hd(history)
+      "newest"
+      iex> {:error, :not_found} = State.set_prompt_history("unknown", [])
+  """
+  @spec set_prompt_history(String.t(), [String.t()]) ::
+          {:ok, [String.t()]} | {:error, :not_found}
+  def set_prompt_history(session_id, history)
+      when is_binary(session_id) and is_list(history) do
+    call_state(session_id, {:set_prompt_history, history})
+  end
+
+  # ============================================================================
+  # File Tracking API (Read-Before-Write Support)
+  # ============================================================================
+
+  @doc """
+  Records that a file was read in this session.
+
+  This is used to track reads for the read-before-write safety check.
+  The path should be the normalized/safe path after validation.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+  - `path` - The file path (should be absolute or normalized)
+
+  ## Returns
+
+  - `{:ok, timestamp}` - The timestamp when the read was recorded
+  - `{:error, :not_found}` - Session not found
+
+  ## Examples
+
+      iex> {:ok, timestamp} = State.track_file_read("session-123", "/project/src/file.ex")
+      iex> {:error, :not_found} = State.track_file_read("unknown", "/project/src/file.ex")
+  """
+  @spec track_file_read(String.t(), String.t()) ::
+          {:ok, DateTime.t()} | {:error, :not_found}
+  def track_file_read(session_id, path)
+      when is_binary(session_id) and is_binary(path) do
+    call_state(session_id, {:track_file_read, path})
+  end
+
+  @doc """
+  Records that a file was written in this session.
+
+  This tracks write operations for monitoring and potential conflict detection.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+  - `path` - The file path (should be absolute or normalized)
+
+  ## Returns
+
+  - `{:ok, timestamp}` - The timestamp when the write was recorded
+  - `{:error, :not_found}` - Session not found
+
+  ## Examples
+
+      iex> {:ok, timestamp} = State.track_file_write("session-123", "/project/src/file.ex")
+  """
+  @spec track_file_write(String.t(), String.t()) ::
+          {:ok, DateTime.t()} | {:error, :not_found}
+  def track_file_write(session_id, path)
+      when is_binary(session_id) and is_binary(path) do
+    call_state(session_id, {:track_file_write, path})
+  end
+
+  @doc """
+  Checks if a file was read in this session.
+
+  Used by write operations to enforce the read-before-write safety check
+  for existing files.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+  - `path` - The file path to check
+
+  ## Returns
+
+  - `{:ok, true}` - File was read in this session
+  - `{:ok, false}` - File was not read in this session
+  - `{:error, :not_found}` - Session not found
+
+  ## Examples
+
+      iex> {:ok, true} = State.file_was_read?("session-123", "/project/src/file.ex")
+      iex> {:ok, false} = State.file_was_read?("session-123", "/project/unread.ex")
+  """
+  @spec file_was_read?(String.t(), String.t()) ::
+          {:ok, boolean()} | {:error, :not_found}
+  def file_was_read?(session_id, path)
+      when is_binary(session_id) and is_binary(path) do
+    call_state(session_id, {:file_was_read?, path})
+  end
+
+  @doc """
+  Gets the timestamp when a file was last read in this session.
+
+  ## Parameters
+
+  - `session_id` - The session identifier
+  - `path` - The file path to check
+
+  ## Returns
+
+  - `{:ok, timestamp}` - The DateTime when the file was read
+  - `{:ok, nil}` - File was not read in this session
+  - `{:error, :not_found}` - Session not found
+
+  ## Examples
+
+      iex> {:ok, %DateTime{}} = State.get_file_read_time("session-123", "/project/src/file.ex")
+      iex> {:ok, nil} = State.get_file_read_time("session-123", "/project/unread.ex")
+  """
+  @spec get_file_read_time(String.t(), String.t()) ::
+          {:ok, DateTime.t() | nil} | {:error, :not_found}
+  def get_file_read_time(session_id, path)
+      when is_binary(session_id) and is_binary(path) do
+    call_state(session_id, {:get_file_read_time, path})
+  end
+
   # ============================================================================
   # Private Helpers
   # ============================================================================
@@ -557,7 +789,10 @@ defmodule JidoCode.Session.State do
       scroll_offset: 0,
       streaming_message: nil,
       streaming_message_id: nil,
-      is_streaming: false
+      is_streaming: false,
+      prompt_history: [],
+      file_reads: %{},
+      file_writes: %{}
     }
 
     {:ok, state}
@@ -739,6 +974,91 @@ defmodule JidoCode.Session.State do
       {:error, reasons} ->
         {:reply, {:error, reasons}, state}
     end
+  end
+
+  @impl true
+  def handle_call({:update_language, language}, _from, state) do
+    case Session.set_language(state.session, language) do
+      {:ok, updated_session} ->
+        new_state = %{state | session: updated_session}
+        {:reply, {:ok, updated_session}, new_state}
+
+      {:error, :invalid_language} ->
+        {:reply, {:error, :invalid_language}, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:get_prompt_history, _from, state) do
+    {:reply, {:ok, state.prompt_history}, state}
+  end
+
+  @impl true
+  def handle_call({:add_to_prompt_history, prompt}, _from, state) do
+    # Prepend new prompt, enforce max size limit
+    history = [prompt | state.prompt_history] |> Enum.take(@max_prompt_history)
+    new_state = %{state | prompt_history: history}
+    {:reply, {:ok, history}, new_state}
+  end
+
+  @impl true
+  def handle_call({:set_prompt_history, history}, _from, state) do
+    # Set the entire history (for session restoration), enforce max size limit
+    limited_history = Enum.take(history, @max_prompt_history)
+    new_state = %{state | prompt_history: limited_history}
+    {:reply, {:ok, limited_history}, new_state}
+  end
+
+  # ============================================================================
+  # File Tracking Callbacks
+  # ============================================================================
+
+  @impl true
+  def handle_call({:track_file_read, path}, _from, state) do
+    timestamp = DateTime.utc_now()
+    new_file_reads = Map.put(state.file_reads, path, timestamp)
+    # Enforce limit to prevent unbounded memory growth
+    new_file_reads = enforce_file_tracking_limit(new_file_reads)
+    new_state = %{state | file_reads: new_file_reads}
+    {:reply, {:ok, timestamp}, new_state}
+  end
+
+  @impl true
+  def handle_call({:track_file_write, path}, _from, state) do
+    timestamp = DateTime.utc_now()
+    new_file_writes = Map.put(state.file_writes, path, timestamp)
+    # Enforce limit to prevent unbounded memory growth
+    new_file_writes = enforce_file_tracking_limit(new_file_writes)
+    new_state = %{state | file_writes: new_file_writes}
+    {:reply, {:ok, timestamp}, new_state}
+  end
+
+  @impl true
+  def handle_call({:file_was_read?, path}, _from, state) do
+    # Normalize the path before checking to ensure consistent matching
+    was_read = Map.has_key?(state.file_reads, path)
+    {:reply, {:ok, was_read}, state}
+  end
+
+  @impl true
+  def handle_call({:get_file_read_time, path}, _from, state) do
+    timestamp = Map.get(state.file_reads, path)
+    {:reply, {:ok, timestamp}, state}
+  end
+
+  # Enforce maximum file tracking limit to prevent unbounded memory growth
+  # Removes oldest entries when limit is exceeded
+  @spec enforce_file_tracking_limit(map()) :: map()
+  defp enforce_file_tracking_limit(file_map) when map_size(file_map) <= @max_file_operations do
+    file_map
+  end
+
+  defp enforce_file_tracking_limit(file_map) do
+    # Sort by timestamp (oldest first) and take only the newest entries
+    file_map
+    |> Enum.sort_by(fn {_path, timestamp} -> timestamp end, {:asc, DateTime})
+    |> Enum.drop(map_size(file_map) - @max_file_operations)
+    |> Map.new()
   end
 
   # ============================================================================

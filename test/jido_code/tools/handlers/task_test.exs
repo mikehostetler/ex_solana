@@ -12,6 +12,9 @@ defmodule JidoCode.Tools.Handlers.TaskTest do
   @test_model "claude-3-5-sonnet-20241022"
 
   setup do
+    # Ensure infrastructure is running (may have been stopped by another test)
+    JidoCode.Test.SessionTestHelpers.ensure_infrastructure()
+
     # Clear registry
     # Registry cleared at app startup - tools persist
     :ok

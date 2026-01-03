@@ -36,7 +36,11 @@ defmodule JidoCode.ConfigTest do
     end
 
     test "returns error when API key is missing" do
-      Application.put_env(:jido_code, :llm, provider: :anthropic, model: "claude-3-5-haiku-20241022")
+      Application.put_env(:jido_code, :llm,
+        provider: :anthropic,
+        model: "claude-3-5-haiku-20241022"
+      )
+
       System.delete_env("ANTHROPIC_API_KEY")
 
       assert {:error, message} = Config.get_llm_config()

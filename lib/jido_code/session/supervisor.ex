@@ -110,20 +110,19 @@ defmodule JidoCode.Session.Supervisor do
     # Session children - all register in SessionProcessRegistry for lookup
     # Manager: handles session coordination and lifecycle
     # State: manages conversation history, tool context, settings
-    # Agent: LLM agent for chat interactions (started after Manager)
     #
-    # Strategy: :one_for_all because children are tightly coupled:
-    # - Manager depends on State for session data
-    # - State depends on Manager for coordination
-    # - Agent depends on Manager for path validation
-    # - If any crashes, all should restart to ensure consistency
+    # NOTE: LLMAgent is NOT started here - it's started lazily via start_agent/1
+    # when credentials are available. This allows sessions to exist without
+    # a working LLM connection.
+    #
+    # Strategy: :one_for_one because Manager and State are independent.
+    # LLMAgent will be added dynamically later.
     children = [
       {JidoCode.Session.Manager, session: session},
-      {JidoCode.Session.State, session: session},
-      agent_child_spec(session)
+      {JidoCode.Session.State, session: session}
     ]
 
-    Supervisor.init(children, strategy: :one_for_all)
+    Supervisor.init(children, strategy: :one_for_one)
   end
 
   # Build child spec for LLMAgent from session config
@@ -151,6 +150,113 @@ defmodule JidoCode.Session.Supervisor do
     ]
 
     {LLMAgent, opts}
+  end
+
+  # ============================================================================
+  # LLM Agent Lifecycle (Lazy Start)
+  # ============================================================================
+
+  @doc """
+  Starts the LLM agent for a session.
+
+  The agent is started as a child of the session's supervisor. This allows
+  sessions to exist without an LLM agent and start it later when credentials
+  are available.
+
+  ## Parameters
+
+  - `session` - The Session struct with config
+
+  ## Returns
+
+  - `{:ok, pid}` - Agent started successfully
+  - `{:error, :already_started}` - Agent is already running
+  - `{:error, reason}` - Failed to start agent
+
+  ## Examples
+
+      iex> {:ok, pid} = Session.Supervisor.start_agent(session)
+      iex> is_pid(pid)
+      true
+  """
+  @spec start_agent(Session.t()) :: {:ok, pid()} | {:error, term()}
+  def start_agent(%Session{} = session) do
+    case ProcessRegistry.lookup(:session, session.id) do
+      {:ok, supervisor_pid} ->
+        if agent_running?(session.id) do
+          {:error, :already_started}
+        else
+          spec = agent_child_spec(session)
+
+          case Supervisor.start_child(supervisor_pid, spec) do
+            {:ok, pid} -> {:ok, pid}
+            {:ok, pid, _info} -> {:ok, pid}
+            {:error, {:already_started, pid}} -> {:ok, pid}
+            {:error, reason} -> {:error, reason}
+          end
+        end
+
+      {:error, :not_found} ->
+        {:error, :session_not_found}
+    end
+  end
+
+  @doc """
+  Stops the LLM agent for a session.
+
+  ## Parameters
+
+  - `session_id` - The session's unique ID
+
+  ## Returns
+
+  - `:ok` - Agent stopped successfully
+  - `{:error, :not_running}` - Agent was not running
+  - `{:error, :session_not_found}` - Session doesn't exist
+  """
+  @spec stop_agent(String.t()) :: :ok | {:error, term()}
+  def stop_agent(session_id) when is_binary(session_id) do
+    case ProcessRegistry.lookup(:session, session_id) do
+      {:ok, supervisor_pid} ->
+        case ProcessRegistry.lookup(:agent, session_id) do
+          {:ok, _agent_pid} ->
+            # Terminate the agent child
+            Supervisor.terminate_child(supervisor_pid, LLMAgent)
+            Supervisor.delete_child(supervisor_pid, LLMAgent)
+            :ok
+
+          {:error, :not_found} ->
+            {:error, :not_running}
+        end
+
+      {:error, :not_found} ->
+        {:error, :session_not_found}
+    end
+  end
+
+  @doc """
+  Checks if the LLM agent is running for a session.
+
+  ## Parameters
+
+  - `session_id` - The session's unique ID
+
+  ## Returns
+
+  - `true` if agent is running
+  - `false` if agent is not running or session doesn't exist
+
+  ## Examples
+
+      iex> Session.Supervisor.agent_running?(session.id)
+      true
+  """
+  @spec agent_running?(String.t()) :: boolean()
+  def agent_running?(session_id) when is_binary(session_id) do
+    case ProcessRegistry.lookup(:agent, session_id) do
+      {:ok, pid} -> Process.alive?(pid)
+      {:error, :not_found} -> false
+    end
   end
 
   # ============================================================================

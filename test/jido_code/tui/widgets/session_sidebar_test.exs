@@ -154,7 +154,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
   describe "build_session_details/1" do
     test "returns list of TermUI elements" do
       session = create_session()
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       assert is_list(details)
       assert length(details) > 0
@@ -162,7 +163,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
 
     test "includes Info section with created time" do
       session = create_session()
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       # Convert details to strings for easier testing
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
@@ -174,7 +176,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
 
     test "includes project path in Info section" do
       session = create_session(project_path: "/home/user/myproject")
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
@@ -184,7 +187,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
 
     test "includes Files section with empty placeholder" do
       session = create_session()
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
@@ -195,7 +199,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
 
     test "includes Tools section with empty placeholder" do
       session = create_session()
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
@@ -363,7 +368,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
       path = Path.join(home_dir, "projects/myapp")
       session = create_session(project_path: path)
 
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
 
@@ -372,7 +378,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
 
     test "keeps non-home paths unchanged" do
       session = create_session(project_path: "/opt/myproject")
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
 
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
@@ -390,7 +397,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
       created_at = DateTime.add(DateTime.utc_now(), -30, :second)
       session = create_session(created_at: created_at)
 
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
 
@@ -401,7 +409,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
       created_at = DateTime.add(DateTime.utc_now(), -5 * 60, :second)
       session = create_session(created_at: created_at)
 
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
 
@@ -412,7 +421,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
       created_at = DateTime.add(DateTime.utc_now(), -2 * 3600, :second)
       session = create_session(created_at: created_at)
 
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
 
@@ -423,7 +433,8 @@ defmodule JidoCode.TUI.Widgets.SessionSidebarTest do
       created_at = DateTime.add(DateTime.utc_now(), -3 * 86400, :second)
       session = create_session(created_at: created_at)
 
-      details = SessionSidebar.build_session_details(session)
+      sidebar = SessionSidebar.new()
+      details = SessionSidebar.build_session_details(sidebar, session)
       detail_strings = Enum.map(details, fn elem -> inspect(elem) end)
       combined = Enum.join(detail_strings, " ")
 

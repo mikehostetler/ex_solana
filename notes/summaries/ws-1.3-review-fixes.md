@@ -1,145 +1,130 @@
-# Summary: WS-1.3 Review Fixes
+# Section 1.3 Edit File Tool - Review Fixes Summary
 
-**Branch**: `feature/ws-1.3-review-fixes`
-**Date**: 2025-12-04
-**Files Modified**:
-- `lib/jido_code/session_supervisor.ex`
-- `test/jido_code/session_supervisor_test.exs`
+**Date**: 2025-12-28
+**Branch**: `feature/1.3-review-fixes`
+**Status**: Complete
 
-**Files Created**:
-- `test/support/session_test_helpers.ex`
-- `notes/features/ws-1.3-review-fixes.md`
+---
 
 ## Overview
 
-Addressed concerns and implemented suggestions from the Section 1.3 code review. This improves test reliability, reduces code duplication, and enhances documentation.
+This work session addressed all concerns and implemented suggested improvements from the Section 1.3 Edit File Tool code review (`notes/reviews/section-1.3-edit-file-tool-review.md`).
 
-## Changes Implemented
+---
 
-### C2/S1: Test for Start Child Failure Cleanup
+## Concerns Fixed (7/7)
 
-Added a new test that verifies the cleanup path when `DynamicSupervisor.start_child/2` fails:
+### C1: Binary vs Grapheme Position Mismatch
+**Problem**: `:binary.match/2` returns byte positions, but `String.slice/3` uses grapheme positions. For UTF-8 multi-byte content, these differ causing incorrect replacements.
 
+**Fix**: Replaced `:binary.match` with grapheme-safe position finding using `String.split/3`:
 ```elixir
-test "cleans up registry when supervisor start fails", %{tmp_dir: tmp_dir} do
-  defmodule FailingSessionStub do
-    def child_spec(opts) do
-      session = Keyword.fetch!(opts, :session)
-      %{
-        id: {:failing_session, session.id},
-        start: {__MODULE__, :start_link, [opts]},
-        type: :supervisor,
-        restart: :temporary
-      }
-    end
-
-    def start_link(_opts) do
-      {:error, :intentional_failure}
-    end
-  end
-
-  {:ok, session} = Session.new(project_path: tmp_dir)
-  assert {:error, :intentional_failure} =
-           SessionSupervisor.start_session(session, supervisor_module: FailingSessionStub)
-  assert {:error, :not_found} = SessionRegistry.lookup(session.id)
-end
-```
-
-### C3/S3: Replace timer.sleep with Process Monitoring
-
-Replaced `:timer.sleep(10)` calls with deterministic process monitoring using a new helper function:
-
-```elixir
-# Before:
-:timer.sleep(10)
-refute Process.alive?(pid)
-
-# After:
-assert :ok = SessionTestHelpers.wait_for_process_death(pid)
-refute Process.alive?(pid)
-```
-
-### S2: Extract Duplicated Test Setup Code
-
-Created `test/support/session_test_helpers.ex` with shared setup code:
-
-```elixir
-defmodule JidoCode.Test.SessionTestHelpers do
-  def setup_session_supervisor(suffix \\ "test") do
-    # Stops existing supervisor/registry
-    # Starts SessionProcessRegistry
-    # Starts SessionSupervisor
-    # Creates SessionRegistry table
-    # Creates temp directory
-    # Registers on_exit cleanup
-    {:ok, %{sup_pid: sup_pid, tmp_dir: tmp_dir}}
-  end
-
-  def wait_for_process_death(pid, timeout \\ 100) do
-    ref = Process.monitor(pid)
-    receive do
-      {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
-    after
-      timeout -> :timeout
-    end
+defp find_grapheme_position(content, pattern) do
+  case String.split(content, pattern, parts: 2) do
+    [before, _rest] -> {:found, String.length(before)}
+    [_no_match] -> :not_found
   end
 end
 ```
 
-Updated all test describe blocks to use the shared helper instead of ~100 lines of duplicated setup code.
+### C2: Fuzzy Match Position vs Replacement Length
+**Problem**: Fuzzy strategies returned only position, but matched content length can differ from pattern length.
 
-### S4: Simplify list_session_pids with Comprehension
-
+**Fix**: All fuzzy strategies now return `{position, matched_length}` tuples:
 ```elixir
-# Before:
-def list_session_pids do
-  __MODULE__
-  |> DynamicSupervisor.which_children()
-  |> Enum.map(fn {_, pid, _, _} -> pid end)
-  |> Enum.filter(&is_pid/1)
-end
+matched_content = Enum.join(candidate_lines, "\n")
+matched_len = String.length(matched_content)
+[{char_offset, matched_len} | acc]
+```
 
-# After:
-def list_session_pids do
-  for {_id, pid, _type, _modules} <- DynamicSupervisor.which_children(__MODULE__),
-      is_pid(pid),
-      do: pid
+### C3: Extract Duplicated track_file_write/2
+**Status**: Already extracted to `FileSystem.track_file_write/3` in parent module (shared between EditFile and WriteFile).
+
+### C4: Update 'Planned' Documentation
+**Status**: Documentation updated to reflect that multi-strategy matching is fully implemented.
+
+### C5: Add Telemetry Tests for EditFile
+**Status**: Telemetry tests added covering success, error, and read-before-write violation events.
+
+### C6: Make Tab Width Configurable
+**Fix**: Tab width now configurable via application config:
+```elixir
+@tab_width Application.compile_env(:jido_code, [:tools, :edit_file, :tab_width], 4)
+```
+
+### C7: Document Legacy Mode Behavior
+**Fix**: Added legacy mode documentation to EditFile moduledoc explaining that when no `session_id` is present, read-before-write check is bypassed with a debug log.
+
+---
+
+## Suggestions Implemented (4/9)
+
+### S2: Add Unicode Content Tests
+Added 3 new tests in "EditFile unicode and edge cases" describe block:
+- `handles unicode content in old_string and new_string`
+- `handles emoji content correctly`
+- `handles mixed unicode and ASCII correctly`
+
+### S3: Test Empty old_string Edge Case
+**Problem**: Empty `old_string` would match at every position, causing infinite loops.
+
+**Fix**: Added early validation in `execute/2`:
+```elixir
+if old_string == "" do
+  {:error, "old_string cannot be empty"}
 end
 ```
 
-### S6: Document Registry Cleanup Timing
+Added corresponding test: `returns error for empty old_string`
 
-Added documentation note to `stop_session/1`:
-
+### S5: Cache String.length in Reduce
+**Fix**: Optimized `apply_replacements/5` to avoid repeated `String.length` calls:
 ```elixir
-## Note on Registry Cleanup
+suffix = String.slice(acc, pos + len, 0x7FFFFFFF)
+```
+Uses large constant instead of calculating `String.length(acc)` each iteration.
 
-The session is unregistered from SessionRegistry synchronously, but the
-SessionProcessRegistry entry persists until the process fully terminates.
-Use `session_running?/1` if you need to verify the process is alive.
+### S6: Log Successful Strategy Fallbacks
+**Fix**: Added `Logger.debug` when non-exact strategy succeeds:
+```elixir
+if strategy_name != :exact do
+  Logger.debug("EditFile: Used #{strategy_name} matching strategy (exact match failed)")
+end
 ```
 
-## Deferred Items
+---
 
-The following items were intentionally not addressed:
+## Suggestions Not Implemented
 
-| Item | Reason |
-|------|--------|
-| B1: SessionProcessRegistry in application.ex | Deferred to Task 1.5.1 (Application Integration) |
-| C1: Race condition in registration | Acceptable for single-user TUI |
-| C4: Public ETS table access | Acceptable for single-user TUI |
-| C5/S5: Telemetry events | Deferred to Phase 6 |
+- **S1**: Extract matching to separate module - Deferred for later refactoring
+- **S4**: Add dry-run mode - Not needed for MVP
+- **S7**: Extract read-before-write check pattern - Deferred for later
+- **S8**: Add explicit permission preservation comment - Already implicit
+- **S9**: Add concurrent edit test - Deferred for later
+
+---
+
+## Files Changed
+
+| File | Changes |
+|------|---------|
+| `lib/jido_code/tools/handlers/file_system.ex` | Fixed grapheme positions, fuzzy match lengths, empty string validation, tab width config, legacy mode docs, strategy logging |
+| `lib/jido_code/tools/definitions/file_edit.ex` | Updated "Planned" status, added legacy mode documentation |
+| `test/jido_code/tools/handlers/file_system_test.exs` | Added unicode tests (3), empty string test (1), telemetry tests |
+
+---
 
 ## Test Results
 
-- **Tests**: 42 total (41 original + 1 new cleanup test)
-- **All passing**
-- **No timer.sleep calls** (replaced with process monitoring)
-- **Setup code reduced** by ~300 lines through shared helper
+```
+91 tests, 0 failures
+```
 
-## Benefits
+All tests pass including new unicode, empty string, and telemetry tests.
 
-1. **Test Reliability**: Process monitoring instead of arbitrary sleeps prevents flaky tests
-2. **Maintainability**: Shared setup helper reduces duplication and makes tests easier to update
-3. **Documentation**: Clear explanation of cleanup timing behavior
-4. **Code Style**: Comprehension is more idiomatic Elixir than map+filter chain
+---
+
+## Next Steps
+
+1. Commit and merge this branch
+2. Continue to Section 1.4: Multi-Edit Tool implementation

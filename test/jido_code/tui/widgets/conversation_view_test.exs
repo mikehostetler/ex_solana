@@ -23,19 +23,34 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   # Helper to extract content stack from render result
-  # The render now returns a horizontal stack: [content_stack, scrollbar]
+  # render/2 returns: stack(:horizontal, [box([content_stack]), scrollbar]) for messages
+  # or just text node for empty messages
   defp get_content_stack(%TermUI.Component.RenderNode{
          type: :stack,
          direction: :horizontal,
-         children: [content | _]
+         children: [content_box | _]
        }) do
-    content
+    # Content is wrapped in a box, extract the inner content_stack
+    case content_box do
+      %TermUI.Component.RenderNode{type: :box, children: [content_stack | _]} ->
+        content_stack
+
+      _ ->
+        content_box
+    end
   end
 
   defp get_content_stack(result), do: result
 
+  # For backwards compatibility - messages_area is just the result itself now
+  defp get_messages_area(result), do: result
+
   # Helper to flatten nested stacks into a list of text nodes
   defp flatten_nodes(%TermUI.Component.RenderNode{type: :stack, children: children}) do
+    Enum.flat_map(children, &flatten_nodes/1)
+  end
+
+  defp flatten_nodes(%TermUI.Component.RenderNode{type: :box, children: children}) do
     Enum.flat_map(children, &flatten_nodes/1)
   end
 
@@ -53,7 +68,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert props.messages == []
       assert props.max_collapsed_lines == 15
       assert props.show_timestamps == true
-      assert props.scrollbar_width == 2
+      assert props.scrollbar_width == 1
       assert props.indent == 2
       assert props.scroll_lines == 3
       assert is_map(props.role_styles)
@@ -999,15 +1014,17 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "render/2" do
+    # Note: render/2 returns simple structure:
+    # - For empty messages: text("No messages yet", ...)
+    # - For messages: stack(:horizontal, [content_stack, scrollbar])
     test "returns placeholder for empty messages" do
       state = init_state()
       area = %{x: 0, y: 0, width: 80, height: 24}
 
       result = ConversationView.render(state, area)
 
-      # Should return a text node with placeholder message
-      assert %TermUI.Component.RenderNode{type: :text} = result
-      assert result.content == "No messages yet"
+      # Result is a simple text node for empty messages
+      assert %TermUI.Component.RenderNode{type: :text, content: "No messages yet"} = result
     end
 
     test "renders messages with scrollbar in horizontal stack" do
@@ -1017,7 +1034,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       result = ConversationView.render(state, area)
 
-      # Should return a horizontal stack: [content, scrollbar]
+      # Result is a horizontal stack: [content, scrollbar]
       assert %TermUI.Component.RenderNode{type: :stack, direction: :horizontal} = result
       assert length(result.children) == 2
     end
@@ -1083,8 +1100,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert String.starts_with?(content, "  ")
     end
 
-    test "renders truncation indicator for long messages" do
-      # Create a message with many lines
+    test "does not truncate conversation messages (only tool results are truncated)" do
+      # Create a message with many lines - should NOT be truncated
       long_content = Enum.map_join(1..20, "\n", fn i -> "Line #{i}" end)
       messages = [make_message("1", :user, long_content)]
       state = init_state(messages: messages, max_collapsed_lines: 5)
@@ -1093,34 +1110,32 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       result = ConversationView.render(state, area)
       all_nodes = flatten_nodes(result)
 
-      # Find truncation indicator
-      indicator =
-        Enum.find(all_nodes, fn node ->
-          String.contains?(node.content || "", "more lines")
-        end)
-
-      assert indicator != nil
-      assert indicator.content =~ "┄┄┄"
-      assert indicator.content =~ "more lines"
-    end
-
-    test "does not render truncation indicator for expanded messages" do
-      long_content = Enum.map_join(1..20, "\n", fn i -> "Line #{i}" end)
-      messages = [make_message("1", :user, long_content)]
-      state = init_state(messages: messages, max_collapsed_lines: 5)
-      state = ConversationView.toggle_expand(state, "1")
-      area = %{x: 0, y: 0, width: 80, height: 24}
-
-      result = ConversationView.render(state, area)
-      all_nodes = flatten_nodes(result)
-
-      # Should not have truncation indicator
+      # Should NOT have truncation indicator - conversation messages are never truncated
       indicator =
         Enum.find(all_nodes, fn node ->
           String.contains?(node.content || "", "more lines")
         end)
 
       assert indicator == nil
+    end
+
+    test "renders all lines for long messages without truncation" do
+      long_content = Enum.map_join(1..20, "\n", fn i -> "Line #{i}" end)
+      messages = [make_message("1", :user, long_content)]
+      state = init_state(messages: messages, max_collapsed_lines: 5)
+      area = %{x: 0, y: 0, width: 80, height: 24}
+
+      result = ConversationView.render(state, area)
+      all_nodes = flatten_nodes(result)
+
+      # All 20 lines should be present (no truncation)
+      line_nodes =
+        Enum.filter(all_nodes, fn node ->
+          (node.content || "") =~ ~r/Line \d+/
+        end)
+
+      # Should have all 20 lines
+      assert length(line_nodes) == 20
     end
 
     test "renders multiple messages" do
@@ -1195,8 +1210,12 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       result = ConversationView.render(state, area)
 
-      # Second child should be the scrollbar
-      assert %TermUI.Component.RenderNode{type: :stack, children: [_content, scrollbar]} = result
+      # Get messages_area (horizontal stack with [content, scrollbar])
+      messages_area = get_messages_area(result)
+
+      assert %TermUI.Component.RenderNode{type: :stack, children: [_content, scrollbar]} =
+               messages_area
+
       assert %TermUI.Component.RenderNode{type: :stack, direction: :vertical} = scrollbar
     end
   end
@@ -1461,7 +1480,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       result = ConversationView.render(state, area)
       content_stack = get_content_stack(result)
 
-      # Content stack should have viewport_height children
+      # Content stack should have area.height children (full height)
       assert length(content_stack.children) == 24
     end
 
@@ -1474,7 +1493,9 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       # We verify by checking the scrollbar height
       result = ConversationView.render(state, area)
 
+      # Result is a horizontal stack: [content, scrollbar]
       assert %TermUI.Component.RenderNode{type: :stack, children: [_, scrollbar]} = result
+      # scrollbar height = area.height (full height)
       assert length(scrollbar.children) == 30
     end
   end
@@ -1575,10 +1596,12 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   # ============================================================================
 
   describe "handle_event/2 - scroll navigation" do
-    test ":up key decreases scroll_offset by 1" do
+    # Note: Arrow key scroll only works when input_focused: false
+    # When input_focused: true, arrow keys go to TextInput
+    test ":up key decreases scroll_offset by 1 (when input not focused)" do
       messages = Enum.map(1..20, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5, scroll_offset: 10}
+      state = %{state | viewport_height: 5, scroll_offset: 10, input_focused: false}
 
       event = %TermUI.Event.Key{key: :up, modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1586,10 +1609,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert new_state.scroll_offset == 9
     end
 
-    test ":down key increases scroll_offset by 1" do
+    test ":down key increases scroll_offset by 1 (when input not focused)" do
       messages = Enum.map(1..20, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5, scroll_offset: 5}
+      state = %{state | viewport_height: 5, scroll_offset: 5, input_focused: false}
 
       event = %TermUI.Event.Key{key: :down, modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1597,7 +1620,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert new_state.scroll_offset == 6
     end
 
-    test ":page_up decreases scroll_offset by viewport_height" do
+    test ":page_up decreases scroll_offset by viewport_height (works even with input focused)" do
       messages = Enum.map(1..20, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5, scroll_offset: 20}
@@ -1608,7 +1631,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert new_state.scroll_offset == 15
     end
 
-    test ":page_down increases scroll_offset by viewport_height" do
+    test ":page_down increases scroll_offset by viewport_height (works even with input focused)" do
       messages = Enum.map(1..20, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
       state = %{state | viewport_height: 5, scroll_offset: 0}
@@ -1619,10 +1642,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert new_state.scroll_offset == 5
     end
 
-    test ":home sets scroll_offset to 0" do
+    test ":home sets scroll_offset to 0 (when input not focused)" do
       messages = Enum.map(1..10, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5, scroll_offset: 20}
+      state = %{state | viewport_height: 5, scroll_offset: 20, input_focused: false}
 
       event = %TermUI.Event.Key{key: :home, modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1630,10 +1653,10 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       assert new_state.scroll_offset == 0
     end
 
-    test ":end sets scroll_offset to max" do
+    test ":end sets scroll_offset to max (when input not focused)" do
       messages = Enum.map(1..10, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5, scroll_offset: 0}
+      state = %{state | viewport_height: 5, scroll_offset: 0, input_focused: false}
 
       event = %TermUI.Event.Key{key: :end, modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1643,7 +1666,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "scroll respects lower bound (no negative)" do
       state = init_state(messages: [make_message("1", :user, "Test")])
-      state = %{state | scroll_offset: 0}
+      state = %{state | scroll_offset: 0, input_focused: false}
 
       event = %TermUI.Event.Key{key: :up, modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1654,7 +1677,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     test "scroll respects upper bound" do
       messages = Enum.map(1..10, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5}
+      state = %{state | viewport_height: 5, input_focused: false}
       max_offset = ConversationView.max_scroll_offset(state)
       state = %{state | scroll_offset: max_offset}
 
@@ -1666,6 +1689,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "handle_event/2 - message focus navigation" do
+    # Note: Ctrl+Up/Down only work when input_focused: false
+    # When input_focused: true, these keys go to TextInput
     test "Ctrl+Up moves cursor_message_idx up" do
       messages = [
         make_message("1", :user, "First"),
@@ -1674,7 +1699,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       ]
 
       state = init_state(messages: messages)
-      state = %{state | cursor_message_idx: 2}
+      state = %{state | cursor_message_idx: 2, input_focused: false}
 
       event = %TermUI.Event.Key{key: :up, modifiers: [:ctrl]}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1690,7 +1715,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       ]
 
       state = init_state(messages: messages)
-      state = %{state | cursor_message_idx: 0}
+      state = %{state | cursor_message_idx: 0, input_focused: false}
 
       event = %TermUI.Event.Key{key: :down, modifiers: [:ctrl]}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1701,7 +1726,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     test "focus navigation clamps to first message" do
       messages = [make_message("1", :user, "First")]
       state = init_state(messages: messages)
-      state = %{state | cursor_message_idx: 0}
+      state = %{state | cursor_message_idx: 0, input_focused: false}
 
       event = %TermUI.Event.Key{key: :up, modifiers: [:ctrl]}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1716,7 +1741,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       ]
 
       state = init_state(messages: messages)
-      state = %{state | cursor_message_idx: 1}
+      state = %{state | cursor_message_idx: 1, input_focused: false}
 
       event = %TermUI.Event.Key{key: :down, modifiers: [:ctrl]}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1728,7 +1753,14 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       # Create many messages
       messages = Enum.map(1..20, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
-      state = %{state | viewport_height: 5, cursor_message_idx: 0, scroll_offset: 0}
+
+      state = %{
+        state
+        | viewport_height: 5,
+          cursor_message_idx: 0,
+          scroll_offset: 0,
+          input_focused: false
+      }
 
       # Move focus down several times
       event = %TermUI.Event.Key{key: :down, modifiers: [:ctrl]}
@@ -1749,11 +1781,13 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "handle_event/2 - expand/collapse" do
+    # Note: Expand/collapse keys only work when input_focused: false
+    # When input_focused: true, these keys go to TextInput
     test "Space toggles expansion of focused message" do
       long_content = String.duplicate("Line\n", 30)
       messages = [make_message("1", :user, long_content)]
       state = init_state(messages: messages, max_collapsed_lines: 5)
-      state = %{state | cursor_message_idx: 0}
+      state = %{state | cursor_message_idx: 0, input_focused: false}
 
       # Initially collapsed
       refute ConversationView.expanded?(state, "1")
@@ -1777,6 +1811,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       ]
 
       state = init_state(messages: messages, max_collapsed_lines: 5)
+      state = %{state | input_focused: false}
 
       event = %TermUI.Event.Key{key: nil, char: "e", modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -1793,6 +1828,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       state = init_state(messages: messages, max_collapsed_lines: 5)
       state = ConversationView.expand_all(state)
+      state = %{state | input_focused: false}
 
       # Both expanded
       assert ConversationView.expanded?(state, "1")
@@ -1810,6 +1846,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       long_content = String.duplicate("Line\n", 30)
       messages = [make_message("1", :user, long_content)]
       state = init_state(messages: messages, max_collapsed_lines: 5)
+      state = %{state | input_focused: false}
 
       collapsed_lines = state.total_lines
 
@@ -1823,6 +1860,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "handle_event/2 - copy functionality" do
+    # Note: Copy key only works when input_focused: false
+    # When input_focused: true, these keys go to TextInput
     test "y key calls on_copy with message content" do
       # Track copy callback invocations
       test_pid = self()
@@ -1834,7 +1873,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
       messages = [make_message("1", :user, "Hello World")]
       state = init_state(messages: messages, on_copy: callback)
-      state = %{state | cursor_message_idx: 0}
+      state = %{state | cursor_message_idx: 0, input_focused: false}
 
       event = %TermUI.Event.Key{key: nil, char: "y", modifiers: []}
       {:ok, _new_state} = ConversationView.handle_event(event, state)
@@ -1845,6 +1884,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
     test "y key is no-op when on_copy is nil" do
       messages = [make_message("1", :user, "Hello")]
       state = init_state(messages: messages)
+      state = %{state | input_focused: false}
       # on_copy is nil by default
 
       event = %TermUI.Event.Key{key: nil, char: "y", modifiers: []}
@@ -1858,6 +1898,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   describe "handle_event/2 - catch-all" do
     test "unhandled events return unchanged state" do
       state = init_state()
+      state = %{state | input_focused: false}
 
       # Some random event
       event = %TermUI.Event.Key{key: :f1, modifiers: []}
@@ -1868,6 +1909,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
 
     test "character keys not handled return unchanged state" do
       state = init_state()
+      state = %{state | input_focused: false}
 
       event = %TermUI.Event.Key{key: nil, char: "x", modifiers: []}
       {:ok, new_state} = ConversationView.handle_event(event, state)
@@ -2052,14 +2094,15 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "handle_event/2 - scrollbar click handling" do
+    # Note: scrollbar_width is now 1, so scrollbar is at x >= viewport_width - 1
     test "click above thumb triggers page up" do
       messages = Enum.map(1..30, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
       state = %{state | viewport_height: 10, viewport_width: 82, scroll_offset: 50}
 
-      # Click above thumb (y = 0) on scrollbar (x >= content_width)
+      # Click above thumb (y = 0) on scrollbar (x >= content_width = 81)
       # Thumb is somewhere in the middle, so y=0 is always above it
-      event = %TermUI.Event.Mouse{action: :click, x: 80, y: 0, button: :left}
+      event = %TermUI.Event.Mouse{action: :click, x: 81, y: 0, button: :left}
       {:ok, new_state} = ConversationView.handle_event(event, state)
 
       # Should have scrolled up by viewport_height
@@ -2071,8 +2114,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       state = init_state(messages: messages)
       state = %{state | viewport_height: 10, viewport_width: 82, scroll_offset: 10}
 
-      # Click at bottom of scrollbar
-      event = %TermUI.Event.Mouse{action: :click, x: 80, y: 9, button: :left}
+      # Click at bottom of scrollbar (x >= content_width = 81)
+      event = %TermUI.Event.Mouse{action: :click, x: 81, y: 9, button: :left}
       {:ok, new_state} = ConversationView.handle_event(event, state)
 
       # Should have scrolled down
@@ -2081,6 +2124,7 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
   end
 
   describe "handle_event/2 - scrollbar drag handling" do
+    # Note: scrollbar_width is now 1, so scrollbar is at x >= viewport_width - 1
     test "press on thumb starts drag state" do
       messages = Enum.map(1..30, &make_message("#{&1}", :user, "Message #{&1}"))
       state = init_state(messages: messages)
@@ -2089,8 +2133,8 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       # Calculate thumb position
       {_thumb_size, thumb_pos} = ConversationView.calculate_scrollbar_metrics(state, 10)
 
-      # Press on thumb
-      event = %TermUI.Event.Mouse{action: :press, x: 80, y: thumb_pos, button: :left}
+      # Press on thumb (x >= content_width = 81)
+      event = %TermUI.Event.Mouse{action: :press, x: 81, y: thumb_pos, button: :left}
       {:ok, new_state} = ConversationView.handle_event(event, state)
 
       assert new_state.dragging == true
@@ -2210,6 +2254,178 @@ defmodule JidoCode.TUI.Widgets.ConversationViewTest do
       {:ok, new_state} = ConversationView.handle_event(event, state)
 
       assert new_state == state
+    end
+  end
+
+  # ============================================================================
+  # Interactive Element Navigation Tests
+  # ============================================================================
+
+  describe "interactive element navigation" do
+    test "Ctrl+B enters interactive mode when code blocks exist" do
+      markdown_with_code = """
+      Here's some code:
+
+      ```elixir
+      def hello, do: :world
+      ```
+      """
+
+      messages = [make_message("1", :assistant, markdown_with_code)]
+      state = init_state(messages: messages)
+
+      # Initially not in interactive mode
+      refute state.interactive_mode
+
+      # Press Ctrl+B
+      event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, new_state} = ConversationView.handle_event(event, state)
+
+      # Should now be in interactive mode with focused element
+      assert new_state.interactive_mode
+      assert new_state.focused_element_id != nil
+      assert length(new_state.interactive_elements) == 1
+    end
+
+    test "Ctrl+B does nothing when no code blocks exist" do
+      messages = [make_message("1", :assistant, "Just plain text, no code")]
+      state = init_state(messages: messages)
+
+      event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, new_state} = ConversationView.handle_event(event, state)
+
+      # Should remain out of interactive mode
+      refute new_state.interactive_mode
+    end
+
+    test "Ctrl+B cycles through multiple code blocks" do
+      markdown_with_multiple = """
+      First block:
+
+      ```elixir
+      def first, do: 1
+      ```
+
+      Second block:
+
+      ```elixir
+      def second, do: 2
+      ```
+      """
+
+      messages = [make_message("1", :assistant, markdown_with_multiple)]
+      state = init_state(messages: messages)
+
+      # Enter interactive mode
+      event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, state1} = ConversationView.handle_event(event, state)
+      assert state1.interactive_mode
+      first_id = state1.focused_element_id
+
+      # Ctrl+B again to move to next element
+      {:ok, state2} = ConversationView.handle_event(event, state1)
+      second_id = state2.focused_element_id
+
+      # Should have moved to different element
+      assert first_id != second_id
+
+      # Ctrl+B again should cycle back to first
+      {:ok, state3} = ConversationView.handle_event(event, state2)
+      assert state3.focused_element_id == first_id
+    end
+
+    test "Escape exits interactive mode" do
+      markdown_with_code = """
+      ```elixir
+      def hello, do: :world
+      ```
+      """
+
+      messages = [make_message("1", :assistant, markdown_with_code)]
+      state = init_state(messages: messages)
+
+      # Enter interactive mode
+      ctrl_b_event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, state1} = ConversationView.handle_event(ctrl_b_event, state)
+      assert state1.interactive_mode
+
+      # Press Escape
+      esc_event = %TermUI.Event.Key{key: :escape}
+      {:ok, state2} = ConversationView.handle_event(esc_event, state1)
+
+      # Should exit interactive mode
+      refute state2.interactive_mode
+      assert state2.focused_element_id == nil
+    end
+
+    test "get_focused_element returns focused element when in interactive mode" do
+      markdown_with_code = """
+      ```elixir
+      def hello, do: :world
+      ```
+      """
+
+      messages = [make_message("1", :assistant, markdown_with_code)]
+      state = init_state(messages: messages)
+
+      # Not in interactive mode - no focused element
+      assert ConversationView.get_focused_element(state) == nil
+
+      # Enter interactive mode
+      event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, state1} = ConversationView.handle_event(event, state)
+
+      # Should return the focused element
+      element = ConversationView.get_focused_element(state1)
+      assert element != nil
+      assert element.type == :code_block
+      assert element.content == "def hello, do: :world"
+    end
+
+    test "Enter copies focused element and exits interactive mode" do
+      markdown_with_code = """
+      ```elixir
+      def hello, do: :world
+      ```
+      """
+
+      # Use a callback to capture copied content
+      messages = [make_message("1", :assistant, markdown_with_code)]
+
+      state =
+        init_state(
+          messages: messages,
+          on_copy: fn text ->
+            send(self(), {:copied, text})
+          end
+        )
+
+      # Enter interactive mode
+      ctrl_b_event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, state1} = ConversationView.handle_event(ctrl_b_event, state)
+      assert state1.interactive_mode
+
+      # Press Enter to copy
+      enter_event = %TermUI.Event.Key{key: :enter}
+      {:ok, state2} = ConversationView.handle_event(enter_event, state1)
+
+      # Should have copied and exited interactive mode
+      refute state2.interactive_mode
+
+      # Verify callback was called
+      assert_receive {:copied, "def hello, do: :world"}
+    end
+
+    test "interactive_mode?/1 returns correct boolean" do
+      messages = [make_message("1", :assistant, "```elixir\ncode\n```")]
+      state = init_state(messages: messages)
+
+      refute ConversationView.interactive_mode?(state)
+
+      event = %TermUI.Event.Key{char: "b", modifiers: [:ctrl]}
+      {:ok, state1} = ConversationView.handle_event(event, state)
+
+      assert ConversationView.interactive_mode?(state1)
     end
   end
 end

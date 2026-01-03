@@ -63,6 +63,13 @@ defmodule JidoCode.MixProject do
       # Web tools
       {:floki, "~> 0.36"},
 
+      # Markdown processing
+      {:mdex, "~> 0.10"},
+
+      # Syntax highlighting for code blocks
+      {:makeup, "~> 1.1"},
+      {:makeup_elixir, "~> 1.0"},
+
       # Development dependencies
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

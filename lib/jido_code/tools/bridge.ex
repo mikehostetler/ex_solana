@@ -12,6 +12,7 @@ defmodule JidoCode.Tools.Bridge do
   - `jido.read_file(path)` - Read file contents
   - `jido.write_file(path, content)` - Write content to file
   - `jido.list_dir(path)` - List directory contents
+  - `jido.glob(pattern)` - Find files matching glob pattern
   - `jido.file_exists(path)` - Check if path exists
   - `jido.file_stat(path)` - Get file metadata (size, type, access)
   - `jido.is_file(path)` - Check if path is a regular file
@@ -53,58 +54,162 @@ defmodule JidoCode.Tools.Bridge do
   """
 
   alias JidoCode.Tools.Handlers.Shell
+  alias JidoCode.Tools.Helpers.GlobMatcher
   alias JidoCode.Tools.Security
 
   require Logger
 
   @default_shell_timeout 60_000
 
+  # Read file defaults
+  @default_offset 1
+  @default_limit 2000
+  @max_line_length 2000
+
   # ============================================================================
   # File Operations
   # ============================================================================
 
   @doc """
-  Reads a file's contents. Called from Lua as `jido.read_file(path)`.
+  Reads a file's contents with line numbers. Called from Lua as `jido.read_file(path)` or
+  `jido.read_file(path, opts)`.
+
+  Returns line-numbered output in cat -n style format:
+  ```
+       1→first line
+       2→second line
+  ```
 
   ## Parameters
 
-  - `args` - Lua arguments: `[path]`
+  - `args` - Lua arguments: `[path]` or `[path, opts_table]`
+    - `opts.offset` - Line to start from (1-indexed, default: 1)
+    - `opts.limit` - Maximum lines to read (default: 2000)
   - `state` - Lua state
   - `project_root` - Project root for path validation
 
   ## Returns
 
-  - `{[content], state}` on success
+  - `{[content], state}` on success (line-numbered content)
   - `{[nil, error], state}` on failure
+
+  ## Errors
+
+  - Binary files are rejected (files containing null bytes)
+  - Paths outside project boundary are rejected
+  - Long lines (>2000 chars) are truncated with `[truncated]` indicator
   """
   def lua_read_file(args, state, project_root) do
     case args do
       [path] when is_binary(path) ->
-        do_read_file(path, state, project_root)
+        do_read_file(path, %{}, state, project_root)
+
+      # Handle decoded Elixir list (direct calls from tests)
+      [path, opts] when is_binary(path) and is_list(opts) ->
+        parsed_opts = parse_read_opts(opts)
+        do_read_file(path, parsed_opts, state, project_root)
+
+      # Handle Lua table reference (calls via luerl.do)
+      [path, {:tref, _} = tref] when is_binary(path) ->
+        opts = :luerl.decode(tref, state)
+        parsed_opts = parse_read_opts(opts)
+        do_read_file(path, parsed_opts, state, project_root)
+
+      [path, opts] when is_binary(path) and is_map(opts) ->
+        do_read_file(path, opts, state, project_root)
 
       _ ->
         {[nil, "read_file requires a path argument"], state}
     end
   end
 
-  defp do_read_file(path, state, project_root) do
+  defp parse_read_opts(opts) when is_list(opts) do
+    Enum.reduce(opts, %{}, fn
+      {"offset", offset}, acc when is_number(offset) -> Map.put(acc, :offset, trunc(offset))
+      {"limit", limit}, acc when is_number(limit) -> Map.put(acc, :limit, trunc(limit))
+      _, acc -> acc
+    end)
+  end
+
+  @spec do_read_file(String.t(), map(), :luerl.luerl_state(), String.t()) ::
+          {list(), :luerl.luerl_state()}
+  defp do_read_file(path, opts, state, project_root) do
+    offset = Map.get(opts, :offset, @default_offset)
+    limit = Map.get(opts, :limit, @default_limit)
+
     # SEC-2 Fix: Use atomic_read to mitigate TOCTOU race conditions
     case Security.atomic_read(path, project_root) do
       {:ok, content} ->
-        {[content], state}
-
-      {:error, :path_escapes_boundary} ->
-        {[nil, format_security_error(:path_escapes_boundary, path)], state}
-
-      {:error, :path_outside_boundary} ->
-        {[nil, format_security_error(:path_outside_boundary, path)], state}
-
-      {:error, :symlink_escapes_boundary} ->
-        {[nil, format_security_error(:symlink_escapes_boundary, path)], state}
+        process_file_content(content, offset, limit, path, state)
 
       {:error, reason} ->
-        {[nil, format_file_error(reason, path)], state}
+        handle_operation_error(reason, path, state)
     end
+  end
+
+  # Unified error handling for security and file errors
+  # Converts {:error, reason} to Lua-compatible {[nil, message], state}
+  @security_errors [:path_escapes_boundary, :path_outside_boundary, :symlink_escapes_boundary]
+
+  @spec handle_operation_error(atom(), String.t(), :luerl.luerl_state()) ::
+          {list(), :luerl.luerl_state()}
+  defp handle_operation_error(reason, path, state) when reason in @security_errors do
+    {[nil, format_security_error(reason, path)], state}
+  end
+
+  defp handle_operation_error(reason, path, state) do
+    {[nil, format_file_error(reason, path)], state}
+  end
+
+  defp process_file_content(content, offset, limit, path, state) do
+    # Check for binary content (null bytes indicate binary file)
+    if is_binary_content?(content) do
+      {[nil, "Binary file detected: #{path}. Cannot read binary files."], state}
+    else
+      formatted = format_with_line_numbers(content, offset, limit)
+      {[formatted], state}
+    end
+  end
+
+  @doc false
+  # Detects binary files by checking for null bytes in the first 8KB
+  def is_binary_content?(content) when is_binary(content) do
+    # Check the first 8KB for null bytes (common binary file indicator)
+    sample_size = min(byte_size(content), 8192)
+    sample = :binary.part(content, 0, sample_size)
+    String.contains?(sample, <<0>>)
+  end
+
+  @doc false
+  # Formats file content with line numbers (cat -n style)
+  # Applies offset and limit, truncates long lines
+  def format_with_line_numbers(content, offset, limit) when is_binary(content) do
+    lines = String.split(content, ~r/\r?\n/, parts: :infinity)
+    total_lines = length(lines)
+
+    # Calculate the width needed for line numbers based on total lines
+    line_num_width = max(6, String.length(Integer.to_string(total_lines)))
+
+    lines
+    |> Enum.with_index(1)
+    |> Enum.drop(max(0, offset - 1))
+    |> Enum.take(limit)
+    |> Enum.map(fn {line, idx} ->
+      truncated_line = truncate_line(line)
+      pad_line_number(idx, line_num_width) <> "→" <> truncated_line
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp truncate_line(line) when byte_size(line) > @max_line_length do
+    truncated = String.slice(line, 0, @max_line_length)
+    truncated <> " [truncated]"
+  end
+
+  defp truncate_line(line), do: line
+
+  defp pad_line_number(num, width) do
+    String.pad_leading(Integer.to_string(num), width, " ")
   end
 
   @doc """
@@ -134,44 +239,56 @@ defmodule JidoCode.Tools.Bridge do
     end
   end
 
+  @spec do_write_file(String.t(), String.t(), :luerl.luerl_state(), String.t()) ::
+          {list(), :luerl.luerl_state()}
   defp do_write_file(path, content, state, project_root) do
     # SEC-2 Fix: Use atomic_write to mitigate TOCTOU race conditions
     case Security.atomic_write(path, content, project_root) do
       :ok ->
         {[true], state}
 
-      {:error, :path_escapes_boundary} ->
-        {[nil, format_security_error(:path_escapes_boundary, path)], state}
-
-      {:error, :path_outside_boundary} ->
-        {[nil, format_security_error(:path_outside_boundary, path)], state}
-
-      {:error, :symlink_escapes_boundary} ->
-        {[nil, format_security_error(:symlink_escapes_boundary, path)], state}
-
       {:error, reason} ->
-        {[nil, format_file_error(reason, path)], state}
+        handle_operation_error(reason, path, state)
     end
   end
 
   @doc """
-  Lists directory contents. Called from Lua as `jido.list_dir(path)`.
+  Lists directory contents. Called from Lua as `jido.list_dir(path)` or
+  `jido.list_dir(path, opts)`.
 
   ## Parameters
 
-  - `args` - Lua arguments: `[path]`
+  - `args` - Lua arguments: `[path]` or `[path, opts]`
+    - `path` - Directory path to list
+    - `opts` - Optional Lua table with:
+      - `ignore_patterns` - Array of glob patterns to exclude
   - `state` - Lua state
   - `project_root` - Project root for path validation
 
   ## Returns
 
-  - `{[entries], state}` on success (entries as Lua array)
+  - `{[entries], state}` on success (entries as Lua array of tables with name/type)
   - `{[nil, error], state}` on failure
+
+  ## Entry Format
+
+  Each entry is a Lua table with:
+  - `name` - Entry name (string)
+  - `type` - Either "file" or "directory"
+
+  ## Sorting
+
+  Entries are sorted with directories first, then alphabetically within each group.
   """
+  @spec lua_list_dir(list(), :luerl.luerl_state(), String.t()) :: {list(), :luerl.luerl_state()}
   def lua_list_dir(args, state, project_root) do
     case args do
       [path] when is_binary(path) ->
-        do_list_dir(path, state, project_root)
+        do_list_dir(path, [], state, project_root)
+
+      [path, opts] when is_binary(path) ->
+        ignore_patterns = extract_ignore_patterns(opts)
+        do_list_dir(path, ignore_patterns, state, project_root)
 
       [] ->
         # Default to project root
@@ -182,30 +299,133 @@ defmodule JidoCode.Tools.Bridge do
     end
   end
 
-  defp do_list_dir(path, state, project_root) do
+  # Extract ignore_patterns from Lua options table
+  @spec extract_ignore_patterns(list() | any()) :: list(String.t())
+  defp extract_ignore_patterns(opts) when is_list(opts) do
+    case List.keyfind(opts, "ignore_patterns", 0) do
+      {"ignore_patterns", patterns} when is_list(patterns) ->
+        # Convert Lua array (list of {index, value} tuples) to list of strings
+        patterns
+        |> Enum.map(fn
+          {_idx, pattern} when is_binary(pattern) -> pattern
+          pattern when is_binary(pattern) -> pattern
+          _ -> nil
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        []
+    end
+  end
+
+  defp extract_ignore_patterns(_), do: []
+
+  @spec do_list_dir(String.t(), list(String.t()), :luerl.luerl_state(), String.t()) ::
+          {list(), :luerl.luerl_state()}
+  defp do_list_dir(path, ignore_patterns, state, project_root) do
     with {:ok, safe_path} <- Security.validate_path(path, project_root),
          {:ok, entries} <- File.ls(safe_path) do
-      # Convert to Lua array format (1-indexed list of tuples)
+      # Filter, sort (directories first), and convert to Lua array format
       lua_array =
         entries
-        |> Enum.sort()
+        |> Enum.reject(&GlobMatcher.matches_any?(&1, ignore_patterns))
+        |> GlobMatcher.sort_directories_first(safe_path)
         |> Enum.with_index(1)
-        |> Enum.map(fn {entry, idx} -> {idx, entry} end)
+        |> Enum.map(fn {entry, idx} ->
+          info = GlobMatcher.entry_info(safe_path, entry)
+          {idx, [{"name", info.name}, {"type", info.type}]}
+        end)
 
       {[lua_array], state}
     else
-      {:error, :path_escapes_boundary} ->
-        {[nil, format_security_error(:path_escapes_boundary, path)], state}
+      {:error, reason} ->
+        handle_operation_error(reason, path, state)
+    end
+  end
 
-      {:error, :path_outside_boundary} ->
-        {[nil, format_security_error(:path_outside_boundary, path)], state}
+  @doc """
+  Finds files matching a glob pattern. Called from Lua as `jido.glob(pattern)` or
+  `jido.glob(pattern, path)`.
 
-      {:error, :symlink_escapes_boundary} ->
-        {[nil, format_security_error(:symlink_escapes_boundary, path)], state}
+  ## Parameters
+
+  - `args` - Lua arguments: `[pattern]` or `[pattern, path]`
+    - `pattern` - Glob pattern (e.g., "**/*.ex", "*.{ex,exs}")
+    - `path` - Base directory to search from (defaults to project root)
+  - `state` - Lua state
+  - `project_root` - Project root for path validation
+
+  ## Returns
+
+  - `{[paths], state}` on success (paths as Lua array of relative paths)
+  - `{[nil, error], state}` on failure
+
+  ## Supported Patterns
+
+  - `*` - Match any characters (not path separator)
+  - `**` - Match any characters including path separators
+  - `?` - Match any single character
+  - `{a,b}` - Match either pattern a or pattern b
+  - `[abc]` - Match any character in the set
+
+  ## Sorting
+
+  Results are sorted by modification time with newest files first.
+  """
+  @spec lua_glob(list(), :luerl.luerl_state(), String.t()) :: {list(), :luerl.luerl_state()}
+  def lua_glob(args, state, project_root) do
+    case args do
+      [pattern] when is_binary(pattern) ->
+        do_glob(pattern, ".", state, project_root)
+
+      [pattern, path] when is_binary(pattern) and is_binary(path) ->
+        do_glob(pattern, path, state, project_root)
+
+      [] ->
+        {[nil, "glob requires a pattern argument"], state}
+
+      _ ->
+        {[nil, "glob requires a pattern argument"], state}
+    end
+  end
+
+  @spec do_glob(String.t(), String.t(), :luerl.luerl_state(), String.t()) ::
+          {list(), :luerl.luerl_state()}
+  defp do_glob(pattern, base_path, state, project_root) do
+    with {:ok, safe_base} <- Security.validate_path(base_path, project_root),
+         {:ok, _} <- ensure_exists(safe_base) do
+      # Build full pattern path
+      full_pattern = Path.join(safe_base, pattern)
+
+      # Find matching files, filter to boundary, sort by mtime
+      # Uses GlobMatcher for consistent behavior with GlobSearch handler
+      matches =
+        full_pattern
+        |> Path.wildcard(match_dot: false)
+        |> GlobMatcher.filter_within_boundary(project_root)
+        |> GlobMatcher.sort_by_mtime_desc()
+        |> GlobMatcher.make_relative(project_root)
+
+      # Convert to Lua array format
+      lua_array =
+        matches
+        |> Enum.with_index(1)
+        |> Enum.map(fn {path, idx} -> {idx, path} end)
+
+      {[lua_array], state}
+    else
+      {:error, :enoent} ->
+        handle_operation_error(:enoent, base_path, state)
 
       {:error, reason} ->
-        {[nil, format_file_error(reason, path)], state}
+        handle_operation_error(reason, base_path, state)
     end
+  end
+
+  # Helper to check file existence in a with-compatible format
+  @spec ensure_exists(String.t()) :: {:ok, String.t()} | {:error, :enoent}
+  defp ensure_exists(path) do
+    if File.exists?(path), do: {:ok, path}, else: {:error, :enoent}
   end
 
   @doc """
@@ -616,6 +836,7 @@ defmodule JidoCode.Tools.Bridge do
     |> register_function("read_file", &lua_read_file/3, project_root)
     |> register_function("write_file", &lua_write_file/3, project_root)
     |> register_function("list_dir", &lua_list_dir/3, project_root)
+    |> register_function("glob", &lua_glob/3, project_root)
     |> register_function("file_exists", &lua_file_exists/3, project_root)
     |> register_function("file_stat", &lua_file_stat/3, project_root)
     |> register_function("is_file", &lua_is_file/3, project_root)

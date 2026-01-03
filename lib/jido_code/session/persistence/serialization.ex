@@ -43,20 +43,57 @@ defmodule JidoCode.Session.Persistence.Serialization do
   @spec build_persisted_session(map()) :: Schema.persisted_session()
   def build_persisted_session(state) do
     session = state.session
+    messages = state.messages
 
-    %{
+    # Calculate cumulative usage from messages
+    cumulative_usage = calculate_cumulative_usage(messages)
+
+    base = %{
       version: Schema.schema_version(),
       id: session.id,
       name: session.name,
       project_path: session.project_path,
       config: serialize_config(session.config),
+      language: to_string(session.language),
       created_at: format_datetime(session.created_at),
       updated_at: format_datetime(session.updated_at),
       closed_at: DateTime.to_iso8601(DateTime.utc_now()),
-      conversation: Enum.map(state.messages, &serialize_message/1),
-      todos: Enum.map(state.todos, &serialize_todo/1)
+      conversation: Enum.map(messages, &serialize_message/1),
+      todos: Enum.map(state.todos, &serialize_todo/1),
+      prompt_history: Map.get(state, :prompt_history, [])
     }
+
+    # Add cumulative usage if available
+    case cumulative_usage do
+      nil -> base
+      usage -> Map.put(base, :cumulative_usage, usage)
+    end
   end
+
+  # Calculate cumulative usage from all messages that have usage data
+  defp calculate_cumulative_usage(messages) when is_list(messages) do
+    usage =
+      messages
+      |> Enum.filter(&Map.has_key?(&1, :usage))
+      |> Enum.reduce(%{input_tokens: 0, output_tokens: 0, total_cost: 0.0}, fn msg, acc ->
+        usage = msg.usage || %{}
+
+        %{
+          input_tokens: acc.input_tokens + (usage[:input_tokens] || 0),
+          output_tokens: acc.output_tokens + (usage[:output_tokens] || 0),
+          total_cost: acc.total_cost + (usage[:total_cost] || 0.0)
+        }
+      end)
+
+    # Return nil if no usage data was found
+    if usage.input_tokens == 0 and usage.output_tokens == 0 and usage.total_cost == 0.0 do
+      nil
+    else
+      usage
+    end
+  end
+
+  defp calculate_cumulative_usage(_), do: nil
 
   # ============================================================================
   # Serialization (Runtime -> Persisted)
@@ -64,13 +101,31 @@ defmodule JidoCode.Session.Persistence.Serialization do
 
   # Serialize a message to the persisted format
   defp serialize_message(msg) do
-    %{
+    base = %{
       id: msg.id,
       role: to_string(msg.role),
       content: msg.content,
       timestamp: format_datetime(msg.timestamp)
     }
+
+    # Add usage if present (only on assistant messages)
+    case Map.get(msg, :usage) do
+      nil -> base
+      usage when is_map(usage) -> Map.put(base, :usage, serialize_usage(usage))
+      _ -> base
+    end
   end
+
+  # Serialize usage data to the persisted format
+  defp serialize_usage(usage) when is_map(usage) do
+    %{
+      input_tokens: Map.get(usage, :input_tokens) || 0,
+      output_tokens: Map.get(usage, :output_tokens) || 0,
+      total_cost: Map.get(usage, :total_cost) || 0.0
+    }
+  end
+
+  defp serialize_usage(_), do: nil
 
   # Serialize a todo to the persisted format
   defp serialize_todo(todo) do
@@ -153,17 +208,35 @@ defmodule JidoCode.Session.Persistence.Serialization do
          {:ok, todos} <- deserialize_todos(validated.todos),
          {:ok, created_at} <- parse_datetime_required(validated.created_at),
          {:ok, updated_at} <- parse_datetime_required(validated.updated_at) do
-      {:ok,
-       %{
-         id: validated.id,
-         name: validated.name,
-         project_path: validated.project_path,
-         config: deserialize_config(validated.config),
-         created_at: created_at,
-         updated_at: updated_at,
-         conversation: messages,
-         todos: todos
-       }}
+      # Extract prompt_history, handling legacy sessions without it
+      prompt_history =
+        Map.get(validated, :prompt_history) || Map.get(validated, "prompt_history") || []
+
+      base = %{
+        id: validated.id,
+        name: validated.name,
+        project_path: validated.project_path,
+        config: deserialize_config(validated.config),
+        language: parse_language(validated),
+        created_at: created_at,
+        updated_at: updated_at,
+        conversation: messages,
+        todos: todos,
+        prompt_history: prompt_history
+      }
+
+      # Add cumulative usage if present (handles legacy sessions without usage)
+      usage_data =
+        Map.get(validated, :cumulative_usage) || Map.get(validated, "cumulative_usage")
+
+      session =
+        case usage_data do
+          nil -> base
+          usage when is_map(usage) -> Map.put(base, :cumulative_usage, deserialize_usage(usage))
+          _ -> base
+        end
+
+      {:ok, session}
     end
   end
 
@@ -220,14 +293,48 @@ defmodule JidoCode.Session.Persistence.Serialization do
     with {:ok, validated} <- Schema.validate_message(msg),
          {:ok, timestamp} <- parse_datetime_required(validated.timestamp),
          {:ok, role} <- parse_role(validated.role) do
-      {:ok,
-       %{
-         id: validated.id,
-         role: role,
-         content: validated.content,
-         timestamp: timestamp
-       }}
+      base = %{
+        id: validated.id,
+        role: role,
+        content: validated.content,
+        timestamp: timestamp
+      }
+
+      # Add usage if present (handles legacy messages without usage)
+      # Check both atom and string keys since normalize_keys may not convert unknown keys
+      usage_data = Map.get(validated, :usage) || Map.get(validated, "usage")
+
+      message =
+        case usage_data do
+          nil -> base
+          usage when is_map(usage) -> Map.put(base, :usage, deserialize_usage(usage))
+          _ -> base
+        end
+
+      {:ok, message}
     end
+  end
+
+  # Deserialize usage data from persisted format
+  defp deserialize_usage(usage) when is_map(usage) do
+    %{
+      input_tokens: get_numeric_value(usage, [:input_tokens, "input_tokens"], 0),
+      output_tokens: get_numeric_value(usage, [:output_tokens, "output_tokens"], 0),
+      total_cost: get_numeric_value(usage, [:total_cost, "total_cost"], 0.0)
+    }
+  end
+
+  defp deserialize_usage(_), do: nil
+
+  # Get numeric value from map trying multiple keys
+  defp get_numeric_value(map, keys, default) when is_map(map) and is_list(keys) do
+    Enum.find_value(keys, default, fn key ->
+      case Map.get(map, key) do
+        nil -> nil
+        val when is_number(val) -> val
+        _ -> nil
+      end
+    end)
   end
 
   # Deserialize list of todos
@@ -290,6 +397,32 @@ defmodule JidoCode.Session.Persistence.Serialization do
   defp parse_status(other) do
     Logger.debug("Invalid status value: #{inspect(other)}")
     {:error, :invalid_status}
+  end
+
+  # Parse language from validated session, handling legacy sessions without language
+  # Falls back to :elixir for compatibility
+  defp parse_language(validated) do
+    language = Map.get(validated, :language) || Map.get(validated, "language")
+
+    case language do
+      nil ->
+        # Legacy session without language, default to elixir
+        :elixir
+
+      lang when is_binary(lang) ->
+        # Try to normalize, fall back to elixir if invalid
+        case JidoCode.Language.normalize(lang) do
+          {:ok, normalized} -> normalized
+          {:error, _} -> :elixir
+        end
+
+      lang when is_atom(lang) ->
+        # Already an atom, validate it
+        if JidoCode.Language.valid?(lang), do: lang, else: :elixir
+
+      _ ->
+        :elixir
+    end
   end
 
   # Deserialize config map (string keys to appropriate types)

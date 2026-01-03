@@ -1,0 +1,692 @@
+@prefix sec: <https://w3id.org/elixir-code/security#> .
+@prefix core: <https://w3id.org/elixir-code/core#> .
+@prefix struct: <https://w3id.org/elixir-code/structure#> .
+@prefix otp: <https://w3id.org/elixir-code/otp#> .
+@prefix evo: <https://w3id.org/elixir-code/evolution#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# =============================================================================
+# Ontology Declaration
+# =============================================================================
+
+<https://w3id.org/elixir-code/security> a owl:Ontology ;
+    owl:versionIRI <https://w3id.org/elixir-code/security/1.0.0> ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <https://w3id.org/elixir-code/core> ,
+                <https://w3id.org/elixir-code/structure> ,
+                <https://w3id.org/elixir-code/otp> ;
+    dc:title "Elixir Code Security Ontology"@en ;
+    dc:description """Security ontology for detecting and preventing vulnerabilities
+    in Elixir code. Based on ERLEF Security Working Group recommendations for
+    secure coding and deployment hardening, and web application security best
+    practices for BEAM applications."""@en ;
+    dc:creator "JidoCode Security Prevention System" ;
+    dc:date "2025-01-01"^^xsd:date ;
+    dcterms:license <https://creativecommons.org/licenses/by/4.0/> ;
+    rdfs:seeAlso <https://security.erlef.org/> .
+
+# =============================================================================
+# Security Vulnerability Classes
+# =============================================================================
+
+sec:SecurityVulnerability a owl:Class ;
+    rdfs:label "Security Vulnerability"@en ;
+    rdfs:comment """Base class for all security vulnerabilities detected in 
+    Elixir code. Each vulnerability links to affected code elements via 
+    the existing ontology classes."""@en ;
+    rdfs:subClassOf core:CodeElement .
+
+# -----------------------------------------------------------------------------
+# Injection Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:InjectionVulnerability a owl:Class ;
+    rdfs:label "Injection Vulnerability"@en ;
+    rdfs:comment "Vulnerabilities allowing injection of malicious content."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:SQLInjection a owl:Class ;
+    rdfs:label "SQL Injection"@en ;
+    rdfs:comment """SQL injection via string interpolation in queries.
+    ERLEF WEB-004, WEB-005. OWASP A03:2021."""@en ;
+    rdfs:subClassOf sec:InjectionVulnerability ;
+    sec:erlefId "WEB-004" ;
+    sec:owaspCategory "A03:2021-Injection" ;
+    sec:severity "CRITICAL" .
+
+sec:CommandInjection a owl:Class ;
+    rdfs:label "Command Injection"@en ;
+    rdfs:comment """OS command injection via :os.cmd or shell execution.
+    ERLEF BEAM-010, BEAM-011. OWASP A03:2021."""@en ;
+    rdfs:subClassOf sec:InjectionVulnerability ;
+    sec:erlefId "BEAM-010" ;
+    sec:owaspCategory "A03:2021-Injection" ;
+    sec:severity "CRITICAL" .
+
+sec:CodeInjection a owl:Class ;
+    rdfs:label "Code Injection"@en ;
+    rdfs:comment """Remote code execution via Code.eval_* or file:script.
+    ERLEF BEAM-008, BEAM-009. OWASP A03:2021."""@en ;
+    rdfs:subClassOf sec:InjectionVulnerability ;
+    sec:erlefId "BEAM-008" ;
+    sec:owaspCategory "A03:2021-Injection" ;
+    sec:severity "CRITICAL" .
+
+sec:XSSVulnerability a owl:Class ;
+    rdfs:label "XSS Vulnerability"@en ;
+    rdfs:comment """Cross-site scripting via raw/1 or unescaped output.
+    ERLEF WEB-001, WEB-002, WEB-003. OWASP A03:2021."""@en ;
+    rdfs:subClassOf sec:InjectionVulnerability ;
+    sec:erlefId "WEB-001" ;
+    sec:owaspCategory "A03:2021-Injection" ;
+    sec:severity "CRITICAL" .
+
+# -----------------------------------------------------------------------------
+# Deserialization Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:DeserializationVulnerability a owl:Class ;
+    rdfs:label "Deserialization Vulnerability"@en ;
+    rdfs:comment "Vulnerabilities from unsafe deserialization of data."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:AtomExhaustion a owl:Class ;
+    rdfs:label "Atom Exhaustion"@en ;
+    rdfs:comment """Denial of service via atom table exhaustion from dynamic 
+    atom creation. Atoms are never garbage collected. ERLEF BEAM-001 to BEAM-005.
+    OWASP A05:2021."""@en ;
+    rdfs:subClassOf sec:DeserializationVulnerability ;
+    sec:erlefId "BEAM-001" ;
+    sec:owaspCategory "A05:2021-Security Misconfiguration" ;
+    sec:severity "HIGH" .
+
+sec:UnsafeBinaryToTerm a owl:Class ;
+    rdfs:label "Unsafe Binary To Term"@en ;
+    rdfs:comment """RCE via :erlang.binary_to_term without [:safe] option.
+    Can deserialize and execute arbitrary functions. ERLEF BEAM-006, BEAM-007.
+    OWASP A08:2021."""@en ;
+    rdfs:subClassOf sec:DeserializationVulnerability ;
+    sec:erlefId "BEAM-006" ;
+    sec:owaspCategory "A08:2021-Software and Data Integrity Failures" ;
+    sec:severity "CRITICAL" .
+
+sec:XXEVulnerability a owl:Class ;
+    rdfs:label "XXE Vulnerability"@en ;
+    rdfs:comment """XML External Entity injection via xmerl parsers.
+    ERLEF BEAM-018. OWASP A05:2021."""@en ;
+    rdfs:subClassOf sec:DeserializationVulnerability ;
+    sec:erlefId "BEAM-018" ;
+    sec:owaspCategory "A05:2021-Security Misconfiguration" ;
+    sec:severity "HIGH" .
+
+# -----------------------------------------------------------------------------
+# Authentication & Session Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:AuthenticationVulnerability a owl:Class ;
+    rdfs:label "Authentication Vulnerability"@en ;
+    rdfs:comment "Vulnerabilities in authentication mechanisms."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:SessionVulnerability a owl:Class ;
+    rdfs:label "Session Vulnerability"@en ;
+    rdfs:comment """Session management vulnerabilities including fixation,
+    missing encryption, and missing timeout. ERLEF WEB-010 to WEB-013."""@en ;
+    rdfs:subClassOf sec:AuthenticationVulnerability ;
+    sec:erlefId "WEB-010" ;
+    sec:owaspCategory "A07:2021-Identification and Authentication Failures" ;
+    sec:severity "HIGH" .
+
+sec:CSRFVulnerability a owl:Class ;
+    rdfs:label "CSRF Vulnerability"@en ;
+    rdfs:comment """Cross-site request forgery from missing protection.
+    ERLEF WEB-006, WEB-007. OWASP A01:2021."""@en ;
+    rdfs:subClassOf sec:AuthenticationVulnerability ;
+    sec:erlefId "WEB-006" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "HIGH" .
+
+sec:WebSocketHijacking a owl:Class ;
+    rdfs:label "WebSocket Hijacking"@en ;
+    rdfs:comment """WebSocket connection hijacking from disabled origin checking
+    without token authentication. ERLEF WEB-008."""@en ;
+    rdfs:subClassOf sec:AuthenticationVulnerability ;
+    sec:erlefId "WEB-008" ;
+    sec:owaspCategory "A07:2021-Identification and Authentication Failures" ;
+    sec:severity "HIGH" .
+
+# -----------------------------------------------------------------------------
+# Authorization Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:AuthorizationVulnerability a owl:Class ;
+    rdfs:label "Authorization Vulnerability"@en ;
+    rdfs:comment "Missing or inadequate authorization checks."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:MissingAuthorizationCheck a owl:Class ;
+    rdfs:label "Missing Authorization Check"@en ;
+    rdfs:comment """Missing server-side authorization in controllers or LiveView
+    handlers. ERLEF WEB-009, WEB-020. OWASP A01:2021."""@en ;
+    rdfs:subClassOf sec:AuthorizationVulnerability ;
+    sec:erlefId "WEB-009" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "CRITICAL" .
+
+sec:MassAssignment a owl:Class ;
+    rdfs:label "Mass Assignment"@en ;
+    rdfs:comment """Overly permissive changeset allowing unintended field updates.
+    ERLEF WEB-017. OWASP A01:2021."""@en ;
+    rdfs:subClassOf sec:AuthorizationVulnerability ;
+    sec:erlefId "WEB-017" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "HIGH" .
+
+# -----------------------------------------------------------------------------
+# Cryptographic Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:CryptographicVulnerability a owl:Class ;
+    rdfs:label "Cryptographic Vulnerability"@en ;
+    rdfs:comment "Vulnerabilities in cryptographic operations."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:TimingAttack a owl:Class ;
+    rdfs:label "Timing Attack"@en ;
+    rdfs:comment """Variable-time comparison of secrets via pattern matching.
+    ERLEF BEAM-015. OWASP A02:2021."""@en ;
+    rdfs:subClassOf sec:CryptographicVulnerability ;
+    sec:erlefId "BEAM-015" ;
+    sec:owaspCategory "A02:2021-Cryptographic Failures" ;
+    sec:severity "MEDIUM" .
+
+sec:TLSMisconfiguration a owl:Class ;
+    rdfs:label "TLS Misconfiguration"@en ;
+    rdfs:comment """Missing certificate verification in SSL/TLS connections.
+    ERLEF BEAM-016, BEAM-017. OWASP A02:2021."""@en ;
+    rdfs:subClassOf sec:CryptographicVulnerability ;
+    sec:erlefId "BEAM-016" ;
+    sec:owaspCategory "A02:2021-Cryptographic Failures" ;
+    sec:severity "CRITICAL" .
+
+# -----------------------------------------------------------------------------
+# Information Disclosure Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:InformationDisclosure a owl:Class ;
+    rdfs:label "Information Disclosure"@en ;
+    rdfs:comment "Unintended exposure of sensitive information."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:SecretInStacktrace a owl:Class ;
+    rdfs:label "Secret in Stacktrace"@en ;
+    rdfs:comment """Secrets exposed in stacktraces via function arguments.
+    ERLEF BEAM-012. OWASP A01:2021."""@en ;
+    rdfs:subClassOf sec:InformationDisclosure ;
+    sec:erlefId "BEAM-012" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "HIGH" .
+
+sec:SecretInIntrospection a owl:Class ;
+    rdfs:label "Secret in Introspection"@en ;
+    rdfs:comment """Secrets visible via :sys.get_state or similar introspection
+    on GenServer state. Missing format_status/2. ERLEF BEAM-013."""@en ;
+    rdfs:subClassOf sec:InformationDisclosure ;
+    sec:erlefId "BEAM-013" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "HIGH" .
+
+sec:MissingDeriveInspect a owl:Class ;
+    rdfs:label "Missing Derive Inspect"@en ;
+    rdfs:comment """Structs with sensitive fields missing @derive {Inspect, except: [...]}.
+    ERLEF BEAM-014."""@en ;
+    rdfs:subClassOf sec:InformationDisclosure ;
+    sec:erlefId "BEAM-014" ;
+    sec:owaspCategory "A01:2021-Broken Access Control" ;
+    sec:severity "HIGH" .
+
+sec:SensitiveDataInLogs a owl:Class ;
+    rdfs:label "Sensitive Data in Logs"@en ;
+    rdfs:comment """Unfiltered sensitive parameters in Phoenix logs.
+    Missing :filter_parameters configuration. ERLEF WEB-016."""@en ;
+    rdfs:subClassOf sec:InformationDisclosure ;
+    sec:erlefId "WEB-016" ;
+    sec:owaspCategory "A09:2021-Security Logging and Monitoring Failures" ;
+    sec:severity "HIGH" .
+
+# -----------------------------------------------------------------------------
+# Configuration Vulnerabilities
+# -----------------------------------------------------------------------------
+
+sec:ConfigurationVulnerability a owl:Class ;
+    rdfs:label "Configuration Vulnerability"@en ;
+    rdfs:comment "Security issues from misconfiguration."@en ;
+    rdfs:subClassOf sec:SecurityVulnerability .
+
+sec:DistributionExposed a owl:Class ;
+    rdfs:label "Distribution Exposed"@en ;
+    rdfs:comment """Erlang distribution (EPMD) exposed on public interfaces.
+    ERLEF BEAM-019, BEAM-020. OWASP A05:2021."""@en ;
+    rdfs:subClassOf sec:ConfigurationVulnerability ;
+    sec:erlefId "BEAM-019" ;
+    sec:owaspCategory "A05:2021-Security Misconfiguration" ;
+    sec:severity "CRITICAL" .
+
+sec:MissingSecurityHeaders a owl:Class ;
+    rdfs:label "Missing Security Headers"@en ;
+    rdfs:comment """Missing CSP, HSTS, or other security headers.
+    ERLEF WEB-014, WEB-015. OWASP A05:2021."""@en ;
+    rdfs:subClassOf sec:ConfigurationVulnerability ;
+    sec:erlefId "WEB-014" ;
+    sec:owaspCategory "A05:2021-Security Misconfiguration" ;
+    sec:severity "MEDIUM" .
+
+sec:MissingRateLimiting a owl:Class ;
+    rdfs:label "Missing Rate Limiting"@en ;
+    rdfs:comment """No rate limiting on authentication or sensitive endpoints.
+    ERLEF WEB-021. OWASP A04:2021."""@en ;
+    rdfs:subClassOf sec:ConfigurationVulnerability ;
+    sec:erlefId "WEB-021" ;
+    sec:owaspCategory "A04:2021-Insecure Design" ;
+    sec:severity "MEDIUM" .
+
+# =============================================================================
+# Insecure Function Pattern Registry
+# =============================================================================
+
+sec:InsecureFunctionPattern a owl:Class ;
+    rdfs:label "Insecure Function Pattern"@en ;
+    rdfs:comment """Registry of known insecure function call patterns.
+    Used for AST-based detection during and after code generation."""@en .
+
+# Atom Exhaustion Patterns
+sec:Pattern_StringToAtom a sec:InsecureFunctionPattern ;
+    rdfs:label "String.to_atom/1 Pattern"@en ;
+    sec:functionSignature "String.to_atom/1" ;
+    sec:moduleAtom "Elixir.String" ;
+    sec:functionAtom "to_atom" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:AtomExhaustion ;
+    sec:secureAlternative "String.to_existing_atom/1 or lookup map" ;
+    sec:severity "HIGH" .
+
+sec:Pattern_ListToAtom a sec:InsecureFunctionPattern ;
+    rdfs:label "List.to_atom/1 Pattern"@en ;
+    sec:functionSignature "List.to_atom/1" ;
+    sec:moduleAtom "Elixir.List" ;
+    sec:functionAtom "to_atom" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:AtomExhaustion ;
+    sec:secureAlternative "List.to_existing_atom/1" ;
+    sec:severity "HIGH" .
+
+sec:Pattern_ErlangBinaryToAtom a sec:InsecureFunctionPattern ;
+    rdfs:label ":erlang.binary_to_atom Pattern"@en ;
+    sec:functionSignature ":erlang.binary_to_atom/1" ;
+    sec:moduleAtom "erlang" ;
+    sec:functionAtom "binary_to_atom" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:AtomExhaustion ;
+    sec:secureAlternative ":erlang.binary_to_existing_atom/2" ;
+    sec:severity "HIGH" .
+
+sec:Pattern_ModuleConcat a sec:InsecureFunctionPattern ;
+    rdfs:label "Module.concat with user input Pattern"@en ;
+    sec:functionSignature "Module.concat/1" ;
+    sec:moduleAtom "Elixir.Module" ;
+    sec:functionAtom "concat" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:AtomExhaustion ;
+    sec:secureAlternative "Module.safe_concat/1 or allowlist validation" ;
+    sec:severity "HIGH" .
+
+# Code Injection Patterns
+sec:Pattern_CodeEvalString a sec:InsecureFunctionPattern ;
+    rdfs:label "Code.eval_string Pattern"@en ;
+    sec:functionSignature "Code.eval_string/1" ;
+    sec:moduleAtom "Elixir.Code" ;
+    sec:functionAtom "eval_string" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:CodeInjection ;
+    sec:secureAlternative "Embedded sandbox (Lua via luerl)" ;
+    sec:severity "CRITICAL" .
+
+sec:Pattern_CodeEvalFile a sec:InsecureFunctionPattern ;
+    rdfs:label "Code.eval_file Pattern"@en ;
+    sec:functionSignature "Code.eval_file/1" ;
+    sec:moduleAtom "Elixir.Code" ;
+    sec:functionAtom "eval_file" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:CodeInjection ;
+    sec:secureAlternative "Avoid on untrusted input" ;
+    sec:severity "CRITICAL" .
+
+sec:Pattern_FileScript a sec:InsecureFunctionPattern ;
+    rdfs:label ":file.script Pattern"@en ;
+    sec:functionSignature ":file.script/1" ;
+    sec:moduleAtom "file" ;
+    sec:functionAtom "script" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:CodeInjection ;
+    sec:secureAlternative "Avoid on untrusted input" ;
+    sec:severity "CRITICAL" .
+
+# Command Injection Patterns
+sec:Pattern_OsCmd a sec:InsecureFunctionPattern ;
+    rdfs:label ":os.cmd Pattern"@en ;
+    sec:functionSignature ":os.cmd/1" ;
+    sec:moduleAtom "os" ;
+    sec:functionAtom "cmd" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:CommandInjection ;
+    sec:secureAlternative "System.cmd/3 with args as list" ;
+    sec:severity "CRITICAL" .
+
+sec:Pattern_SystemShell a sec:InsecureFunctionPattern ;
+    rdfs:label "System.shell Pattern"@en ;
+    sec:functionSignature "System.shell/1" ;
+    sec:moduleAtom "Elixir.System" ;
+    sec:functionAtom "shell" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:CommandInjection ;
+    sec:secureAlternative "System.cmd/3 with args as list" ;
+    sec:severity "CRITICAL" .
+
+# Deserialization Patterns
+sec:Pattern_BinaryToTerm a sec:InsecureFunctionPattern ;
+    rdfs:label ":erlang.binary_to_term/1 Pattern"@en ;
+    sec:functionSignature ":erlang.binary_to_term/1" ;
+    sec:moduleAtom "erlang" ;
+    sec:functionAtom "binary_to_term" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:UnsafeBinaryToTerm ;
+    sec:secureAlternative ":erlang.binary_to_term(data, [:safe]) or Plug.Crypto.non_executable_binary_to_term/2" ;
+    sec:severity "CRITICAL" .
+
+# XSS Patterns
+sec:Pattern_Raw a sec:InsecureFunctionPattern ;
+    rdfs:label "Phoenix.HTML.raw/1 Pattern"@en ;
+    sec:functionSignature "Phoenix.HTML.raw/1" ;
+    sec:moduleAtom "Elixir.Phoenix.HTML" ;
+    sec:functionAtom "raw" ;
+    sec:arity 1 ;
+    sec:triggersVulnerability sec:XSSVulnerability ;
+    sec:secureAlternative "Default template escaping" ;
+    sec:severity "CRITICAL" .
+
+# =============================================================================
+# Security Context Classes
+# =============================================================================
+
+sec:SecurityContext a owl:Class ;
+    rdfs:label "Security Context"@en ;
+    rdfs:comment """A context in which security-sensitive code is being generated.
+    Used to trigger context-specific warnings."""@en .
+
+sec:AuthenticationContext a owl:Class ;
+    rdfs:label "Authentication Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:DatabaseQueryContext a owl:Class ;
+    rdfs:label "Database Query Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:FileOperationContext a owl:Class ;
+    rdfs:label "File Operation Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:CryptographicContext a owl:Class ;
+    rdfs:label "Cryptographic Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:UserInputContext a owl:Class ;
+    rdfs:label "User Input Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:APIEndpointContext a owl:Class ;
+    rdfs:label "API Endpoint Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:WebSocketContext a owl:Class ;
+    rdfs:label "WebSocket Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+sec:LiveViewContext a owl:Class ;
+    rdfs:label "LiveView Context"@en ;
+    rdfs:subClassOf sec:SecurityContext .
+
+# =============================================================================
+# Data Flow and Taint Tracking
+# =============================================================================
+
+sec:DataSource a owl:Class ;
+    rdfs:label "Data Source"@en ;
+    rdfs:comment "Origin point of data in the application."@en .
+
+sec:UntrustedSource a owl:Class ;
+    rdfs:label "Untrusted Source"@en ;
+    rdfs:comment """A source of untrusted data: HTTP params, headers, 
+    user uploads, external APIs, etc."""@en ;
+    rdfs:subClassOf sec:DataSource .
+
+sec:TrustedSource a owl:Class ;
+    rdfs:label "Trusted Source"@en ;
+    rdfs:comment "A source of trusted data: constants, config, validated data."@en ;
+    rdfs:subClassOf sec:DataSource .
+
+sec:SensitiveSink a owl:Class ;
+    rdfs:label "Sensitive Sink"@en ;
+    rdfs:comment """A code location where untrusted data reaching it 
+    creates a vulnerability: SQL queries, shell commands, etc."""@en .
+
+# =============================================================================
+# Object Properties
+# =============================================================================
+
+# Linking vulnerabilities to code elements (using existing ontology classes)
+sec:affectsModule a owl:ObjectProperty ;
+    rdfs:label "affects module"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range struct:Module .
+
+sec:affectsFunction a owl:ObjectProperty ;
+    rdfs:label "affects function"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range struct:Function .
+
+sec:affectsFunctionClause a owl:ObjectProperty ;
+    rdfs:label "affects function clause"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range struct:FunctionClause .
+
+sec:atSourceLocation a owl:ObjectProperty ;
+    rdfs:label "at source location"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range core:SourceLocation .
+
+sec:involvesCall a owl:ObjectProperty ;
+    rdfs:label "involves call"@en ;
+    rdfs:comment "Links vulnerability to the specific function call."@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range core:RemoteCall .
+
+sec:involvesLocalCall a owl:ObjectProperty ;
+    rdfs:label "involves local call"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range core:LocalCall .
+
+# Pattern matching
+sec:triggersVulnerability a owl:ObjectProperty ;
+    rdfs:label "triggers vulnerability"@en ;
+    rdfs:domain sec:InsecureFunctionPattern ;
+    rdfs:range sec:SecurityVulnerability .
+
+sec:matchesPattern a owl:ObjectProperty ;
+    rdfs:label "matches pattern"@en ;
+    rdfs:domain core:RemoteCall ;
+    rdfs:range sec:InsecureFunctionPattern .
+
+# Data flow properties
+sec:receivesDataFrom a owl:ObjectProperty ;
+    rdfs:label "receives data from"@en ;
+    rdfs:domain core:Expression ;
+    rdfs:range sec:DataSource .
+
+sec:flowsTo a owl:ObjectProperty ;
+    rdfs:label "flows to"@en ;
+    rdfs:comment "Data flow from one expression to another."@en ;
+    rdfs:domain core:Expression ;
+    rdfs:range core:Expression .
+
+sec:reachesSink a owl:ObjectProperty ;
+    rdfs:label "reaches sink"@en ;
+    rdfs:domain sec:UntrustedSource ;
+    rdfs:range sec:SensitiveSink .
+
+# OTP security relationships
+sec:genServerHandlesSensitiveData a owl:ObjectProperty ;
+    rdfs:label "GenServer handles sensitive data"@en ;
+    rdfs:domain otp:GenServerImplementation ;
+    rdfs:range struct:StructField .
+
+sec:missingFormatStatus a owl:ObjectProperty ;
+    rdfs:label "missing format_status"@en ;
+    rdfs:comment "GenServer with sensitive state but no format_status/2."@en ;
+    rdfs:domain otp:GenServerImplementation ;
+    rdfs:range sec:SecretInIntrospection .
+
+# Authorization relationships
+sec:requiresAuthorization a owl:ObjectProperty ;
+    rdfs:label "requires authorization"@en ;
+    rdfs:domain struct:Function ;
+    rdfs:range sec:AuthorizationVulnerability .
+
+sec:hasAuthorizationCheck a owl:ObjectProperty ;
+    rdfs:label "has authorization check"@en ;
+    rdfs:domain struct:Function ;
+    rdfs:range core:LocalCall .
+
+# Context detection
+sec:activatesContext a owl:ObjectProperty ;
+    rdfs:label "activates context"@en ;
+    rdfs:domain struct:Module ;
+    rdfs:range sec:SecurityContext .
+
+# =============================================================================
+# Data Properties
+# =============================================================================
+
+# Vulnerability metadata
+sec:erlefId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "ERLEF ID"@en ;
+    rdfs:comment "Identifier from ERLEF Security Working Group recommendations."@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range xsd:string .
+
+sec:owaspCategory a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "OWASP category"@en ;
+    rdfs:domain sec:SecurityVulnerability ;
+    rdfs:range xsd:string .
+
+sec:severity a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "severity"@en ;
+    rdfs:comment "CRITICAL, HIGH, MEDIUM, LOW"@en ;
+    rdfs:range xsd:string .
+
+sec:detectability a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "detectability"@en ;
+    rdfs:comment "AST, Semantic, Config, Runtime"@en ;
+    rdfs:range xsd:string .
+
+sec:secureAlternative a owl:DatatypeProperty ;
+    rdfs:label "secure alternative"@en ;
+    rdfs:comment "Recommended secure pattern to use instead."@en ;
+    rdfs:range xsd:string .
+
+# Function pattern properties
+sec:functionSignature a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "function signature"@en ;
+    rdfs:comment "Module.function/arity format."@en ;
+    rdfs:domain sec:InsecureFunctionPattern ;
+    rdfs:range xsd:string .
+
+sec:moduleAtom a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "module atom"@en ;
+    rdfs:domain sec:InsecureFunctionPattern ;
+    rdfs:range xsd:string .
+
+sec:functionAtom a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "function atom"@en ;
+    rdfs:domain sec:InsecureFunctionPattern ;
+    rdfs:range xsd:string .
+
+sec:arity a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "arity"@en ;
+    rdfs:domain sec:InsecureFunctionPattern ;
+    rdfs:range xsd:nonNegativeInteger .
+
+# Taint tracking
+sec:isTainted a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "is tainted"@en ;
+    rdfs:comment "Expression contains untrusted data."@en ;
+    rdfs:domain core:Expression ;
+    rdfs:range xsd:boolean .
+
+sec:containsInterpolation a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "contains interpolation"@en ;
+    rdfs:comment "String contains #{} interpolation."@en ;
+    rdfs:domain core:StringLiteral ;
+    rdfs:range xsd:boolean .
+
+# Sensitive field markers
+sec:isSensitiveField a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "is sensitive field"@en ;
+    rdfs:comment "Field contains sensitive data (password, token, etc.)."@en ;
+    rdfs:domain struct:StructField ;
+    rdfs:range xsd:boolean .
+
+# =============================================================================
+# OWL Axioms
+# =============================================================================
+
+# Vulnerability types are disjoint
+[] a owl:AllDisjointClasses ;
+    owl:members (
+        sec:InjectionVulnerability
+        sec:DeserializationVulnerability
+        sec:AuthenticationVulnerability
+        sec:AuthorizationVulnerability
+        sec:CryptographicVulnerability
+        sec:InformationDisclosure
+        sec:ConfigurationVulnerability
+    ) .
+
+# Injection subtypes are disjoint
+[] a owl:AllDisjointClasses ;
+    owl:members (
+        sec:SQLInjection
+        sec:CommandInjection
+        sec:CodeInjection
+        sec:XSSVulnerability
+    ) .
+
+# Data sources are disjoint
+[] a owl:AllDisjointClasses ;
+    owl:members (
+        sec:UntrustedSource
+        sec:TrustedSource
+    ) .
+
+# Every vulnerability has a severity
+sec:SecurityVulnerability rdfs:subClassOf [
+    a owl:Restriction ;
+    owl:onProperty sec:severity ;
+    owl:cardinality 1
+] .
+

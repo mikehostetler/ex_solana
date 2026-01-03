@@ -33,11 +33,13 @@ defmodule JidoCode.Session.Persistence.Schema do
   - `name` - User-visible session name
   - `project_path` - Absolute path to the project directory
   - `config` - LLM configuration (provider, model, temperature, etc.)
+  - `language` - (optional) Programming language (e.g., "elixir", "python")
   - `created_at` - ISO 8601 timestamp when session was first created
   - `updated_at` - ISO 8601 timestamp of last activity
   - `closed_at` - ISO 8601 timestamp when session was saved/closed
   - `conversation` - List of conversation messages
   - `todos` - List of todo items
+  - `cumulative_usage` - (optional) Total token usage for this session
   """
   @type persisted_session :: %{
           version: pos_integer(),
@@ -50,6 +52,21 @@ defmodule JidoCode.Session.Persistence.Schema do
           closed_at: String.t(),
           conversation: [persisted_message()],
           todos: [persisted_todo()]
+        }
+
+  @typedoc """
+  Token usage statistics for persistence.
+
+  Contains:
+
+  - `input_tokens` - Total input tokens consumed
+  - `output_tokens` - Total output tokens consumed
+  - `total_cost` - Estimated total cost in dollars
+  """
+  @type persisted_usage :: %{
+          input_tokens: non_neg_integer(),
+          output_tokens: non_neg_integer(),
+          total_cost: float()
         }
 
   @typedoc """

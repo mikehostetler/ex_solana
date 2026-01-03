@@ -617,6 +617,40 @@ defmodule JidoCode.Session.Persistence do
   end
 
   @doc """
+  Finds a persisted session by project path.
+
+  Returns the most recently closed session for the given project path,
+  if one exists and is resumable (not currently active).
+
+  ## Parameters
+
+  - `project_path` - The absolute path to the project directory
+
+  ## Returns
+
+  - `{:ok, session_metadata}` - Found a resumable session for this path
+  - `{:ok, nil}` - No resumable session found for this path
+  - `{:error, reason}` - Failed to list sessions
+
+  ## Examples
+
+      iex> Persistence.find_by_project_path("/home/user/my-project")
+      {:ok, %{id: "abc123", name: "my-project", project_path: "/home/user/my-project", ...}}
+
+      iex> Persistence.find_by_project_path("/home/user/new-project")
+      {:ok, nil}
+  """
+  @spec find_by_project_path(String.t()) :: {:ok, map() | nil} | {:error, term()}
+  def find_by_project_path(project_path) do
+    with {:ok, sessions} <- list_resumable() do
+      # Find the first (most recent) session matching this path
+      # list_resumable already sorts by closed_at descending
+      session = Enum.find(sessions, fn s -> s.project_path == project_path end)
+      {:ok, session}
+    end
+  end
+
+  @doc """
   Cleans up old persisted session files.
 
   Deletes session files that are older than the specified maximum age (in days).
@@ -1077,13 +1111,14 @@ defmodule JidoCode.Session.Persistence do
     SessionSupervisor.start_session(session)
   end
 
-  # Restores conversation and todos, or cleans up session on failure
+  # Restores conversation, todos, and prompt history, or cleans up session on failure
   # Includes re-validation of project path to prevent TOCTOU attacks
   @spec restore_state_or_cleanup(String.t(), map(), map()) :: :ok | {:error, term()}
   defp restore_state_or_cleanup(session_id, persisted, cached_stats) do
     with :ok <- revalidate_project_path(persisted.project_path, cached_stats),
          :ok <- restore_conversation(session_id, persisted.conversation),
          :ok <- restore_todos(session_id, persisted.todos),
+         :ok <- restore_prompt_history(session_id, Map.get(persisted, :prompt_history, [])),
          :ok <- delete_persisted(session_id) do
       :ok
     else
@@ -1156,6 +1191,17 @@ defmodule JidoCode.Session.Persistence do
     case State.update_todos(session_id, todos) do
       {:ok, _state} -> :ok
       {:error, reason} -> {:error, {:restore_todos_failed, reason}}
+    end
+  end
+
+  # Restores prompt history to Session.State
+  @spec restore_prompt_history(String.t(), [String.t()]) :: :ok | {:error, term()}
+  defp restore_prompt_history(session_id, history) do
+    alias JidoCode.Session.State
+
+    case State.set_prompt_history(session_id, history) do
+      {:ok, _history} -> :ok
+      {:error, reason} -> {:error, {:restore_prompt_history_failed, reason}}
     end
   end
 

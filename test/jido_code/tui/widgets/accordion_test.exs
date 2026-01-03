@@ -145,10 +145,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "can expand multiple sections" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       expanded = accordion |> Accordion.expand(:files) |> Accordion.expand(:tools)
 
@@ -222,11 +224,13 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
   describe "expand_all/1" do
     test "expands all sections" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"},
-          %{id: :context, title: "Context"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"},
+            %{id: :context, title: "Context"}
+          ]
+        )
 
       expanded = Accordion.expand_all(accordion)
 
@@ -309,10 +313,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "adds section at end of list" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       section = %{id: :context, title: "Context"}
       updated = Accordion.add_section(accordion, section)
@@ -324,10 +330,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
   describe "remove_section/2" do
     test "removes section by ID" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       updated = Accordion.remove_section(accordion, :files)
 
@@ -430,10 +438,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "only updates matching section" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       updated = Accordion.update_section(accordion, :files, %{title: "My Files"})
 
@@ -525,10 +535,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "returns correct count for accordion with sections" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       assert Accordion.section_count(accordion) == 2
     end
@@ -549,11 +561,13 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "count matches number of expanded sections after operations" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"},
-          %{id: :context, title: "Context"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"},
+            %{id: :context, title: "Context"}
+          ]
+        )
 
       expanded = accordion |> Accordion.expand(:files) |> Accordion.expand(:tools)
 
@@ -570,10 +584,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "returns list of all section IDs" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       ids = Accordion.section_ids(accordion)
 
@@ -582,11 +598,13 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "maintains section order" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :context, title: "Context"},
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :context, title: "Context"},
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       ids = Accordion.section_ids(accordion)
 
@@ -609,10 +627,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "renders sections in collapsed state" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       view = Accordion.render(accordion, 20)
 
@@ -720,9 +740,11 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "custom icons are preserved" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files", icon_open: "↓", icon_closed: "→"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files", icon_open: "↓", icon_closed: "→"}
+          ]
+        )
 
       section = Accordion.get_section(accordion, :files)
       assert section.icon_open == "↓"
@@ -888,10 +910,12 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "toggle workflow" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"}
+          ]
+        )
 
       # Toggle first section twice
       accordion =
@@ -909,11 +933,13 @@ defmodule JidoCode.TUI.Widgets.AccordionTest do
 
     test "expand all then collapse all" do
       accordion =
-        Accordion.new(sections: [
-          %{id: :files, title: "Files"},
-          %{id: :tools, title: "Tools"},
-          %{id: :context, title: "Context"}
-        ])
+        Accordion.new(
+          sections: [
+            %{id: :files, title: "Files"},
+            %{id: :tools, title: "Tools"},
+            %{id: :context, title: "Context"}
+          ]
+        )
 
       expanded = Accordion.expand_all(accordion)
       assert Accordion.expanded_count(expanded) == 3
