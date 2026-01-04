@@ -171,8 +171,15 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/jido_messaging"
+    },
+    %{
+      name: "karo",
+      upstream_url: "git@github.com:epic-creative/karo.git",
+      branch: "main",
+      type: :library,
+      path: "projects/karo"
     }
-    ],
+  ],
   hex_packages: [
     # Core packages - publish together as version train
     %{
@@ -226,10 +233,11 @@ config :jido_workspace,
       path: "projects/github-actions"
     },
     %{
-      name: "karo",
-      upstream_url: "git@github.com:epic-creative/karo.git",
+      name: "jido_sandbox",
+      upstream_url: "git@github.com:agentjido/jido_sandbox.git",
       branch: "main",
       type: :library,
-      path: "projects/karo"
+      path: "projects/jido_sandbox"
     }
+
   ]
