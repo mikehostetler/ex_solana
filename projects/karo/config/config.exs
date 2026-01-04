@@ -1,7 +1,8 @@
 import Config
 
 config :karo,
-  ecto_repos: [Karo.Repo]
+  ecto_repos: [Karo.Repo],
+  ash_domains: [Karo.ChatDomain]
 
 config :karo, Karo.Repo, database: "priv/karo_#{config_env()}.sqlite3"
 
