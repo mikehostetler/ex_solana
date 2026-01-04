@@ -238,6 +238,14 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/jido_sandbox"
+    },
+    %{
+      name: "jido_sandbox",
+      upstream_url: "git@github.com:agentjido/jido_sandbox.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_sandbox"
     }
+
 
   ]
