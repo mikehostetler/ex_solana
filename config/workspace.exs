@@ -178,6 +178,13 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/karo"
+    },
+    %{
+      name: "jido_sandbox",
+      upstream_url: "git@github.com:agentjido/jido_sandbox.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_sandbox"
     }
   ],
   hex_packages: [
@@ -224,28 +231,5 @@ config :jido_workspace,
       publish_order: 11,
       dependencies: ["llm_db"],
       version_train: :independent
-    },
-    %{
-      name: "github-actions",
-      upstream_url: "https://github.com/agentjido/github-actions.git",
-      branch: "main",
-      type: :library,
-      path: "projects/github-actions"
-    },
-    %{
-      name: "jido_sandbox",
-      upstream_url: "git@github.com:agentjido/jido_sandbox.git",
-      branch: "main",
-      type: :library,
-      path: "projects/jido_sandbox"
-    },
-    %{
-      name: "jido_sandbox",
-      upstream_url: "git@github.com:agentjido/jido_sandbox.git",
-      branch: "main",
-      type: :library,
-      path: "projects/jido_sandbox"
     }
-
-
   ]
