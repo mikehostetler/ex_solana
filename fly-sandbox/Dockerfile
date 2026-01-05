@@ -52,6 +52,11 @@ RUN code-server --install-extension elixir-lsp.elixir-ls && \
     code-server --install-extension esbenp.prettier-vscode && \
     code-server --install-extension pkief.material-icon-theme
 
+# Install Claude Code and Amp CLI (pre-baked for fast startup)
+RUN curl -fsSL https://ampcode.com/install.sh | bash && \
+    curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/root/.local/bin:${PATH}"
+
 # Set shell
 ENV SHELL=/bin/bash
 

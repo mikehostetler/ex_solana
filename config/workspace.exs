@@ -185,6 +185,13 @@ config :jido_workspace,
       branch: "main",
       type: :library,
       path: "projects/jido_sandbox"
+    },
+    %{
+      name: "ex_solana",
+      upstream_url: "git@github.com:mikehostetler/ex_solana.git",
+      branch: "main",
+      type: :library,
+      path: "projects/ex_solana"
     }
   ],
   hex_packages: [

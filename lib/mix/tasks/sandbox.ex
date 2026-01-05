@@ -651,7 +651,6 @@ defmodule Mix.Tasks.Sandbox.Build do
 
       --no-push     Build locally only, don't push to Fly
       --local       Use local Docker daemon instead of Depot (remote builder)
-      --remote      Force use of Depot remote builder (default)
   """
 
   use Mix.Task
@@ -659,7 +658,7 @@ defmodule Mix.Tasks.Sandbox.Build do
   @impl Mix.Task
   def run(args) do
     {opts, _, _} = OptionParser.parse(args,
-      strict: [no_push: :boolean, local: :boolean, remote: :boolean]
+      strict: [no_push: :boolean, local: :boolean]
     )
 
     sandbox_dir = Path.expand("fly-sandbox")
