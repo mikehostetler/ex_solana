@@ -17,6 +17,7 @@ defmodule Jido.AI.TRM.Machine do
   The cycle continues until either:
   - Maximum supervision steps reached
   - ACT (Adaptive Computational Time) threshold exceeded (high confidence)
+  - Convergence detected (improvements have plateaued)
 
   ## States
 
@@ -35,7 +36,40 @@ defmodule Jido.AI.TRM.Machine do
       {machine, directives} = Machine.update(machine, {:start, question, call_id}, env)
 
   All state transitions are pure - side effects are described in directives.
+
+  ## Telemetry Events
+
+  The machine emits the following telemetry events:
+
+  ### `[:jido, :ai, :trm, :start]`
+  Emitted when reasoning starts with a new question.
+  - **Measurements**: (none)
+  - **Metadata**: `%{call_id: String.t(), question_length: non_neg_integer()}`
+
+  ### `[:jido, :ai, :trm, :step]`
+  Emitted at each supervision step.
+  - **Measurements**: `%{step: pos_integer(), quality_score: float()}`
+  - **Metadata**: `%{call_id: String.t(), issues_count: non_neg_integer(), suggestions_count: non_neg_integer()}`
+
+  ### `[:jido, :ai, :trm, :act_triggered]`
+  Emitted when ACT early stopping triggers.
+  - **Measurements**: `%{confidence: float(), threshold: float()}`
+  - **Metadata**: `%{call_id: String.t(), step: pos_integer()}`
+
+  ### `[:jido, :ai, :trm, :error]`
+  Emitted when an error occurs.
+  - **Measurements**: (none)
+  - **Metadata**: `%{call_id: String.t(), error: term(), usage: map()}`
+
+  ### `[:jido, :ai, :trm, :complete]`
+  Emitted when reasoning completes successfully.
+  - **Measurements**: `%{steps: non_neg_integer(), best_score: float(), duration_ms: non_neg_integer()}`
+  - **Metadata**: `%{call_id: String.t(), termination_reason: atom(), usage: map()}`
   """
+
+  alias Jido.AI.TRM.ACT
+  alias Jido.AI.TRM.Helpers
+  alias Jido.AI.TRM.Supervision
 
   use Fsmx.Struct,
     state_field: :status,
@@ -55,7 +89,7 @@ defmodule Jido.AI.TRM.Machine do
   @default_act_threshold 0.9
 
   @type status :: :idle | :reasoning | :supervising | :improving | :completed | :error
-  @type termination_reason :: :max_steps | :act_threshold | :error | nil
+  @type termination_reason :: :max_steps | :act_threshold | :convergence_detected | :error | nil
 
   @type latent_state :: %{
           question_context: String.t() | nil,
@@ -71,6 +105,12 @@ defmodule Jido.AI.TRM.Machine do
           optional(:total_tokens) => non_neg_integer()
         }
 
+  @type act_state :: %{
+          threshold: float(),
+          current_confidence: float(),
+          history: [float()]
+        }
+
   @type t :: %__MODULE__{
           status: String.t(),
           question: String.t() | nil,
@@ -78,9 +118,11 @@ defmodule Jido.AI.TRM.Machine do
           answer_history: [String.t()],
           latent_state: latent_state(),
           supervision_feedback: String.t() | nil,
+          parsed_feedback: map() | nil,
           supervision_step: non_neg_integer(),
           max_supervision_steps: pos_integer(),
           act_threshold: float(),
+          act_state: act_state(),
           act_triggered: boolean(),
           best_answer: String.t() | nil,
           best_score: float(),
@@ -104,9 +146,11 @@ defmodule Jido.AI.TRM.Machine do
               step_count: 0
             },
             supervision_feedback: nil,
+            parsed_feedback: nil,
             supervision_step: 0,
             max_supervision_steps: @default_max_supervision_steps,
             act_threshold: @default_act_threshold,
+            act_state: %{threshold: @default_act_threshold, current_confidence: 0.0, history: []},
             act_triggered: false,
             best_answer: nil,
             best_score: 0.0,
@@ -152,7 +196,8 @@ defmodule Jido.AI.TRM.Machine do
 
     %__MODULE__{
       max_supervision_steps: max_steps,
-      act_threshold: threshold
+      act_threshold: threshold,
+      act_state: ACT.new(threshold)
     }
   end
 
@@ -191,23 +236,26 @@ defmodule Jido.AI.TRM.Machine do
     with_transition(machine, "reasoning", fn machine ->
       latent_state = initialize_latent_state(question, nil)
 
-      machine =
+      machine = %{
         machine
-        |> Map.put(:question, question)
-        |> Map.put(:current_answer, nil)
-        |> Map.put(:answer_history, [])
-        |> Map.put(:latent_state, latent_state)
-        |> Map.put(:supervision_feedback, nil)
-        |> Map.put(:supervision_step, 1)
-        |> Map.put(:act_triggered, false)
-        |> Map.put(:best_answer, nil)
-        |> Map.put(:best_score, 0.0)
-        |> Map.put(:result, nil)
-        |> Map.put(:current_call_id, call_id)
-        |> Map.put(:termination_reason, nil)
-        |> Map.put(:streaming_text, "")
-        |> Map.put(:usage, %{})
-        |> Map.put(:started_at, started_at)
+        | question: question,
+          current_answer: nil,
+          answer_history: [],
+          latent_state: latent_state,
+          supervision_feedback: nil,
+          parsed_feedback: nil,
+          supervision_step: 1,
+          act_state: ACT.new(machine.act_threshold),
+          act_triggered: false,
+          best_answer: nil,
+          best_score: 0.0,
+          result: nil,
+          current_call_id: call_id,
+          termination_reason: nil,
+          streaming_text: "",
+          usage: %{},
+          started_at: started_at
+      }
 
       context = build_reasoning_context(machine)
       {machine, [{:reason, call_id, context}]}
@@ -326,8 +374,12 @@ defmodule Jido.AI.TRM.Machine do
     machine = accumulate_usage(machine, result)
     feedback_text = result.text || ""
 
-    # Extract quality score from feedback
-    quality_score = extract_quality_score(feedback_text)
+    # Use Supervision module to parse feedback
+    parsed_feedback = Supervision.parse_supervision_result(feedback_text)
+    quality_score = parsed_feedback.quality_score
+
+    # Update ACT state with new confidence
+    act_state = ACT.update(machine.act_state, quality_score)
 
     # Update best answer if this is the best so far
     machine =
@@ -349,6 +401,8 @@ defmodule Jido.AI.TRM.Machine do
       step: machine.supervision_step,
       phase: :supervision,
       quality_score: quality_score,
+      issues_count: length(parsed_feedback.issues),
+      suggestions_count: length(parsed_feedback.suggestions),
       call_id: machine.current_call_id
     })
 
@@ -358,7 +412,9 @@ defmodule Jido.AI.TRM.Machine do
       machine =
         machine
         |> Map.put(:supervision_feedback, feedback_text)
+        |> Map.put(:parsed_feedback, parsed_feedback)
         |> Map.put(:latent_state, latent_state)
+        |> Map.put(:act_state, act_state)
         |> Map.put(:current_call_id, new_call_id)
         |> Map.put(:streaming_text, "")
 
@@ -398,25 +454,44 @@ defmodule Jido.AI.TRM.Machine do
       call_id: machine.current_call_id
     })
 
-    # Check termination conditions
-    cond do
-      should_terminate_max_steps?(machine) ->
-        complete_with_best(machine, :max_steps)
+    # Check termination conditions - first check max steps
+    if should_terminate_max_steps?(machine) do
+      complete_with_best(machine, :max_steps)
+    else
+      # Use ACT module for sophisticated early stopping decision
+      case ACT.make_decision(machine.act_state, machine.latent_state) do
+        {:halt, reason} ->
+          termination_reason = map_act_halt_reason(reason)
 
-      check_act_condition(machine) ->
-        emit_telemetry(:act_triggered, %{system_time: System.system_time()}, %{
-          confidence: extract_confidence(machine.latent_state),
-          threshold: machine.act_threshold,
-          step: machine.supervision_step
-        })
+          emit_telemetry(:act_triggered, %{system_time: System.system_time()}, %{
+            confidence: machine.act_state.current_confidence,
+            threshold: machine.act_threshold,
+            step: machine.supervision_step,
+            halt_reason: reason,
+            expected_improvement: ACT.calculate_expected_improvement(machine.act_state.history)
+          })
 
-        complete_with_best(Map.put(machine, :act_triggered, true), :act_threshold)
+          complete_with_best(Map.put(machine, :act_triggered, true), termination_reason)
 
-      true ->
-        # Continue to next reasoning cycle
-        continue_reasoning(machine)
+        {:continue, %{expected_improvement: expected}} ->
+          emit_telemetry(:act_continue, %{system_time: System.system_time()}, %{
+            confidence: machine.act_state.current_confidence,
+            threshold: machine.act_threshold,
+            step: machine.supervision_step,
+            expected_improvement: expected
+          })
+
+          # Continue to next reasoning cycle
+          continue_reasoning(machine)
+      end
     end
   end
+
+  # Map ACT halt reasons to termination reasons
+  defp map_act_halt_reason(:threshold_exceeded), do: :act_threshold
+  defp map_act_halt_reason(:convergence_detected), do: :convergence_detected
+  defp map_act_halt_reason(:max_improvement_reached), do: :act_threshold
+  defp map_act_halt_reason(_), do: :act_threshold
 
   # Continue to next reasoning iteration
   defp continue_reasoning(machine) do
@@ -448,7 +523,7 @@ defmodule Jido.AI.TRM.Machine do
       machine =
         machine
         |> Map.put(:termination_reason, :error)
-        |> Map.put(:result, "Error: #{inspect(reason)}")
+        |> Map.put(:result, Helpers.safe_error_message(reason))
 
       {machine, []}
     end)
@@ -561,7 +636,9 @@ defmodule Jido.AI.TRM.Machine do
       question: machine.question,
       current_answer: machine.current_answer,
       latent_state: machine.latent_state,
-      step: machine.supervision_step
+      step: machine.supervision_step,
+      # Include previous feedback for context in iterative supervision
+      previous_feedback: machine.parsed_feedback
     }
   end
 
@@ -570,37 +647,10 @@ defmodule Jido.AI.TRM.Machine do
       question: machine.question,
       current_answer: machine.current_answer,
       feedback: machine.supervision_feedback,
+      parsed_feedback: machine.parsed_feedback,
       latent_state: machine.latent_state,
       step: machine.supervision_step
     }
-  end
-
-  # Extract quality score from supervision feedback
-  defp extract_quality_score(feedback) do
-    # Try to extract a score from patterns like "Score: 0.8" or "Quality: 85%"
-    cond do
-      match = Regex.run(~r/(?:score|quality|rating)[:\s]+(\d+(?:\.\d+)?)\s*(?:%|\/10)?/i, feedback) ->
-        [_, score_str] = match
-
-        # Handle integer strings by adding ".0" if needed
-        score =
-          if String.contains?(score_str, ".") do
-            String.to_float(score_str)
-          else
-            String.to_integer(score_str) / 1.0
-          end
-
-        # Normalize to 0-1 range
-        cond do
-          score > 1.0 and score <= 10.0 -> score / 10.0
-          score > 10.0 and score <= 100.0 -> score / 100.0
-          true -> min(max(score, 0.0), 1.0)
-        end
-
-      # Default to moderate confidence if no explicit score
-      true ->
-        0.5
-    end
   end
 
   # Serialization
@@ -635,6 +685,8 @@ defmodule Jido.AI.TRM.Machine do
         s when is_binary(s) -> s
       end
 
+    threshold = map[:act_threshold] || @default_act_threshold
+
     %__MODULE__{
       status: status,
       question: map[:question],
@@ -642,9 +694,11 @@ defmodule Jido.AI.TRM.Machine do
       answer_history: map[:answer_history] || [],
       latent_state: map[:latent_state] || initialize_latent_state("", nil),
       supervision_feedback: map[:supervision_feedback],
+      parsed_feedback: map[:parsed_feedback],
       supervision_step: map[:supervision_step] || 0,
       max_supervision_steps: map[:max_supervision_steps] || @default_max_supervision_steps,
-      act_threshold: map[:act_threshold] || @default_act_threshold,
+      act_threshold: threshold,
+      act_state: map[:act_state] || ACT.new(threshold),
       act_triggered: map[:act_triggered] || false,
       best_answer: map[:best_answer],
       best_score: map[:best_score] || 0.0,
