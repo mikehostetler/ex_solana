@@ -148,9 +148,6 @@ EOF
         warn "You have uncommitted changes. The agent may commit them."
     fi
     
-    # 7. Create log directory
-    mkdir -p "$LOG_DIR"
-    
     info "Pre-flight checks passed ✓"
 }
 
@@ -225,6 +222,9 @@ should_stop() {
 
 # Main loop
 main() {
+    # Create log directory first
+    mkdir -p "$LOG_DIR"
+    
     # Set up logging
     SESSION_ID=$(date '+%Y%m%d_%H%M%S')
     LOG_FILE="${LOG_DIR}/ralph_${SESSION_ID}.log"
