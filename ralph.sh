@@ -189,8 +189,8 @@ run_iteration() {
     prompt=$(build_prompt)
     
     # Run claude with the prompt
-    # Using --print for headless mode, pipe output to log
-    echo "$prompt" | $AGENT_CMD --print 2>&1 | tee -a "$iteration_log"
+    # Stream output to both terminal and log file
+    echo "$prompt" | $AGENT_CMD 2>&1 | tee -a "$iteration_log"
     
     local exit_code=${PIPESTATUS[1]}
     

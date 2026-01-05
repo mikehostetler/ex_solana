@@ -359,9 +359,9 @@ defmodule Mix.Tasks.Sandbox.Create do
       "image" => image,
       "env" => env,
       "guest" => %{
-        "cpu_kind" => "shared",
+        "cpu_kind" => "performance",
         "cpus" => 2,
-        "memory_mb" => 2048
+        "memory_mb" => 8192
       },
       "services" => [
         %{
