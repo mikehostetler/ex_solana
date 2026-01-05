@@ -200,7 +200,7 @@ defmodule Jido.AI.TRM.MachineTest do
 
     test "extracts quality score from feedback", %{machine: machine} do
       call_id = machine.current_call_id
-      result = {:ok, %{text: "Quality: 85%. Well done."}}
+      result = {:ok, %{text: "SCORE: 0.85. Well done."}}
 
       {machine, _directives} = Machine.update(machine, {:supervision_result, call_id, result})
 
@@ -214,6 +214,17 @@ defmodule Jido.AI.TRM.MachineTest do
       {machine, _directives} = Machine.update(machine, {:supervision_result, call_id, result})
 
       assert machine.latent_state.confidence_score == 0.5
+    end
+
+    test "transitions to error on failure", %{machine: machine} do
+      call_id = machine.current_call_id
+      result = {:error, :api_error}
+
+      {machine, directives} = Machine.update(machine, {:supervision_result, call_id, result})
+
+      assert machine.status == "error"
+      assert machine.termination_reason == :error
+      assert directives == []
     end
   end
 
@@ -270,6 +281,17 @@ defmodule Jido.AI.TRM.MachineTest do
       {machine, _directives} = Machine.update(machine, {:improvement_result, call_id, result})
 
       assert machine.latent_state.step_count == 1
+    end
+
+    test "transitions to error on failure", %{machine: machine} do
+      call_id = machine.current_call_id
+      result = {:error, :rate_limit}
+
+      {machine, directives} = Machine.update(machine, {:improvement_result, call_id, result})
+
+      assert machine.status == "error"
+      assert machine.termination_reason == :error
+      assert directives == []
     end
   end
 
