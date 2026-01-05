@@ -25,7 +25,9 @@ defmodule JidoWorkspace.MixProject do
       {:table_rex, "~> 4.0"},
       {:git_cli, "~> 0.3"},
       {:yaml_elixir, "~> 2.10"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:req_fly, "~> 1.0"},
+      {:dotenv, "~> 3.1", only: :dev}
     ]
   end
 
@@ -59,7 +61,9 @@ defmodule JidoWorkspace.MixProject do
       "roadmap.todo": ["roadmap.todo"],
       "roadmap.idea": ["roadmap.idea"],
       "roadmap.milestone": ["roadmap.milestone"],
-      "roadmap.lint": ["roadmap.lint"]
+      "roadmap.lint": ["roadmap.lint"],
+
+      
     ]
   end
 end

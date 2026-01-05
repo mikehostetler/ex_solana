@@ -31,6 +31,7 @@ jido_workspace-*.tar
 # Env Vars
 .env
 .env*
+!.env.example
 
 # Node.js artifacts from presentations
 presentations/*/node_modules/
