@@ -210,7 +210,7 @@ defmodule JidoTest.HTN.DomainBuildTest do
         |> Domain.primitive("task", {TestModule, []})
         |> Domain.build()
 
-      new_task = PrimitiveTask.new("task", {NewTestModule, []})
+      {:ok, new_task} = PrimitiveTask.new("task", {NewTestModule, []})
       {:ok, updated_domain} = Domain.replace(domain, "task", new_task)
 
       assert updated_domain.tasks["task"] == new_task
@@ -218,7 +218,7 @@ defmodule JidoTest.HTN.DomainBuildTest do
 
     test "returns an error for non-existent task" do
       {:ok, domain} = "Test Domain" |> Domain.new() |> Domain.build()
-      new_task = PrimitiveTask.new("new_task", {TestModule, []})
+      {:ok, new_task} = PrimitiveTask.new("new_task", {TestModule, []})
 
       assert {:error, _} = Domain.replace(domain, "non_existent", new_task)
     end

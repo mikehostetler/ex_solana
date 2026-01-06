@@ -1,14 +1,51 @@
 defmodule Jido.HTN.Domain.Builder do
   @moduledoc false
-  defstruct [:domain, :error]
 
-  @type t :: %__MODULE__{
-          domain: Domain.t() | nil,
-          error: String.t() | nil
-        }
+  alias Jido.HTN.Domain
 
-  def new(domain), do: %__MODULE__{domain: domain}
-  def error(msg), do: %__MODULE__{error: msg}
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              domain:
+                Zoi.any(description: "Domain being built")
+                |> Zoi.optional(),
+              error:
+                Zoi.string(description: "Error message if build failed")
+                |> Zoi.optional()
+            },
+            coerce: true
+          )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc false
+  def schema, do: @schema
+
+  @spec new(Domain.t()) :: {:ok, t()} | {:error, term()}
+  def new(domain) do
+    Zoi.parse(@schema, %{domain: domain})
+  end
+
+  def new!(domain) do
+    case new(domain) do
+      {:ok, builder} -> builder
+      {:error, reason} -> raise ArgumentError, "Invalid Builder: #{inspect(reason)}"
+    end
+  end
+
+  @spec error(String.t()) :: {:ok, t()} | {:error, term()}
+  def error(msg) do
+    Zoi.parse(@schema, %{error: msg})
+  end
+
+  def error!(msg) do
+    case error(msg) do
+      {:ok, builder} -> builder
+      {:error, reason} -> raise ArgumentError, "Invalid Builder: #{inspect(reason)}"
+    end
+  end
 end
 
 defmodule Jido.HTN.Domain.BuilderHelpers do
@@ -25,10 +62,13 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @spec new(String.t()) :: Builder.t()
   def new(name) when is_binary(name) do
     Logger.debug("Creating new domain", domain_name: name)
-    Builder.new(%Domain{name: name})
+    case Zoi.parse(Domain.schema(), %{name: name}) do
+      {:ok, domain} -> Builder.new!(domain)
+      {:error, _reason} -> Builder.error!("Invalid domain: #{inspect(name)}")
+    end
   end
 
-  def new(name), do: invalid_input("Domain name must be a string", name)
+  def new(name), do: Builder.error!("Domain name must be a string: #{inspect(name)}")
 
   @doc "Adds a compound task to the domain."
   @spec compound(Builder.t(), String.t(), keyword()) :: Builder.t()
@@ -40,7 +80,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
       task_exists_error(name)
     else
       methods = Enum.map(methods, &normalize_method/1)
-      task = CompoundTask.new(name, methods)
+      task = CompoundTask.new!(name, methods)
       %{builder | domain: %{domain | tasks: Map.put(domain.tasks, name, task)}}
     end
   end
@@ -58,7 +98,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
       task_exists_error(name)
     else
       primitive_task =
-        PrimitiveTask.new(name, {action, params}, normalize_primitive_task_opts(opts))
+        PrimitiveTask.new!(name, {action, params}, normalize_primitive_task_opts(opts))
 
       %{builder | domain: %{domain | tasks: Map.put(domain.tasks, name, primitive_task)}}
     end
@@ -70,7 +110,7 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
     if Map.has_key?(domain.tasks, name) do
       task_exists_error(name)
     else
-      primitive_task = PrimitiveTask.new(name, {action, []}, normalize_primitive_task_opts(opts))
+      primitive_task = PrimitiveTask.new!(name, {action, []}, normalize_primitive_task_opts(opts))
       %{builder | domain: %{domain | tasks: Map.put(domain.tasks, name, primitive_task)}}
     end
   end
@@ -143,10 +183,12 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   @doc "Replaces a task in the domain with a new task."
   @spec replace(Domain.t(), String.t(), CompoundTask.t() | PrimitiveTask.t()) ::
           {:ok, Domain.t()} | {:error, String.t()}
-  def replace(%Domain{tasks: tasks} = domain, name, new_task)
+  def replace(%Domain{} = domain, name, new_task)
       when is_binary(name) and
              (is_struct(new_task, CompoundTask) or is_struct(new_task, PrimitiveTask)) do
     Logger.debug("Replacing task", task_name: name)
+
+    tasks = Map.get(domain, :tasks, %{})
 
     if Map.has_key?(tasks, name) do
       {:ok, %{domain | tasks: Map.put(tasks, name, new_task)}}
@@ -267,14 +309,29 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   # Private helper functions
 
   defp normalize_method(%{conditions: conditions, subtasks: subtasks} = method) do
-    normalized =
-      struct(Method, %{
-        name: Map.get(method, :name),
-        priority: Map.get(method, :priority),
-        conditions: Enum.map(conditions, &normalize_condition/1),
-        subtasks: subtasks,
-        ordering: Map.get(method, :ordering, [])
-      })
+    # Start with base attrs
+    attrs = %{
+      conditions: Enum.map(conditions, &normalize_condition/1),
+      subtasks: subtasks,
+      ordering: Map.get(method, :ordering, [])
+    }
+
+    # Only add optional fields if they have values
+    attrs =
+      if Map.has_key?(method, :name) and method.name != nil do
+        Map.put(attrs, :name, method.name)
+      else
+        attrs
+      end
+
+    attrs =
+      if Map.has_key?(method, :priority) and method.priority != nil do
+        Map.put(attrs, :priority, method.priority)
+      else
+        attrs
+      end
+
+    normalized = Method.new!(attrs)
 
     # Validate ordering constraints before returning
     Method.validate_ordering!(normalized)
@@ -302,8 +359,8 @@ defmodule Jido.HTN.Domain.BuilderHelpers do
   end
 
   defp task_exists_error(name),
-    do: Builder.error("Task name '#{name}' already exists in the domain")
+    do: Builder.error!("Task name '#{name}' already exists in the domain")
 
   defp invalid_input(msg, value),
-    do: Builder.error("#{msg}: #{inspect(value)}")
+    do: Builder.error!("#{msg}: #{inspect(value)}")
 end

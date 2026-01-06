@@ -5,19 +5,44 @@ defmodule Jido.HTN.CompoundTask do
 
   alias Jido.HTN.Method
 
-  @type t :: %__MODULE__{
-          name: String.t(),
-          methods: [Method.t()]
-        }
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              name:
+                Zoi.string(description: "Compound task name"),
+              methods:
+                Zoi.list(
+                  # We use Zoi.any() here because Methods may not always be fully validated structs
+                  # during construction. The builder will ensure they're valid Methods.
+                  Zoi.any(description: "Decomposition methods"),
+                  description: "List of methods for decomposing this task"
+                )
+                |> Zoi.default([])
+            },
+            coerce: true
+          )
 
-  defstruct [:name, methods: []]
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc false
+  def schema, do: @schema
 
   @doc """
   Creates a new compound task with the given name and optional list of methods.
   """
-  @spec new(String.t(), [Method.t()]) :: t()
+  @spec new(String.t(), [Method.t()]) :: {:ok, t()} | {:error, term()}
   def new(name, methods \\ []) when is_binary(name) do
-    %__MODULE__{name: name, methods: methods}
+    Zoi.parse(@schema, %{name: name, methods: methods})
+  end
+
+  @spec new!(String.t(), [Method.t()]) :: t()
+  def new!(name, methods \\ []) when is_binary(name) do
+    case new(name, methods) do
+      {:ok, task} -> task
+      {:error, reason} -> raise ArgumentError, "Invalid CompoundTask: #{inspect(reason)}"
+    end
   end
 
   @doc """

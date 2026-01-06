@@ -11,29 +11,58 @@ defmodule Jido.HTN.PrimitiveTask do
           optional(:latest_end_time) => non_neg_integer()
         }
 
-  @type t :: %__MODULE__{
-          name: String.t(),
-          preconditions: [(map() -> boolean())],
-          task: {action(), params()},
-          effects: [(any() -> map())],
-          expected_effects: [(map() -> map())],
-          cost: non_neg_integer() | nil,
-          duration: non_neg_integer() | nil,
-          scheduling_constraints: scheduling_constraints() | nil,
-          background: boolean()
-        }
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              name:
+                Zoi.string(description: "Unique name for this primitive task"),
+              task:
+                Zoi.tuple(
+                  {Zoi.atom(description: "Jido.Action module"),
+                   Zoi.array(Zoi.any(), description: "Action parameters")},
+                  description: "Jido.Action module and parameters"
+                )
+                |> Zoi.default({nil, []}),
+              cost:
+                Zoi.integer(description: "Estimated cost for planning")
+                |> Zoi.optional(),
+              duration:
+                Zoi.integer(description: "Estimated duration in milliseconds")
+                |> Zoi.optional(),
+              scheduling_constraints:
+                Zoi.map(description: "Time constraints for execution")
+                |> Zoi.optional(),
+              preconditions:
+                Zoi.list(
+                  Zoi.function(),
+                  description: "Functions that validate world state (1-arity)"
+                )
+                |> Zoi.default([]),
+              effects:
+                Zoi.list(
+                  Zoi.function(),
+                  description: "Functions that transform world state"
+                )
+                |> Zoi.default([]),
+              expected_effects:
+                Zoi.list(
+                  Zoi.function(),
+                  description: "Expected world state transformations"
+                )
+                |> Zoi.default([]),
+              background:
+                Zoi.boolean(description: "Execute asynchronously without blocking")
+                |> Zoi.default(false)
+            },
+            coerce: true
+          )
 
-  defstruct [
-    :name,
-    :task,
-    :cost,
-    :duration,
-    :scheduling_constraints,
-    preconditions: [],
-    effects: [],
-    expected_effects: [],
-    background: false
-  ]
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc false
+  def schema, do: @schema
 
   @doc """
   Creates a new primitive task.
@@ -47,19 +76,49 @@ defmodule Jido.HTN.PrimitiveTask do
   - `:scheduling_constraints` - Optional map of scheduling constraints (earliest_start_time, latest_end_time)
   - `:background` - Whether this task should execute in the background (default: false)
   """
-  @spec new(String.t(), {action(), params()}, keyword()) :: t()
+  @spec new(String.t(), {action(), params()}, keyword()) :: {:ok, t()} | {:error, term()}
   def new(name, task, opts \\ []) when is_binary(name) do
-    %__MODULE__{
+    # Build base attrs with required fields and defaults
+    attrs = %{
       name: name,
       task: task,
       preconditions: Keyword.get(opts, :preconditions, []),
       effects: Keyword.get(opts, :effects, []),
       expected_effects: Keyword.get(opts, :expected_effects, []),
-      cost: Keyword.get(opts, :cost),
-      duration: Keyword.get(opts, :duration),
-      scheduling_constraints: Keyword.get(opts, :scheduling_constraints),
       background: Keyword.get(opts, :background, false)
     }
+
+    # Add optional fields only if they are present in opts
+    attrs =
+      if Keyword.has_key?(opts, :cost) do
+        Map.put(attrs, :cost, Keyword.get(opts, :cost))
+      else
+        attrs
+      end
+
+    attrs =
+      if Keyword.has_key?(opts, :duration) do
+        Map.put(attrs, :duration, Keyword.get(opts, :duration))
+      else
+        attrs
+      end
+
+    attrs =
+      if Keyword.has_key?(opts, :scheduling_constraints) do
+        Map.put(attrs, :scheduling_constraints, Keyword.get(opts, :scheduling_constraints))
+      else
+        attrs
+      end
+
+    Zoi.parse(@schema, attrs)
+  end
+
+  @spec new!(String.t(), {action(), params()}, keyword()) :: t()
+  def new!(name, task, opts \\ []) when is_binary(name) do
+    case new(name, task, opts) do
+      {:ok, primitive_task} -> primitive_task
+      {:error, reason} -> raise ArgumentError, "Invalid PrimitiveTask: #{inspect(reason)}"
+    end
   end
 
   @doc """

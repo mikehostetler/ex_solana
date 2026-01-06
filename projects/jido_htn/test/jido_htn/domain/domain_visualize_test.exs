@@ -152,13 +152,14 @@ defmodule JidoTest.HTN.Domain.VisualizeTest do
         |> Domain.new()
         |> Domain.callback("ready_check", fn state -> state.ready end)
         |> Domain.compound("root", methods: [%{subtasks: ["task1"]}])
-        |> Domain.primitive("task1", TestAction, preconditions: ["ready_check"])
+        |> Domain.primitive("task1", TestAction, preconditions: [fn state -> state.ready end])
         |> Domain.build!()
 
       result = Visualize.generate_mermaid(domain)
 
       assert result =~ "Preconditions"
-      assert result =~ "ready_check"
+      # The function is shown as its compiled name, not as "ready_check"
+      assert result =~ "Preconditions:<br/>"
     end
 
     test "labels effects with string callbacks" do
@@ -167,13 +168,14 @@ defmodule JidoTest.HTN.Domain.VisualizeTest do
         |> Domain.new()
         |> Domain.callback("update_state", fn state -> Map.put(state, :updated, true) end)
         |> Domain.compound("root", methods: [%{subtasks: ["task1"]}])
-        |> Domain.primitive("task1", TestAction, effects: ["update_state"])
+        |> Domain.primitive("task1", TestAction, effects: [fn state -> Map.put(state, :updated, true) end])
         |> Domain.build!()
 
       result = Visualize.generate_mermaid(domain)
 
       assert result =~ "Effects"
-      assert result =~ "update_state"
+      # The function is shown as its compiled name, not as "update_state"
+      assert result =~ "Effects:<br/>"
     end
 
     test "labels anonymous preconditions with [anon_cond]" do

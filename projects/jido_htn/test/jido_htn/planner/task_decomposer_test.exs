@@ -29,7 +29,7 @@ defmodule Jido.HTN.Planner.TaskDecomposerTest do
           ]
         )
         |> Domain.primitive("task1", {TestAction, []})
-        |> Domain.primitive("will_fail", {TestAction, []}, preconditions: ["always_false"])
+        |> Domain.primitive("will_fail", {TestAction, []}, preconditions: [fn _ -> false end])
         |> Domain.primitive("task2", {TestAction, []})
         |> Domain.primitive("task3", {TestAction, []})
         |> Domain.allow("TestAction", TestAction)

@@ -2,7 +2,7 @@
 
 ## Your Mission
 
-[REPLACE THIS WITH YOUR TASK]
+Review projects/jido_htn/JIDO_HTN_STRATEGY.md, implement this and migrate jido_htn to use Zoi schemas instead of raw structs.
 
 Example tasks:
 - "Implement the missing tests for jido_ai/lib/jido_ai/strategy/react.ex"

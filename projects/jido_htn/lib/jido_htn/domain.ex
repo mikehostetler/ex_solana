@@ -8,19 +8,37 @@ defmodule Jido.HTN.Domain do
   """
 
   alias __MODULE__
-  alias Jido.HTN.CompoundTask
-  alias Jido.HTN.PrimitiveTask
 
-  @type t :: %__MODULE__{
-          name: String.t(),
-          tasks: %{String.t() => CompoundTask.t() | PrimitiveTask.t()},
-          allowed_workflows: %{optional(String.t()) => module()},
-          callbacks: %{String.t() => (map() -> boolean()) | (map() -> map())},
-          root_tasks: MapSet.t(String.t())
-        }
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              name:
+                Zoi.string(description: "Domain name")
+                |> Zoi.optional(),
+              tasks:
+                Zoi.map(description: "Task registry mapping task names to task definitions")
+                |> Zoi.default(%{}),
+              allowed_workflows:
+                Zoi.map(description: "Allowed workflow modules by name")
+                |> Zoi.default(%{}),
+              callbacks:
+                Zoi.map(description: "Callback functions for domain events")
+                |> Zoi.default(%{}),
+              root_tasks:
+                Zoi.any(description: "Root task names (entry points for planning)")
+                |> Zoi.default(MapSet.new())
+            },
+            coerce: true
+          )
 
-  defstruct [:name, tasks: %{}, allowed_workflows: %{}, callbacks: %{}, root_tasks: MapSet.new()]
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
 
+  @doc false
+  def schema, do: @schema
+
+  # All delegations to helpers remain unchanged
   # Builder Methods
   defdelegate new(name), to: Domain.BuilderHelpers
   defdelegate compound(builder, name, opts \\ []), to: Domain.BuilderHelpers

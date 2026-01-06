@@ -26,6 +26,7 @@ defmodule JidoHtn.MixProject do
       {:ex_dbug, "~> 2.0"},
       {:proper_case, "~> 1.3"},
       {:private, "~> 0.1.2"},
+      {:zoi, "~> 0.14"},
       jido_dep(:jido, "../jido", "~> 1.3.0"),
       jido_dep(:jido_action, "../jido_action", "~> 1.3.0"),
 
