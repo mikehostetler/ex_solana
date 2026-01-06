@@ -130,12 +130,14 @@ defmodule Jido.HTN do
            ) do
         {:ok, plan, _final_state, mtr_list, tree} when debug ->
           dbug("do_plan completed successfully with debug tree")
-          mtr_struct = %Jido.HTN.Planner.MethodTraversalRecord{choices: Enum.reverse(mtr_list)}
+          mtr_struct = Jido.HTN.Planner.MethodTraversalRecord.new!()
+          |> Map.put(:choices, Enum.reverse(mtr_list))
           {:ok, plan, mtr_struct, tree}
 
         {:ok, plan, _final_state, mtr_list, _tree} ->
           dbug("do_plan completed successfully")
-          mtr_struct = %Jido.HTN.Planner.MethodTraversalRecord{choices: Enum.reverse(mtr_list)}
+          mtr_struct = Jido.HTN.Planner.MethodTraversalRecord.new!()
+          |> Map.put(:choices, Enum.reverse(mtr_list))
           {:ok, plan, mtr_struct}
 
         {:error, reason, tree} ->

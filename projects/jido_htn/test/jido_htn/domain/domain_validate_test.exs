@@ -253,8 +253,8 @@ defmodule JidoTest.HTN.DomainValidateTest do
       assert {:error, [error_message]} = result
       assert error_message =~ "Duration must be non-negative"
 
-      # Test invalid cost type
-      result =
+      # Test invalid cost type - Zoi now validates at construction time
+      assert_raise ArgumentError, ~r/cost|Invalid PrimitiveTask/, fn ->
         "Test Domain"
         |> Domain.new()
         |> Domain.compound("root", methods: [%{subtasks: ["task"]}])
@@ -262,13 +262,10 @@ defmodule JidoTest.HTN.DomainValidateTest do
         |> Domain.allow("TestAction", TestAction)
         |> Domain.root("root")
         |> Domain.build()
-        |> Domain.validate()
+      end
 
-      assert {:error, [error_message]} = result
-      assert error_message =~ "Cost must be an integer"
-
-      # Test invalid duration type
-      result =
+      # Test invalid duration type - Zoi now validates at construction time
+      assert_raise ArgumentError, ~r/duration|Invalid PrimitiveTask/, fn ->
         "Test Domain"
         |> Domain.new()
         |> Domain.compound("root", methods: [%{subtasks: ["task"]}])
@@ -276,10 +273,7 @@ defmodule JidoTest.HTN.DomainValidateTest do
         |> Domain.allow("TestAction", TestAction)
         |> Domain.root("root")
         |> Domain.build()
-        |> Domain.validate()
-
-      assert {:error, [error_message]} = result
-      assert error_message =~ "Duration must be an integer"
+      end
     end
 
     test "validates costs and durations" do
@@ -597,8 +591,8 @@ defmodule JidoTest.HTN.DomainValidateTest do
       assert error =~
                "Invalid task structure for 'task1': scheduling_constraints can only contain earliest_start_time and latest_end_time"
 
-      # Test non-map constraints
-      result =
+      # Test non-map constraints - Zoi now validates at construction time
+      assert_raise ArgumentError, ~r/scheduling_constraints|Invalid PrimitiveTask/, fn ->
         "Test Domain"
         |> Domain.new()
         |> Domain.compound("root", methods: [%{subtasks: ["task1"]}])
@@ -606,10 +600,7 @@ defmodule JidoTest.HTN.DomainValidateTest do
         |> Domain.allow("TestAction", TestAction)
         |> Domain.root("root")
         |> Domain.build()
-        |> Domain.validate()
-
-      assert {:error, [error]} = result
-      assert error =~ "Invalid task structure for 'task1': scheduling_constraints must be a map"
+      end
     end
   end
 
@@ -663,19 +654,20 @@ defmodule JidoTest.HTN.DomainValidateTest do
     end
 
     test "collects errors from cost and duration validation" do
+      # With Zoi, type errors are caught at build time, not validation time
+      # This test now validates that negative values are caught by domain validation
       result =
         "Test Domain"
         |> Domain.new()
-        |> Domain.compound("root", methods: [%{subtasks: ["task1", "task2"]}])
+        |> Domain.compound("root", methods: [%{subtasks: ["task1"]}])
         |> Domain.primitive("task1", {TestAction, []}, cost: -5, duration: -100)
-        |> Domain.primitive("task2", {TestAction, []}, cost: "invalid", duration: "bad")
         |> Domain.allow("TestAction", TestAction)
         |> Domain.root("root")
         |> Domain.build()
         |> Domain.validate(verbose: true)
 
       assert {:error, errors} = result
-      assert length(errors) >= 4
+      assert length(errors) >= 2
 
       assert Enum.any?(
                errors,
@@ -685,16 +677,6 @@ defmodule JidoTest.HTN.DomainValidateTest do
       assert Enum.any?(
                errors,
                &(&1 =~ "Invalid task structure for 'task1': Duration must be non-negative")
-             )
-
-      assert Enum.any?(
-               errors,
-               &(&1 =~ "Invalid task structure for 'task2': Cost must be an integer")
-             )
-
-      assert Enum.any?(
-               errors,
-               &(&1 =~ "Invalid task structure for 'task2': Duration must be an integer")
              )
     end
 

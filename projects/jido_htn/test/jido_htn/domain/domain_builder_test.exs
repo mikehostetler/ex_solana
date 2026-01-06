@@ -371,7 +371,7 @@ defmodule JidoTest.HTN.Domain.BuilderTest do
         |> Domain.compound("task1", methods: [])
         |> Domain.build()
 
-      new_task = Jido.HTN.CompoundTask.new("task1", [%{subtasks: ["new"]}])
+      {:ok, new_task} = Jido.HTN.CompoundTask.new("task1", [%{subtasks: ["new"]}])
       {:ok, updated} = BuilderHelpers.replace(domain, "task1", new_task)
 
       task = Map.get(updated.tasks, "task1")
@@ -385,7 +385,7 @@ defmodule JidoTest.HTN.Domain.BuilderTest do
         |> Domain.primitive("task1", {TestAction, []})
         |> Domain.build()
 
-      new_task = Jido.HTN.PrimitiveTask.new("task1", {TestAction, []}, cost: 20)
+      {:ok, new_task} = Jido.HTN.PrimitiveTask.new("task1", {TestAction, []}, cost: 20)
       {:ok, updated} = BuilderHelpers.replace(domain, "task1", new_task)
 
       task = Map.get(updated.tasks, "task1")
@@ -398,7 +398,7 @@ defmodule JidoTest.HTN.Domain.BuilderTest do
         |> Domain.new()
         |> Domain.build()
 
-      new_task = Jido.HTN.PrimitiveTask.new("task1", {TestAction, []})
+      {:ok, new_task} = Jido.HTN.PrimitiveTask.new("task1", {TestAction, []})
       result = BuilderHelpers.replace(domain, "task1", new_task)
 
       assert {:error, "Task 'task1' not found"} = result

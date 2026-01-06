@@ -5,11 +5,11 @@ defmodule JidoTest.HTN.MethodTest do
   @moduletag :capture_log
   describe "new/1" do
     test "creates a new Method" do
-      method =
-        Method.new(
-          conditions: [fn _ -> true end],
-          subtasks: ["subtask1", "subtask2"]
-        )
+      assert {:ok, method} =
+               Method.new(
+                 conditions: [fn _ -> true end],
+                 subtasks: ["subtask1", "subtask2"]
+               )
 
       assert %Method{
                conditions: [_],
@@ -18,7 +18,7 @@ defmodule JidoTest.HTN.MethodTest do
     end
 
     test "creates a Method with default values" do
-      method = Method.new()
+      assert {:ok, method} = Method.new()
       assert %Method{conditions: [], subtasks: []} = method
     end
   end

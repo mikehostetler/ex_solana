@@ -96,16 +96,16 @@ defmodule JidoTest.HTN.DomainFullTest do
         ]
       )
       |> Domain.primitive("open_position",
+        {Jido.Agent.CopyTradeBot.OpenPositionWorkflow, []},
         preconditions: [
           fn state -> not P.has_open_position?(state) end,
           fn state -> P.has_sufficient_balance?(state) end
         ],
-        task: {Jido.Agent.CopyTradeBot.OpenPositionWorkflow, []},
         effects: [fn state -> T.open_position(state) end]
       )
       |> Domain.primitive("close_position",
+        {ClosePositionWorkflow, []},
         preconditions: [fn state -> P.has_open_position?(state) end],
-        task: {ClosePositionWorkflow, []},
         effects: [fn state, params -> T.close_position(state, params) end]
       )
       |> Domain.allow("OpenPosition", OpenPositionWorkflow)

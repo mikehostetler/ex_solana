@@ -6,21 +6,60 @@ defmodule Jido.HTN.Method do
   alias __MODULE__
 
   @type ordering_constraint :: {String.t(), String.t()}
-  @type t :: %Method{
-          name: String.t() | nil,
-          priority: non_neg_integer() | nil,
-          conditions: list(),
-          subtasks: list(),
-          ordering: list(ordering_constraint)
-        }
 
-  defstruct [:name, :priority, conditions: [], subtasks: [], ordering: []]
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              name:
+                Zoi.string(description: "Method name")
+                |> Zoi.optional(),
+              priority:
+                Zoi.integer(description: "Method priority (lower = higher priority)")
+                |> Zoi.min(0)
+                |> Zoi.optional(),
+              conditions:
+                Zoi.list(
+                  Zoi.any(),
+                  description: "Precondition functions (boolean, string, or 1-arity function)"
+                )
+                |> Zoi.default([]),
+              subtasks:
+                Zoi.list(
+                  Zoi.string(description: "Subtask name")
+                )
+                |> Zoi.default([]),
+              ordering:
+                Zoi.list(
+                  Zoi.tuple({Zoi.string(), Zoi.string()}),
+                  description: "Ordering constraints as pairs of {before, after}"
+                )
+                |> Zoi.default([])
+            },
+            coerce: true
+          )
+
+  @type t :: unquote(Zoi.type_spec(@schema))
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  @doc false
+  def schema, do: @schema
 
   @doc """
   Creates a new Method struct with the given options.
   """
+  @spec new(keyword()) :: {:ok, t()} | {:error, term()}
   def new(opts \\ []) do
-    struct(Method, opts)
+    attrs = Map.new(opts)
+    Zoi.parse(@schema, attrs)
+  end
+
+  @spec new!(keyword()) :: t()
+  def new!(opts \\ []) do
+    case new(opts) do
+      {:ok, method} -> method
+      {:error, reason} -> raise ArgumentError, "Invalid Method: #{inspect(reason)}"
+    end
   end
 
   @doc """

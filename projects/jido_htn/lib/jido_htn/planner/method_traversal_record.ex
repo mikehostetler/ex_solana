@@ -7,17 +7,49 @@ defmodule Jido.HTN.Planner.MethodTraversalRecord do
   alias __MODULE__
 
   @type method_choice :: {String.t(), String.t(), non_neg_integer()}
-  @type t :: %MethodTraversalRecord{
-          choices: [method_choice()]
-        }
 
-  defstruct choices: []
+  # Define Zoi schema
+  @schema Zoi.struct(
+            __MODULE__,
+            %{
+              choices:
+                Zoi.list(
+                  Zoi.tuple({Zoi.string(), Zoi.string(), Zoi.integer() |> Zoi.min(0)}),
+                  description: "Method choices made during planning"
+                )
+                |> Zoi.default([])
+            },
+            coerce: true
+          )
+
+  # Auto-generate type spec from schema
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  # Extract enforce keys and struct fields from schema
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
+
+  # Expose schema for external use
+  @doc false
+  def schema, do: @schema
 
   @doc """
   Creates a new empty MTR.
   """
+  @spec new() :: {:ok, t()} | {:error, term()}
   def new do
-    %MethodTraversalRecord{}
+    Zoi.parse(@schema, %{})
+  end
+
+  @doc """
+  Creates a new empty MTR, raising on error.
+  """
+  @spec new!() :: t()
+  def new! do
+    case new() do
+      {:ok, mtr} -> mtr
+      {:error, reason} -> raise ArgumentError, "Invalid MethodTraversalRecord: #{inspect(reason)}"
+    end
   end
 
   @doc """
