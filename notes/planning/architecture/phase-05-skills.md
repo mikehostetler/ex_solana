@@ -156,54 +156,54 @@ Implement the planning skill for goal decomposition and planning.
 
 Create the planning skill module.
 
-- [ ] 5.3.1.1 Create `lib/jido_ai/skills/planning_skill.ex` with module documentation
-- [ ] 5.3.1.2 Use `Jido.Skill` with name, state_key, and actions
-- [ ] 5.3.1.3 Define schema with planning_model, max_steps fields
-- [ ] 5.3.1.4 List actions: Plan, Decompose, Prioritize
+- [x] 5.3.1.1 Create `lib/jido_ai/skills/planning_skill.ex` with module documentation
+- [x] 5.3.1.2 Use `Jido.Skill` with name, state_key, and actions
+- [x] 5.3.1.3 Define schema with planning_model, max_steps fields
+- [x] 5.3.1.4 List actions: Plan, Decompose, Prioritize
 
 ### 5.3.2 Mount Callback
 
 Implement skill mounting.
 
-- [ ] 5.3.2.1 Implement `mount/2` callback
-- [ ] 5.3.2.2 Configure planning model
-- [ ] 5.3.2.3 Initialize plan state
+- [x] 5.3.2.1 Implement `mount/2` callback
+- [x] 5.3.2.2 Configure planning model
+- [x] 5.3.2.3 Initialize plan state
 
 ### 5.3.3 Plan Action
 
 Implement planning action.
 
-- [ ] 5.3.3.1 Create Plan action module
-- [ ] 5.3.3.2 Accept goal, constraints, resources parameters
-- [ ] 5.3.3.3 Generate structured plan with steps
-- [ ] 5.3.3.4 Return plan with dependencies
+- [x] 5.3.3.1 Create Plan action module
+- [x] 5.3.3.2 Accept goal, constraints, resources parameters
+- [x] 5.3.3.3 Generate structured plan with steps
+- [x] 5.3.3.4 Return plan with dependencies
 
 ### 5.3.4 Decompose Action
 
 Implement goal decomposition action.
 
-- [ ] 5.3.4.1 Create Decompose action module
-- [ ] 5.3.4.2 Accept goal, max_depth parameters
-- [ ] 5.3.4.3 Break goal into sub-goals
-- [ ] 5.3.4.4 Return hierarchical goal structure
+- [x] 5.3.4.1 Create Decompose action module
+- [x] 5.3.4.2 Accept goal, max_depth parameters
+- [x] 5.3.4.3 Break goal into sub-goals
+- [x] 5.3.4.4 Return hierarchical goal structure
 
 ### 5.3.5 Prioritize Action
 
 Implement task prioritization action.
 
-- [ ] 5.3.5.1 Create Prioritize action module
-- [ ] 5.3.5.2 Accept tasks, criteria parameters
-- [ ] 5.3.5.3 Order tasks by priority
-- [ ] 5.3.5.4 Return ordered task list with scores
+- [x] 5.3.5.1 Create Prioritize action module
+- [x] 5.3.5.2 Accept tasks, criteria parameters
+- [x] 5.3.5.3 Order tasks by priority
+- [x] 5.3.5.4 Return ordered task list with scores
 
 ### 5.3.6 Unit Tests for Planning Skill
 
-- [ ] Test mount/2 configures planning model
-- [ ] Test Plan action returns structured plan
-- [ ] Test Decompose action breaks down goals
-- [ ] Test Prioritize action orders tasks
-- [ ] Test max_steps limit respected
-- [ ] Test error handling
+- [x] Test mount/2 configures planning model
+- [x] Test Plan action returns structured plan
+- [x] Test Decompose action breaks down goals
+- [x] Test Prioritize action orders tasks
+- [x] Test max_steps limit respected
+- [x] Test error handling
 
 ---
 
@@ -215,54 +215,54 @@ Implement the streaming skill for real-time response handling.
 
 Create the streaming skill module.
 
-- [ ] 5.4.1.1 Create `lib/jido_ai/skills/streaming_skill.ex` with module documentation
-- [ ] 5.4.1.2 Use `Jido.Skill` with name, state_key, and actions
-- [ ] 5.4.1.3 Define schema with buffer_size, on_token fields
-- [ ] 5.4.1.4 List actions: StartStream, ProcessTokens, EndStream
+- [x] 5.4.1.1 Create `lib/jido_ai/skills/streaming.ex` with module documentation
+- [x] 5.4.1.2 Use `Jido.Skill` with name, state_key, and actions
+- [x] 5.4.1.3 Define schema with buffer_size, on_token fields
+- [x] 5.4.1.4 List actions: StartStream, ProcessTokens, EndStream
 
 ### 5.4.2 Mount Callback
 
 Implement skill mounting.
 
-- [ ] 5.4.2.1 Implement `mount/2` callback
-- [ ] 5.4.2.2 Configure token buffer
-- [ ] 5.4.2.3 Set up token callback
+- [x] 5.4.2.1 Implement `mount/2` callback
+- [x] 5.4.2.2 Configure token buffer
+- [x] 5.4.2.3 Set up token callback
 
 ### 5.4.3 StartStream Action
 
 Implement stream start action.
 
-- [ ] 5.4.3.1 Create StartStream action module
-- [ ] 5.4.3.2 Accept prompt, model parameters
-- [ ] 5.4.3.3 Call `ReqLLM.stream_text/3` directly
-- [ ] 5.4.3.4 Return stream handle
+- [x] 5.4.3.1 Create StartStream action module
+- [x] 5.4.3.2 Accept prompt, model parameters
+- [x] 5.4.3.3 Call `ReqLLM.stream_text/3` directly
+- [x] 5.4.3.4 Return stream handle
 
 ### 5.4.4 ProcessTokens Action
 
 Implement token processing action.
 
-- [ ] 5.4.4.1 Create ProcessTokens action module
-- [ ] 5.4.4.2 Accept stream_handle, callback parameters
-- [ ] 5.4.4.3 Iterate over token stream
-- [ ] 5.4.4.4 Invoke callback for each token
+- [x] 5.4.4.1 Create ProcessTokens action module
+- [x] 5.4.4.2 Accept stream_handle, callback parameters
+- [x] 5.4.4.3 Iterate over token stream
+- [x] 5.4.4.4 Invoke callback for each token
 
 ### 5.4.5 EndStream Action
 
 Implement stream end action.
 
-- [ ] 5.4.5.1 Create EndStream action module
-- [ ] 5.4.5.2 Accept stream_handle parameter
-- [ ] 5.4.5.3 Collect final usage/metadata
-- [ ] 5.4.5.4 Return complete response
+- [x] 5.4.5.1 Create EndStream action module
+- [x] 5.4.5.2 Accept stream_handle parameter
+- [x] 5.4.5.3 Collect final usage/metadata
+- [x] 5.4.5.4 Return complete response
 
 ### 5.4.6 Unit Tests for Streaming Skill
 
-- [ ] Test mount/2 configures buffer
-- [ ] Test StartStream action initializes stream
-- [ ] Test ProcessTokens action invokes callbacks
-- [ ] Test EndStream action collects metadata
-- [ ] Test token buffering works correctly
-- [ ] Test error handling during streaming
+- [x] Test mount/2 configures buffer
+- [x] Test StartStream action initializes stream
+- [x] Test ProcessTokens action invokes callbacks
+- [x] Test EndStream action collects metadata
+- [x] Test token buffering works correctly
+- [x] Test error handling during streaming
 
 ---
 
@@ -274,63 +274,63 @@ Implement the tool calling skill for function execution.
 
 Create the tool calling skill module.
 
-- [ ] 5.5.1.1 Create `lib/jido_ai/skills/tool_calling_skill.ex` with module documentation
-- [ ] 5.5.1.2 Use `Jido.Skill` with name, state_key, and actions
-- [ ] 5.5.1.3 Define schema with available_tools, auto_execute fields
-- [ ] 5.5.1.4 List actions: CallWithTools, ExecuteTool, ListTools
+- [x] 5.5.1.1 Create `lib/jido_ai/skills/tool_calling.ex` with module documentation
+- [x] 5.5.1.2 Use `Jido.Skill` with name, state_key, and actions
+- [x] 5.5.1.3 Define schema with available_tools, auto_execute fields
+- [x] 5.5.1.4 List actions: CallWithTools, ExecuteTool, ListTools
 
 ### 5.5.2 Mount Callback
 
 Implement skill mounting.
 
-- [ ] 5.5.2.1 Implement `mount/2` callback
-- [ ] 5.5.2.2 Load available tools from Registry
-- [ ] 5.5.2.3 Configure auto-execution setting
+- [x] 5.5.2.1 Implement `mount/2` callback
+- [x] 5.5.2.2 Load available tools from Registry
+- [x] 5.5.2.3 Configure auto-execution setting
 
 ### 5.5.3 CallWithTools Action
 
 Implement tool-enabled LLM call action.
 
-- [ ] 5.5.3.1 Create CallWithTools action module
-- [ ] 5.5.3.2 Accept prompt, tools parameters
-- [ ] 5.5.3.3 Call `ReqLLM.generate_text/3` with `tools:` option directly
-- [ ] 5.5.3.4 Return response with tool calls
+- [x] 5.5.3.1 Create CallWithTools action module
+- [x] 5.5.3.2 Accept prompt, tools parameters
+- [x] 5.5.3.3 Call `ReqLLM.generate_text/3` with `tools:` option directly
+- [x] 5.5.3.4 Return response with tool calls
 
 ### 5.5.4 ExecuteTool Action
 
 Implement tool execution action.
 
-- [ ] 5.5.4.1 Create ExecuteTool action module
-- [ ] 5.5.4.2 Accept tool_name, params parameters
-- [ ] 5.5.4.3 Execute via Registry.execute_tool
-- [ ] 5.5.4.4 Return tool result
+- [x] 5.5.4.1 Create ExecuteTool action module
+- [x] 5.5.4.2 Accept tool_name, params parameters
+- [x] 5.5.4.3 Execute via Registry/Executor
+- [x] 5.5.4.4 Return tool result
 
 ### 5.5.5 ListTools Action
 
 Implement tool listing action.
 
-- [ ] 5.5.5.1 Create ListTools action module
-- [ ] 5.5.5.2 Get tools from Registry
-- [ ] 5.5.5.3 Return tool list with schemas
+- [x] 5.5.5.1 Create ListTools action module
+- [x] 5.5.5.2 Get tools from Registry
+- [x] 5.5.5.3 Return tool list with schemas
 
 ### 5.5.6 Auto-Execution
 
 Implement automatic tool execution.
 
-- [ ] 5.5.6.1 Implement `handle_tool_call/2` for auto-execution
-- [ ] 5.5.6.2 Parse tool call from LLM response
-- [ ] 5.5.6.3 Execute and return result to LLM
-- [ ] 5.5.6.4 Support multi-turn tool conversations
+- [x] 5.5.6.1 Implement `handle_tool_call/2` for auto-execution
+- [x] 5.5.6.2 Parse tool call from LLM response
+- [x] 5.5.6.3 Execute and return result to LLM
+- [x] 5.5.6.4 Support multi-turn tool conversations
 
 ### 5.5.7 Unit Tests for Tool Calling Skill
 
-- [ ] Test mount/2 loads available tools
-- [ ] Test CallWithTools action includes tools
-- [ ] Test ExecuteTool action runs tool
-- [ ] Test ListTools action returns tool list
-- [ ] Test auto-execution handles tool calls
-- [ ] Test multi-turn tool conversations
-- [ ] Test error handling during execution
+- [x] Test mount/2 loads available tools
+- [x] Test CallWithTools action includes tools
+- [x] Test ExecuteTool action runs tool
+- [x] Test ListTools action returns tool list
+- [x] Test auto-execution handles tool calls
+- [x] Test multi-turn tool conversations
+- [x] Test error handling during execution
 
 ---
 
@@ -342,26 +342,26 @@ Comprehensive integration tests verifying all Phase 5 components work together.
 
 Verify skills compose correctly on agents.
 
-- [ ] 5.6.1.1 Create `test/jido_ai/integration/skills_phase5_test.exs`
-- [ ] 5.6.1.2 Test: Agent with multiple skills mounted
-- [ ] 5.6.1.3 Test: Skills access shared agent state
-- [ ] 5.6.1.4 Test: Skill actions invoked through agent
+- [x] 5.6.1.1 Create `test/jido_ai/integration/skills_phase5_test.exs`
+- [x] 5.6.1.2 Test: Agent with multiple skills mounted
+- [x] 5.6.1.3 Test: Skills access shared agent state
+- [x] 5.6.1.4 Test: Skill actions invoked through agent
 
 ### 5.6.2 LLM Skill Integration
 
 Test LLM skill with streaming and tools.
 
-- [ ] 5.6.2.1 Test: LLM skill → Streaming skill flow
-- [ ] 5.6.2.2 Test: LLM skill → Tool calling skill flow
-- [ ] 5.6.2.3 Test: Combined streaming + tool calling
+- [x] 5.6.2.1 Test: LLM skill → Streaming skill flow
+- [x] 5.6.2.2 Test: LLM skill → Tool calling skill flow
+- [x] 5.6.2.3 Test: Combined streaming + tool calling
 
 ### 5.6.3 Reasoning and Planning Integration
 
 Test reasoning and planning skill interaction.
 
-- [ ] 5.6.3.1 Test: Reasoning skill informs planning
-- [ ] 5.6.3.2 Test: Planning skill decomposes reasoning tasks
-- [ ] 5.6.3.3 Test: Full analysis → plan → execute flow
+- [x] 5.6.3.1 Test: Reasoning skill informs planning
+- [x] 5.6.3.2 Test: Planning skill decomposes reasoning tasks
+- [x] 5.6.3.3 Test: Full analysis → plan → execute flow
 
 ---
 
