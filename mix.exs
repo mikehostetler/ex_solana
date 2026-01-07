@@ -27,7 +27,8 @@ defmodule JidoWorkspace.MixProject do
       {:yaml_elixir, "~> 2.10"},
       {:jason, "~> 1.4"},
       {:req_fly, "~> 1.0"},
-      {:dotenv, "~> 3.1", only: :dev}
+      {:dotenv, "~> 3.1", only: :dev},
+      {:claude_code_sdk, "~> 0.2"}
     ]
   end
 
