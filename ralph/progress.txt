@@ -1,0 +1,11 @@
+# Ralph Progress Log
+Started: 2024-01-15
+
+## Codebase Patterns
+- Migrations: IF NOT EXISTS
+- Types: Export from actions.ts
+
+## Key Files
+- db/schema.ts
+- app/auth/actions.ts
+---
