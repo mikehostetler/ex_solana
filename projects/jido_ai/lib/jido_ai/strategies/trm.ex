@@ -1,7 +1,5 @@
 # NOTE: Module is in `Strategies` namespace (plural) to match other strategies
-# in this codebase (e.g., Jido.AI.Strategies.Adaptive). This differs from the
-# singular `Strategy` namespace used by Jido.AI.Strategy.ReAct for historical
-# reasons. Future refactoring may consolidate to a single namespace.
+# in this codebase (e.g., Jido.AI.Strategies.Adaptive, Jido.AI.Strategies.ReAct).
 defmodule Jido.AI.Strategies.TRM do
   @moduledoc """
   TRM (Tiny-Recursive-Model) execution strategy for Jido agents.
@@ -287,8 +285,7 @@ defmodule Jido.AI.Strategies.TRM do
 
     %{
       model: resolved_model,
-      max_supervision_steps:
-        Keyword.get(opts, :max_supervision_steps, @default_max_supervision_steps),
+      max_supervision_steps: Keyword.get(opts, :max_supervision_steps, @default_max_supervision_steps),
       act_threshold: Keyword.get(opts, :act_threshold, @default_act_threshold)
     }
   end
@@ -435,11 +432,12 @@ defmodule Jido.AI.Strategies.TRM do
       context[:parsed_feedback] ||
         Supervision.parse_supervision_result(context[:feedback] || "")
 
-    {system, user} = Supervision.build_improvement_prompt(
-      context[:question],
-      context[:current_answer],
-      parsed_feedback
-    )
+    {system, user} =
+      Supervision.build_improvement_prompt(
+        context[:question],
+        context[:current_answer],
+        parsed_feedback
+      )
 
     messages = [
       %{role: :system, content: system},
