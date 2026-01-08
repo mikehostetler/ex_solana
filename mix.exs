@@ -30,7 +30,7 @@ defmodule JidoWorkspace.MixProject do
       {:req_fly, "~> 1.0"},
       {:req_llm, "~> 1.0.0-rc"},
       {:dotenv, "~> 3.1", only: :dev},
-      {:claude_code_sdk, "~> 0.2"}
+      {:claude_agent_sdk, "~> 0.7"}
     ]
   end
 

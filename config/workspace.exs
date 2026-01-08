@@ -166,6 +166,13 @@ config :jido_workspace,
       path: "projects/jido_code"
     },
     %{
+      name: "jido_claude",
+      upstream_url: "git@github.com:agentjido/jido_claude.git",
+      branch: "main",
+      type: :library,
+      path: "projects/jido_claude"
+    },
+    %{
       name: "jido_messaging",
       upstream_url: "git@github.com:epic-creative/jido_messaging.git",
       branch: "main",

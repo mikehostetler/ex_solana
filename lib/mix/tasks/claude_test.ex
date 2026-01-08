@@ -1,75 +1,116 @@
 defmodule Mix.Tasks.Claude.Test do
   use Mix.Task
 
-  @shortdoc "Test Claude Code SDK integration with live streaming"
+  alias ClaudeAgentSDK.{Options, Message}
+
+  @shortdoc "Test Claude Agent SDK - streams multi-turn conversation progress"
 
   @moduledoc """
-  Sends a prompt to Claude Code and streams output in real-time.
-  Usage: mix claude.test [prompt]
-  Default prompt: /cost
+  Sends a prompt to Claude and streams all events showing real-time progress.
+
+  The SDK returns a stream of Message structs as they arrive, allowing you to
+  see tool calls, text responses, and results in real-time - even for long
+  running conversations that take several minutes.
+
+  ## Usage
+
+      mix claude.test [prompt]
+      mix claude.test --verbose [prompt]     # Also show text responses
+      mix claude.test --turns 20 [prompt]    # Increase max turns (default: 15)
+
+  ## Examples
+
+      mix claude.test "Tell me about this project"
+      mix claude.test -v -t 25 "Analyze the codebase and suggest improvements"
   """
 
   @impl Mix.Task
   def run(args) do
-    prompt = Enum.join(args, " ") |> String.trim()
-    prompt = if prompt == "", do: "/cost", else: prompt
+    Application.ensure_all_started(:claude_agent_sdk)
 
-    Mix.shell().info("Prompt: #{prompt}")
-    Mix.shell().info("Streaming output...\n")
+    {opts, remaining, _} =
+      OptionParser.parse(args,
+        switches: [verbose: :boolean, turns: :integer],
+        aliases: [v: :verbose, t: :turns]
+      )
 
-    args = ["--print", prompt, "--output-format", "stream-json", "--verbose"]
+    verbose = opts[:verbose] || false
+    max_turns = opts[:turns] || 15
 
-    port =
-      Port.open({:spawn_executable, System.find_executable("claude")}, [
-        :binary,
-        :exit_status,
-        :stderr_to_stdout,
-        args: args
-      ])
+    prompt = Enum.join(remaining, " ") |> String.trim()
+    prompt = if prompt == "", do: "What is Elixir? Reply in 2 sentences.", else: prompt
 
-    stream_output(port, "")
+    Mix.shell().info("Prompt: #{prompt}\n")
+
+    options = %Options{
+      model: "sonnet",
+      max_turns: max_turns,
+      allowed_tools: ["Read", "Glob", "Grep", "Bash"],
+      cwd: File.cwd!()
+    }
+
+    prompt
+    |> ClaudeAgentSDK.query(options)
+    |> Stream.each(fn message -> handle_message(message, verbose) end)
+    |> Stream.run()
   end
 
-  defp stream_output(port, buffer) do
-    receive do
-      {^port, {:data, data}} ->
-        new_buffer = buffer <> data
-        {lines, remaining} = split_lines(new_buffer)
+  defp handle_message(%Message{type: :system, subtype: :init, data: data}, _verbose) do
+    IO.puts("⚙ Session started (#{data.model})")
+  end
 
-        Enum.each(lines, fn line ->
-          case Jason.decode(line) do
-            {:ok, %{"type" => "assistant", "message" => %{"content" => content}}} ->
-              content
-              |> Enum.filter(&(&1["type"] == "text"))
-              |> Enum.each(&IO.write(&1["text"]))
+  defp handle_message(%Message{type: :assistant} = msg, verbose) do
+    msg
+    |> Message.content_blocks()
+    |> Enum.each(fn
+      %{type: :text, text: text} ->
+        if verbose do
+          preview = text |> String.slice(0, 100) |> String.replace("\n", " ")
+          IO.puts("💬 #{preview}...")
+        end
 
-            {:ok, %{"type" => "result"}} ->
-              :ok
+      %{type: :tool_use, name: name, input: input} ->
+        input_preview = input |> inspect() |> String.slice(0, 50)
+        IO.puts("🔧 #{name}: #{input_preview}")
 
-            {:ok, other} ->
-              IO.puts("\n[#{other["type"]}]")
+      _ ->
+        :ok
+    end)
+  end
 
-            {:error, _} ->
-              IO.write(line)
-          end
-        end)
+  defp handle_message(%Message{type: :user, data: data}, verbose) do
+    if verbose do
+      tool_result = get_in(data, [:raw, "tool_use_result"])
 
-        stream_output(port, remaining)
-
-      {^port, {:exit_status, 0}} ->
-        IO.puts("\n✓ Done")
-
-      {^port, {:exit_status, status}} ->
-        IO.puts("\n✗ Exit status: #{status}")
-    after
-      600_000 ->
-        Port.close(port)
-        IO.puts("\n✗ Timeout")
+      if tool_result do
+        duration = tool_result["durationMs"]
+        if duration, do: IO.puts("  ✓ (#{round(duration)}ms)")
+      end
     end
   end
 
-  defp split_lines(data) do
-    lines = String.split(data, "\n")
-    {Enum.drop(lines, -1), List.last(lines) || ""}
+  defp handle_message(%Message{type: :result, data: data} = msg, verbose) do
+    IO.puts("\n" <> String.duplicate("─", 60))
+
+    cond do
+      data[:result] && data.result != "" ->
+        IO.puts("\n#{data.result}")
+
+      msg.subtype == :error_max_turns ->
+        IO.puts("\n⚠ Hit max_turns limit - increase max_turns for longer tasks")
+
+      true ->
+        if verbose, do: IO.puts("\n[No final text - check raw: #{inspect(Map.keys(data))}]")
+    end
+
+    IO.puts("\n" <> String.duplicate("─", 60))
+
+    turns = data[:num_turns] && round(data.num_turns)
+    cost = data[:total_cost_usd] && Float.round(data.total_cost_usd, 4)
+    duration = data[:duration_ms] && round(data.duration_ms / 1000)
+
+    IO.puts("✓ Done | Turns: #{turns || "?"} | Cost: $#{cost || "?"} | Time: #{duration || "?"}s")
   end
+
+  defp handle_message(_msg, _verbose), do: :ok
 end

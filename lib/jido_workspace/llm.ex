@@ -78,15 +78,21 @@ defmodule JidoWorkspace.LLM do
     on_chunk = if stream, do: Keyword.get(opts, :on_chunk, &IO.write/1), else: fn _ -> :ok end
 
     prompt
-    |> ClaudeCodeSDK.query()
+    |> ClaudeAgentSDK.query()
     |> Enum.reduce("", fn message, acc ->
       case message do
-        %{"type" => "assistant", "message" => %{"content" => content}} ->
-          text = extract_text(content)
+        %ClaudeAgentSDK.Message{type: :assistant} = msg ->
+          text =
+            msg
+            |> ClaudeAgentSDK.Message.content_blocks()
+            |> Enum.filter(&(&1["type"] == "text"))
+            |> Enum.map_join("", & &1["text"])
+
           on_chunk.(text)
           acc <> text
 
-        %{"type" => "result", "result" => result_text} when is_binary(result_text) ->
+        %ClaudeAgentSDK.Message{type: :result, data: %{result: result_text}}
+        when is_binary(result_text) ->
           acc <> result_text
 
         _ ->
@@ -133,15 +139,6 @@ defmodule JidoWorkspace.LLM do
       end
     end
   end
-
-  defp extract_text(content) when is_list(content) do
-    content
-    |> Enum.filter(&(&1["type"] == "text"))
-    |> Enum.map(& &1["text"])
-    |> Enum.join("")
-  end
-
-  defp extract_text(_), do: ""
 
   defp extract_json(text) do
     trimmed = String.trim(text)
