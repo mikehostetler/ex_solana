@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/6-jido-messaging-v1/019-define-scopearchitecture",
+  "number": 19,
+  "overview": "This item defines the scope and high-level architecture for jido_messaging, a new messaging layer to replace jido_chat. The goal is to specify the responsibilities of this layer (e.g., message envelopes, conversation threads, delivery to agents, streaming responses, and metadata handling) and explicitly call out what it does not do (e.g., persistence strategy, UI concerns, or orchestration beyond message routing). The design should consider how messages flow between clients, agents, and any external systems, and how to keep the API simple while supporting typical chat/agent patterns. The deliverable is a concise architectural document describing core concepts (message, thread, participant, channel), API boundaries, and integration points with Jido agents and external clients. It should outline initial data structures and interfaces, identify minimal persistence or state requirements, and specify how errors, retries, and backpressure will be handled.",
+  "pr_url": null,
+  "roadmap_line": 110,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "6. Jido Messaging v1"
+  ],
+  "state": "planned",
+  "title": "Define scope/architecture",
+  "updated_at": "2026-01-08T02:03:52.282961Z"
+}

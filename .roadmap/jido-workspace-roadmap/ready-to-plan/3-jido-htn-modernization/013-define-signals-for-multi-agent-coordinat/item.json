@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/013-define-signals-for-multi-agent-coordinat",
+  "number": 13,
+  "overview": "This item introduces HTN-specific signals intended for multi-agent coordination and higher-level orchestration. The goal is to expose meaningful events such as plan start/completion, major replanning events, critical dead-ends, and key task milestones so that other agents or supervisors can observe, coordinate, and adjust behavior. These signals should complement the lower-level HTN effects by providing a more semantic view of what the planner is doing. The work involves defining signal schemas, deciding which internal planner events should surface as public signals, and specifying when and how often they are emitted to avoid noise. Particular attention should be given to signals that support collaboration scenarios (delegating tasks to other agents, synchronizing shared resources, responding to global constraints). The result is a clear signal contract for multi-agent behaviors built on HTN planning.",
+  "pr_url": null,
+  "roadmap_line": 67,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "3. Jido HTN Modernization"
+  ],
+  "state": "planned",
+  "title": "Define signals for multi-agent coordination",
+  "updated_at": "2026-01-07T23:05:09.256573Z"
+}

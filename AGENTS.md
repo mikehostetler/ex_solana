@@ -183,4 +183,106 @@ The workspace automatically uses Hex dependencies when publishing - no environme
 - Use conventional commit format: `type(scope): description`
 - Keep commit messages concise and descriptive
 
+---
+
+## Roadmap Workflow System
+
+Automated workflow for turning ROADMAP.md items into PRs via Claude Code.
+
+### Quick Start
+
+```bash
+# 1. Bootstrap items from ROADMAP.md
+mix roadmap.bootstrap
+
+# 2. See all items
+mix roadmap.workflow.status
+
+# 3. Research an item
+mix roadmap.research <item-id>
+
+# 4. Generate plan + PRD
+mix roadmap.plan <item-id>
+
+# 5. Checkout (creates branch, generates prompt)
+mix roadmap.checkout <item-id>
+
+# 6. Run Ralph loop
+mix roadmap.implement <item-id>
+
+# 7. Create PR
+mix roadmap.pr <item-id>
+
+# 8. After merge, mark complete
+mix roadmap.complete <item-id>
+```
+
+### Workflow States
+
+```
+raw → researched → planned → checked_out → implementing → in_pr → done
+```
+
+### Folder Structure
+
+```
+.roadmap/
+├── index.json                         # Registry of all items
+└── jido-ecosystem/foundation-layer/   # Section folders (from ROADMAP.md headers)
+    └── 001-hand-review-all-code/      # Numbered item folder
+        ├── item.json                  # State + metadata
+        ├── research.md                # Step 1: /research output
+        ├── plan.md                    # Step 2: /plan output (human-readable)
+        ├── prd.json                   # Step 2: PRD for Ralph (machine-readable)
+        ├── prompt.md                  # Step 3: Generated prompt for Ralph
+        └── progress.txt               # Step 4: Ralph loop progress
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `mix roadmap.bootstrap` | Parse ROADMAP.md → create item folders |
+| `mix roadmap.workflow.status` | Show all items with state/assignee |
+| `mix roadmap.research <id>` | Run `/research`, save research.md |
+| `mix roadmap.plan <id>` | Run `/plan`, save plan.md + prd.json |
+| `mix roadmap.checkout <id>` | Claim item, create branch, generate prompt.md |
+| `mix roadmap.implement <id>` | Run Ralph loop on branch |
+| `mix roadmap.pr <id>` | Run `gh pr create`, update item.json |
+| `mix roadmap.complete <id>` | Mark done, optionally update ROADMAP.md |
+
+### Multi-Player Workflow
+
+- Each item is claimed via `mix roadmap.checkout --assignee <name>`
+- Each item gets its own branch: `roadmap/<slug>`
+- Run `mix roadmap.workflow.status --assignee alice` to see your items
+- State is git-tracked in `.roadmap/` — conflicts resolve via normal git
+
+### Ralph Loop
+
+The implement step runs a Claude Code loop:
+1. Reads `prompt.md` (generated from prd.json + plan.md)
+2. Iterates until `<promise>COMPLETE</promise>` or max iterations
+3. Tracks progress in `progress.txt`
+
+### PRD Format (prd.json)
+
+```json
+{
+  "id": "jido-core/001-hand-review",
+  "branchName": "roadmap/hand-review-all-code",
+  "baseBranch": "main",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Review core modules",
+      "acceptanceCriteria": ["All functions documented", "Tests pass"],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
+```
+
 

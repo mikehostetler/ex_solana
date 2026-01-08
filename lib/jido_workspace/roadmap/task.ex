@@ -3,7 +3,17 @@ defmodule JidoWorkspace.Roadmap.Task do
   Represents a task checkbox found in a roadmap markdown file.
   """
 
-  defstruct [:id, :title, :line_number, :file_path, :completed, :owner, :estimate, :raw_line]
+  defstruct [
+    :id,
+    :title,
+    :line_number,
+    :file_path,
+    :completed,
+    :owner,
+    :estimate,
+    :raw_line,
+    section: []
+  ]
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
@@ -13,40 +23,98 @@ defmodule JidoWorkspace.Roadmap.Task do
           completed: boolean(),
           owner: String.t() | nil,
           estimate: String.t() | nil,
-          raw_line: String.t()
+          raw_line: String.t(),
+          section: [String.t()]
         }
 
   @checkbox_regex ~r/^- \[(?<status>[ x])\] (?<title>.+?)(?:\s+\*\((?<meta>[^)]+)\))?\s*(?:\((?<id>[A-Z]+-\d+)\))?$/
+  @bullet_checkbox_regex ~r/^\*\s+\[(?<status>[ x])\]\s+(?<title>.+)$/
+  @escaped_bullet_regex ~r/^\*\s+\\\[(?<status>\s*)\\\]\s+(?<title>.+)$/
 
   @doc """
   Parses a markdown checkbox line into a Task struct.
+  Supports multiple formats:
+  - `- [ ] Title` (standard markdown)
+  - `* [ ] Title` (bullet with checkbox)
+  - `* \\[ \\] Title` (escaped brackets in some markdown)
   """
-  def parse(line, line_number, file_path) when is_binary(line) do
-    case Regex.named_captures(@checkbox_regex, String.trim(line)) do
-      %{"status" => status, "title" => title} = captures ->
-        {owner, estimate} = parse_meta(Map.get(captures, "meta", ""))
+  def parse(line, line_number, file_path, opts \\ []) when is_binary(line) do
+    section = Keyword.get(opts, :section, [])
+    trimmed = String.trim(line)
 
-        %__MODULE__{
-          id: Map.get(captures, "id"),
-          title: String.trim(title),
-          line_number: line_number,
-          file_path: file_path,
-          completed: status == "x",
-          owner: owner,
-          estimate: estimate,
-          raw_line: line
-        }
+    cond do
+      captures = Regex.named_captures(@checkbox_regex, trimmed) ->
+        parse_standard_checkbox(captures, line, line_number, file_path, section)
 
-      nil ->
+      captures = Regex.named_captures(@bullet_checkbox_regex, trimmed) ->
+        parse_bullet_checkbox(captures, line, line_number, file_path, section)
+
+      captures = Regex.named_captures(@escaped_bullet_regex, trimmed) ->
+        parse_escaped_checkbox(captures, line, line_number, file_path, section)
+
+      true ->
         nil
     end
   end
 
+  defp parse_standard_checkbox(captures, line, line_number, file_path, section) do
+    %{"status" => status, "title" => title} = captures
+    {owner, estimate} = parse_meta(Map.get(captures, "meta", ""))
+
+    %__MODULE__{
+      id: Map.get(captures, "id"),
+      title: String.trim(title),
+      line_number: line_number,
+      file_path: file_path,
+      completed: status == "x",
+      owner: owner,
+      estimate: estimate,
+      raw_line: line,
+      section: section
+    }
+  end
+
+  defp parse_bullet_checkbox(captures, line, line_number, file_path, section) do
+    %{"status" => status, "title" => title} = captures
+
+    %__MODULE__{
+      id: nil,
+      title: String.trim(title),
+      line_number: line_number,
+      file_path: file_path,
+      completed: status == "x",
+      owner: nil,
+      estimate: nil,
+      raw_line: line,
+      section: section
+    }
+  end
+
+  defp parse_escaped_checkbox(captures, line, line_number, file_path, section) do
+    %{"status" => status, "title" => title} = captures
+
+    %__MODULE__{
+      id: nil,
+      title: String.trim(title),
+      line_number: line_number,
+      file_path: file_path,
+      completed: String.trim(status) == "x",
+      owner: nil,
+      estimate: nil,
+      raw_line: line,
+      section: section
+    }
+  end
+
   @doc """
-  Checks if a line is a task checkbox.
+  Checks if a line is a task checkbox (any supported format).
   """
   def task_line?(line) do
-    String.trim(line) |> String.match?(@checkbox_regex)
+    trimmed = String.trim(line)
+
+    Regex.match?(@checkbox_regex, trimmed) or
+      Regex.match?(@bullet_checkbox_regex, trimmed) or
+      Regex.match?(@escaped_bullet_regex, trimmed)
   end
 
   @doc """

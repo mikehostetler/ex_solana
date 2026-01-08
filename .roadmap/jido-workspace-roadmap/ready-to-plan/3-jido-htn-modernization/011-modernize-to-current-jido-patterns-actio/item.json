@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/011-modernize-to-current-jido-patterns-actio",
+  "number": 11,
+  "overview": "This item updates the HTN planner to align with current Jido patterns around actions, schemas, and data flow. The goal is to refactor legacy or bespoke representations of tasks, methods, and world state into standardized Jido schemas and action interfaces, reducing conceptual overhead and making HTN plans easier to integrate with other Jido components. This may include updating struct definitions, using shared schema modules, and adopting current conventions for action inputs/outputs. The work should identify outdated interfaces (e.g., direct function calls without schemas, loosely typed maps) and replace them with modern Jido abstractions while keeping the planner's core algorithms intact. Where possible, introduce small adapters rather than large rewrites to minimize risk. The end result is an HTN module that feels native to the current Jido ecosystem.",
+  "pr_url": null,
+  "roadmap_line": 65,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "3. Jido HTN Modernization"
+  ],
+  "state": "raw",
+  "title": "Modernize to current Jido patterns (actions, schemas)",
+  "updated_at": "2026-01-07T23:04:47.322469Z"
+}

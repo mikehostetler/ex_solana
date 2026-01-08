@@ -1,0 +1,11 @@
+Research complete for item **005-define-effects-for-behavior-tree-executi**.
+
+**Summary**:
+- Analyzed Jido's existing Internal Effects/Directives pattern
+- Identified 18 relevant files across jido, jido_behaviortree, and jido_htn
+- Mapped integration points: Tick context, Action node, strategy state storage
+- Documented recommended effects (TickEffect, NodeStatusEffect, BlackboardReadEffect, etc.)
+- Established signal naming convention: `jido.bt.*`
+
+**Files identified**: 18
+**Estimated effort**: 3-5 days

@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/010-implement-explode-errors",
+  "number": 10,
+  "overview": "This item introduces explode errors behavior for the HTN planner using Zoi, defining when and how certain classes of errors should immediately abort or explode out of the planning or execution process. The goal is to clearly differentiate between recoverable planning failures (e.g., no applicable method) and unrecoverable/systemic issues (e.g., corrupted state, invalid schemas, critical action failures) and to surface the latter in a structured, high-visibility way. The work includes designing error categories or tags for explode-worthy conditions, implementing the logic that escalates them (bypassing local recovery and bubbling up to the caller/manager), and ensuring these paths are well-documented and tested. This should integrate naturally with Jido's effect/signal model, allowing explode errors to trigger specific signals or monitoring hooks.",
+  "pr_url": null,
+  "roadmap_line": 64,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "3. Jido HTN Modernization"
+  ],
+  "state": "planned",
+  "title": "Implement explode errors",
+  "updated_at": "2026-01-07T23:04:36.904576Z"
+}

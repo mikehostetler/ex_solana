@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/5-ashai-pr/018-update-outstanding-draft-pr",
+  "number": 18,
+  "overview": "This item is about bringing the existing ash_ai draft PR up to date with the current codebase, conventions, and API expectations. Start by rebasing or merging latest changes from the main branch, resolving conflicts, and verifying that existing tests pass. Then review the PR content to ensure it aligns with the current direction for Ash-based AI integrations: configuration options, naming conventions, and how LLM calls or AI behaviors are wired into Ash resources and actions. The deliverable is an updated PR that is clean, consistent, and ready for formal review, with outdated patterns removed and any TODOs either resolved or clearly documented. The PR description should be refreshed to summarize the current scope, design decisions, and any breaking changes or migration steps expected from consumers.",
+  "pr_url": null,
+  "roadmap_line": 96,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "5. Ash.ai PR"
+  ],
+  "state": "planned",
+  "title": "Update outstanding draft PR",
+  "updated_at": "2026-01-07T23:05:59.681924Z"
+}

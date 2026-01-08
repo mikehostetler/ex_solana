@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/6-jido-messaging-v1/020-initial-implementation",
+  "number": 20,
+  "overview": "This item delivers the first working version of jido_messaging based on the defined scope and architecture. Implement the core primitives for creating and sending messages, associating them with threads or sessions, and routing them to one or more Jido agents. The focus should be on a clean, testable core API with minimal dependencies, and simple persistence or in-memory storage sufficient for development and early demos. Streaming or multi-turn patterns should be supported at least in a basic form, even if advanced features (e.g., read receipts or complex routing) are deferred. The deliverable is a minimal but usable library or module set that can replace jido_chat in a small integration, along with tests and basic documentation. Known limitations and future enhancements should be captured explicitly so that downstream projects (like jido_hub) know what to rely on in v1.",
+  "pr_url": null,
+  "roadmap_line": 111,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "6. Jido Messaging v1"
+  ],
+  "state": "planned",
+  "title": "Initial implementation",
+  "updated_at": "2026-01-07T23:06:20.861912Z"
+}

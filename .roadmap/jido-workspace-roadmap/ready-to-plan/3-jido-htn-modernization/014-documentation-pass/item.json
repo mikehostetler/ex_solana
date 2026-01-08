@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/014-documentation-pass",
+  "number": 14,
+  "overview": "This item performs a focused documentation pass over the modernized HTN module to reflect the new Zoi-based error handling, effects, signals, and Jido patterns. The goal is to make it easy for contributors and users to understand how to define HTN domains, integrate the planner into strategies, interpret emitted effects/signals, and handle success/failure cases. Documentation should cover both conceptual overviews and practical, code-level examples. The work includes updating existing docs (READMEs, guides, moduledoc) and adding any missing reference sections, such as error taxonomy, effect/signal reference, and migration notes from the legacy API. Short, runnable examples and diagrams or trace snippets should be included where they clarify control flow. The outcome is a cohesive, up-to-date documentation set that positions the HTN planner as a first-class, approachable component in the Jido ecosystem.",
+  "pr_url": null,
+  "roadmap_line": 68,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "3. Jido HTN Modernization"
+  ],
+  "state": "planned",
+  "title": "Documentation pass",
+  "updated_at": "2026-01-07T23:05:19.732865Z"
+}

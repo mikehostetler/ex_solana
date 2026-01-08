@@ -1,0 +1,37 @@
+Perfect! I've completed the plan for item **020-initial-implementation**. Here's a summary:
+
+## Completed Plan: Item 020 - Initial Implementation
+
+**Item**: jido_messaging v1 Initial Implementation
+
+**4 Implementation Phases**:
+1. **Phase 1: Foundation** - Core domain models and signal infrastructure
+2. **Phase 2: Core Implementation** - Room management and message routing
+3. **Phase 3: Integration & Testing** - Agent integration and persistence
+4. **Phase 4: Polish & Documentation** - Public API, actions, and documentation
+
+**Key Architectural Decisions**:
+- Agent-first design with signal-based communication via `jido_signal`
+- ETS adapter for v1 persistence (designed for PostgreSQL later)
+- LLM-native message structure compatible with `req_llm`
+- Streaming support built-in from the start
+- Zoi 0.14 for validated, type-safe domain models
+
+**35+ Files to Create**:
+- 8 domain model files (message, room, participant, instance, content types)
+- 5 signal definition files
+- 6 room management files
+- 5 agent integration files
+- 3 adapter files (behaviour + ETS + config)
+- 5 public API files
+- 8+ test files
+
+**Effort Estimate**: 3-4 weeks (1 developer) with 90% test coverage target
+
+**Updated**: Item state changed to "planned", progress.txt updated
+
+---
+
+**Remaining items needing planning**:
+- 021-phoenix-project-setup
+- 022-librechat-style-chat-interface

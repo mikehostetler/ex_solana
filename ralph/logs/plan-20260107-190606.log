@@ -1,0 +1,27 @@
+Planning complete for item 005. Here's a summary:
+
+## Planning Complete: Item 005 - Define Effects for Behavior Tree Execution
+
+**Created:** `.roadmap/jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/005-define-effects-for-behavior-tree-executi/plan.md`
+
+**Key Decisions:**
+- Follow existing Internal/Directive separation pattern from `Jido.Agent`
+- Create BT-specific Internal effects (SetNodeStatus, UpdateBlackboard, SetTreeStatus, NodeError)
+- Leverage existing `Directive.Emit` for signal dispatch
+- Signal naming: `jido.bt.*` prefix for behavior tree signals
+
+**Implementation Phases:**
+1. **Foundation** - Create Internal effect modules with Zoi schemas, define signal types
+2. **Core Implementation** - Integrate effects into BT execution, add Tick helpers
+3. **Integration & Testing** - Complete signal integration, telemetry, update node types
+4. **Polish & Documentation** - Documentation, examples, migration guide
+
+**Files:** 3 new files (internal.ex, signals.ex, effects.ex), 4+ modified (tick.ex, behavior_tree.ex, node types)
+
+**Effort Estimate:** 3-5 days
+
+**Progress Updated:** `ralph/progress.txt` and item state changed to "planned"
+
+---
+
+**Next item needing planning:** 006-define-signals-for-state-transitionseven

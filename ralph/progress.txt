@@ -8,4 +8,1055 @@ Started: 2024-01-15
 ## Key Files
 - db/schema.ts
 - app/auth/actions.ts
+---## [2026-01-07] - Research: Hand review all code — audit modules for correctness, patterns, edge cases
+- Item ID: 001-hand-review-all-code-audit-modules-for-c
+- Section: 1-jido-core-20-release
+- Key findings:
+  - 4 core projects identified (jido, jido_action, jido_signal, jido_ai)
+  - ~195 modules across all projects requiring audit
+  - Key patterns documented: Splode error handling, immutable agents, Zoi validation, directive effects
+  - Integration points mapped: signal dispatch, AI tool adapter, cross-package errors
+- Files identified:
+  - jido: ~45 modules
+  - jido_action: ~25 modules
+  - jido_signal: ~60 modules
+  - jido_ai: ~60 modules
+- Risk areas: Breaking changes in public APIs, performance bottlenecks, security in tool execution
+- Estimated effort: 7-12 days for comprehensive audit
+---
+
+## [2026-01-07] - Research: Maximize test coverage — target >90% coverage on core modules
+- Item ID: 002-maximize-test-coverage-target-90-coverag
+- Section: 1-jido-core-20-release
+- Key findings:
+  - Current baseline: 29.32% coverage across 47 modules (threshold: 80%)
+  - 37 modules with 0% coverage including Actions, Observability, AgentPool, Scheduler
+  - Testing infrastructure in place: ExCoveralls, JidoTest.Case, Mimic
+  - 41 existing test files, ~25 new test files needed
+- Files identified:
+  - 0% coverage: Jido.Observe, Jido.AgentPool, Jido.Actions.*, Jido.Agent.Strategy.FSM
+  - Low coverage: Jido.AgentServer (26.44%), Jido.AgentServer.State (44.07%)
+  - High coverage: Actions.* modules (100%), Agent.Internal.* (100%)
+- Dependencies: ExCoveralls 0.18.3, ExUnit, Mimic 2.0, StreamData 1.0
+- CI update needed: Change test_command to mix test.coverage
+- Risk areas: Test maintenance burden, coverage gaming, increased test suite runtime
+- Estimated effort: 3-5 days for comprehensive test coverage (25+ new test files)
+---
+
+## [2026-01-07] - Research: Write comprehensive documentation (moduledocs, guides, examples)
+- Item ID: 003-write-comprehensive-documentation-module
+- Section: 1-jido-core-20-release
+- Key findings:
+  - Moduledoc coverage: 100% across all packages (jido: 47, jido_action: 32, jido_signal: ~29, jido_ai: 64)
+  - Comprehensive guide coverage for jido_action and jido_signal
+  - Key gaps: 2 missing jido guides (getting-started.livemd, fsm-strategy.livemd)
+  - jido_ai README needs v2 API update (Ecto → Zoi, Instructor → Jido.AI)
+- Files identified:
+  - CREATE: projects/jido/guides/getting-started.livemd (quick start)
+  - CREATE: projects/jido/guides/fsm-strategy.livemd (FSM deep dive)
+  - UPDATE: projects/jido_ai/README.md (v2 API migration)
+  - EXPAND: projects/jido/examples/ (more runnable examples)
+- Dependencies: ExDoc for publishing, LiveBook for .livemd guides
+- Risk areas: Documentation drift if APIs change, cross-package consistency
+- Estimated effort: 2-3 days for missing guides and updates
+---
+
+## [2026-01-07] - Research: Final quality audit before release — dialyzer clean, credo clean, no warnings
+- Item ID: 004-final-quality-audit-before-release-dialy
+- Section: 1-jido-core-20-release
+- Key findings:
+  - 3 of 4 core packages already clean (jido, jido_action, jido_signal)
+  - jido_ai needs significant work: 35 compilation warnings, 17 dialyzer warnings
+  - All packages have quality tools configured (Credo 1.7, Dialyzer 1.4)
+  - All packages use consistent `mix quality` alias
+  - No .credo.exs config files exist (relying on defaults)
+- Files identified:
+  - jido_ai: 7 files requiring fixes (streaming, tool_calling, planning, security, reasoning)
+  - CREATE: .credo.exs for all 4 packages
+  - Potential CI workflow updates (shared actions)
+- Current status:
+  - jido: Clean (0 warnings, 0 credo issues, 0 dialyzer errors)
+  - jido_action: Clean (0 warnings, 0 credo issues, 0 dialyzer errors)
+  - jido_signal: Clean (0 warnings, 0 credo issues, 0 dialyzer errors)
+  - jido_ai: 35 compilation warnings, 17 dialyzer warnings
+- Dependencies: None - can proceed immediately
+- Risk areas: Breaking changes in jido_ai API fixes, unused code suggests incomplete refactoring
+- Estimated effort: 9-13 hours (jido_ai fixes: 5-7h, credo configs: 2-3h, CI/docs: 2-3h)
+---
+
+## [2026-01-07] - Research: Define effects for behavior tree execution
+- Item ID: 005-define-effects-for-behavior-tree-executi
+- Section: 2-jido-behavior-tree-v1
+- Key findings:
+  - Jido has established Internal Effects/Directives separation pattern
+  - jido_behaviortree exists but lacks first-class effect integration
+  - Tick context already has directive accumulation infrastructure
+  - Existing telemetry events for behavior tree execution
+  - HTN effect_handler.ex provides reference pattern
+- Files identified: 18
+  - Core effects: jido/agent/effects.ex, internal.ex, directive.ex
+  - BT implementation: jido_behaviortree/strategy/behavior_tree.ex, tick.ex, nodes/action.ex, telemetry.ex, blackboard.ex
+  - Integration: jido/signal.ex, telemetry.ex, observe.ex
+  - Reference: jido_htn/planner/effect_handler.ex
+- Dependencies: Zoi for schemas, existing Jido.Agent.Effects module
+- Risk areas: Breaking changes to behavior tree execution, effect vocabulary bloat
+- Recommended effects: TickEffect, NodeStatusEffect, BlackboardReadEffect, BlackboardWriteEffect, TreeTickEffect, TreeStatusEffect, EmitSignalEffect
+- Signal naming: jido.bt.* prefix for behavior tree signals
+- Estimated effort: 3-5 days for effect design, schema creation, and integration
+---
+
+## [2025-01-07] - Research: Define signals for state transitions/events
+- Item ID: jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/006-define-signals-for-state-transitionseven
+- Key findings:
+  * Jido has 3 complementary event systems: Telemetry (low-level), Signals (CloudEvents-based), Directives (effect descriptions)
+  * Behavior tree already has telemetry events via [:jido, :bt, :node, :tick, ...]
+  * Signal emission should use Directive.Emit pattern (not direct dispatch)
+  * Main challenge: preventing signal spam (BTs can execute thousands of ticks/sec)
+- Files identified: 27 files (5 new, 22 modified)
+  * New: signals.ex, signals/node.ex, signals/tree.ex, signals/blackboard.ex, signals_test.exs
+  * Modified: node.ex (add emission to execute_tick), tree.ex, strategy/behavior_tree.ex, all node types
+- Signal types designed: ~8-10 signals covering node lifecycle, tree lifecycle, blackboard changes, action execution
+- Key risks: Performance (mitigated via filtering), signal spam (mitigated via hierarchical filtering, sampling, opt-in blackboard)
+- Integration points: Node.execute_tick/2, Tree.tick/2, BehaviorTree strategy cmd/3, blackboard operations
+---
+
+## [2026-01-07] - Research: Create example - behavior tree as Jido strategy
+- Item ID: 007-create-example-behavior-tree-as-jido-str
+- Section: 2-jido-behavior-tree-v1
+- Key findings:
+  - Existing bt_agent.exs provides basic template, but lacks comprehensive example
+  - Comprehensive research from items 005-006 on effects and signals integration
+  - BehaviorTree strategy well-established with proper init/cmd/snapshot callbacks
+  - Test infrastructure in place with test nodes and patterns
+  - "Smart Coffee Maker" scenario recommended as realistic, multi-tick example
+- Files identified: 8 files (7 new, 1 modified)
+  - New: examples/hello_world.exs (main example), hello_world/README.md (narrative walkthrough)
+  - New: hello_world/actions.exs, hello_world/tree.exs, hello_world/agent.exs, hello_world/run.exs
+  - New: examples/hello_world_test.exs (comprehensive tests)
+  - Modified: README.md (add link to example)
+- Key features to demonstrate:
+  - Tree structure: Sequence, Selector, decorators (Inverter, Repeat), Action nodes
+  - Multi-tick execution: State preservation across ticks, running status
+  - Effects via Jido: Signal emission, logging, state mutations (no direct IO)
+  - Error handling: Selector fallback, Inverter negation, graceful failure
+- Dependencies: jido_behaviortree 1.0.0, jido (path), jido_action (path), jido_signal 1.2.0
+- Testing patterns: Async ExUnit tests, signal assertions, multi-tick execution tests
+- Risk areas: Example complexity (keep minimal but realistic), documentation maintenance
+- Estimated effort: 1-2 days for example creation, tests, and narrative documentation
+---
+
+## [2026-01-07] - Research: Create example - behavior tree as part of a larger strategy
+- Item ID: 008-create-example-behavior-tree-as-part-of
+- Section: 2-jido-behavior-tree-v1
+- Key findings:
+  - jido_behaviortree has complete implementation with Strategy interface
+  - Meta-strategy pattern needed: coordinate behavior tree, HTN, and rule-based components
+  - Signals critical for coordination between components (jido.bt.* prefix)
+  - Blackboard provides shared state across all strategy components
+  - HTN exists but needs modernization (items 009-014)
+- Files identified: 15+ files
+  - Core: jido_behaviortree/strategy/behavior_tree.ex, tree.ex, node.ex
+  - Signals: jido_signal/ (CloudEvents v1.0.2)
+  - HTN: jido_htn/ (needs modernization)
+  - New: examples/composite_strategy_example/ (7 new files)
+- Components to implement:
+  1. Behavior tree component (reactive decisions)
+  2. HTN component (planning decomposition)
+  3. Rule-based component (constraints)
+  4. Meta-strategy (coordination layer)
+- Integration patterns:
+  - Delegation boundaries (when meta-strategy delegates to components)
+  - Signal coordination (phase transitions, error propagation)
+  - Blackboard sharing (schema-based shared state)
+  - Error handling (unified across strategies)
+- Dependencies on items: 005 (effects), 006 (signals), 007 (single BT example), 009-014 (HTN modernization)
+- Risk areas: Coordination complexity, timing issues with signal propagation
+- Estimated effort: 3-4 days for composite example implementation and documentation
+---
+
+## [2026-01-07] - Research: Convert to Zoi error handling
+- Item ID: 009-convert-to-zoi-error-handling
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - jido_htn uses mixed error handling: Zoi.parse for structs (good), string tuples for business logic (needs migration)
+  - ~190 error-handling call sites across ~20 files need updating
+  - 118 string-based error tuples, 19 raise ArgumentError calls, 50 error pattern matches
+  - Reference patterns exist in jido (Splode with 6 error classes) and jido_action (4 error classes)
+- Files identified: ~20 files
+  - Core planning: planner.ex (10 error sites), task_decomposer.ex (8 error sites)
+  - Domain: domain_builder.ex (7 raise sites), domain_validation.ex (42+ error sites), domain_reader.ex
+  - Structs: method.ex, compound_task.ex, primitive_task.ex, serializer.ex (13 error sites)
+  - New to create: error.ex (Jido.HTN.Error module using Splode)
+- Error-producing paths identified:
+  - Failed preconditions (task_decomposer.ex)
+  - Method selection failures (task_decomposer.ex)
+  - Dead-ends / task not found (task_decomposer.ex)
+  - Timeout errors (planner.ex)
+  - Validation errors (domain_validation.ex)
+  - Serialization errors (serializer.ex)
+- Integration points:
+  - Debug tree preservation (store in error details)
+  - Error aggregation (use Zoi instead of string lists)
+  - Type spec changes (String.t() -> Exception.t())
+- Dependencies: Splode (via jido), Zoi (already in use)
+- Risk areas: Debug tree compatibility, breaking error tuple format for consumers
+- Estimated effort: 19-28 hours (create error module: 2-3h, core planning: 4-6h, domain validation: 3-4h, builder: 2-3h, serialization: 2-3h, tests: 4-6h, docs: 2-3h)
+---
+
+## [2026-01-07] - Research: Implement explode errors
+- Item ID: 010-implement-explode-errors
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - jido_htn uses simple tuple-based error system ({:error, reason}) lacking structured types
+  - Other Jido projects use Splode-based error handling with error classes
+  - Need to distinguish recoverable planning failures from critical validation errors
+  - Current mixed strategy: some use raise, some return {:error, reason}
+- Files identified: ~20 files
+  - Core planning: planner.ex (6 error sites), task_decomposer.ex (8 error sites)
+  - Domain: domain_validation.ex (validation pipeline), domain_builder.ex (2 raise sites)
+  - New to create: error.ex (Jido.HTN.Error using Splode)
+- Error classification designed:
+  - Planning errors (RETURN, don't explode): Precondition failures, method failures, timeout, max recursion
+  - Validation errors (EXPLODE/raise): Invalid domain structure, missing tasks, root task validation
+  - Domain errors (EXPLODE/raise): Referenced undefined tasks, invalid actions, cyclic dependencies
+- Integration points:
+  - planner.ex: Lines 104, 105, 112 (validation errors → raise), 143-150, 183-184 (planning → return)
+  - task_decomposer.ex: Lines 54 (domain → return/raise), 91-92 (planning → return), 269 (planning → return)
+  - domain_validation.ex: Lines 60-68 (aggregate all validation errors)
+  - domain_builder.ex: Lines 133, 139 (root task validation → raise)
+- Dependencies: Splode (~> 0.2), reference patterns from jido/lib/jido/error.ex, jido_action/lib/jido_action/error.ex
+- Risk areas: Breaking changes to error tuple format, backward compatibility during transition
+- Estimated effort: 19-28 hours (add Splode dep: 0.5h, create error module: 2-3h, update planner: 3-4h, update task_decomposer: 2-3h, update validation: 3-4h, update builder: 1-2h, update tests: 4-6h, docs: 2-3h)
+---
+
+## [2026-01-07] - Research: Modernize to current Jido patterns (actions, schemas)
+- Item ID: 011-modernize-to-current-jido-patterns-actio
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - jido_htn shows partial modernization (Zoi schemas for structs) but retains legacy patterns
+  - 4 main areas requiring modernization: Action Integration, Error Handling, Effects, Validation
+  - Core issue: HTN uses {module, params} tuples instead of Jido.Action behavior
+- Files identified: 15+ files
+  - Core planning: planner.ex (error returns), task_decomposer.ex (action execution, error returns)
+  - Domain: domain_builder.ex (raise sites), domain_validation.ex (42+ validators returning strings)
+  - Structs: primitive_task.ex (action tuple format, Jido.Workflow placeholder)
+  - Effects: effect_handler.ex (state functions instead of directives)
+- Legacy patterns identified:
+  - Action storage: {module, params} tuples vs direct Jido.Action modules
+  - Error handling: {:error, String.t()} vs Jido.Error with Splode
+  - Effects: State mutation functions vs Jido.Agent.Directive
+  - Validation: Custom pipeline with string returns vs structured errors
+- Modern patterns to adopt:
+  - use Jido.Action with NimbleOptions for schema validation
+  - Return {:ok, result, [directives]} from actions
+  - Use Jido.Exec.run/3 for action execution
+  - Emit Jido.Signal for coordination (htn.plan.*, htn.task.*)
+- Dependencies: No new deps needed - all modernization uses existing jido, jido_action, jido_signal, zoi, splode
+- Risk areas: Breaking changes to error format, action execution API
+- Estimated effort: 3-5 days (Error handling: 1-2d, Action integration: 1d, Directive integration: 0.5-1d, Tests/docs: 0.5-1d)
+---
+
+## [2026-01-07] - Research: Define effects for HTN planning/execution
+- Item ID: 012-define-effects-for-htn-planningexecution
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - HTN has basic effect system (anonymous functions) but lacks structured, observable effects
+  - Current effects mix planning simulation with execution, no telemetry/observability
+  - Jido has established Internal Effects pattern (SetState, ReplaceState, etc.) and Telemetry system
+  - Need to align HTN effects with Jido patterns while maintaining HTN-specific semantics
+- Files identified: 8 new files, 5 modified files
+  - New: effects.ex (effect structs), planner/effects.ex (effect application), telemetry.ex (HTN events)
+  - New: tests: effects_test.exs, telemetry_test.exs
+  - Modified: planner.ex (emit effects, track plan_id), task_decomposer.ex (emit method/task effects)
+  - Modified: effect_handler.ex (accept structured effects), primitive_task.ex (update effects schema), domain.ex (effect handlers)
+- Effect types designed:
+  - Planning: MethodSelected, TaskDecomposed, PrimitiveTaskScheduled, PlanningFailed, PlanPruned
+  - State: WorldStateUpdated, StateSnapshot
+  - Execution: TaskStarted, TaskCompleted, TaskFailed, ActionExecuted
+- Metadata fields: plan_id, task_id, method_id, timestamp, depth, correlation_id
+- Integration points:
+  - Jido.Agent.Internal pattern (structured effects with Zoi schemas)
+  - Jido.Telemetry pattern (span helpers, event naming [:jido, :htn, ...])
+  - jido_signal for cross-process effect broadcasting
+  - Jido Actions integration (wrap execution with effects)
+- Dependencies: Zoi 0.14 (for schemas), jido_signal (for broadcasting), Telemetry 1.3 (existing)
+- Risk areas: Breaking changes to PrimitiveTask.effects schema, performance overhead during planning
+- Backward compatibility: Support both function and struct effects during transition
+- Estimated effort: 5-8 days (Foundation: 1-2d, Integration: 2-3d, Execution: 1-2d, Documentation: 1d)
+---
+
+## [2026-01-07] - Plan: Define effects for HTN planning/execution
+- Item ID: 012-define-effects-for-htn-planningexecution
+- Section: 3-jido-htn-modernization
+- Phases defined: 4 (Foundation, Core Integration, Execution & Observability, Polish & Documentation)
+- Key decisions:
+  - Effects modeled as Zoi structs with type-safe fields and metadata
+  - Planning effects separate from execution effects for clear separation
+  - Effects emitted via telemetry for observability and jido_signal for coordination
+  - Backward compatibility maintained through polymorphic effect fields (functions OR structs)
+  - Effect emission is opt-in via Domain configuration to minimize overhead
+- Implementation approach:
+  - Phase 1: Create effect struct definitions (10 effect types) and telemetry infrastructure
+  - Phase 2: Update planner and task decomposer to emit effects during planning
+  - Phase 3: Add execution-time effects and integrate with telemetry/jido_signal
+  - Phase 4: Complete documentation, performance optimization, and migration guide
+- Success criteria:
+  - All 10 effect types defined with Zoi schemas
+  - Planner emits effects during planning (MethodSelected, TaskDecomposed, etc.)
+  - Execution emits effects (TaskStarted, TaskCompleted, TaskFailed)
+  - Effects include full metadata (plan_id, timestamps, depth, correlation_id)
+  - Telemetry events emitted for all effect types
+  - Effects integrate with jido_signal for cross-process communication
+  - Backward compatibility maintained (function effects still work)
+  - Comprehensive test coverage (>90% for new code)
+  - Documentation complete (effect system guide, telemetry reference, migration guide)
+  - Performance impact <10% overhead when effects enabled
+- Files identified: 8 new files (3 modules, 2 test files, 3 guides), 5 modified files
+- Dependencies: Zoi 0.14 (for schemas), jido_signal (for broadcasting), Telemetry 1.3 (existing)
+- Risk areas: Breaking changes to PrimitiveTask.effects schema, performance overhead during planning
+- Estimated effort: 5-8 days
+---
+
+## [2026-01-07] - Research: Define signals for multi-agent coordination
+- Item ID: 013-define-signals-for-multi-agent-coordinat
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - jido_htn has NO existing signal/event infrastructure - planner operates silently
+  - Jido ecosystem has robust signal system: CloudEvents v1.0.2, JidoSignal.Bus, pattern-based router
+  - Multi-agent coordination patterns established in AgentServer.SignalRouter with priority-based routing
+  - Behavior tree integration provides reference for signal emission patterns
+- Files identified: 13 files
+  - New to create: signals.ex, signals/emitter.ex, planner/signals.ex
+  - Modified: planner.ex (4 emission points), task_decomposer.ex (5 emission points)
+  - Config: mix.exs (add jido_signal dep), domain.ex (signal config)
+- Signal types designed: 17 signal types
+  - Planning lifecycle: htn.plan.starting, htn.plan.created, htn.plan.failed, htn.plan.timeout
+  - Task processing: htn.task.starting, htn.task.completed, htn.task.failed, htn.task.decomposed
+  - Method selection: htn.method.evaluating, htn.method.selected, htn.method.precondition_failed, htn.method.failed
+  - Error/dead-ends: htn.dead_end.reached, htn.replan.required, htn.recursion.limit
+  - Coordination: htn.agent.delegating, htn.agent.assigned, htn.resource.requested, htn.resource.acquired, htn.resource.released, htn.constraint.violation
+- Signal naming: htn.* prefix following Jido convention (<domain>.<entity>.<action>)
+- Priority recommendations: Strategy-level (50-100), Agent coordination (-25 to 25), Task execution (-50 to -10)
+- Integration points: planner.ex:37 (plan start), :131-141 (success), :143-150 (failure), :181 (recursion limit)
+- Dependencies: jido_signal ~0.1, jido ~0.2 (both existing in workspace)
+- Risk areas: Signal flood mitigation (batching, sampling, conditional emission), performance impact, backward compatibility
+- Noise reduction strategies: Async emission, batch similar events, conditional on state changes, debug vs production modes
+- Coordination patterns: Parent-child (NotifyParent/SpawnChild), resource coordination (pubsub), collaborative planning (specialized agents)
+- Estimated effort: 3-5 days (create signal module: 1d, integration: 1-2d, coordination patterns: 0.5-1d, tests/docs: 0.5-1d)
+---
+
+## [2026-01-07] - Research: Documentation pass
+- Item ID: 014-documentation-pass
+- Section: 3-jido-htn-modernization
+- Key findings:
+  - Current documentation mix: comprehensive getting-started guide (558 lines), stub README, technical inventory (v1)
+  - 15 modules need @moduledoc updates (main: 3, task schemas: 3, planner submodules: 6, utilities: 3)
+  - 4 new guides needed: migration.md, effects.md, signals.md, errors.md
+  - 2 new example files recommended: minimal.ex, advanced_domain.ex
+  - README.md needs complete rewrite from stub
+- Files identified: ~27 files total
+  - CREATE: 6 files (4 guides, 2 examples)
+  - UPDATE: 15 modules (add/expand @moduledoc)
+  - UPDATE: 3 root docs (README.md, AGENTS.md, archive obsolete)
+  - REVIEW: 3 technical docs
+- Documentation strategy: 4 phases (Core Modules, Planner Internals, Integration, Guide Updates)
+- Dependencies: Items 009-013 must complete first (Zoi errors, explode errors, modernization, effects, signals)
+- Risk areas: Documentation drift if APIs change, cross-package consistency
+- Estimated effort: 4-6 days for comprehensive documentation pass
+---
+
+## [2026-01-07] - Research: Review current implementation
+- Item ID: jido-workspace-roadmap/ready-to-plan/4-ashjido-integration/015-review-current-implementation
+- Key findings:
+  - ash_jido (v0.1.0) is well-architected using Spark DSL extensions
+  - Clean integration pattern: Ash resources -> Jido.Action modules via code generation
+  - Strong test coverage (10 test files)
+  - Proper context handling (actor, tenant, domain, authorization)
+  - Smart defaults for action naming reduce configuration burden
+- Files identified: 8 key files for changes (generator.ex, type_mapper.ex, mapper.ex, etc.)
+- Primary gaps:
+  - Read action arguments not applied to query filters
+  - Composite primary keys not supported
+  - Pagination option exists but not implemented
+  - No Hex package configuration
+- Production readiness: Medium-High for basic CRUD, needs stabilization for advanced use cases
+---
+
+## [2026-01-07] - Plan: Review current implementation
+- Item ID: jido-workspace-roadmap/ready-to-plan/4-ashjido-integration/015-review-current-implementation
+- Phases defined: 4 (Architecture Review, Feature and Gap Analysis, Assessment and Recommendations, Documentation and Handoff)
+- Key decisions:
+  - Documentation-only task (no code changes)
+  - Research already complete in research.md
+  - Deliverable: Comprehensive written assessment with prioritized follow-up tasks
+  - 15 stabilization tasks identified (5 high, 5 medium, 5 low priority)
+- Implementation approach:
+  - Phase 1: Document architecture and design patterns (COMPLETE)
+  - Phase 2: Catalog features, gaps, and technical debt (COMPLETE)
+  - Phase 3: Assess production readiness and adoption ease (COMPLETE)
+  - Phase 4: Create plan.md, update item state, track progress
+- Success criteria:
+  - All modules reviewed and documented
+  - Gaps identified with file locations and line numbers
+  - Prioritized task list for stabilization
+  - Adoption assessment for typical Ash projects
+- Estimated effort: 4-6 hours (research complete, documentation finalized)
+---
+
+## [2026-01-07] - Research: Validate Ash resources exposed as Jido actions
+- Item ID: 016-validate-ash-resources-exposed-as-jido-a
+- Section: 4-ashjido-integration
+- Key findings:
+  - ash_jido uses Spark-based extension with compile-time code generation
+  - Type mapper converts Ash types to NimbleOptions (String/Integer/Float/Boolean/UUID/DateTime/Decimal/Array)
+  - Error classification maps Ash errors to Jido errors (Forbidden→authorization, Invalid→validation, Framework→system)
+  - DSL supports: action naming, descriptions, tags, output_map?, pagination?, all_actions with except/only filters
+- Files identified: 7 core files
+  - lib/ash_jido.ex (main extension)
+  - lib/ash_jido/generator.ex (action module generation)
+  - lib/ash_jido/mapper.ex (result mapping)
+  - lib/ash_jido/type_mapper.ex (type conversion)
+  - lib/ash_jido/resource/dsl.ex (DSL schema)
+  - lib/ash_jido/resource/transformers/generate_jido_actions.ex (compile-time transformer)
+  - lib/ash_jido/resource/jido_action.ex (config struct)
+- Validation gaps identified:
+  - Relationship support (not explicitly handled)
+  - Complex queries (limited filter support)
+  - Bulk operations (not supported)
+  - Advanced pagination (basic only)
+  - Custom error types (limited to Ash.Error classes)
+- Deliverable: Validation matrix documenting supported/unsupported Ash features with code examples
+- Estimated effort: 2-3 days for comprehensive validation across Ash resource patterns
+---
+
+## [2026-01-07] - Plan: Validate Ash resources exposed as Jido actions
+- Item ID: 016-validate-ash-resources-exposed-as-jido-a
+- Section: 4-ashjido-integration
+- Phases defined: 5 (Test Infrastructure Setup, CRUD Operation Validation, Relationship & Complex Pattern Validation, Authorization & Multitenancy & Edge Cases, Documentation & Validation Matrix)
+- Key decisions:
+  - Create validation test suite in `projects/ash_jido/test/validation/`
+  - Use representative Ash resources (CRUD, relationships, custom actions, validations)
+  - Generate validation matrix documenting support levels for each Ash feature
+  - Document findings with executable code examples in VALIDATION_GUIDE.md
+  - No production code changes - validation and documentation only
+- Implementation approach:
+  - Phase 1: Create test resources, domain, agent harness, and smoke tests
+  - Phase 2: Validate CRUD operations (create, read, update, destroy)
+  - Phase 3: Validate relationships, custom actions, and validation errors
+  - Phase 4: Validate authorization, multitenancy, and edge cases
+  - Phase 5: Create VALIDATION_GUIDE.md with validation matrix and code examples
+- Success criteria:
+  - 50+ test cases covering all major Ash patterns
+  - Validation matrix 100% complete for all tested features
+  - 10+ executable code examples
+  - All known limitations documented
+  - Team review and sign-off completed
+- Files identified: 13 new test files, 1 new documentation file (VALIDATION_GUIDE.md)
+- Dependencies: None - uses existing ash_jido project infrastructure
+- Risk areas: Test resource complexity (mitigated by incremental approach), documentation scope creep
+- Estimated effort: 2-3 days
+---
+
+## [2026-01-07] - Plan: Update outstanding draft PR
+- Item ID: 018-update-outstanding-draft-pr
+- Section: 5-ashai-pr
+- Phases defined: 5 (Rebase & Conflict Resolution, Test Suite Verification, Code Review & Pattern Updates, PR Documentation Update, Final Validation & Push)
+- Key decisions:
+  - Rebase PR #152 "ReqLLM Integration & Architecture Overhaul" onto latest upstream/main
+  - Preserve backward compatibility with LangChain while adding ReqLLM as first-class integration
+  - Remove complex adapter system in favor of direct ReqLLM usage
+  - Add live LLM testing framework for real API integration testing
+  - Update PR description with any post-rebase changes
+  - All tests passing (unit + live_llm) before submission
+- Implementation approach:
+  - Phase 1: Fetch and rebase onto upstream/main, resolve conflicts from recent PRs
+  - Phase 2: Run full test suite (mix test), fix broken tests, run live_llm tests with API keys
+  - Phase 3: Review for outdated patterns, check against recent upstream PRs (#157, #148)
+  - Phase 4: Update PR description, verify breaking changes documented, resolve/document TODOs
+  - Phase 5: Final validation, push to fork, request formal review
+- Success criteria:
+  - Branch cleanly rebased with all conflicts resolved
+  - 100% of unit tests passing
+  - All live_llm tests passing when API keys provided
+  - PR description reflects current state
+  - Breaking changes clearly documented
+  - Migration guide accurate and complete
+  - All TODOs resolved or documented
+  - No outdated patterns remain
+  - Ready for formal maintainer review
+- Files identified: 31 files (12 new, 12 modified, 10 deleted)
+- Dependencies: None (can start immediately)
+- Risk areas: Rebase conflicts (HIGH), live test flakiness, upstream API changes
+- Estimated effort: 2-3 days
+---
+
+## [2026-01-07] - Research: Create demo showing Ash + Jido integration strategy
+- Item ID: 017-create-demo-showing-ash-jido-integration
+- Section: 4-ashjido-integration
+- Key findings:
+  - ash_jido project is complete but has NO demo application or end-to-end example
+  - Integration architecture: Spark transformer generates Jido.Action modules from Ash resources at compile time
+  - Type mapping converts Ash types to NimbleOptions schemas (String/Integer/Float/Boolean/Date/Array)
+  - Policy integration respects Ash authorization, context requires domain/actor/tenant
+- Files identified: 30+ files
+  - Core ash_jido: generator.ex, mapper.ex, type_mapper.ex, dsl.ex, transformers/generate_jido_actions.ex
+  - Test support examples: test_user.ex, test_post.ex, test_domain.ex (good demo templates)
+  - Agent patterns: react_demo_agent.ex, agent.ex, skill.ex (for Jido agent demo)
+  - Documentation: README.md, usage-rules.md, AGENTS.md (reference material)
+- Demo structure proposed:
+  - Option 1: Standalone Mix project at projects/ash_jido_demo/ (RECOMMENDED)
+  - Option 2: Umbrella app folder
+  - Option 3: Documentation example at projects/ash_jido/examples/demo/
+- Demo implementation plan:
+  1. Ash Resources: Task (title, description, status, priority, project_id) and Project (name, description, status)
+  2. Domain: AshJidoDemo.Domain with both resources
+  3. Skill: TaskManagement skill wrapping generated Jido actions with domain context
+  4. Agent: ReAct agent using Ash tools for LLM-powered task management
+  5. Runnable demo script showing create/list/complete operations
+- Key integration points:
+  - Context requirements (domain required, actor/tenant optional)
+  - Type mappings to document (8 types: String/Integer/Float/Boolean/Date/UUID/DateTime/Array)
+  - Best practices: AI-friendly naming, tagging, filtering sensitive actions, clear descriptions
+  - LLM optimization tips: verb-first names, domain tags, comprehensive descriptions
+- Dependencies: ash ~> 3.0, jido ~> 0.2, ash_jido (path), jido_ai ~> 0.1 (optional for ReAct)
+- Success criteria: Users can understand integration, copy patterns, run locally, extend with custom resources
+- Risk areas: Example complexity vs clarity balance, documentation maintenance
+- Estimated effort: 2-3 days for demo creation, README documentation, and test suite
+---
+
+## [2026-01-07] - Research: Update outstanding draft PR
+- Item ID: 018-update-outstanding-draft-pr
+- Section: 5-ashai-pr
+- Key findings:
+  - PR #152 "ReqLLM Integration & Architecture Overhaul" found (OPEN, not draft)
+  - Large architectural change: +3896/-2701 lines across 31 files
+  - Introduces native ReqLLM integration alongside LangChain (backward compatible)
+  - New AshAi.ToolLoop module for LLM conversations with tool calling
+  - Live LLM testing framework with comprehensive test coverage
+  - Removed legacy adapter system (simplified architecture)
+  - Upstream ash-project/ash_ai: v0.4.0 (2025-11-23)
+  - Recent upstream changes: 3 merged PRs since PR creation (may cause conflicts)
+- Files identified: 31 files
+  - New: 12 files (ToolLoop, live LLM tests, documentation)
+  - Modified: 12 files (ash_ai.ex, actions.ex, tools.ex, etc.)
+  - Deleted: 10 files (legacy adapter system)
+- Integration points:
+  - AshAi.ToolLoop API (synchronous & streaming)
+  - ReqLLM dependency for LLM interactions
+  - Tool system refactoring (4 new modules under lib/ash_ai/tool/)
+  - EmbeddingModels.ReqLLM for vectorization
+- Update strategy:
+  1. Rebase onto latest upstream/main
+  2. Resolve conflicts with recent PRs (#157 tool load, #148 AshOban)
+  3. Run tests (unit + live_llm with API keys)
+  4. Update PR description with latest changes
+  5. Code review for outdated patterns
+- Migration guide included (prompt syntax, embeddings, ToolLoop usage)
+- Dependencies: req_llm ~> 1.0 (new), ash ~> 3.0, langchain (preserved)
+- Risk areas: Breaking changes in adapter removal, test coverage gaps, merge conflicts
+- Estimated effort: 1-2 days for rebase, conflict resolution, and testing
+---
+
+## [2026-01-07] - Research: Define scope/architecture for jido_messaging v1
+- Item ID: 019-define-scopearchitecture
+- Section: 6-jido-messaging-v1
+- Key findings:
+  - jido_chat exists at /projects/jido_chat/ with solid OTP patterns but needs signal integration
+  - Jido agents use sophisticated signal routing via jido_signal bus with priority-based routing
+  - Six-layer architecture recommended: APIs, Signals, Agent Gateway, Routing, Channels, Core Domain
+  - Signal-driven design enables ecosystem integration and observability
+  - Streaming by default aligns with LLM interaction patterns
+  - Multi-tenant isolation required from day one
+- Files identified: 30+ files across jido_chat, jido, jido_signal
+  - jido_chat: 5 core modules (jido_chat.ex, message.ex, conversation.ex, room.ex, participant.ex)
+  - Agent integration: agent_server/signal_router.ex, agent_server.ex, signal/bus.ex
+  - New jido_messaging structure: 9 directories (signals/, domain/, routing/, channels/, agents/, persistence/)
+- Core domain model designed: Message envelope (with thread_id, from/to, role, content, metadata), Thread management
+- Signal types designed: messaging.message.received, messaging.message.delivered, messaging.agent.request, messaging.agent.response, messaging.streaming.chunk
+- Dependencies: jido_signal (existing), jido (existing), Zoi (for schemas)
+- Risk areas: Signal spam mitigation, streaming delivery state tracking, multi-tenant configuration complexity
+- API boundaries: Messaging (core), Agent integration (signal emission, streaming), Channel abstraction (normalized model)
+- Explicit exclusions: Persistence strategy (delegated to journal), UI concerns (client responsibility), Orchestration beyond routing (handled by Jido framework)
+- Estimated effort: 5-8 days for architecture definition, signal design, and initial module structure
+---
+
+## [2026-01-07] - Research: Initial implementation
+- Item ID: 020-initial-implementation
+- Section: 6-jido-messaging-v1
+- Key findings:
+  - jido_messaging project exists as skeleton with only stub implementation
+  - JIDO_MESSAGING_VISION.md provides comprehensive 585-line specification
+  - jido_chat can be replaced with signal-driven, agent-first architecture
+  - Streaming support patterns available in ReqLLM (stream.ex:1-238)
+  - Persistence can use ETS adapter for v1, design for PostgreSQL later
+- Files identified: 35+ new files to create
+  - Core: 8 domain model files (Message, Room, Participant, Instance, content types)
+  - Signals: 5 signal definition files
+  - Agent: 5 integration files (gateway, context_builder, streaming)
+  - Adapters: 3 files (behaviour + ETS + placeholder for Postgres)
+  - Room: 6 management files (server, supervisor, registry)
+  - Tests: 8 test files
+  - Modify: jido_messaging.ex (replace stub), mix.exs (add deps), README.md
+- Dependencies to add: jido_signal (~> 0.1), jido (~> 0.2), jido_action (~> 0.1)
+- Implementation phases: 1) Core domain models, 2) Signal definitions, 3) Room management, 4) Agent integration, 5) Persistence adapter, 6) Public API
+- Integration with jido_chat via backward compatible wrapper, gradual migration path
+- Agent integration via Jido.Signal.Bus with priority-based routing (Strategy: 50-100, Agent: -25 to 25, Skill: -50 to -10)
+- Streaming pattern: Emit chunks as messaging.streaming.chunk signals, final signal with finish_reason marks completion
+- Known limitations for v1: Read receipts, complex routing, multi-agent coordination, advanced moderation, channel implementations, media storage, encryption, federation
+- Success criteria: Can create room, send message, add agent, agent receives/responds with streaming, messages persisted, can replace jido_chat
+- Risk areas: Breaking changes to jido_chat API, streaming delivery state tracking, multi-tenant configuration complexity
+- Estimated effort: 3 weeks for minimal viable product (Phase 1: domain models, Phase 2: signals, Phase 3: rooms, Phase 4: agents, Phase 5: persistence, Phase 6: API)
+---
+
+## [2026-01-07] - Research: Phoenix project setup
+- Item ID: 021-phoenix-project-setup
+- Key findings: CRITICAL - jido_hub Phoenix project ALREADY EXISTS at projects/jido_hub/ with complete production-ready setup (Phoenix 1.8.1, Ash Framework 3.0, authentication, security, testing infrastructure). Task is to validate, document, and extend existing setup for chat UI rather than create new project.
+- Files identified: 50+ existing files analyzed, including router.ex, endpoint.ex, application.ex, configuration files, and test infrastructure
+- Dependencies catalogued: 80+ packages across Phoenix, Ash ecosystem, authentication, security, testing, and development tools
+- Integration points mapped: Phoenix.PubSub for real-time, Phoenix Presence for online status, Ash for data modeling, existing authentication system
+- Unclear areas requiring clarification: Agent communication protocol, agent discovery mechanism, jido_messaging integration readiness, jido_ai role in architecture
+- Next steps: Clarify agent protocol, design chat schema, plan jido_messaging integration
+---
+
+## [2026-01-07] - Plan: Phoenix project setup
+- Item ID: 021-phoenix-project-setup
+- Section: 7-jido-hub-mvp
+- Phases defined: 4 (Validation, Documentation, Placeholder Modules, Verification & Report)
+- Key decisions:
+  - Use existing jido_hub project - DO NOT create new Phoenix project
+  - Focus on validation and documentation - no real implementation yet
+  - Create placeholder modules for future chat/agent functionality
+  - Document assumptions and gaps (agent protocol undefined)
+- Implementation approach:
+  - Phase 1: Validate existing setup (mix quality, mix test, security review)
+  - Phase 2: Create comprehensive documentation (SETUP.md, DEPLOYMENT.md, AGENT_INTEGRATION.md, .env.example)
+  - Phase 3: Create placeholder modules (JidoHub.Chat, JidoHub.Agents.Client, JidoHub.Agents.Supervisor)
+  - Phase 4: Final validation report and verification
+- Success criteria:
+  - All quality checks pass (mix quality)
+  - All documentation created and accurate
+  - Placeholder modules exist with comprehensive @todo annotations
+  - Validation report documents findings and recommendations
+- Files identified: 4 new docs, 3 new placeholder modules, 2 new test files, 1 validation report
+- Dependencies: None (but agent protocol blocks full implementation)
+- Estimated effort: 3-5 days
+---
+
+## [2026-01-07] - Plan: Hand review all code — audit modules for correctness, patterns, edge cases
+- Item ID: 001-hand-review-all-code-audit-modules-for-c
+- Section: 1-jido-core-20-release
+- Phases defined: 5 (Public API Review, Internal Abstraction Review, Concurrency & Error Handling, Edge Case & Boundary Review, Documentation & Reporting)
+- Key decisions:
+  - Audit scope: 4 core projects (jido, jido_action, jido_signal, jido_ai) - ~195 modules
+  - Depth: Medium-depth audit (3-5 days) with escalation path to comprehensive
+  - Version strategy: Coordinated 2.0.0 release across all core projects
+  - Breaking changes: Acceptable with migration guide
+- Implementation approach:
+  - Phase 1: Automated spec checker, validate all public functions have @spec and @doc
+  - Phase 2: Review internal abstractions (GenServer, execution engine, signal bus, AI orchestration)
+  - Phase 3: Review concurrency paths and error handling
+  - Phase 4: Edge cases (nil, empty collections, invalid types, timeouts, resource cleanup)
+  - Phase 5: Compile audit report, track issues, create PRs for critical fixes
+- Success criteria:
+  - 100% of public functions have @spec and @doc
+  - >= 80% coverage for all modules (target: 90%)
+  - All Credo and Dialyzer checks passing
+  - All findings documented with priorities
+  - All critical issues resolved before 2.0 release
+- Estimated effort: 7-12 days for comprehensive audit
+---
+
+## [2026-01-07] - Plan: Maximize test coverage — target >90% coverage on core modules
+- Item ID: 002-maximize-test-coverage-target-90-coverag
+- Section: 1-jido-core-20-release
+- Phases defined: 4 (Coverage Baseline & Tooling, Critical Infrastructure Tests, Feature Area Tests, CI/CD Integration & Quality Gates)
+- Key decisions:
+  - Focus on documented modules in mix.exs groups, exclude example modules
+  - Use existing test infrastructure (JidoTest.Case, async testing patterns)
+  - Prioritize 0% coverage modules before improving partially covered modules
+  - Set incremental coverage thresholds (50% → 70% → 90%) to maintain momentum
+- Implementation approach:
+  - Phase 1: Generate baseline coverage report, update CI/CD to run mix test.coverage, create tracking spreadsheet
+  - Phase 2: Write tests for 8 critical infrastructure modules (AgentPool, Observe, Await, Scheduler, etc.) - target >90% coverage
+  - Phase 3: Write tests for 12 feature area modules (Actions, AgentServer components, FSM/directives) - target >90% coverage
+  - Phase 4: Finalize CI/CD integration, add coverage reporting, ensure test quality, update documentation
+- Success criteria:
+  - Overall coverage >90% (from 29.32% baseline)
+  - 25+ new test files created, 300+ new tests added
+  - Test suite runtime < 10 minutes
+  - CI enforces 90% coverage threshold
+  - All tests follow JidoTest.Case pattern and verify behavior (not just coverage)
+- Estimated effort: 40-60 hours across 4 phases
+---
+
+## [2026-01-07] - Research: LibreChat-style chat interface
+- Item ID: 022-librechat-style-chat-interface
+- Section: 7-jido-hub-mvp
+- Key findings:
+  - jido_hub Phoenix project ALREADY EXISTS with LiveView 1.1.0, DaisyUI, authentication
+  - jido_messaging is vision-only (early development) - Room/Message/Participant entities designed but not implemented
+  - Phoenix LiveView perfect for chat: streams, PubSub, real-time updates, HEEx templates
+  - LibreChat patterns documented: message bubbles, streaming responses, markdown/code rendering, conversation sidebar
+- Files identified: 10+ new files (ChatLive, components, routing), 3 modified files (router, nav, layout)
+- Dependencies documented:
+  - Phoenix LiveView 1.1.0 (for real-time chat)
+  - Phoenix.PubSub (message broadcasting)
+  - DaisyUI Components 0.9.2 (UI styling)
+  - AshAuthentication 4.0 (user auth)
+  - Zoi 0.14 (schema validation from jido_messaging)
+- Integration points:
+  - JidoMessaging Room entity (conversation container)
+  - JidoMessaging Message entity (LLM-native with content blocks)
+  - Phoenix.PubSub for real-time message broadcasts
+  - Agent runner pattern (agents participate in rooms)
+- User decisions needed:
+  - Markdown library: earmark (lightweight) vs markdown (feature-rich)
+  - Code highlighting: makeup (pure Elixir) vs makeup_elixir (more languages, Python dep)
+  - Content types MVP: text only vs text+markdown vs text+markdown+images
+- Risk areas: jido_messaging API stability, streaming delivery state, XSS in markdown, message list performance
+- Implementation phases: MVP (basic chat), streaming responses, rich content (markdown/code), advanced features
+- Estimated effort: 2-3 weeks for full LibreChat-style interface with streaming
+---
+
+## [2026-01-07] - Plan: LibreChat-style chat interface
+- Item ID: 022-librechat-style-chat-interface
+- Section: 7-jido-hub-mvp
+- Phases defined: 4 (Foundation - Basic Chat UI, Real-Time Integration - Streaming & PubSub, Rich Content - Markdown & Code, Conversation Management & Polish)
+- Key decisions:
+  - Phoenix LiveView for server-rendered real-time UI (no client-side framework)
+  - Integrate with jido_messaging Room/Message/Participant entities
+  - Support streaming responses via LiveView streams and assigns
+  - Use Earmark for markdown rendering and Makeup for code highlighting
+  - Mock mode available if jido_messaging not ready
+- Implementation approach:
+  - Phase 1: Create basic chat LiveView with message list and input
+  - Phase 2: Integrate jido_messaging, add PubSub, implement streaming
+  - Phase 3: Add markdown rendering and code highlighting with XSS protection
+  - Phase 4: Add conversation sidebar, management, mobile responsive, accessibility
+- Success criteria:
+  - Chat interface matches LibreChat patterns (message bubbles, sidebar, streaming)
+  - Integration with jido_messaging working (or mock mode verified)
+  - Streaming responses display incrementally
+  - Markdown and code highlighting functional
+  - 85%+ test coverage
+  - Accessibility verified
+- Files identified: 13 new files (4 LiveView/components, 3 rich content, 4 tests, 2 support), 7 modified files
+- Dependencies: Item 021 (Phoenix project setup), jido_messaging implementation status
+- Risk areas: JidoMessaging not ready (mitigated by mock mode), streaming performance, XSS in markdown
+- Estimated effort: 2-3 weeks
+---
+## [2025-01-07] - Plan: Write comprehensive documentation — moduledocs, guides, examples
+- Item ID: jido-workspace-roadmap/ready-to-plan/1-jido-core-20-release/003-write-comprehensive-documentation-module
+- Phases defined: 4 (Critical Jido Guides, Jido.AI Documentation Update, Examples Expansion, Documentation Quality Assurance)
+- Key decisions: Use LiveBook for interactive tutorials, update jido_ai to v2 API patterns, establish documentation review checklist
+- Files created: plan.md with comprehensive implementation strategy
+---
+
+## [2026-01-07] - Plan: Final Quality Audit - Dialyzer Clean, Credo Clean, No Warnings
+- Item ID: 004-final-quality-audit-before-release-dialy
+- Phases defined: 4
+- Key decisions:
+  - Use existing `mix quality` alias as primary release gate
+  - Fix jido_ai first (35 compiler warnings, 17 Dialyzer warnings)
+  - Add explicit .credo.exs to document team conventions
+  - Standardize PLT paths across packages
+- Success criteria: All 4 packages pass `mix quality` locally
+---
+
+## [2026-01-07] - Plan: Define effects for behavior tree execution
+- Item ID: 005-define-effects-for-behavior-tree-executi
+- Section: 2-jido-behavior-tree-v1
+- Phases defined: 4 (Foundation, Core Implementation, Integration & Testing, Polish & Documentation)
+- Key decisions:
+  - Follow existing Internal/Directive separation pattern from Jido.Agent
+  - Create BT-specific Internal effects (SetNodeStatus, UpdateBlackboard, SetTreeStatus, NodeError)
+  - Leverage existing Directive.Emit for signal dispatch
+  - Signal naming: jido.bt.* prefix for behavior tree signals
+  - Effects are optional and configurable (enable/disable via config)
+- Implementation approach:
+  - Phase 1: Create Internal effect modules with Zoi schemas, define signal type constants
+  - Phase 2: Integrate effects into BT execution flow, add Tick effect helpers
+  - Phase 3: Complete signal integration, add telemetry events, update all node types
+  - Phase 4: Documentation, examples, migration guide
+- Success criteria:
+  - All Internal effects implemented with Zoi schemas
+  - Node ticks emit status and signal effects consistently
+  - Tree lifecycle effects emitted
+  - 90%+ test coverage for new modules
+  - Complete docs for all public APIs
+- Files identified: 3 new files (internal.ex, signals.ex, effects.ex), 4+ modified (tick.ex, behavior_tree.ex, node types)
+- Dependencies: None (standalone feature)
+- Estimated effort: 3-5 days for effect design, schema creation, and integration
+---
+
+## [2026-01-07] - Plan: Define signals for state transitions/events
+- Item ID: jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/006-define-signals-for-state-transitionseven
+- Phases defined: 4 (Foundation, Core Implementation, Integration & Testing, Polish & Documentation)
+- Key decisions:
+  - Use Directive.Emit pattern for lazy signal accumulation (not direct dispatch)
+  - Hierarchical filtering and sampling to prevent signal spam
+  - Configurable verbosity: :quiet (<1% overhead), :normal (<3% overhead), :verbose (<10% overhead)
+  - Blackboard signals disabled by default
+  - Distinguish public signals (stable schema) from internal signals (debugging only)
+- Implementation approach:
+  - Phase 1: Create 8-10 signal modules (NodeEntered/Completed/Failed, TreeStarted/Completed/Halted, BlackboardUpdated, ActionExecuted)
+  - Phase 2: Add emission points to Node.execute_tick/2, Tree.tick/2, blackboard operations
+  - Phase 3: Integrate with BehaviorTree strategy, update all node types, performance benchmarks
+  - Phase 4: Documentation (signal catalog, integration guide), examples
+- Signal types:
+  - Public (stable): jido.bt.tree.completed, jido.bt.tree.halted, jido.bt.action.executed
+  - Internal (debugging): jido.bt.node.entered, jido.bt.node.completed, jido.bt.node.failed, jido.bt.blackboard.updated
+- Success criteria:
+  - All signals emit via Directive.Emit
+  - <5% performance overhead with :normal verbosity
+  - 100% test coverage for signal modules
+  - Complete signal catalog and integration guide
+- Files identified: 27 files (5 new signal modules, 22 modified for emission)
+- Dependencies: jido_signal 1.2.0 (existing), jido (existing), Telemetry (existing)
+- Risk areas: Signal spam (mitigated via filtering/sampling), performance impact (mitigated via lazy directives)
+- Estimated effort: 3-4 days core implementation + 1-2 days testing/documentation
+---
+
+## [2026-01-07] - Plan: Create example - behavior tree as Jido strategy
+- Item ID: 007-create-example-behavior-tree-as-jido-str
+- Section: 2-jido-behavior-tree-v1
+- Phases defined: 4 (Foundation - Actions and Tree, Core Implementation - Agent and Runner, Integration & Testing, Polish & Documentation)
+- Key decisions:
+  - Use "Smart Coffee Maker" scenario as realistic, multi-tick example
+  - Modular structure: actions.exs, tree.exs, agent.exs, run.exs, README.md
+  - Demonstrate Sequence, Selector, Inverter, Repeat nodes
+  - All effects via directives (no direct IO)
+  - Multi-tick execution with state preservation
+- Implementation approach:
+  - Phase 1: Create 8 action modules (CheckWaterLevel, RefillWater, HeatWater, etc.) and tree definition
+  - Phase 2: Build CoffeeMakerAgent with BT strategy and executable runner
+  - Phase 3: Comprehensive tests (success path, error scenarios, multi-tick state)
+  - Phase 4: Narrative README walkthrough and integration with project docs
+- Success criteria:
+  - mix run examples/hello_world/run.exs executes successfully
+  - All tests pass with 90%+ coverage
+  - README clear and complete
+  - Linked from main project README
+- Files identified: 8 files (7 new, 1 modified)
+  - New: examples/hello_world/actions.exs, tree.exs, agent.exs, run.exs, README.md, hello_world_test.exs
+  - Modified: README.md (add link)
+- Dependencies: Items 005-006 (signal schemas) recommended but optional
+- Estimated effort: 3-4 hours for complete example
+---
+## [2025-01-07] - Plan: Create example: behavior tree as part of a larger strategy
+- Item ID: jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/008-create-example-behavior-tree-as-part-of
+- Phases defined: 4 (Foundation, Component Implementation, Meta-Strategy Integration, Documentation & Polish)
+- Key decisions: Meta-strategy pattern with phase-based delegation, signal-based coordination using CloudEvents v1.0.2, shared blackboard schema for cross-component state, unified error handling via Splode
+- Files to create: ~15-20 files including meta_strategy.ex, component modules, signal definitions, blackboard schema, and comprehensive tests
+- Dependencies: Items 005, 006, 007 (prerequisites), Items 009-014 (HTN - stub planned)
+- Effort estimate: Medium complexity
+---
+
+## [2026-01-07] - Plan: Convert to Zoi error handling
+- Item ID: 009-convert-to-zoi-error-handling
+- Section: 3-jido-htn-modernization
+- Phases defined: 5 (Foundation - Create Error Module, Core Planning Functions, Domain Validation, Domain Builder & Structs, Integration & Testing)
+- Key decisions:
+  - Create Jido.HTN.Error module using Splode with 6 error classes (invalid, planning, execution, validation, timeout, internal)
+  - Preserve debug tree information in error.details to maintain existing functionality
+  - Incremental migration by subsystem to minimize risk
+  - Type spec changes: String.t() -> Exception.t()
+- Implementation approach:
+  - Phase 1: Create error.ex module with Splode, define HTN-specific error classes
+  - Phase 2: Migrate planner.ex (10 sites) and task_decomposer.ex (8 sites) - priority: HIGH
+  - Phase 3: Migrate domain_validation.ex (42 sites) and domain_reader.ex (6 sites) - priority: HIGH
+  - Phase 4: Migrate domain_builder.ex (7 raises), method.ex, primitive_task.ex, serializer.ex (13 sites) - priority: MEDIUM
+  - Phase 5: Update all tests, documentation, migration guide
+- Success criteria:
+  - ~190 error call sites migrated to Jido.HTN.Error constructors
+  - All type specs updated to use Exception.t()
+  - 90%+ test coverage maintained
+  - Zero compiler/dialyzer warnings
+  - Complete user migration guide provided
+- Files identified: ~20 files to modify, 1 new file (error.ex)
+- Dependencies: Splode (add to mix.exs if not present), reference patterns from jido/lib/jido/error.ex
+- Risk areas: Breaking changes to error tuple format, debug tree compatibility, test updates
+- Estimated effort: 19-28 hours (3-4 days)
+---
+## [2026-01-07] - Plan: Convert to Zoi error handling
+- Item ID: jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/009-convert-to-zoi-error-handling
+- Phases defined: 5
+- Key decisions: Use Splode for unified error handling, preserve debug trees in error metadata, phase-based migration to minimize risk
+---
+
+## [2025-01-07] - Plan: Implement explode errors
+- Item ID: jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/010-implement-explode-errors
+- Phases defined: 4 (Foundation, Core Implementation, Integration & Testing, Polish & Documentation)
+- Key decisions:
+  - Use Splode for error class hierarchy with 3 classes: Planning (non-exploding), Validation (exploding), Domain (exploding)
+  - Preserve existing debug tree functionality within error fields
+  - 13 error types total: 5 Planning, 5 Validation, 3 Domain
+  - Update 5 core files: planner.ex, task_decomposer.ex, domain_validation.ex, domain_builder.ex, error.ex (new)
+  - Estimated effort: 3-4 days
+- Integration points identified: 9 specific locations across 4 files
+- Test strategy: Unit tests for error creation, integration tests for planner errors, property-based tests for aggregation
+- Depends on: Item 009 (Convert to Zoi error handling)
+---
+
+## [2026-01-07] - Plan: Modernize to current Jido patterns (actions, schemas)
+- Item ID: 011-modernize-to-current-jido-patterns-actio
+- Section: 3-jido-htn-modernization
+- Phases defined: 4 (Foundation - Error Handling Infrastructure, Core Implementation - Action Integration, Integration & Testing - Signals and Directives, Polish & Documentation - Validation and Migration)
+- Key decisions:
+  - Error Handling: Migrate from string errors to Jido.HTN.Error using Splode
+  - Action Execution: Replace {module, params} tuples with direct Jido.Action module references
+  - Effects to Directives: Transform state mutation functions into Jido.Agent.Directive returns
+  - Signal Integration: Add CloudEvents v1.0.2 compliant signal emission for plan lifecycle
+  - Action storage: Use direct module reference (task: MyAction) with transition support
+  - Planning execution: Integrate with Jido.Exec for consistency
+  - Signal granularity: Start with plan-level signals only, add task-level as opt-in
+- Implementation approach:
+  - Phase 1: Create Jido.HTN.Error with Splode, update core planning files (planner.ex, task_decomposer.ex, domain_builder.ex)
+  - Phase 2: Update PrimitiveTask task field, implement execute/2 via Jido.Exec.run/3, create Plan struct
+  - Phase 3: Add signal emission (htn.plan.started/completed/failed), replace effect_handler.ex with directive pattern
+  - Phase 4: Update validation error returns, create migration guide, update examples
+- Success criteria:
+  - All errors are structured (Jido.HTN.Error)
+  - Actions store module references and execute via Jido.Exec
+  - Actions can return directives for side effects
+  - Planning emits CloudEvents-compliant signals
+  - Migration guide documents all breaking changes
+  - 90%+ test coverage maintained
+  - All quality gates pass
+- Files identified: 15+ files to modify, 4 new files (error.ex, plan.ex, planner/exec.ex, signals.ex)
+- Dependencies: No new deps - uses existing jido, jido_action, jido_signal, zoi, splode
+- Risk areas: Breaking changes to error format and action execution API
+- Estimated effort: 3-5 days
+---
+
+## [2026-01-07] - Plan: Define effects for HTN planning/execution
+- Item ID: 012-define-effects-for-htn-planningexecution
+- Section: 3-jido-htn-modernization
+- Phases defined: 4 (Foundation, Core Integration, Execution & Observability, Polish & Documentation)
+- Key decisions:
+  - Effects modeled as Zoi structs with type-safe fields and metadata
+  - Planning effects separate from execution effects for clear separation
+  - Effects emitted via telemetry for observability and jido_signal for coordination
+  - Backward compatibility maintained through polymorphic effect fields (functions OR structs)
+  - Effect emission is opt-in via Domain configuration to minimize overhead
+- Implementation approach:
+  - Phase 1: Create effect struct definitions (10 effect types) and telemetry infrastructure
+  - Phase 2: Update planner and task decomposer to emit effects during planning
+  - Phase 3: Add execution-time effects and integrate with telemetry/jido_signal
+  - Phase 4: Complete documentation, performance optimization, and migration guide
+- Success criteria:
+  - All 10 effect types defined with Zoi schemas
+  - Planner emits effects during planning (MethodSelected, TaskDecomposed, etc.)
+  - Execution emits effects (TaskStarted, TaskCompleted, TaskFailed)
+  - Effects include full metadata (plan_id, timestamps, depth, correlation_id)
+  - Telemetry events emitted for all effect types
+  - Effects integrate with jido_signal for cross-process communication
+  - Backward compatibility maintained (function effects still work)
+  - Comprehensive test coverage (>90% for new code)
+  - Documentation complete (effect system guide, telemetry reference, migration guide)
+  - Performance impact <10% overhead when effects enabled
+- Files identified: 8 new files (3 modules, 2 test files, 3 guides), 5 modified files
+- Dependencies: Zoi 0.14 (for schemas), jido_signal (for broadcasting), Telemetry 1.3 (existing)
+- Risk areas: Breaking changes to PrimitiveTask.effects schema, performance overhead during planning
+- Estimated effort: 5-8 days
+---
+
+
+## [2026-01-07] - Plan: Define signals for multi-agent coordination
+- Item ID: 013-define-signals-for-multi-agent-coordinat
+- Section: 3-jido-htn-modernization
+- Phases defined: 4 (Foundation, Planner Integration, Task Decomposition Signals, Coordination & Documentation)
+- Key decisions:
+  - Signals follow CloudEvents v1.0.2 specification (consistent with Jido ecosystem)
+  - Signal emission is opt-in via Domain configuration to avoid performance overhead
+  - Signals named using convention: <domain>.<entity>.<action>[.<qualifier>]
+  - Signals emitted asynchronously to avoid blocking planner execution
+  - Signal priorities align with Jido's routing system (50-100 for coordination, -50 to -10 for task-level)
+  - Backward compatibility maintained - existing HTN domains work without changes
+- Implementation approach:
+  - Phase 1: Create signal type definitions (18 signal types) and emitter infrastructure
+  - Phase 2: Update planner to emit lifecycle signals at key planning points
+  - Phase 3: Add task and method signals to task decomposer for detailed visibility
+  - Phase 4: Add multi-agent coordination signals and complete documentation
+- Success criteria:
+  - All 18 signal types defined with CloudEvents-compliant schemas
+  - Planner emits lifecycle signals (plan.starting, plan.created, plan.failed)
+  - TaskDecomposer emits task signals (task.starting, task.completed, task.failed)
+  - TaskDecomposer emits method signals (method.evaluating, method.selected, method.failed)
+  - Planner emits error signals (recursion.limit, dead_end.reached)
+  - Coordination signals available (agent.*, resource.*, constraint.*)
+  - Signals include full metadata (plan_id, timestamps, domain)
+  - Signals broadcast via jido_signal
+  - Signal emission is opt-in via Domain configuration
+  - Backward compatibility maintained (existing domains work)
+  - Comprehensive test coverage (>90% for new code)
+  - Documentation complete (signal system guide, multi-agent coordination guide, signal reference)
+  - Performance overhead <5% when signals enabled
+- Files identified: 10 new files (signals, emitter, priority, coordinator, tests), 6 modified files (planner, task_decomposer, domain, tests)
+- Dependencies: jido_signal ~0.1 (new), jido ~0.2 (existing)
+- Risk areas: Signal flood mitigation, performance impact, backward compatibility
+- Estimated effort: 6-9 days
+---
+
+
+## [2026-01-07] - Plan: Documentation pass
+- Item ID: 014-documentation-pass
+- Section: 3-jido-htn-modernization
+- Phases defined: 4 (Core Module Documentation, Planner Submodules Documentation, Guide Updates, Examples & README)
+- Key decisions:
+  - Document all 27 files (15 modules with @moduledoc, 4 new guides, 2 examples, 3 root docs)
+  - Use 4-phase systematic approach: modules → planner → guides → examples
+  - All code examples must be tested and runnable
+  - README gets complete rewrite with architecture diagram
+  - Migration guide helps users transition from legacy API
+- Success criteria:
+  - 100% of public modules have @moduledoc with examples
+  - README complete with quick start (<5 minutes)
+  - 5 comprehensive guides (getting-started, migration, effects, signals, errors)
+  - 2+ runnable examples
+  - mix docs generates clean with zero warnings
+- Files identified: 27 files (6 create, 15 update modules, 3 update root docs, 3 review)
+- Dependencies: Items 009-013 must complete first (Zoi errors, explode errors, modernization, effects, signals)
+- Estimated effort: 4-6 days for comprehensive documentation pass
+---
+
+## [2026-01-07] - Plan: Create demo showing Ash + Jido integration strategy
+- Item ID: 017-create-demo-showing-ash-jido-integration
+- Section: 4-ashjido-integration
+- Phases defined: 4 (Foundation, Ash Resources with AshJido, Skills/Agents/Demo Script, Documentation and Polish)
+- Key decisions:
+  - Standalone Mix project at projects/ash_jido_demo/ (not umbrella app) for easier isolation and copying
+  - Two resources: Task (custom actions, selective exposure) and Project (all_actions pattern)
+  - ReAct agent demonstrating LLM-powered task management
+  - Comprehensive README with quick start, architecture, patterns, and extension guide
+  - Production-ready reference with complete test suite
+- Implementation approach:
+  - Phase 1: Project setup with Ash, Jido, AshJido dependencies and configuration
+  - Phase 2: Task and Project resources with AshJido DSL (demonstrating two patterns)
+  - Phase 3: TaskManagement skill, ReAct agent, runnable demo script with mix task
+  - Phase 4: Comprehensive README (8 sections), code formatting, quality gates
+- Success criteria:
+  - mix ash_jido_demo.run executes complete workflow (<5 seconds)
+  - README covers: Quick Start, Architecture, Resource Definition, Agent Setup, Execution Patterns, Best Practices, Testing, Extension Guide
+  - All tests pass with >=80% coverage
+  - Zero compiler warnings
+  - Quick start verified from scratch (<5 minutes)
+  - User can add custom resource following extension guide (<30 minutes)
+- Files identified: 13 files (project structure, resources, skill, agent, demo, tests, README)
+- Dependencies: ash ~> 3.0, jido ~> 0.2, ash_jido (path), jido_ai ~> 0.1 (optional)
+- Risk areas: ReAct agent requires paid API key (mitigated by providing alternative patterns), example complexity vs clarity
+- Estimated effort: 2-3 days for demo creation, README, and test suite
+---
+## [2025-01-07] - Plan: Define scope/architecture
+- Item ID: jido-workspace-roadmap/ready-to-plan/6-jido-messaging-v1/019-define-scopearchitecture
+- Phases defined: 4 (Foundation & Scaffolding, Message Routing & Gateway, Agent Integration & Streaming, Channel Abstraction & Integration)
+- Key decisions: Signal-first architecture using Jido.Signal.Bus, six-layer architecture for clear separation of concerns, multi-tenant ready with instance-level isolation, streaming native support for LLM interactions
+- Architecture: jido_messaging v1 to replace jido_chat with normalized message model, signal-based routing, and agent gateway integration
+- Coverage targets: 85%+ overall, 95%+ for domain models
+- State transition: raw → planned
+---
+## [2026-01-07] - Plan: Initial implementation
+- Item ID: jido-workspace-roadmap/ready-to-plan/6-jido-messaging-v1/020-initial-implementation
+- Phases defined: 4
+- Key decisions: Agent-first design, signal-based communication, ETS adapter for v1, LLM-native messages
 ---

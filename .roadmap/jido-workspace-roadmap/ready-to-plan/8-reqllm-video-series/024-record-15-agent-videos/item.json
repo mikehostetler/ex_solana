@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/8-reqllm-video-series/024-record-15-agent-videos",
+  "number": 24,
+  "overview": "This item is about producing raw recordings for a 15-part ReqLLM-based agent video series that has already been planned. For each planned episode, prepare minimal outlines or slides as needed, then record screen-and-audio walkthroughs that demonstrate how to build and use HTTP-based LLM agents with ReqLLM in practical scenarios. Focus on clear explanations, consistent audio quality, and reproducible examples that viewers can follow along with in their own projects. The deliverable is a set of 15 recorded video files, each aligned with the planned topics and roughly consistent in length and structure. During recording, note any adjustments to the original plan (e.g., reordered topics or combined content) and capture companion assets like code snippets or example repos. These raw recordings will be the input for later editing and polishing.",
+  "pr_url": null,
+  "roadmap_line": 141,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "8. ReqLLM Video Series"
+  ],
+  "state": "raw",
+  "title": "Record 15 agent videos",
+  "updated_at": "2026-01-07T23:07:02.336418Z"
+}

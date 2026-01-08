@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/7-jido-hub-mvp/023-integration-with-jido-agents",
+  "number": 23,
+  "overview": "This item ensures that jido_hub can connect its chat interface to real Jido agents using the new jido_messaging layer as the transport. The work includes defining how sessions or conversations map to Jido agent instances or configurations, how to select which agent to talk to, and how to pass any required context (e.g., user identity, workspace, project) into the agent. It should also define how agent responses, including tool calls or structured outputs, are translated back into user-facing messages. The deliverable is a minimal but complete integration path from the web UI to at least one Jido agent, with configuration documented (e.g., environment variables or config files for registering agents). This should include handling of basic error cases (agent not available, invalid configuration, message failures) and logging or tracing hooks to aid debugging.",
+  "pr_url": null,
+  "roadmap_line": 127,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "7. Jido Hub MVP"
+  ],
+  "state": "raw",
+  "title": "Integration with Jido agents",
+  "updated_at": "2026-01-07T23:06:51.536103Z"
+}

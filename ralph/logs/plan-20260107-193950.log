@@ -1,0 +1,32 @@
+I have successfully processed the next roadmap item needing planning. Here's a summary:
+
+## Item 012: Define Effects for HTN Planning/Execution
+
+**Location:** `.roadmap/jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/012-define-effects-for-htn-planningexecution`
+
+**Plan Created:** The plan.md file was already present with comprehensive content covering all 8 required sections.
+
+### Key Planning Details:
+
+**Phases Defined:**
+1. **Foundation** - Create effect struct definitions (10 effect types) and telemetry infrastructure
+2. **Core Integration** - Update planner and task decomposer to emit effects during planning
+3. **Execution & Observability** - Add execution-time effects and integrate with telemetry/jido_signal
+4. **Polish & Documentation** - Complete documentation, performance optimization, and migration guide
+
+**Key Decisions:**
+- Effects modeled as Zoi structs with type-safe fields and metadata
+- Planning effects separate from execution effects for clear separation
+- Effects emitted via telemetry for observability and jido_signal for coordination
+- Backward compatibility maintained through polymorphic effect fields (functions OR structs)
+- Effect emission is opt-in via Domain configuration to minimize overhead
+
+**Estimated Effort:** 5-8 days
+
+**Files Identified:** 8 new files (3 modules, 2 test files, 3 guides), 5 modified files
+
+### Progress Tracking:
+- Plan already existed and is comprehensive
+- Progress appended to `ralph/progress.txt`
+
+**Next item without a plan:** Item 013 (define-signals-for-multi-agent-coordinat) - this item has research.md but no plan.md yet.

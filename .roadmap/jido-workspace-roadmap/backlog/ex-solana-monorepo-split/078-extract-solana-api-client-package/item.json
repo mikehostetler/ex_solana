@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/backlog/ex-solana-monorepo-split/078-extract-solana-api-client-package",
+  "number": 78,
+  "overview": "",
+  "pr_url": null,
+  "roadmap_line": 312,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Backlog",
+    "ex-Solana Monorepo Split"
+  ],
+  "state": "raw",
+  "title": "Extract Solana API client package",
+  "updated_at": "2026-01-07T22:33:06.061432Z"
+}

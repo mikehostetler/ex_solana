@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/backlog/karo-v0-design/035-multi-agent-orchestration-karo-delegates",
+  "number": 35,
+  "overview": "",
+  "pr_url": null,
+  "roadmap_line": 190,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Backlog",
+    "Karo v0 Design"
+  ],
+  "state": "raw",
+  "title": "Multi-agent orchestration (Karo delegates to specialist agents?)",
+  "updated_at": "2026-01-07T22:33:06.021478Z"
+}

@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/012-define-effects-for-htn-planningexecution",
+  "number": 12,
+  "overview": "This item defines Jido effects that represent the key side effects and control operations of HTN planning and execution, making the planner more observable and composable. Effects should capture events such as method selection, task decomposition, plan refinement, action scheduling, and state/application changes, without embedding side effects directly in planning logic. The goal is to make the HTN engine's behavior explicit and traceable via a concise, well-structured effect vocabulary. The work includes designing effect types and schemas that describe planning steps and execution commands, with appropriate metadata (plan id, task/method identifiers, depth/branch info, cause, correlation ids). Effects should be consistent with those used elsewhere in Jido and with behavior tree effects where analogous. The output is a documented set of effect types plus updated HTN code that emits them.",
+  "pr_url": null,
+  "roadmap_line": 66,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "3. Jido HTN Modernization"
+  ],
+  "state": "raw",
+  "title": "Define effects for HTN planning/execution",
+  "updated_at": "2026-01-07T23:04:58.229286Z"
+}

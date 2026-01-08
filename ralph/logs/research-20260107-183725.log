@@ -1,0 +1,25 @@
+Research complete for item **019-define-scopearchitecture** (jido_messaging v1 architecture).
+
+## Summary
+
+**Item**: Define scope/architecture for jido_messaging v1
+**Research saved**: `.roadmap/jido-workspace-roadmap/ready-to-plan/6-jido-messaging-v1/019-define-scopearchitecture/research.md`
+
+**Key findings**:
+- Analyzed existing `jido_chat` implementation (5 core modules at `/projects/jido_chat/`)
+- Mapped Jido agent signal routing patterns (priority-based routing via `jido_signal`)
+- Designed six-layer architecture: APIs → Signals → Agent Gateway → Routing → Channels → Core Domain
+- Defined core domain models: Message envelope, Thread management with Zoi schemas
+- Designed 5 signal types for messaging flow
+- Identified 30+ files across workspace
+
+**Files identified**: 30+
+- jido_chat: 5 core modules
+- Agent integration: 3 key files
+- New jido_messaging: 9 directories proposed
+
+**Dependencies**: jido_signal (existing), jido (existing), Zoi (for schemas)
+
+**Estimated effort**: 5-8 days
+
+Progress logged to `ralph/progress.txt`.

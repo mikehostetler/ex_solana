@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/006-define-signals-for-state-transitionseven",
+  "number": 6,
+  "overview": "This item introduces a focused set of Jido signals that represent behavior tree lifecycle events and state transitions, enabling other agents or subsystems to observe and react to behavior tree execution. The signals should cover node enter/exit, status changes (running, success, failure, aborted), tree start/stop, and any relevant interruption or reset events. The design should ensure that signals carry enough context (tree id, node id, tick context, outcome, error metadata) to support debugging, telemetry, and cross-agent coordination. The work includes designing signal schemas aligned with current Jido conventions, documenting when and where each signal is emitted, and ensuring they integrate cleanly with the new behavior tree effects. Special care should be taken to avoid signal spam and to distinguish between internal events vs. signals intended for public consumption.",
+  "pr_url": null,
+  "roadmap_line": 47,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "2. Jido Behavior Tree v1"
+  ],
+  "state": "raw",
+  "title": "Define signals for state transitions/events",
+  "updated_at": "2026-01-07T23:03:56.574270Z"
+}

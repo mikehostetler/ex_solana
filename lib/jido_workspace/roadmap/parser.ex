@@ -44,14 +44,62 @@ defmodule JidoWorkspace.Roadmap.Parser do
   end
 
   @doc """
-  Extracts tasks from body lines.
+  Extracts tasks from body lines, tracking section hierarchy.
   """
   def extract_tasks(lines, file_path) do
-    lines
-    |> Enum.with_index(1)
-    |> Enum.filter(fn {line, _idx} -> Task.task_line?(line) end)
-    |> Enum.map(fn {line, idx} -> Task.parse(line, idx, file_path) end)
-    |> Enum.filter(&(&1 != nil))
+    {tasks, _section} =
+      lines
+      |> Enum.with_index(1)
+      |> Enum.reduce({[], []}, fn {line, idx}, {tasks, current_section} ->
+        cond do
+          section = parse_section_header(line) ->
+            depth = section_depth(line)
+            new_section = update_section(current_section, depth, section)
+            {tasks, new_section}
+
+          Task.task_line?(line) ->
+            case Task.parse(line, idx, file_path, section: current_section) do
+              nil -> {tasks, current_section}
+              task -> {[task | tasks], current_section}
+            end
+
+          true ->
+            {tasks, current_section}
+        end
+      end)
+
+    Enum.reverse(tasks)
+  end
+
+  @doc """
+  Parse a section header from a markdown line.
+  Returns the section title or nil.
+  """
+  def parse_section_header(line) do
+    cond do
+      match = Regex.run(~r/^#+\s+\*\*(.+)\*\*/, line) ->
+        [_, title] = match
+        String.trim(title)
+
+      match = Regex.run(~r/^(#+)\s+(.+)$/, line) ->
+        [_, _hashes, title] = match
+        clean = title |> String.replace(~r/\*\*(.+)\*\*/, "\\1") |> String.trim()
+        if String.length(clean) > 0, do: clean, else: nil
+
+      true ->
+        nil
+    end
+  end
+
+  defp section_depth(line) do
+    case Regex.run(~r/^(#+)/, line) do
+      [_, hashes] -> String.length(hashes)
+      _ -> 0
+    end
+  end
+
+  defp update_section(current, depth, name) do
+    Enum.take(current, depth - 1) ++ [name]
   end
 
   @doc """

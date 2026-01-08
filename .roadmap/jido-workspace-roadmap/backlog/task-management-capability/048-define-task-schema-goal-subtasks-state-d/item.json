@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/backlog/task-management-capability/048-define-task-schema-goal-subtasks-state-d",
+  "number": 48,
+  "overview": "",
+  "pr_url": null,
+  "roadmap_line": 237,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Backlog",
+    "Task Management Capability"
+  ],
+  "state": "raw",
+  "title": "Define task schema (goal, subtasks, state, dependencies, priority)",
+  "updated_at": "2026-01-07T22:33:06.033120Z"
+}

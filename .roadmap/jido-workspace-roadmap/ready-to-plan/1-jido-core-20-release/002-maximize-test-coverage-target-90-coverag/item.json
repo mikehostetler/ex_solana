@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/1-jido-core-20-release/002-maximize-test-coverage-target-90-coverag",
+  "number": 2,
+  "overview": "To ship Jido Core 2.0 with strong quality guarantees, we should aggressively increase automated test coverage on the core modules in the v2 branch, targeting >90% line and branch coverage where practical. The focus should be on behaviorally meaningful tests: validating core agent lifecycle, supervision trees, message passing, configuration, error handling, and integration points with external services (through mocks or adapters). Key deliverables include: a coverage baseline report for the core modules, a prioritized list of coverage gaps, and a set of new and improved tests that bring the coverage above the agreed threshold while maintaining readability and speed. The CI pipeline should be updated to generate and surface coverage metrics. Risks include chasing metrics over value, hard-to-test code requiring refactors, and increased test suite runtime.",
+  "pr_url": null,
+  "roadmap_line": 30,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "1. Jido Core 2.0 Release"
+  ],
+  "state": "planned",
+  "title": "Maximize test coverage — target >90% coverage on core modules",
+  "updated_at": "2026-01-07T23:03:16.096027Z"
+}

@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/7-jido-hub-mvp/022-librechat-style-chat-interface",
+  "number": 22,
+  "overview": "This item focuses on implementing a LibreChat-style chat interface in jido_hub that allows users to converse with Jido agents in a familiar, ChatGPT-like flow. The UI should support message history, role distinctions (user vs. agent), basic streaming or progressive updates, and affordances for retrying or editing prompts if feasible. The design can be simple but should be clean, responsive, and structured in a way that is easy to iterate on as more advanced features (tools, multi-agent, attachments) are added later. The deliverable is a working chat page (e.g., Phoenix LiveView or equivalent) wired to the jido_messaging layer and capable of sending user messages to a configured Jido agent and displaying responses. It should demonstrate how messages are rendered, how loading states are shown, and how errors or timeouts are surfaced to the user.",
+  "pr_url": null,
+  "roadmap_line": 126,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "7. Jido Hub MVP"
+  ],
+  "state": "raw",
+  "title": "LibreChat-style chat interface",
+  "updated_at": "2026-01-07T23:06:41.460152Z"
+}

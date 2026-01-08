@@ -1,0 +1,24 @@
+Plan created for item **008-create-example-behavior-tree-as-part-of**.
+
+**Summary:**
+
+- **Item:** Create example showing behavior tree composed within larger Jido strategy orchestration
+- **Location:** `.roadmap/jido-workspace-roadmap/ready-to-plan/2-jido-behavior-tree-v1/008-create-example-behavior-tree-as-part-of/plan.md`
+
+**Key Architectural Decisions:**
+- Meta-strategy pattern using phase-based delegation (reactive → planning → validation → done)
+- Signal-based coordination using CloudEvents v1.0.2 specification
+- Shared blackboard schema with Zoi validation for cross-component state
+- Unified error handling via Splode with directive-based propagation
+
+**Implementation Phases:**
+1. **Foundation** - Project structure, schemas, signal definitions
+2. **Component Implementation** - Reactive tree, planning stub, rule validator
+3. **Meta-Strategy Integration** - Coordination layer with phase transitions
+4. **Documentation & Polish** - Complete docs and example scenarios
+
+**Dependencies:**
+- Prerequisites: Items 005, 006, 007 (effects, signals, single BT example)
+- HTN integration: Items 009-014 (stub planned since modernization pending)
+
+**Note:** The item state could not be updated via `mix roadmap.edit` as the `state` field is not editable through that command. The planning task is complete with plan.md written to the item's folder.

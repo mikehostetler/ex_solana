@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/8-reqllm-video-series/025-edit-and-publish-video-series",
+  "number": 25,
+  "overview": "This item takes the raw ReqLLM agent recordings and turns them into a polished, publicly consumable video series. The editing work includes trimming mistakes and long pauses, adding simple intros/outros or title cards, normalizing audio, and optionally including basic annotations or callouts where it clarifies the content. Episodes should be numbered and titled consistently, with descriptions that summarize the topic, prerequisites, and key takeaways. The deliverable is a published 15-video series on the chosen platform(s), with a playlist or series index and links to relevant resources (code examples, docs, repo URLs) in the descriptions. As part of publishing, capture a short text overview of the series, tags/keywords for discoverability, and any cross-linking needed from project documentation or READMEs.",
+  "pr_url": null,
+  "roadmap_line": 142,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "8. ReqLLM Video Series"
+  ],
+  "state": "raw",
+  "title": "Edit and publish video series",
+  "updated_at": "2026-01-07T23:07:12.987271Z"
+}

@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/4-ashjido-integration/016-validate-ash-resources-exposed-as-jido-a",
+  "number": 16,
+  "overview": "This item aims to verify that Ash resources and actions can be reliably surfaced as Jido actions with predictable behavior across common Ash usage patterns. The work includes selecting a representative set of Ash resources (simple CRUD, resources with relationships, custom actions, and validations) and exercising them through Jido as if they were tools an agent can call. Particular attention should be paid to parameter mapping, type coercion, authorization errors, and how changesets, validations, and error messages are surfaced back to the agent layer. The deliverable is a validation matrix or checklist that documents which Ash features are supported, partially supported, or unsupported when exposed through ash_jido, along with small example snippets showing how to wire them up. Where inconsistencies are found, propose concrete adjustments to the integration API.",
+  "pr_url": null,
+  "roadmap_line": 83,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "4. Ash.jido Integration"
+  ],
+  "state": "raw",
+  "title": "Validate Ash resources exposed as Jido actions",
+  "updated_at": "2026-01-07T23:05:40.034026Z"
+}

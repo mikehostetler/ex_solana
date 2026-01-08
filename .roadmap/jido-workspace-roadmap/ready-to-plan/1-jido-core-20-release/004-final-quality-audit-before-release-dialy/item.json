@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/1-jido-core-20-release/004-final-quality-audit-before-release-dialy",
+  "number": 4,
+  "overview": "Before releasing Jido Core 2.0, we should run a final quality audit to ensure the codebase is clean from the perspective of static analysis, style, and compilation: no compiler warnings, dialyzer type checks passing with an agreed configuration, and credo checks configured and passing for the conventions we care about. This audit validates we are not shipping obvious type inconsistencies, dead code, style issues, or noisy warnings. Key deliverables include: a dialyzer configuration tuned for the project with a clean run, a credo configuration with all issues either fixed or explicitly ignored with justification, and a clean compile with zero warnings. The outcome should be a documented quality bar for Jido Core 2.0 including what checks must pass in CI. Risks include late discovery of large numbers of issues requiring non-trivial changes.",
+  "pr_url": null,
+  "roadmap_line": 32,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "1. Jido Core 2.0 Release"
+  ],
+  "state": "planned",
+  "title": "Final quality audit before release — dialyzer clean, credo clean, no warnings",
+  "updated_at": "2026-01-08T01:05:38.548445Z"
+}

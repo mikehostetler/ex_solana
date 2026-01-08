@@ -1,0 +1,28 @@
+Perfect. I've successfully created the implementation plan for item **009 - Convert to Zoi error handling**.
+
+## Summary
+
+**Plan Created:** `.roadmap/jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/009-convert-to-zoi-error-handling/plan.md`
+
+### Key Details:
+
+**Phases Defined:** 5 phases
+1. **Phase 1: Foundation** - Create `Jido.HTN.Error` module with Splode
+2. **Phase 2: Core Planning Functions** - Migrate planner.ex and task_decomposer.ex (~18 sites)
+3. **Phase 3: Domain Validation** - Migrate domain_validation.ex and domain_builder.ex (~49 sites)
+4. **Phase 4: Serialization** - Migrate serializer.ex and supporting modules (~20 sites)
+5. **Phase 5: Documentation & Polish** - Update docs, type specs, code quality
+
+**Key Architectural Decisions:**
+- Use Splode for unified error handling (matching jido/jido_action patterns)
+- Preserve debug tree information in `:debug_tree` metadata field
+- Maintain `{:error, exception}` tuple format for compatibility
+- Phase-based migration to minimize risk
+
+**Files Requiring Changes:** ~20 files with ~190 error-handling call sites
+
+**Effort Estimate:** 19-28 hours
+
+**Item State Updated:** `researched` → `planned`
+
+**Progress Logged:** `ralph/progress.txt` updated with plan summary

@@ -25,8 +25,10 @@ defmodule JidoWorkspace.MixProject do
       {:table_rex, "~> 4.0"},
       {:git_cli, "~> 0.3"},
       {:yaml_elixir, "~> 2.10"},
+      {:ymlr, "~> 5.0"},
       {:jason, "~> 1.4"},
       {:req_fly, "~> 1.0"},
+      {:req_llm, "~> 1.0.0-rc"},
       {:dotenv, "~> 3.1", only: :dev},
       {:claude_code_sdk, "~> 0.2"}
     ]
@@ -57,14 +59,9 @@ defmodule JidoWorkspace.MixProject do
       "hex.publish.all": ["hex_publish"],
       "version.check": ["version.check"],
 
-      # Roadmap commands
-      "roadmap.status": ["roadmap.status"],
-      "roadmap.todo": ["roadmap.todo"],
-      "roadmap.idea": ["roadmap.idea"],
-      "roadmap.milestone": ["roadmap.milestone"],
-      "roadmap.lint": ["roadmap.lint"],
-
-      
+      # Roadmap workflow commands
+      "roadmap.status": ["roadmap.workflow.status"]
+    
     ]
   end
 end

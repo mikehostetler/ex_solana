@@ -1,0 +1,17 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/backlog/task-management-capability/055-integration-point-with-jido-htn-for-auto",
+  "number": 55,
+  "overview": "",
+  "pr_url": null,
+  "roadmap_line": 244,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Backlog",
+    "Task Management Capability"
+  ],
+  "state": "raw",
+  "title": "Integration point with Jido HTN for automated decomposition",
+  "updated_at": "2026-01-07T22:33:06.039595Z"
+}

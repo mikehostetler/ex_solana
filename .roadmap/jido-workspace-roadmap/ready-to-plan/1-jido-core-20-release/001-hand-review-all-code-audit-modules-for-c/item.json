@@ -1,0 +1,18 @@
+{
+  "assignee": null,
+  "branch": null,
+  "id": "jido-workspace-roadmap/ready-to-plan/1-jido-core-20-release/001-hand-review-all-code-audit-modules-for-c",
+  "kind": "implementation",
+  "number": 1,
+  "overview": "Jido Core 2.0 needs a systematic, hand-driven review of all modules in the v2 branch to ensure correctness, consistency, and production readiness. This audit should cover public APIs, internal abstractions, concurrency and process behavior, error handling, configuration, and boundary conditions (timeouts, shutdown, resource cleanup). The goal is to validate that the current design holds up under expected real-world usage, that naming and module boundaries are coherent, and that we have a clear understanding of where technical debt or ambiguity remains before locking the 2.0 surface area. Key deliverables include: a review checklist applied consistently across all core modules; a tracked list of issues, refactors, and API adjustments (with priorities) discovered during review; and targeted PRs that address correctness bugs, edge cases, and pattern inconsistencies. Risks include open-ended scope and potential late-cycle refactors if serious design issues are uncovered.",
+  "pr_url": null,
+  "roadmap_line": 29,
+  "section": [
+    "Jido Workspace Roadmap",
+    "Ready to Plan",
+    "1. Jido Core 2.0 Release"
+  ],
+  "state": "raw",
+  "title": "Hand review all code — audit modules for correctness, patterns, edge cases",
+  "updated_at": "2026-01-08T00:56:28.709199Z"
+}

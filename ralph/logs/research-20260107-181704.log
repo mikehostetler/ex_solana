@@ -1,0 +1,25 @@
+I've completed research for item **014 - Documentation pass**. Here's what I found:
+
+## Key Findings
+
+**Current Documentation State:**
+- `README.md` is just a stub with TODO
+- `getting-started.md` is comprehensive (558 lines) but needs updates for modernization
+- `JIDO_HTN_v1.md` is a technical inventory of the v1 codebase
+
+**Documentation Gaps:**
+- **15 modules** need @moduledoc updates (main facade, domain, task schemas, planner internals)
+- **4 new guides** needed: migration guide, effects reference, signals reference, error handling guide
+- **2 examples** needed: minimal working example, advanced domain example
+
+**Files to Change:** ~27 total
+- 6 files to create (new guides and examples)
+- 15 modules to update with @moduledoc
+- 3 root docs to update (README, AGENTS.md, archive obsolete)
+- 3 technical docs to review
+
+**Dependencies:** This task must wait for items 009-013 to complete (Zoi error handling, explode errors, Jido patterns modernization, effects, and signals) since documentation should reflect the final implementation.
+
+**Estimated Effort:** 4-6 days for comprehensive documentation pass
+
+The research.md has been saved to `.roadmap/jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/014-documentation-pass/research.md` and progress.txt has been updated.

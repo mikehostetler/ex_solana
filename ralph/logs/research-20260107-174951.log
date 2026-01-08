@@ -1,0 +1,14 @@
+Research complete for item **009-convert-to-zoi-error-handling**.
+
+**Summary:**
+- **Item ID:** 009-convert-to-zoi-error-handling
+- **Section:** 3-jido-htn-modernization
+- **Files identified:** ~20 files in jido_htn requiring error handling migration
+- **Key findings:**
+  - ~190 error-handling call sites need updating (118 string tuples, 19 raise calls, 50 pattern matches)
+  - jido_htn already uses Zoi for struct validation (good foundation)
+  - Reference patterns exist in jido (Splode) and jido_action
+  - Error paths: failed preconditions, method selection, dead-ends, timeouts, validation, serialization
+- **Estimated effort:** 19-28 hours
+
+Research saved to `.roadmap/jido-workspace-roadmap/ready-to-plan/3-jido-htn-modernization/009-convert-to-zoi-error-handling/research.md`
