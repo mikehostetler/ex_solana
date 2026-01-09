@@ -30,7 +30,8 @@ defmodule JidoWorkspace.MixProject do
       {:req_fly, "~> 1.0"},
       {:req_llm, "~> 1.0.0-rc"},
       {:dotenv, "~> 3.1", only: :dev},
-      {:claude_agent_sdk, "~> 0.7"}
+      {:claude_agent_sdk, "~> 0.7"},
+      {:sprites, github: "superfly/sprites-ex"}
     ]
   end
 
@@ -61,7 +62,6 @@ defmodule JidoWorkspace.MixProject do
 
       # Roadmap workflow commands
       "roadmap.status": ["roadmap.workflow.status"]
-    
     ]
   end
 end
