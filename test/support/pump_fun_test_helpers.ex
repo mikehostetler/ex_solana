@@ -19,7 +19,7 @@ defmodule ExSolana.PumpFunTestHelpers do
   """
   def rpc_client(network \\ :local) do
     case network do
-      :local -> RPC.client(network: "localhost")
+      :local -> RPC.client(network: :localhost)
       :testnet -> RPC.client(base_url: @testnet_url)
       :devnet -> RPC.client(base_url: @devnet_url)
       :mainnet -> RPC.client(base_url: @mainnet_url)

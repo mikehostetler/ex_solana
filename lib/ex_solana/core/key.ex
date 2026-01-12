@@ -121,7 +121,7 @@ defmodule ExSolana.Key do
     """
     @spec generate() :: t()
     def generate do
-      {pubkey, privkey} = :ed25519.generate_keypair()
+      {privkey, pubkey} = Ed25519.generate_key_pair()
       %__MODULE__{pubkey: pubkey, secret: privkey}
     end
 

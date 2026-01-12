@@ -104,17 +104,17 @@ defmodule ExSolana.Signature do
 
   """
   @spec decode(binary()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
-  def decode(_), do: {:error, Error.invalid_key_error("invalid signature input", reason: :invalid_input)}
-
   def decode(encoded) when is_binary(encoded) do
     case B58.decode58(encoded) do
       {:ok, decoded} ->
         check(decoded)
 
       {:error, _} ->
-        {:error, Error.invalid_key_error("Invalid base58 encoding", reason: :decode)}
+        {:error, Error.invalid_key_error("invalid public key", reason: :decode)}
     end
   end
+
+  def decode(_), do: {:error, Error.invalid_key_error("invalid signature input", reason: :invalid_input)}
 
   @doc """
   Decodes a base58-encoded signature, raising an error if invalid.
@@ -139,7 +139,7 @@ defmodule ExSolana.Signature do
       64
 
       iex> ExSolana.Signature.decode!("invalid_base58")
-      ** (ArgumentError)
+      ** (ArgumentError) "invalid public key"
 
   """
   @spec decode!(binary()) :: t()
@@ -151,6 +151,10 @@ defmodule ExSolana.Signature do
       {:error, %Error.InvalidKeyError{message: message}} ->
         raise ArgumentError, message
     end
+  end
+
+  def decode!(_) do
+    raise ArgumentError, "invalid signature input"
   end
 
   @doc """
@@ -207,7 +211,7 @@ defmodule ExSolana.Signature do
       true
 
       iex> ExSolana.Signature.encode!(<<1, 2, 3>>)
-      ** (ArgumentError)
+      ** (ArgumentError) "Invalid signature length"
 
   """
   @spec encode!(t()) :: String.t()
@@ -219,6 +223,10 @@ defmodule ExSolana.Signature do
       {:error, %Error.InvalidKeyError{message: message}} ->
         raise ArgumentError, message
     end
+  end
+
+  def encode!(_) do
+    raise ArgumentError, "invalid signature input"
   end
 
   @doc """

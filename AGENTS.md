@@ -96,6 +96,9 @@ mix dialyzer
 5. **Follow Elixir conventions** - Use `mix format` before committing
 6. **Write @moduledoc and @doc** - Document all public modules and functions
 7. **Use type specs** - Provide @spec for all public functions
+8. **Ed25519 API**: Use `Ed25519.generate_key_pair/0` (Elixir function), not `:ed25519.generate_keypair/0` (Erlang)
+9. **Test module naming**: When moving tests between packages, update both module name and all alias references
+10. **Network config**: Use atoms for network (`:localhost`) not strings (`"localhost"`)
 
 ## Module Naming
 

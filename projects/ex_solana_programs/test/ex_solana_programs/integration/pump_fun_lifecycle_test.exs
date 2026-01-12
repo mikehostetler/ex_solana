@@ -5,7 +5,7 @@ defmodule ExSolana.Integration.PumpFunLifecycleTest do
   import ExSolana.PumpFunTestHelpers
 
   alias ExSolana.RPC
-  alias ExSolana.Program.PumpFun
+  alias ExSolanaPrograms.PumpFun
 
   @moduletag :integration
   @moduletag timeout: 120_000
