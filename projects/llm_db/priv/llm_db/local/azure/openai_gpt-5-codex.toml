@@ -1,4 +1,0 @@
-id = "gpt-5-codex"
-
-[extra]
-api = "responses"

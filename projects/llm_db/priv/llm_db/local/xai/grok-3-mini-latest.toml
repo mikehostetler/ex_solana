@@ -1,4 +1,0 @@
-id = "grok-3-mini-latest"
-
-[capabilities.reasoning]
-enabled = false

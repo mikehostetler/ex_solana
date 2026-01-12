@@ -1,7 +1,0 @@
-id = "gpt-4o"
-
-[capabilities.tools]
-strict = true
-
-[extra]
-api = "chat"

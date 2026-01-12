@@ -1,4 +1,0 @@
-id = "grok-4-fast"
-
-[capabilities.reasoning]
-enabled = false

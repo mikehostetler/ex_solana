@@ -1,4 +1,0 @@
-id = "gpt-5.1-codex-mini"
-
-[extra]
-api = "responses"

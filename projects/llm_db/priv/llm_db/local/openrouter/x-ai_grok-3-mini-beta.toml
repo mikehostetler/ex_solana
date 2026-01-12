@@ -1,4 +1,0 @@
-id = "x-ai/grok-3-mini-beta"
-
-[capabilities.reasoning]
-enabled = false

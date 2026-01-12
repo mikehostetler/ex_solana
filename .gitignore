@@ -17,33 +17,7 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-jido_workspace-*.tar
+ex_solana-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
-
-# Workspace status cache
-/.cache/
-
-# CodeMapper cache
-.code_mapper_cache
-
-# Env Vars
-.env
-.env*
-!.env.example
-
-# Node.js artifacts from presentations
-presentations/*/node_modules/
-presentations/*/dist/
-presentations/*/.nuxt/
-presentations/*/.output/
-
-# Humanlayer Thoughts
-thoughts/
-
-# tmp
-shelf/
-
-# ElixirLS
-.elixir_ls/

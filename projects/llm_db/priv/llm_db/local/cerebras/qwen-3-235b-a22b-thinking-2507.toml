@@ -1,7 +1,0 @@
-id = "qwen-3-235b-a22b-thinking-2507"
-
-[capabilities.reasoning]
-enabled = false
-
-[capabilities.tools]
-strict = false

@@ -1,4 +1,0 @@
-id = "x-ai/grok-4"
-
-[capabilities.reasoning]
-enabled = false

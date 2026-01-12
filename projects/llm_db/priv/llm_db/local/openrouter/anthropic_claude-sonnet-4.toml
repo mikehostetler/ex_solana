@@ -1,4 +1,0 @@
-id = "anthropic/claude-sonnet-4"
-
-[capabilities.reasoning]
-enabled = false
