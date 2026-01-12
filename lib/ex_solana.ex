@@ -135,4 +135,22 @@ defmodule ExSolana do
 
   @spec bpf_loader() :: Key.t()
   def bpf_loader, do: pubkey!("BPFLoaderUpgradeab1e11111111111111111111111")
+
+  # ============================================================================
+  # Constants
+  # ============================================================================
+
+  @doc """
+  Returns the number of lamports per SOL.
+
+  Solana's smallest unit is lamports, with 1 billion lamports equal to 1 SOL.
+
+  ## Examples
+
+      ExSolana.lamports_per_sol()
+      #=> 1_000_000_000
+
+  """
+  @spec lamports_per_sol() :: 1_000_000_000
+  def lamports_per_sol, do: 1_000_000_000
 end
