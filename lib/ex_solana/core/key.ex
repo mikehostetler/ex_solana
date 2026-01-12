@@ -1,217 +1,279 @@
 defmodule ExSolana.Key do
   @moduledoc """
-  Functions for creating and validating Solana
-  [keys](https://docs.solana.com/terminology#public-key-pubkey) and
-  [keypairs](https://docs.solana.com/terminology#keypair).
+  Solana public key and keypair management.
+
+  ## Features
+
+  - Public key encoding/decoding (Base58)
+  - Keypair generation (ed25519)
+  - Signature validation
+
+  ## Types
+
+  - `t/0` - Public key (32 bytes, Base58 encoded)
+  - `Keypair.t/0` - Keypair with public and private keys
+  - `Signature.t/0` - Transaction signature (64 bytes, Base58 encoded)
+
+  ## Examples
+
+      # Generate a new keypair
+      keypair = ExSolana.Key.Keypair.generate()
+      pubkey = ExSolana.Key.pubkey(keypair)
+
+      # Decode a public key
+      {:ok, key} = ExSolana.Key.decode("7mfY3uUuQoJLoQV3wYnTkn6H3Y3NQYjWXxZHFUkgHqE")
+
+      # Create from byte array
+      bytes = <<1, 2, 3, ...>> # 32 bytes
+      {:ok, key} = ExSolana.Key.from_bytes(bytes)
+
+  ## Error Handling
+
+  All error cases return structured errors via `ExSolana.Error`:
+
+      case ExSolana.Key.decode("invalid") do
+        {:ok, key} -> key
+        {:error, %ExSolana.Error.InvalidKeyError{} = error} ->
+          handle_error(error)
+      end
   """
-  require Logger
 
-  @typedoc "Solana public or private key"
-  @type t :: Ed25519.key()
+  alias ExSolana.Error
 
-  @typedoc "a public/private keypair"
-  @type pair :: {t(), t()}
+  @typedoc """
+  A Solana public key.
 
-  @spec pair() :: pair
+  Represented as a 32-byte binary, typically Base58 encoded.
+  """
+  @type t :: binary()
 
-  # @solana_derivation_path "m/44'/501'/0'/0'"
+  @typedoc """
+  A Solana keypair containing both public and private keys.
+  """
+  @type keypair :: %{
+          pubkey: t(),
+          secret: binary()
+        }
+
+  @typedoc """
+  A Solana signature.
+
+  Represented as a 64-byte binary, typically Base58 encoded.
+  """
+  @type signature :: binary()
+
   @doc """
-  Generates a public/private key pair in the format `{private_key, public_key}`
+  The length of a Solana public key in bytes.
   """
-  defdelegate pair, to: Ed25519, as: :generate_key_pair
+  @spec length() :: pos_integer()
+  def length, do: 32
 
   @doc """
-  Reads a public/private key pair from a [file system
-  wallet](https://docs.solana.com/wallet-guide/file-system-wallet) in the format
-  `{private_key, public_key}`. Returns `{:ok, pair}` if successful, or `{:error,
-  reason}` if not.
+  The length of a Solana signature in bytes.
   """
-  @spec pair_from_file(String.t()) :: {:ok, pair} | {:error, term}
-  def pair_from_file(path) do
-    with {:ok, contents} <- File.read(path),
-         {:ok, list} when is_list(list) <- Jason.decode(contents),
-         <<sk::binary-size(32), pk::binary-size(32)>> <- :erlang.list_to_binary(list) do
-      {:ok, {sk, pk}}
-    else
-      {:error, _} = error -> error
-      _contents -> {:error, "invalid wallet format"}
+  @spec signature_length() :: pos_integer()
+  def signature_length, do: 64
+
+  # ============================================================================
+  # Keypair Module
+  # ============================================================================
+
+  defmodule Keypair do
+    @moduledoc """
+    Solana keypair management.
+
+    A keypair consists of a public key (32 bytes) and a private key (64 bytes
+    for ed25519, including the seed).
+
+    ## Examples
+
+        # Generate a new random keypair
+        keypair = ExSolana.Key.Keypair.generate()
+
+        # Get the public key
+        pubkey = ExSolana.Key.Keypair.pubkey(keypair)
+
+        # Sign a message
+        message = "Hello, Solana!"
+        {:ok, signature} = ExSolana.Key.Keypair.sign(keypair, message)
+    """
+
+    use Zoi
+
+    @schema Zoi.struct(
+              __MODULE__,
+              %{
+                pubkey:
+                  Zoi.binary()
+                  |> Zoi.description("Public key (32 bytes)"),
+                secret:
+                  Zoi.binary()
+                  |> Zoi.description("Private key (64 bytes for ed25519)")
+              },
+              coerce: true
+            )
+
+    defstruct [:pubkey, :secret]
+
+    @type t :: %__MODULE__{
+            pubkey: ExSolana.Key.t(),
+            secret: binary()
+          }
+
+    @doc """
+    Generates a new random keypair using ed25519.
+
+    ## Examples
+
+        keypair = ExSolana.Key.Keypair.generate()
+
+    """
+    @spec generate() :: t()
+    def generate do
+      {pubkey, privkey} = :ed25519.generate_keypair()
+      %__MODULE__{pubkey: pubkey, secret: privkey}
+    end
+
+    @doc """
+    Extracts the public key from a keypair.
+
+    ## Examples
+
+        pubkey = ExSolana.Key.Keypair.pubkey(keypair)
+
+    """
+    @spec pubkey(t()) :: ExSolana.Key.t()
+    def pubkey(%__MODULE__{} = keypair), do: keypair.pubkey
+
+    @doc """
+    Creates a keypair from a raw private key byte array.
+
+    ## Parameters
+
+    - `secret` - A 64-byte ed25519 private key
+
+    ## Examples
+
+        secret = <<1, 2, 3, ...>> # 64 bytes
+        {:ok, keypair} = ExSolana.Key.Keypair.from_secret(secret)
+
+    """
+    @spec from_secret(binary()) :: {:ok, t()} | {:error, Error.t()}
+    def from_secret(secret) when is_binary(secret) do
+      with true <- byte_size(secret) == 64,
+           {pubkey, ^secret} <- :ed25519.generate_keypair(secret) do
+        {:ok, %__MODULE__{pubkey: pubkey, secret: secret}}
+      else
+        false ->
+          {:error, Error.invalid_key_error("Invalid secret key length", reason: :length)}
+
+        _ ->
+          {:error, Error.internal_error("Failed to derive public key from secret")}
+      end
     end
   end
 
-  @doc """
-  Decodes a base58-encoded key and returns it in a tuple.
+  # ============================================================================
+  # Public Key Functions
+  # ============================================================================
 
-  If it fails, return an error tuple.
+  @doc """
+  Decodes a Base58 encoded public key.
+
+  ## Parameters
+
+  - `encoded` - Base58 encoded public key string
+
+  ## Returns
+
+  - `{:ok, key}` - Successfully decoded 32-byte public key
+  - `{:error, %InvalidKeyError{}}` - Invalid encoding or length
+
+  ## Examples
+
+      {:ok, key} = ExSolana.Key.decode("7mfY3uUuQoJLoQV3wYnTkn6H3Y3NQYjWXxZHFUkgHqE")
+
+      {:error, %ExSolana.Error.InvalidKeyError{}} = ExSolana.Key.decode("invalid")
+
   """
-  @spec decode(encoded :: binary) :: {:ok, t} | {:error, binary}
+  @spec decode(String.t()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
   def decode(encoded) when is_binary(encoded) do
-    case B58.decode58(encoded) do
-      {:ok, decoded} -> check(decoded)
-      _ -> {:error, "invalid public key"}
-    end
-  end
-
-  def decode(_), do: {:error, "invalid public key"}
-
-  @doc """
-  Decodes a base58-encoded key and returns it.
-
-  Throws an `ArgumentError` if it fails.
-  """
-  @spec decode!(encoded :: binary) :: t
-  def decode!(encoded) when is_binary(encoded) do
-    case decode(encoded) do
-      {:ok, key} ->
-        key
-
-      {:error, _} ->
-        raise ArgumentError, "invalid public key input: #{encoded}"
-    end
-  end
-
-  @doc """
-  Encodes a key to its base58 representation.
-
-  Returns `{:ok, encoded_key}` if successful, or an error tuple if the input is not a valid key.
-  """
-  @spec encode(key :: t) :: {:ok, binary} | {:error, binary}
-  def encode(key) do
-    case check(key) do
-      {:ok, valid_key} -> {:ok, B58.encode58(valid_key)}
-      error -> error
-    end
-  end
-
-  @doc """
-  Encodes a key to its base58 representation.
-
-  Raises an `ArgumentError` if the input is not a valid key.
-  """
-  @spec encode!(key :: t) :: binary
-  def encode!(key) do
-    case encode(key) do
-      {:ok, encoded} -> encoded
-      {:error, _} -> raise ArgumentError, "invalid key input: #{inspect(key)}"
-    end
-  end
-
-  @doc """
-  Checks to see if a `t:Solana.Key.t/0` is valid.
-  """
-  @spec check(key :: binary) :: {:ok, t} | {:error, binary}
-  def check(key)
-  def check(<<key::binary-32>>), do: {:ok, key}
-  def check(_), do: {:error, "invalid public key"}
-
-  @doc """
-  Derive a public key from another key, a seed, and a program ID.
-
-  The program ID will also serve as the owner of the public key, giving it
-  permission to write data to the account.
-  """
-  @spec with_seed(base :: t, seed :: binary, program_id :: t) ::
-          {:ok, t} | {:error, binary}
-  def with_seed(base, seed, program_id) do
-    with {:ok, base} <- check(base),
-         {:ok, program_id} <- check(program_id) do
-      [base, seed, program_id]
-      |> hash()
-      |> check()
-    end
-  end
-
-  @doc """
-  Derives a program address from seeds and a program ID.
-  """
-  @spec derive_address(seeds :: [binary], program_id :: t) ::
-          {:ok, t} | {:error, term}
-  def derive_address(seeds, program_id) do
-    with {:ok, program_id} <- check(program_id),
-         true <- Enum.all?(seeds, &is_valid_seed?/1) do
-      [seeds, program_id, "ProgramDerivedAddress"]
-      |> hash()
-      |> verify_off_curve()
+    with {:ok, decoded} <- BaseFiftyEight.decode58(encoded),
+         true <- byte_size(decoded) == 32 do
+      {:ok, decoded}
     else
-      {:error, _} = err -> err
-      false -> {:error, :invalid_seeds}
-    end
-  end
-
-  defp is_valid_seed?(seed) do
-    (is_binary(seed) && byte_size(seed) <= 32) || seed in 0..255
-  end
-
-  defp hash(data), do: :crypto.hash(:sha256, data)
-
-  defp verify_off_curve(hash) do
-    if Ed25519.on_curve?(hash), do: {:error, :invalid_seeds}, else: {:ok, hash}
-  end
-
-  @doc """
-  Finds a valid program address.
-
-  Valid addresses must fall off the ed25519 curve; generate a series of nonces,
-  then combine each one with the given seeds and program ID until a valid
-  address is found. If a valid address is found, return the address and the
-  nonce in a tuple. Otherwise, return an error tuple.
-  """
-  @spec find_address(seeds :: [binary], program_id :: t) ::
-          {:ok, t, nonce :: byte} | {:error, :no_nonce}
-  def find_address(seeds, program_id) do
-    case check(program_id) do
-      {:ok, program_id} ->
-        Enum.reduce_while(255..1//-1, {:error, :no_nonce}, fn nonce, acc ->
-          case derive_address(List.flatten([seeds, nonce]), program_id) do
-            {:ok, address} -> {:halt, {:ok, address, nonce}}
-            _err -> {:cont, acc}
-          end
-        end)
-
-      error ->
-        error
+      _ ->
+        {:error, Error.invalid_key_error("Invalid public key", key: encoded)}
     end
   end
 
   @doc """
-  Creates a keypair from a base58-encoded public key and private key.
+  Encodes a public key to Base58.
+
+  ## Parameters
+
+  - `key` - 32-byte binary public key
+
+  ## Returns
+
+  - Base58 encoded string
+
+  ## Examples
+
+      key = <<1, 2, 3, ...>> # 32 bytes
+      encoded = ExSolana.Key.encode(key)
+
   """
-  @spec from_secret_key(binary()) :: {:ok, t()} | {:error, atom()}
-  def from_base58(secret_key, opts \\ []) do
-    with {:ok, secret_key} <- B58.decode58(secret_key),
-         {:ok, keypair} <- from_secret_key(secret_key, opts) do
-      {:ok, keypair}
+  @spec encode(t()) :: String.t()
+  def encode(key) when is_binary(key) and byte_size(key) == 32 do
+    BaseFiftyEight.encode58(key)
+  end
+
+  @doc """
+  Creates a public key from a 32-byte binary.
+
+  ## Parameters
+
+  - `bytes` - 32-byte binary
+
+  ## Returns
+
+  - `{:ok, key}` - Valid public key
+  - `{:error, %InvalidKeyError{}}` - Invalid length
+
+  ## Examples
+
+      {:ok, key} = ExSolana.Key.from_bytes(<<1, 2, 3, ...>>)
+
+  """
+  @spec from_bytes(binary()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
+  def from_bytes(bytes) when is_binary(bytes) do
+    if byte_size(bytes) == 32 do
+      {:ok, bytes}
     else
-      error ->
-        Logger.warning("Failed to decode keypair: #{inspect(error)}")
-        {:error, :invalid_keypair}
+      {:error, Error.invalid_key_error("Invalid key length", reason: :length)}
     end
   end
 
   @doc """
-  Creates a keypair from a secret key.
+  Validates a public key.
+
+  ## Parameters
+
+  - `key` - Any value
+
+  ## Returns
+
+  - `true` - Valid 32-byte public key
+  - `false` - Invalid
+
+  ## Examples
+
+      ExSolana.Key.valid?(<<1, 2, 3, ...>>) # => true
+      ExSolana.Key.valid?("invalid") # => false
+
   """
-  @spec from_secret_key(binary(), keyword()) :: {:ok, t()} | {:error, atom()}
-  def from_secret_key(secret_key, opts \\ []) do
-    skip_validation = Keyword.get(opts, :skip_validation, false)
-
-    with :ok <- validate_secret_key_size(secret_key),
-         {private_key, public_key} <- split_secret_key(secret_key),
-         :ok <- maybe_validate_public_key(private_key, public_key, skip_validation) do
-      {:ok, {private_key, public_key}}
-    end
-  end
-
-  defp validate_secret_key_size(secret_key) do
-    if byte_size(secret_key) == 64, do: :ok, else: {:error, :bad_secret_key_size}
-  end
-
-  defp split_secret_key(<<private_key::binary-size(32), public_key::binary-size(32)>>),
-    do: {private_key, public_key}
-
-  defp maybe_validate_public_key(_private_key, _public_key, true), do: :ok
-
-  defp maybe_validate_public_key(private_key, public_key, false) do
-    computed_public_key = Ed25519.derive_public_key(private_key)
-    if computed_public_key == public_key, do: :ok, else: {:error, :invalid_secret_key}
-  end
+  @spec valid?(any()) :: boolean()
+  def valid?(key) when is_binary(key), do: byte_size(key) == 32
+  def valid?(_), do: false
 end
