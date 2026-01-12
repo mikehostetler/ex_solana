@@ -37,63 +37,38 @@ defmodule ExSolana.Block do
     Contains block metadata, transactions, and rewards.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
-                blockhash:
-                  Zoi.string()
-                  |> Zoi.description("Block hash"),
+                blockhash: Zoi.string(description: "Block hash"),
                 previous_blockhash:
-                  Zoi.string()
-                  |> Zoi.description("Previous block hash")
+                  Zoi.string(description: "Previous block hash")
                   |> Zoi.optional(),
                 parent_slot:
-                  Zoi.integer()
-                  |> Zoi.description("Parent slot number")
+                  Zoi.integer(description: "Parent slot number")
                   |> Zoi.optional(),
                 block_time:
-                  Zoi.integer()
-                  |> Zoi.description("Unix timestamp of block production")
+                  Zoi.integer(description: "Unix timestamp of block production")
                   |> Zoi.optional(),
                 block_height:
-                  Zoi.integer()
-                  |> Zoi.description("Block height")
+                  Zoi.integer(description: "Block height")
                   |> Zoi.optional(),
                 transactions:
-                  Zoi.list(Zoi.any())
-                  |> Zoi.description("Transactions in the block")
+                  Zoi.list(Zoi.any(), description: "Transactions in the block")
                   |> Zoi.default([])
                   |> Zoi.optional(),
                 rewards:
-                  Zoi.list(Zoi.any())
-                  |> Zoi.description("Rewards distributed in the block")
+                  Zoi.list(Zoi.any(), description: "Rewards distributed in the block")
                   |> Zoi.default([])
                   |> Zoi.optional()
               },
               coerce: true
             )
 
-    defstruct [
-      :blockhash,
-      :previous_blockhash,
-      :parent_slot,
-      :block_time,
-      :block_height,
-      transactions: [],
-      rewards: []
-    ]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            blockhash: String.t(),
-            previous_blockhash: String.t() | nil,
-            parent_slot: non_neg_integer() | nil,
-            block_time: non_neg_integer() | nil,
-            block_height: non_neg_integer() | nil,
-            transactions: list(),
-            rewards: list()
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
 
     @doc """
     Creates a confirmed block from an RPC response.
@@ -136,45 +111,33 @@ defmodule ExSolana.Block do
     A confirmed transaction within a block.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
                 signature:
-                  Zoi.binary()
-                  |> Zoi.description("Transaction signature")
+                  Zoi.string(description: "Transaction signature")
                   |> Zoi.optional(),
                 slot:
-                  Zoi.integer()
-                  |> Zoi.description("Slot number")
+                  Zoi.integer(description: "Slot number")
                   |> Zoi.optional(),
                 err:
-                  Zoi.any()
-                  |> Zoi.description("Transaction error, if any")
+                  Zoi.any(description: "Transaction error, if any")
                   |> Zoi.default(nil)
                   |> Zoi.optional(),
                 fee:
-                  Zoi.integer()
-                  |> Zoi.description("Transaction fee in lamports")
+                  Zoi.integer(description: "Transaction fee in lamports")
                   |> Zoi.optional(),
                 meta:
-                  Zoi.any()
-                  |> Zoi.description("Transaction metadata")
+                  Zoi.any(description: "Transaction metadata")
                   |> Zoi.optional()
               },
               coerce: true
             )
 
-    defstruct [:signature, :slot, :fee, :meta, err: nil]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            signature: Signature.t() | nil,
-            slot: non_neg_integer() | nil,
-            err: any() | nil,
-            fee: non_neg_integer() | nil,
-            meta: map() | nil
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
   end
 
   # ============================================================================
@@ -186,44 +149,32 @@ defmodule ExSolana.Block do
     A reward distributed in a block.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
                 pubkey:
-                  Zoi.string()
-                  |> Zoi.description("Public key of reward recipient")
+                  Zoi.string(description: "Public key of reward recipient")
                   |> Zoi.optional(),
                 lamports:
-                  Zoi.integer()
-                  |> Zoi.description("Reward amount in lamports")
+                  Zoi.integer(description: "Reward amount in lamports")
                   |> Zoi.optional(),
                 post_balance:
-                  Zoi.integer()
-                  |> Zoi.description("Balance after reward")
+                  Zoi.integer(description: "Balance after reward")
                   |> Zoi.optional(),
                 reward_type:
-                  Zoi.string()
-                  |> Zoi.description("Type of reward: fee, rent, voting, staking")
+                  Zoi.string(description: "Type of reward: fee, rent, voting, staking")
                   |> Zoi.optional(),
                 commission:
-                  Zoi.integer()
-                  |> Zoi.description("Commission (if validator)")
+                  Zoi.integer(description: "Commission (if validator)")
                   |> Zoi.optional()
               },
               coerce: true
             )
 
-    defstruct [:pubkey, :lamports, :post_balance, :reward_type, :commission]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            pubkey: Key.t() | nil,
-            lamports: integer() | nil,
-            post_balance: non_neg_integer() | nil,
-            reward_type: String.t() | nil,
-            commission: non_neg_integer() | nil
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
   end
 
   # ============================================================================
@@ -235,37 +186,26 @@ defmodule ExSolana.Block do
     Block metadata from getBlock RPC response.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
-                blockhash:
-                  Zoi.string()
-                  |> Zoi.description("Block hash"),
+                blockhash: Zoi.string(description: "Block hash"),
                 block_height:
-                  Zoi.integer()
-                  |> Zoi.description("Block height")
+                  Zoi.integer(description: "Block height")
                   |> Zoi.optional(),
                 block_time:
-                  Zoi.integer()
-                  |> Zoi.description("Unix timestamp")
+                  Zoi.integer(description: "Unix timestamp")
                   |> Zoi.optional(),
                 parent_slot:
-                  Zoi.integer()
-                  |> Zoi.description("Parent slot")
+                  Zoi.integer(description: "Parent slot")
                   |> Zoi.optional()
               },
               coerce: true
             )
 
-    defstruct [:blockhash, :block_height, :block_time, :parent_slot]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            blockhash: String.t(),
-            block_height: non_neg_integer() | nil,
-            block_time: non_neg_integer() | nil,
-            parent_slot: non_neg_integer() | nil
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
   end
 end

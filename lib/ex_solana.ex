@@ -69,6 +69,59 @@ defmodule ExSolana do
   # Core type aliases for convenience
   alias ExSolana.Key
   alias ExSolana.Account
+  alias ExSolana.Mnemonic
+  alias ExSolana.Transaction
+  alias ExSolana.Signature
+  alias ExSolana.Block
   alias ExSolana.RPC
   alias ExSolana.Error
+
+  # ============================================================================
+  # Convenience Functions
+  # ============================================================================
+
+  @doc """
+  Extracts the public key from a keypair.
+
+  For a keypair tuple or struct, returns the public key.
+  For an encoded public key string, decodes and validates it.
+
+  ## Examples
+
+      ExSolana.pubkey!(keypair)
+      #=> <<binary_public_key>>
+
+      ExSolana.pubkey!("7mfY3uUuQoJLoQV3wYnTkn6H3Y3NQYjWXxZHFUkgHqE")
+      #=> <<decoded_key>>
+
+  """
+  @spec pubkey!(Key.Keypair.t() | String.t()) :: Key.t()
+  def pubkey!(%Key.Keypair{pubkey: pubkey}), do: pubkey
+
+  def pubkey!(encoded) when is_binary(encoded) do
+    case Key.decode(encoded) do
+      {:ok, pubkey} -> pubkey
+      {:error, _error} -> raise ArgumentError, "Invalid public key: #{encoded}"
+    end
+  end
+
+  @doc """
+  Common Solana system program addresses.
+  """
+
+  @spec sol() :: Key.t()
+  def sol, do: pubkey!("So11111111111111111111111111111111111111112")
+
+  @spec rent() :: Key.t()
+  def rent, do: pubkey!("SysvarRent111111111111111111111111111111111")
+
+  @spec recent_blockhashes() :: Key.t()
+  def recent_blockhashes,
+    do: pubkey!("SysvarRecentB1ockHashes11111111111111111111")
+
+  @spec clock() :: Key.t()
+  def clock, do: pubkey!("SysvarC1ock11111111111111111111111111111111")
+
+  @spec bpf_loader() :: Key.t()
+  def bpf_loader, do: pubkey!("BPFLoaderUpgradeab1e11111111111111111111111")
 end

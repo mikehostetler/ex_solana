@@ -98,27 +98,18 @@ defmodule ExSolana.Key do
         {:ok, signature} = ExSolana.Key.Keypair.sign(keypair, message)
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
-                pubkey:
-                  Zoi.binary()
-                  |> Zoi.description("Public key (32 bytes)"),
-                secret:
-                  Zoi.binary()
-                  |> Zoi.description("Private key (64 bytes for ed25519)")
-              },
-              coerce: true
+                pubkey: Zoi.string(description: "Public key (32 bytes)"),
+                secret: Zoi.string(description: "Private key (64 bytes for ed25519)")
+              }
             )
 
-    defstruct [:pubkey, :secret]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            pubkey: ExSolana.Key.t(),
-            secret: binary()
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
 
     @doc """
     Generates a new random keypair using ed25519.

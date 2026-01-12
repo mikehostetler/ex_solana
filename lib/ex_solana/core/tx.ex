@@ -45,33 +45,30 @@ defmodule ExSolana.Transaction do
           signers: list()
         }
 
-  use Zoi
-
   @schema Zoi.struct(
             __MODULE__,
             %{
               payer:
-                Zoi.binary()
-                |> Zoi.description("Payer account public key")
+                Zoi.string(description: "Payer account public key")
                 |> Zoi.optional(),
               blockhash:
-                Zoi.binary()
-                |> Zoi.description("Recent blockhash")
+                Zoi.string(description: "Recent blockhash")
                 |> Zoi.optional(),
               instructions:
-                Zoi.list(Zoi.any())
-                |> Zoi.description("List of instructions")
+                Zoi.list(Zoi.any(), description: "List of instructions")
                 |> Zoi.default([]),
               signers:
-                Zoi.list(Zoi.any())
-                |> Zoi.description("List of signer keypairs")
-                |> Zo.default([])
+                Zoi.list(Zoi.any(), description: "List of signer keypairs")
+                |> Zoi.default([])
                 |> Zoi.optional()
             },
             coerce: true
           )
 
-  defstruct [:payer, :blockhash, instructions: [], signers: []]
+  @type t_schema :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
 
   # Solana transaction limits
   @max_transaction_size 1232
@@ -326,28 +323,21 @@ defmodule ExSolana.Transaction do
     An encoded, signed transaction ready for submission.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
-                data:
-                  Zoi.binary()
-                  |> Zoi.description("Encoded transaction bytes"),
+                data: Zoi.string(description: "Encoded transaction bytes"),
                 signatures:
-                  Zoi.list(Zoi.binary())
-                  |> Zoi.description("Transaction signatures")
+                  Zoi.list(Zoi.string(), description: "Transaction signatures")
                   |> Zoi.default([])
               },
               coerce: true
             )
 
-    defstruct [:data, signatures: []]
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            data: binary(),
-            signatures: list(ExSolana.Signature.t())
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
 
     @doc """
     Creates an encoded transaction from raw bytes and signatures.

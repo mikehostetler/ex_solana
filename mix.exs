@@ -136,7 +136,7 @@ defmodule ExSolana.MixProject do
   defp deps do
     [
       # Core Dependencies - Modern Jido Ecosystem Stack
-      {:zoi, "~> 0.10"},
+      {:zoi, "~> 0.14"},
       {:splode, "~> 0.2.5"},
       {:req, "~> 0.5.16"},
 

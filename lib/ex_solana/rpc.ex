@@ -70,35 +70,32 @@ defmodule ExSolana.RPC do
   """
   @type network :: :mainnet_beta | :testnet | :devnet | :localhost
 
-  use Zoi
-
   @schema Zoi.struct(
             __MODULE__,
             %{
               base_url:
-                Zoi.string()
-                |> Zoi.description("RPC endpoint base URL"),
+                Zoi.string(description: "RPC endpoint base URL")
+                |> Zoi.optional(),
               req:
-                Zoi.any()
-                |> Zoi.description("Req client instance")
+                Zoi.any(description: "Req client instance")
                 |> Zoi.optional(),
               retry:
-                Zoi.atom()
-                |> Zoi.description("Retry mode: :safe_transient, :never, or custom")
+                Zoi.atom(description: "Retry mode: :safe_transient, :never, or custom")
                 |> Zoi.default(:safe_transient),
               receive_timeout:
-                Zoi.integer()
-                |> Zoi.description("Request timeout in milliseconds")
+                Zoi.integer(description: "Request timeout in milliseconds")
                 |> Zoi.default(30_000),
               verbose:
-                Zoi.boolean()
-                |> Zoi.description("Enable debug logging")
+                Zoi.boolean(description: "Enable debug logging")
                 |> Zoi.default(false)
             },
             coerce: true
           )
 
-  defstruct [:base_url, :req, retry: :safe_transient, receive_timeout: 30_000, verbose: false]
+  @type t :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
 
   @doc """
   Creates a new RPC client.
@@ -239,10 +236,10 @@ defmodule ExSolana.RPC do
       {:ok, %{status: status}} ->
         {:error, Error.rpc_error("RPC request failed", kind: :http_error, code: status)}
 
-      {:error, %Req.TransportError{reason: reason}} ->
+      {:error, %{reason: reason}} when is_struct(reason, Req.TransportError) ->
         {:error, Error.rpc_error("Transport error", kind: :network, details: %{reason: reason})}
 
-      {:error, %Req.TimeoutError{}} ->
+      {:error, error} when is_struct(error, Req.TimeoutError) ->
         {:error, Error.rpc_error("Request timeout", kind: :timeout)}
 
       {:error, reason} ->

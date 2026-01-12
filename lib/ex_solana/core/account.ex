@@ -53,28 +53,26 @@ defmodule ExSolana.Account do
           writable?: boolean()
         }
 
-  use Zoi
-
   @schema Zoi.struct(
             __MODULE__,
             %{
               key:
-                Zoi.binary()
-                |> Zoi.description("Account public key")
+                Zoi.string(description: "Account public key")
                 |> Zoi.optional(),
               signer?:
-                Zoi.boolean()
-                |> Zoi.description("Whether account signs the transaction")
+                Zoi.boolean(description: "Whether account signs the transaction")
                 |> Zoi.default(false),
               writable?:
-                Zoi.boolean()
-                |> Zoi.description("Whether account is writable")
+                Zoi.boolean(description: "Whether account is writable")
                 |> Zoi.default(false)
             },
             coerce: true
           )
 
-  defstruct [:key, signer?: false, writable?: false]
+  @type t_schema :: unquote(Zoi.type_spec(@schema))
+
+  @enforce_keys Zoi.Struct.enforce_keys(@schema)
+  defstruct Zoi.Struct.struct_fields(@schema)
 
   @doc """
   Creates a new Account struct from a map of parameters.
@@ -144,41 +142,26 @@ defmodule ExSolana.Account do
     Represents the data returned by `getAccountInfo` RPC calls.
     """
 
-    use Zoi
-
     @schema Zoi.struct(
               __MODULE__,
               %{
-                lamports:
-                  Zoi.integer()
-                  |> Zoi.description("Account balance in lamports"),
-                data:
-                  Zoi.binary()
-                  |> Zoi.description("Account data"),
-                owner:
-                  Zoi.binary()
-                  |> Zoi.description("Owner program public key"),
+                lamports: Zoi.integer(description: "Account balance in lamports"),
+                data: Zoi.string(description: "Account data"),
+                owner: Zoi.string(description: "Owner program public key"),
                 executable:
-                  Zoi.boolean()
-                  |> Zoi.description("Whether account is executable")
+                  Zoi.boolean(description: "Whether account is executable")
                   |> Zoi.default(false),
                 rent_epoch:
-                  Zoi.integer()
-                  |> Zoi.description("Rent epoch")
+                  Zoi.integer(description: "Rent epoch")
                   |> Zoi.optional()
               },
               coerce: true
             )
 
-    defstruct lamports: nil, data: nil, owner: nil, executable: false, rent_epoch: nil
+    @type t :: unquote(Zoi.type_spec(@schema))
 
-    @type t :: %__MODULE__{
-            lamports: non_neg_integer(),
-            data: binary(),
-            owner: Key.t(),
-            executable: boolean(),
-            rent_epoch: non_neg_integer() | nil
-          }
+    @enforce_keys Zoi.Struct.enforce_keys(@schema)
+    defstruct Zoi.Struct.struct_fields(@schema)
 
     @doc """
     Creates account info from RPC response.
@@ -214,7 +197,7 @@ defmodule ExSolana.Account do
            rent_epoch: Map.get(value, "rentEpoch")
          }}
       else
-        {:error, %Error{} = error} -> {:error, error}
+        {:error, _} = error -> error
         _ -> {:error, Error.validation_error("Invalid account info response")}
       end
     end
