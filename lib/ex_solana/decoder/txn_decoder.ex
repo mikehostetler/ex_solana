@@ -40,7 +40,12 @@ defmodule ExSolana.Decoder.TxnDecoder do
     debug("Decoding inner transaction", slot: slot)
 
     with {:ok, decoded_txn} <- decode_inner_transaction(txn) do
-      result = %Core.ConfirmedTransaction{slot: slot, transaction: decoded_txn}
+      result = %Core.ConfirmedTransaction{
+        slot: slot,
+        transaction: decoded_txn,
+        block_time: 0,
+        version: "0"
+      }
       debug("Inner transaction decoded", result: result)
       {:ok, result}
     end
@@ -140,7 +145,14 @@ defmodule ExSolana.Decoder.TxnDecoder do
     result
   end
 
-  defp decode_header(_), do: %Core.MessageHeader{}
+  defp decode_header(_) do
+    # Return a default header for fallback
+    %Core.MessageHeader{
+      num_required_signatures: 0,
+      num_readonly_signed_accounts: 0,
+      num_readonly_unsigned_accounts: 0
+    }
+  end
 
   defp decode_instructions(instructions, account_keys) do
     debug("Decoding instructions", instructions: instructions)
@@ -321,7 +333,14 @@ defmodule ExSolana.Decoder.TxnDecoder do
     result
   end
 
-  defp decode_ui_token_amount(_), do: %Core.UiTokenAmount{}
+  defp decode_ui_token_amount(_) do
+    %Core.UiTokenAmount{
+      ui_amount_string: "0",
+      ui_amount: 0.0,
+      amount: "0",
+      decimals: 0
+    }
+  end
 
   defp decode_rewards(rewards) do
     debug("Decoding rewards", rewards: rewards)

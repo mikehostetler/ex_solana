@@ -3,25 +3,40 @@ defmodule ExSolana.Decoder.TxnFilter do
   Defines filter structures for Solana transaction actions and implements filtering for token swaps.
   """
 
-  use TypedStruct
-
   alias ExSolana.Actions.TokenSwap
 
-  typedstruct module: TokenSwapFilter do
-    field(:owner, String.t())
-    field(:from_token, String.t())
-    field(:to_token, String.t())
-    field(:min_amount_in, Decimal.t())
-    field(:max_amount_in, Decimal.t())
-    field(:min_amount_out, Decimal.t())
-    field(:max_amount_out, Decimal.t())
-    field(:min_price, Decimal.t())
-    field(:max_price, Decimal.t())
+  defmodule TokenSwapFilter do
+    @moduledoc false
+    @type t :: %__MODULE__{
+            owner: String.t() | nil,
+            from_token: String.t() | nil,
+            to_token: String.t() | nil,
+            min_amount_in: Decimal.t() | nil,
+            max_amount_in: Decimal.t() | nil,
+            min_amount_out: Decimal.t() | nil,
+            max_amount_out: Decimal.t() | nil,
+            min_price: Decimal.t() | nil,
+            max_price: Decimal.t() | nil
+          }
+
+    defstruct [
+      :owner,
+      :from_token,
+      :to_token,
+      :min_amount_in,
+      :max_amount_in,
+      :min_amount_out,
+      :max_amount_out,
+      :min_price,
+      :max_price
+    ]
   end
 
-  typedstruct do
-    field(:token_swap, TokenSwapFilter.t())
-  end
+  @type t :: %__MODULE__{
+          token_swap: TokenSwapFilter.t()
+        }
+
+  defstruct [:token_swap]
 
   @doc """
   Filters a list of actions based on the provided filters.

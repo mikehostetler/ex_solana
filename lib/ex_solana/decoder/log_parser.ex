@@ -1,18 +1,22 @@
 defmodule ExSolana.Decoder.LogParser do
   @moduledoc false
   use ExSolana.Util.DebugTools, debug_enabled: false
-  use TypedStruct
 
   @max_depth 10
 
-  typedstruct module: Node do
-    field(:id, integer())
-    field(:top_level_id, integer())
-    field(:program, String.t())
-    field(:level, integer())
-    field(:children, list())
-    field(:parent, integer() | nil)
-    field(:logs, list())
+  defmodule Node do
+    @moduledoc false
+    @type t :: %__MODULE__{
+            id: integer(),
+            top_level_id: integer(),
+            program: String.t(),
+            level: integer(),
+            children: list(),
+            parent: integer() | nil,
+            logs: list()
+          }
+
+    defstruct [:id, :top_level_id, :program, :level, children: [], parent: nil, logs: []]
   end
 
   @spec parse_logs([String.t()]) :: list()
