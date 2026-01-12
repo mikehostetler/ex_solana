@@ -451,17 +451,4 @@ defmodule ExSolana.RPC do
     """
     @type t :: ExSolana.RPC.t()
   end
-
-  defmodule Request do
-    @moduledoc """
-    Request builder helper module for compatibility.
-    """
-
-    @doc """
-    Builds an airdrop request.
-    """
-    def request_airdrop(pubkey, lamports) do
-      [pubkey, lamports]
-    end
-  end
 end
