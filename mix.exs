@@ -2,7 +2,7 @@ defmodule ExSolana.MixProject do
   use Mix.Project
 
   @version "0.2.0"
-  @source_url "https://github.com/mikehostetler/ex_solana"
+  @source_url "https://github.com/agentjido/ex_solana"
   @description "Solana library for Elixir - Core package with RPC, WebSocket, IDL, and transaction support"
 
   def vsn do
@@ -122,13 +122,23 @@ defmodule ExSolana.MixProject do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README*", "LICENSE*"],
-      maintainers: ["Mike Hostetler"],
-      licenses: ["MIT"],
+      files: [
+        "lib",
+        "mix.exs",
+        "README*",
+        "LICENSE*",
+        "CHANGELOG.md",
+        "AGENTS.md",
+        "usage-rules.md"
+      ],
+      maintainers: ["Agent Jido"],
+      licenses: ["Apache-2.0"],
       links: %{
+        "Changelog" => "https://hexdocs.pm/ex_solana/changelog.html",
+        "Discord" => "https://agentjido.xyz/discord",
         "Documentation" => "https://hexdocs.pm/ex_solana",
         "GitHub" => @source_url,
-        "Changelog" => "https://github.com/mikehostetler/ex_solana/blob/main/CHANGELOG.md"
+        "Website" => "https://agentjido.xyz"
       }
     ]
   end
@@ -161,16 +171,19 @@ defmodule ExSolana.MixProject do
       {:protobuf, "~> 0.15.0"},
 
       # Development & Test Dependencies
-      {:credo, "~> 1.7", only: [:dev, :test]},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18.3", only: [:dev, :test]},
+      {:git_hooks, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:git_ops, "~> 2.9", only: [:dev, :test], runtime: false},
       {:mimic, "~> 2.1.0", only: :test}
     ]
   end
 
   defp aliases do
     [
+      setup: ["deps.get", "git_hooks.install"],
       test: "test --exclude flaky",
       q: ["quality"],
       quality: [
