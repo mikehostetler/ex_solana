@@ -221,7 +221,9 @@ defmodule ExSolana.Key do
   @spec decode!(String.t()) :: t() | no_return()
   def decode!(encoded) when is_binary(encoded) do
     case decode(encoded) do
-      {:ok, key} -> key
+      {:ok, key} ->
+        key
+
       {:error, %Error.InvalidKeyError{message: message}} ->
         raise ArgumentError, message: message
     end

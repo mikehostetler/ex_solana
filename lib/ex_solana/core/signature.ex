@@ -116,7 +116,8 @@ defmodule ExSolana.Signature do
     end
   end
 
-  def decode(_), do: {:error, Error.invalid_key_error("invalid signature input", reason: :invalid_input)}
+  def decode(_),
+    do: {:error, Error.invalid_key_error("invalid signature input", reason: :invalid_input)}
 
   @doc """
   Decodes a base58-encoded signature, raising an error if invalid.
