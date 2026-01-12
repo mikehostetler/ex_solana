@@ -1,6 +1,18 @@
 # ExSolana - Elixir Solana SDK
 
-_This package is provided AS-IS - It's not a priority to improve it right now - so don't expect any updates. I welcome PRs if you'd like to contribute!_
+> **⚠️ DEPRECATED**: This package has been split into multiple focused packages with modern architecture.
+> Please migrate to the new packages:
+> - **[ex_solana](https://hex.pm/packages/ex_solana)** - Core RPC, WebSocket, IDL, Transactions
+> - **[ex_solana_programs](https://hex.pm/packages/ex_solana_programs)** - Jupiter, Raydium, SPL, Native programs
+> - **[ex_solana_jito](https://hex.pm/packages/ex_solana_jito)** - MEV bundle submission
+> - **[ex_solana_geyser](https://hex.pm/packages/ex_solana_geyser)** - Geyser/Yellowstone streaming
+> - **[ex_solana_trading](https://hex.pm/packages/ex_solana_trading)** - Trading utilities
+>
+> See [Migration Guide](../ex_solana/MIGRATION.md) for upgrade instructions.
+
+---
+
+_This legacy package is provided AS-IS - It's not a priority to improve it right now - so don't expect any updates. I welcome PRs if you'd like to contribute!_
 
 Solana SDK for Elixir with support for blockchain interaction, transaction processing, and program integration.
 
