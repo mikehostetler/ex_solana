@@ -32,7 +32,8 @@ defmodule ExSolana.RPC.Request.GetMultipleAccounts do
       {"getMultipleAccounts", [["pubkey1", "pubkey2"], %{"commitment" => "confirmed", "encoding" => "base64"}]}
 
   """
-  @spec get_multiple_accounts([binary()], keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_multiple_accounts([binary()], keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_multiple_accounts(pubkeys, opts \\ []) when is_list(pubkeys) do
     with {:ok, validated_opts} <- validate(opts, @get_multiple_accounts_options),
          {:ok, encoded_pubkeys} <- encode_pubkeys(pubkeys) do

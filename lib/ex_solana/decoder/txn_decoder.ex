@@ -46,6 +46,7 @@ defmodule ExSolana.Decoder.TxnDecoder do
         block_time: 0,
         version: "0"
       }
+
       debug("Inner transaction decoded", result: result)
       {:ok, result}
     end

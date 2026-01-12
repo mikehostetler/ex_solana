@@ -35,7 +35,8 @@ defmodule ExSolana.RPC.Request.GetSignatureStatuses do
       {"getSignatureStatuses", [["signature1", "signature2"], %{"searchTransactionHistory" => true}]}
 
   """
-  @spec get_signature_statuses([binary()], keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_signature_statuses([binary()], keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_signature_statuses(signatures, opts \\ []) when is_list(signatures) do
     with {:ok, validated_opts} <- validate(opts, @get_signature_statuses_options),
          {:ok, encoded_signatures} <- encode_signatures(signatures) do

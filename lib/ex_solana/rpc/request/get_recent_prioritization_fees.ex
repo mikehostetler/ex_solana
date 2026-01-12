@@ -25,7 +25,8 @@ defmodule ExSolana.RPC.Request.GetRecentPrioritizationFees do
       {"getRecentPrioritizationFees", [["pubkey1", "pubkey2"]]}
 
   """
-  @spec get_recent_prioritization_fees([binary()] | nil) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_recent_prioritization_fees([binary()] | nil) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_recent_prioritization_fees(addresses \\ nil) do
     with {:ok, encoded_addresses} <- encode_addresses(addresses) do
       {"getRecentPrioritizationFees", [encoded_addresses]}

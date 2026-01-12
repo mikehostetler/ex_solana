@@ -32,7 +32,8 @@ defmodule ExSolana.RPC.Request.GetTokenAccountsByOwner do
       {"getTokenAccountsByOwner", ["owner", %{"programId" => "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}, %{"commitment" => "confirmed", "encoding" => "base64"}]}
 
   """
-  @spec get_token_accounts_by_owner(binary(), keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_token_accounts_by_owner(binary(), keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_token_accounts_by_owner(owner, opts \\ []) do
     with {:ok, validated_opts} <- validate(opts, @get_token_accounts_by_owner_options),
          {:ok, encoded_owner} <- encode_key(owner) do

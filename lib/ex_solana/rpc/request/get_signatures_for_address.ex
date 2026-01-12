@@ -50,7 +50,8 @@ defmodule ExSolana.RPC.Request.GetSignaturesForAddress do
       {"getSignaturesForAddress", ["address", %{"commitment" => "confirmed"}]}
 
   """
-  @spec get_signatures_for_address(address(), keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_signatures_for_address(address(), keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_signatures_for_address(address, opts \\ []) when is_binary(address) do
     with {:ok, validated_opts} <- validate(opts, @get_signatures_for_address_options) do
       {"getSignaturesForAddress", [address, encode_opts(validated_opts)]}

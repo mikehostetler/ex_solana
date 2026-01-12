@@ -28,7 +28,8 @@ defmodule ExSolana.RPC.Request.GetTokenLargestAccounts do
       {"getTokenLargestAccounts", ["mint", %{"commitment" => "confirmed"}]}
 
   """
-  @spec get_token_largest_accounts(binary(), keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_token_largest_accounts(binary(), keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_token_largest_accounts(mint, opts \\ []) do
     with {:ok, validated_opts} <- validate(opts, @get_token_largest_accounts_options),
          {:ok, encoded_mint} <- encode_key(mint) do

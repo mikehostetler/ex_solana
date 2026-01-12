@@ -28,7 +28,8 @@ defmodule ExSolana.RPC.Request.GetTokenAccountBalance do
       {"getTokenAccountBalance", ["account", %{"commitment" => "confirmed"}]}
 
   """
-  @spec get_token_account_balance(binary(), keyword()) :: {String.t(), list()} | {:error, String.t()}
+  @spec get_token_account_balance(binary(), keyword()) ::
+          {String.t(), list()} | {:error, String.t()}
   def get_token_account_balance(account, opts \\ []) do
     with {:ok, validated_opts} <- validate(opts, @get_token_account_balance_options),
          {:ok, encoded_account} <- encode_key(account) do
