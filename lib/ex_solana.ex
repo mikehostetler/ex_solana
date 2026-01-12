@@ -69,5 +69,6 @@ defmodule ExSolana do
   # Core type aliases for convenience
   alias ExSolana.Key
   alias ExSolana.Account
+  alias ExSolana.RPC
   alias ExSolana.Error
 end
