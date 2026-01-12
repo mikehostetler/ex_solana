@@ -14,9 +14,9 @@ defmodule ExSolana.RPC.Request.GetAccountInfo do
   import ExSolana.RPC.Request.Helpers
 
   @get_account_info_options commitment_option() ++
-                               encoding_option() ++
-                               data_slice_option() ++
-                               min_context_slot_option()
+                              encoding_option() ++
+                              data_slice_option() ++
+                              min_context_slot_option()
 
   @doc """
   Returns all information associated with the account of the provided Pubkey.

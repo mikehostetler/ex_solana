@@ -24,10 +24,8 @@ defmodule ExSolana.Transaction.Action do
   @schema Zoi.struct(
             __MODULE__,
             %{
-              type:
-                Zoi.atom(description: "The type of action"),
-              description:
-                Zoi.string(description: "Human-readable description of the action"),
+              type: Zoi.atom(description: "The type of action"),
+              description: Zoi.string(description: "Human-readable description of the action"),
               details:
                 Zoi.any(description: "Additional details about the action")
                 |> Zoi.default(%{})
@@ -106,8 +104,7 @@ defmodule ExSolana.Transaction.Action do
   def swap(user, from_mint, to_mint, amount) do
     new(
       type: :swap,
-      description:
-        "Swap #{amount} of #{short_key(from_mint)} for #{short_key(to_mint)}",
+      description: "Swap #{amount} of #{short_key(from_mint)} for #{short_key(to_mint)}",
       details: %{user: user, from_mint: from_mint, to_mint: to_mint, amount: amount}
     )
   end

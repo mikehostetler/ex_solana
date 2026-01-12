@@ -199,7 +199,8 @@ defmodule ExSolana.Config do
   defp validate_url(key) do
     url = get(key)
 
-    if is_nil(url) or (is_binary(url) and String.starts_with?(url, ["http://", "https://", "ws://", "wss://"])) do
+    if is_nil(url) or
+         (is_binary(url) and String.starts_with?(url, ["http://", "https://", "ws://", "wss://"])) do
       :ok
     else
       {:error, "Invalid #{inspect(key)}: #{inspect(url)}"}

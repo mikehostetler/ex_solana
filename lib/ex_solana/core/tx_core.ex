@@ -81,8 +81,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                pubkey:
-                  Zoi.string(description: "Account public key (32 bytes)"),
+                pubkey: Zoi.string(description: "Account public key (32 bytes)"),
                 signer:
                   Zoi.boolean(description: "Whether this account signed the transaction")
                   |> Zoi.default(false),
@@ -119,12 +118,9 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                program_id_index:
-                  Zoi.integer(description: "Index of program in account keys"),
-                accounts:
-                  Zoi.string(description: "Account indices used by instruction"),
-                data:
-                  Zoi.string(description: "Instruction data"),
+                program_id_index: Zoi.integer(description: "Index of program in account keys"),
+                accounts: Zoi.string(description: "Account indices used by instruction"),
+                data: Zoi.string(description: "Instruction data"),
                 stack_height:
                   Zoi.integer(description: "Stack height at execution")
                   |> Zoi.optional()
@@ -156,8 +152,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                index:
-                  Zoi.integer(description: "Index of the outer instruction"),
+                index: Zoi.integer(description: "Index of the outer instruction"),
                 instructions:
                   Zoi.list(
                     Zoi.any(description: "List of inner instructions"),
@@ -194,12 +189,9 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                program_id_index:
-                  Zoi.integer(description: "Index of program in account keys"),
-                accounts:
-                  Zoi.string(description: "Account indices used by instruction"),
-                data:
-                  Zoi.string(description: "Instruction data"),
+                program_id_index: Zoi.integer(description: "Index of program in account keys"),
+                accounts: Zoi.string(description: "Account indices used by instruction"),
+                data: Zoi.string(description: "Instruction data"),
                 stack_height:
                   Zoi.integer(description: "Stack height at execution")
                   |> Zoi.optional(),
@@ -236,14 +228,10 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                ui_amount:
-                  Zoi.float(description: "Token amount as float"),
-                decimals:
-                  Zoi.integer(description: "Token decimals"),
-                amount:
-                  Zoi.string(description: "Raw amount string"),
-                ui_amount_string:
-                  Zoi.string(description: "UI amount as string")
+                ui_amount: Zoi.float(description: "Token amount as float"),
+                decimals: Zoi.integer(description: "Token decimals"),
+                amount: Zoi.string(description: "Raw amount string"),
+                ui_amount_string: Zoi.string(description: "UI amount as string")
               },
               coerce: true
             )
@@ -275,16 +263,11 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                account_index:
-                  Zoi.integer(description: "Account index in transaction"),
-                mint:
-                  Zoi.string(description: "Token mint address"),
-                ui_token_amount:
-                  Zoi.any(description: "UI token amount"),
-                owner:
-                  Zoi.string(description: "Token owner address"),
-                program_id:
-                  Zoi.string(description: "Token program ID")
+                account_index: Zoi.integer(description: "Account index in transaction"),
+                mint: Zoi.string(description: "Token mint address"),
+                ui_token_amount: Zoi.any(description: "UI token amount"),
+                owner: Zoi.string(description: "Token owner address"),
+                program_id: Zoi.string(description: "Token program ID")
               },
               coerce: true
             )
@@ -313,10 +296,8 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                program_id:
-                  Zoi.string(description: "Program ID that returned data"),
-                data:
-                  Zoi.string(description: "Returned data bytes")
+                program_id: Zoi.string(description: "Program ID that returned data"),
+                data: Zoi.string(description: "Returned data bytes")
               },
               coerce: true
             )
@@ -348,14 +329,10 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                pubkey:
-                  Zoi.string(description: "Reward recipient address"),
-                lamports:
-                  Zoi.integer(description: "Reward amount in lamports"),
-                post_balance:
-                  Zoi.integer(description: "Account balance after reward"),
-                reward_type:
-                  Zoi.atom(description: "Type of reward"),
+                pubkey: Zoi.string(description: "Reward recipient address"),
+                lamports: Zoi.integer(description: "Reward amount in lamports"),
+                post_balance: Zoi.integer(description: "Account balance after reward"),
+                reward_type: Zoi.atom(description: "Type of reward"),
                 commission:
                   Zoi.string(description: "Commission percentage")
                   |> Zoi.optional()
@@ -386,8 +363,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                timestamp:
-                  Zoi.integer(description: "Unix timestamp")
+                timestamp: Zoi.integer(description: "Unix timestamp")
               },
               coerce: true
             )
@@ -415,8 +391,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                block_height:
-                  Zoi.integer(description: "Block height")
+                block_height: Zoi.integer(description: "Block height")
               },
               coerce: true
             )
@@ -444,8 +419,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                num_partitions:
-                  Zoi.integer(description: "Number of partitions")
+                num_partitions: Zoi.integer(description: "Number of partitions")
               },
               coerce: true
             )
@@ -474,8 +448,7 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                address:
-                  Zoi.string(description: "Loaded address"),
+                address: Zoi.string(description: "Loaded address"),
                 stack_height:
                   Zoi.integer(description: "Stack height when loaded")
                   |> Zoi.optional()
@@ -564,8 +537,7 @@ defmodule ExSolana.Transaction.Core do
                 err:
                   Zoi.any(description: "Transaction error")
                   |> Zoi.optional(),
-                fee:
-                  Zoi.integer(description: "Transaction fee in lamports"),
+                fee: Zoi.integer(description: "Transaction fee in lamports"),
                 pre_balances:
                   Zoi.list(
                     Zoi.integer(description: "Pre-transaction balances"),
@@ -703,12 +675,9 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                account_key:
-                  Zoi.string(description: "Address Lookup Table account"),
-                writable_indexes:
-                  Zoi.string(description: "Writable account indexes"),
-                readonly_indexes:
-                  Zoi.string(description: "Read-only account indexes")
+                account_key: Zoi.string(description: "Address Lookup Table account"),
+                writable_indexes: Zoi.string(description: "Writable account indexes"),
+                readonly_indexes: Zoi.string(description: "Read-only account indexes")
               },
               coerce: true
             )
@@ -741,15 +710,13 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                header:
-                  Zoi.any(description: "Message header"),
+                header: Zoi.any(description: "Message header"),
                 account_keys:
                   Zoi.list(
                     Zoi.string(description: "Account keys"),
                     description: "Account keys in the message"
                   ),
-                recent_blockhash:
-                  Zoi.string(description: "Recent blockhash"),
+                recent_blockhash: Zoi.string(description: "Recent blockhash"),
                 instructions:
                   Zoi.list(
                     Zoi.any(description: "Compiled instructions"),
@@ -797,8 +764,7 @@ defmodule ExSolana.Transaction.Core do
                     Zoi.string(description: "Transaction signatures"),
                     description: "Transaction signatures"
                   ),
-                message:
-                  Zoi.any(description: "Transaction message")
+                message: Zoi.any(description: "Transaction message")
               },
               coerce: true
             )
@@ -830,16 +796,11 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                transaction:
-                  Zoi.any(description: "The transaction"),
-                signature:
-                  Zoi.string(description: "Transaction signature"),
-                is_vote:
-                  Zoi.boolean(description: "Whether this is a vote transaction"),
-                meta:
-                  Zoi.any(description: "Transaction metadata"),
-                index:
-                  Zoi.integer(description: "Transaction index in block")
+                transaction: Zoi.any(description: "The transaction"),
+                signature: Zoi.string(description: "Transaction signature"),
+                is_vote: Zoi.boolean(description: "Whether this is a vote transaction"),
+                meta: Zoi.any(description: "Transaction metadata"),
+                index: Zoi.integer(description: "Transaction index in block")
               },
               coerce: true
             )
@@ -870,14 +831,10 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                transaction:
-                  Zoi.any(description: "The transaction"),
-                slot:
-                  Zoi.integer(description: "Slot number"),
-                block_time:
-                  Zoi.integer(description: "Block timestamp"),
-                version:
-                  Zoi.string(description: "Transaction version")
+                transaction: Zoi.any(description: "The transaction"),
+                slot: Zoi.integer(description: "Slot number"),
+                block_time: Zoi.integer(description: "Block timestamp"),
+                version: Zoi.string(description: "Transaction version")
               },
               coerce: true
             )
@@ -914,10 +871,8 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                program_id:
-                  Zoi.string(description: "Program ID"),
-                instruction:
-                  Zoi.atom(description: "Instruction name"),
+                program_id: Zoi.string(description: "Program ID"),
+                instruction: Zoi.atom(description: "Instruction name"),
                 params:
                   Zoi.any(description: "Instruction parameters")
                   |> Zoi.default(%{}),
@@ -987,12 +942,9 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                id:
-                  Zoi.integer(description: "Instruction ID"),
-                parent:
-                  Zoi.integer(description: "Parent instruction ID"),
-                level:
-                  Zoi.integer(description: "Nesting level"),
+                id: Zoi.integer(description: "Instruction ID"),
+                parent: Zoi.integer(description: "Parent instruction ID"),
+                level: Zoi.integer(description: "Nesting level"),
                 children:
                   Zoi.list(
                     Zoi.integer(description: "Child instruction IDs"),
@@ -1003,10 +955,8 @@ defmodule ExSolana.Transaction.Core do
                     Zoi.string(description: "Associated log messages"),
                     description: "Associated log messages"
                   ),
-                program:
-                  Zoi.string(description: "Program ID"),
-                ix:
-                  Zoi.any(description: "The instruction")
+                program: Zoi.string(description: "Program ID"),
+                ix: Zoi.any(description: "The instruction")
               },
               coerce: true
             )
@@ -1043,12 +993,9 @@ defmodule ExSolana.Transaction.Core do
     @schema Zoi.struct(
               __MODULE__,
               %{
-                id:
-                  Zoi.integer(description: "Instruction ID"),
-                parent:
-                  Zoi.integer(description: "Parent instruction ID"),
-                level:
-                  Zoi.integer(description: "Nesting level"),
+                id: Zoi.integer(description: "Instruction ID"),
+                parent: Zoi.integer(description: "Parent instruction ID"),
+                level: Zoi.integer(description: "Nesting level"),
                 children:
                   Zoi.list(
                     Zoi.integer(description: "Child instruction IDs"),
@@ -1059,10 +1006,8 @@ defmodule ExSolana.Transaction.Core do
                     Zoi.string(description: "Associated log messages"),
                     description: "Associated log messages"
                   ),
-                program:
-                  Zoi.string(description: "Program ID"),
-                ix:
-                  Zoi.any(description: "The instruction"),
+                program: Zoi.string(description: "Program ID"),
+                ix: Zoi.any(description: "The instruction"),
                 decoded_ix:
                   Zoi.any(description: "Decoded instruction data")
                   |> Zoi.optional(),
