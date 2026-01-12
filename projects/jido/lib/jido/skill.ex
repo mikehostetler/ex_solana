@@ -284,16 +284,34 @@ defmodule Jido.Skill do
         end
       end)
 
-      # Metadata accessors
+      @doc "Returns the skill's name."
       def name, do: @validated_opts.name
+
+      @doc "Returns the key used to store skill state in the agent."
       def state_key, do: @validated_opts.state_key
+
+      @doc "Returns the list of action modules provided by this skill."
       def actions, do: @validated_opts.actions
+
+      @doc "Returns the skill's description."
       def description, do: @validated_opts[:description]
+
+      @doc "Returns the skill's category."
       def category, do: @validated_opts[:category]
+
+      @doc "Returns the skill's version."
       def vsn, do: @validated_opts[:vsn]
+
+      @doc "Returns the Zoi schema for skill state."
       def schema, do: @validated_opts[:schema]
+
+      @doc "Returns the Zoi schema for per-agent configuration."
       def config_schema, do: @validated_opts[:config_schema]
+
+      @doc "Returns the signal patterns this skill handles."
       def signal_patterns, do: @validated_opts[:signal_patterns] || []
+
+      @doc "Returns the skill's tags."
       def tags, do: @validated_opts[:tags] || []
 
       @doc """

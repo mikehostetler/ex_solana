@@ -4,115 +4,57 @@ defmodule Jido do
   @moduledoc """
   自動 (Jido) - A foundational framework for building autonomous, distributed agent systems in Elixir.
 
-  ## Architecture
+  ## Quick Start
 
-  Jido uses **instance-scoped supervisors** instead of global singletons. Each Jido instance
-  manages its own Registry, TaskSupervisor, and AgentSupervisor, providing complete isolation
-  between different parts of your application.
-
-  ## Getting Started
-
-  Define a Jido instance module in your application:
+  Create a Jido supervisor in your application:
 
       defmodule MyApp.Jido do
         use Jido, otp_app: :my_app
       end
 
-  Configure it in your `config/config.exs`:
+  Add to your supervision tree:
 
-      config :my_app, MyApp.Jido,
-        max_tasks: 1000,
-        agent_pools: []
+      children = [MyApp.Jido]
 
-  Add it to your application's supervision tree:
+  Start and manage agents:
 
-      # In your application.ex
-      children = [
-        MyApp.Jido
-      ]
-
-  Then use the instance to manage agents:
-
-      # Start an agent
       {:ok, pid} = MyApp.Jido.start_agent(MyAgent, id: "agent-1")
-
-      # Look up an agent by ID
       pid = MyApp.Jido.whereis("agent-1")
-
-      # List all agents
       agents = MyApp.Jido.list_agents()
-
-      # Stop an agent
       :ok = MyApp.Jido.stop_agent("agent-1")
 
-  ## Test Isolation
+  ## Core Concepts
 
-  For tests, use `JidoTest.Case` which automatically creates an isolated Jido instance:
+  Jido agents are immutable data structures. The core operation is `cmd/2`:
+
+      {agent, directives} = MyAgent.cmd(agent, MyAction)
+
+  - **Agents** — Immutable structs updated via commands
+  - **Actions** — Pure functions that transform agent state
+  - **Directives** — Descriptions of external effects (signals, processes, etc.)
+
+  ## For Tests
+
+  Use `JidoTest.Case` for isolation:
 
       defmodule MyAgentTest do
         use JidoTest.Case, async: true
 
-        test "my agent works", %{jido: jido} do
+        test "agent works", %{jido: jido} do
           {:ok, pid} = Jido.start_agent(jido, MyAgent)
-          # Test in isolation...
+          # ...
         end
       end
 
-  ## Core Concepts
-
-  Jido is built around a purely functional Agent design:
-
-  - **Agent** - An immutable data structure that holds state and can be updated via commands
-  - **Actions** - Pure functions that transform agent state
-  - **Directives** - Descriptions of external effects (emit signals, spawn processes, etc.)
-  - **Strategies** - Pluggable execution patterns for actions
-
-  ## Agent API
-
-  The core operation is `cmd/2`:
-
-      {agent, directives} = MyAgent.cmd(agent, MyAction)
-      {agent, directives} = MyAgent.cmd(agent, {MyAction, %{value: 42}})
-      {agent, directives} = MyAgent.cmd(agent, [Action1, Action2])
-
-  Key invariants:
-  - The returned `agent` is always complete — no "apply directives" step needed
-  - `directives` are external effects only — they never modify agent state
-  - `cmd/2` is a pure function — given same inputs, always same outputs
-
-  ## Defining Agents
-
-      defmodule MyAgent do
-        use Jido.Agent,
-          name: "my_agent",
-          description: "My custom agent",
-          schema: [
-            status: [type: :atom, default: :idle],
-            counter: [type: :integer, default: 0]
-          ]
-      end
-
-  ## Instance Module API
-
-  When you define an instance module with `use Jido, otp_app: :my_app`, the following
-  functions are generated:
-
-  - `child_spec/1` - Returns a supervisor child spec
-  - `start_link/1` - Starts the Jido instance supervisor
-  - `config/1` - Returns the runtime configuration
-  - `start_agent/2` - Starts an agent under this instance
-  - `stop_agent/1` - Stops an agent by pid or id
-  - `whereis/1` - Looks up an agent by ID
-  - `list_agents/0` - Lists all agents
-  - `agent_count/0` - Returns the count of running agents
+  See `Jido.Agent` for defining agents and `Jido.Await` for coordination.
   """
 
   @doc """
-  Defines a Jido instance module.
+  Creates a Jido supervisor module.
 
   ## Options
 
-    - `:otp_app` - Required. The OTP application that holds the configuration.
+    - `:otp_app` - Required. Your application name (e.g., `:my_app`).
 
   ## Example
 
@@ -120,18 +62,15 @@ defmodule Jido do
         use Jido, otp_app: :my_app
       end
 
-  Then configure in `config/config.exs`:
+  Then add to your supervision tree in `lib/my_app/application.ex`:
+
+      children = [MyApp.Jido]
+
+  Optionally configure in `config/config.exs` to customize defaults:
 
       config :my_app, MyApp.Jido,
         max_tasks: 2000,
         agent_pools: []
-
-  And add to your supervision tree:
-
-      children = [
-        MyApp.Jido
-      ]
-
   """
   defmacro __using__(opts) do
     otp_app = Keyword.fetch!(opts, :otp_app)

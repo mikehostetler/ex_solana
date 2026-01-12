@@ -44,6 +44,7 @@ defmodule Jido.Agent.Directive.Cron do
   @enforce_keys Zoi.Struct.enforce_keys(@schema)
   defstruct Zoi.Struct.struct_fields(@schema)
 
+  @doc "Returns the Zoi schema for Cron."
   def schema, do: @schema
 end
 

@@ -7,50 +7,62 @@ defmodule JidoTest.ErrorTest do
     test "creates a validation error with message" do
       error = Error.validation_error("Invalid input")
 
+      assert %Error.ValidationError{} = error
       assert error.message == "Invalid input"
     end
 
-    test "creates a validation error with details" do
-      error = Error.validation_error("Invalid field", field: :email, value: "bad")
+    test "creates a validation error with field (infers kind: :input)" do
+      error = Error.validation_error("Invalid field", field: :email)
 
       assert error.message == "Invalid field"
-      assert error.field == :email
-      assert error.value == "bad"
+      assert error.kind == :input
+      assert error.subject == :email
     end
-  end
 
-  describe "invalid_action/2" do
-    test "creates an invalid action error" do
-      error = Error.invalid_action("Action not found", action: SomeAction)
+    test "creates a validation error with explicit kind and subject" do
+      error = Error.validation_error("Invalid", kind: :config, subject: :timeout)
+
+      assert error.kind == :config
+      assert error.subject == :timeout
+    end
+
+    test "creates a validation error for action (convenience)" do
+      error = Error.validation_error("Action not found", action: SomeAction)
 
       assert error.message == "Action not found"
-      assert error.action == SomeAction
+      assert error.kind == :action
+      assert error.subject == SomeAction
     end
-  end
 
-  describe "invalid_sensor/2" do
-    test "creates an invalid sensor error" do
-      error = Error.invalid_sensor("Sensor failed", sensor: SomeSensor)
+    test "creates a validation error for sensor (convenience)" do
+      error = Error.validation_error("Sensor failed", sensor: SomeSensor)
 
       assert error.message == "Sensor failed"
-      assert error.sensor == SomeSensor
+      assert error.kind == :sensor
+      assert error.subject == SomeSensor
     end
   end
 
   describe "execution_error/2" do
     test "creates an execution error" do
-      error = Error.execution_error("Execution failed", step: :process)
+      error = Error.execution_error("Execution failed")
 
+      assert %Error.ExecutionError{} = error
       assert error.message == "Execution failed"
-      assert error.details[:step] == :process
+      assert error.phase == :execution
     end
-  end
 
-  describe "planning_error/2" do
-    test "creates a planning error" do
-      error = Error.planning_error("Planning failed")
+    test "creates an execution error with planning phase" do
+      error = Error.execution_error("Planning failed", phase: :planning)
 
       assert error.message == "Planning failed"
+      assert error.phase == :planning
+    end
+
+    test "creates an execution error with details" do
+      error = Error.execution_error("Failed", details: %{step: :process})
+
+      assert error.details[:step] == :process
     end
   end
 
@@ -58,33 +70,19 @@ defmodule JidoTest.ErrorTest do
     test "creates a routing error" do
       error = Error.routing_error("Route not found", target: :agent_1)
 
+      assert %Error.RoutingError{} = error
       assert error.message == "Route not found"
       assert error.target == :agent_1
     end
   end
 
-  describe "dispatch_error/2" do
-    test "creates a dispatch error" do
-      error = Error.dispatch_error("Dispatch failed")
-
-      assert error.message == "Dispatch failed"
-    end
-  end
-
-  describe "timeout/2" do
+  describe "timeout_error/2" do
     test "creates a timeout error" do
-      error = Error.timeout("Operation timed out", timeout: 5000)
+      error = Error.timeout_error("Operation timed out", timeout: 5000)
 
+      assert %Error.TimeoutError{} = error
       assert error.message == "Operation timed out"
       assert error.timeout == 5000
-    end
-  end
-
-  describe "invalid_async_ref/2" do
-    test "creates an invalid async ref error" do
-      error = Error.invalid_async_ref("Invalid ref")
-
-      assert error.message == "Invalid ref"
     end
   end
 
@@ -93,62 +91,44 @@ defmodule JidoTest.ErrorTest do
       original = Error.execution_error("Original failure")
 
       error =
-        Error.compensation_error(original,
+        Error.compensation_error("Compensated",
+          original_error: original,
           compensated: true,
-          compensation_result: %{refund: true}
+          result: %{refund: true}
         )
 
+      assert %Error.CompensationError{} = error
       assert error.compensated == true
       assert error.original_error == original
-      assert error.compensation_result == %{refund: true}
+      assert error.result == %{refund: true}
     end
 
     test "creates a compensation error for failed compensation" do
       original = Error.execution_error("Original failure")
-      comp_error = Error.internal_error("Compensation failed")
 
       error =
-        Error.compensation_error(original, compensated: false, compensation_error: comp_error)
+        Error.compensation_error("Compensation failed",
+          original_error: original,
+          compensated: false
+        )
 
       assert error.compensated == false
-      assert error.compensation_error == comp_error
+      assert error.original_error == original
     end
   end
 
-  describe "config_error/2" do
-    test "creates a configuration error" do
-      error = Error.config_error("Missing config key")
+  describe "internal_error/2" do
+    test "creates an internal error" do
+      error = Error.internal_error("Unexpected error")
 
-      assert error.message == "Missing config key"
-    end
-  end
-
-  describe "internal_server_error/2" do
-    test "creates an internal server error" do
-      error = Error.internal_server_error("Unexpected error")
-
+      assert %Error.InternalError{} = error
       assert error.message == "Unexpected error"
     end
-  end
 
-  describe "alias constructors" do
-    test "alias constructors produce same error shape as primary ones" do
-      aliases = [
-        {:bad_request, :validation_error, []},
-        {:action_error, :execution_error, []},
-        {:timeout_error, :timeout, [timeout: 1000]},
-        {:internal_error, :internal_server_error, []}
-      ]
+    test "creates an internal error with details" do
+      error = Error.internal_error("Failed", details: %{reason: :unknown})
 
-      for {alias_fun, primary_fun, opts} <- aliases do
-        alias_err = apply(Error, alias_fun, ["msg", opts])
-        primary_err = apply(Error, primary_fun, ["msg", opts])
-
-        assert alias_err.__struct__ == primary_err.__struct__,
-               "#{alias_fun} should produce same struct as #{primary_fun}"
-
-        assert alias_err.message == primary_err.message
-      end
+      assert error.details[:reason] == :unknown
     end
   end
 
@@ -212,85 +192,84 @@ defmodule JidoTest.ErrorTest do
     end
   end
 
-  describe "new/4" do
-    test "creates errors for all supported types" do
-      types = [
-        {:invalid_action, %{action: SomeAction}},
-        {:invalid_sensor, %{sensor: SomeSensor}},
-        {:bad_request, %{}},
-        {:validation_error, %{field: :email}},
-        {:config_error, %{}},
-        {:execution_error, %{}},
-        {:planning_error, %{}},
-        {:action_error, %{}},
-        {:internal_server_error, %{}},
-        {:timeout, %{timeout: 5000}},
-        {:invalid_async_ref, %{}},
-        {:routing_error, %{target: :agent}},
-        {:dispatch_error, %{}}
-      ]
-
-      for {type, details} <- types do
-        error = Error.new(type, "Test message", details)
-
-        assert is_struct(error),
-               "Error.new(#{inspect(type)}, ...) should return a struct"
-
-        assert is_binary(error.message),
-               "Error for #{inspect(type)} should have a message"
-      end
-    end
-
-    test "creates compensation_error via new/4" do
-      original = Error.execution_error("Original")
-
-      error =
-        Error.new(:compensation_error, "Compensation", %{
-          original_error: original,
-          compensated: true
-        })
-
-      assert error.compensated == true
-      assert error.original_error == original
-    end
-
-    test "creates internal error for unknown type" do
-      error = Error.new(:unknown_type, "Unknown", %{})
-
-      assert error.message =~ "Unknown error type"
-    end
-  end
-
   describe "to_map/1" do
-    test "converts various error types to map" do
-      errors = [
-        {Error.validation_error("Invalid", field: :email), :validation_error},
-        {Error.execution_error("Failed"), :execution_error},
-        {Error.timeout("Timed out", timeout: 5000), :timeout},
-        {Error.config_error("Missing key"), :config_error},
-        {Error.internal_error("Internal"), :internal_server_error}
-      ]
+    test "converts validation error to map" do
+      error = Error.validation_error("Invalid", field: :email)
+      result = Error.to_map(error)
 
-      for {error, expected_type} <- errors do
-        result = Error.to_map(error)
-        assert result.type == expected_type, "#{inspect(error)} should map to #{expected_type}"
-        assert is_binary(result.message)
-        assert is_list(result.stacktrace)
-      end
+      assert result.type == :validation_error
+      assert result.message == "Invalid"
+      assert is_list(result.stacktrace)
+    end
+
+    test "converts validation error with kind: :action to :invalid_action" do
+      error = Error.validation_error("Bad action", action: SomeAction)
+      result = Error.to_map(error)
+
+      assert result.type == :invalid_action
+    end
+
+    test "converts validation error with kind: :sensor to :invalid_sensor" do
+      error = Error.validation_error("Bad sensor", sensor: SomeSensor)
+      result = Error.to_map(error)
+
+      assert result.type == :invalid_sensor
+    end
+
+    test "converts validation error with kind: :config to :config_error" do
+      error = Error.validation_error("Bad config", kind: :config)
+      result = Error.to_map(error)
+
+      assert result.type == :config_error
+    end
+
+    test "converts execution error to map" do
+      error = Error.execution_error("Failed")
+      result = Error.to_map(error)
+
+      assert result.type == :execution_error
+    end
+
+    test "converts execution error with phase: :planning to :planning_error" do
+      error = Error.execution_error("Planning failed", phase: :planning)
+      result = Error.to_map(error)
+
+      assert result.type == :planning_error
+    end
+
+    test "converts routing error to map" do
+      error = Error.routing_error("Route not found", target: :agent)
+      result = Error.to_map(error)
+
+      assert result.type == :routing_error
+    end
+
+    test "converts timeout error to map" do
+      error = Error.timeout_error("Timed out", timeout: 5000)
+      result = Error.to_map(error)
+
+      assert result.type == :timeout
     end
 
     test "converts compensation error to map" do
       original = Error.execution_error("Original")
-      error = Error.compensation_error(original, compensated: true)
+      error = Error.compensation_error("Compensated", original_error: original, compensated: true)
       result = Error.to_map(error)
 
       assert result.type == :compensation_error
     end
 
+    test "converts internal error to map" do
+      error = Error.internal_error("Internal")
+      result = Error.to_map(error)
+
+      assert result.type == :internal
+    end
+
     test "handles unknown struct" do
       result = Error.to_map(%{unknown: "struct"})
 
-      assert result.type == :internal_server_error
+      assert result.type == :internal
     end
   end
 
@@ -300,7 +279,7 @@ defmodule JidoTest.ErrorTest do
       assert Error.extract_message(%{message: "Direct"}) == "Direct"
       assert Error.extract_message(%{message: nil}) == ""
 
-      inner = struct(Error.InternalError, message: "Struct message")
+      inner = struct(Error.InternalError, message: "Struct message", details: %{})
       assert Error.extract_message(%{message: inner}) == "Struct message"
 
       assert Error.extract_message("plain string") =~ "plain string"

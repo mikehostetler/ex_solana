@@ -6,6 +6,21 @@ defmodule Jido.Action.Error do
   within the Jido Action system. It uses the Splode library to enable error
   composition and classification.
 
+  ## Structure & Naming
+
+  This module has two kinds of submodules:
+
+  * **Error classes** (for Splode): `Invalid`, `Execution`, `Config`, `Internal`.
+    These are used internally by Splode for classification and aggregation.
+    You generally should not raise or pattern match on these modules directly.
+
+  * **Concrete exception structs** (ending in `Error`): `InvalidInputError`,
+    `ExecutionFailureError`, `TimeoutError`, `ConfigurationError`, `InternalError`.
+    These are the types you raise, rescue, and pattern match in application code.
+
+  For cross-package handling, use `Jido.Error.to_map/1` and match on the
+  normalized `:type` atom (e.g. `:timeout`, `:validation_error`, `:execution_error`).
+
   ## Error Classes
 
   Errors are organized into the following classes, in order of precedence:
@@ -41,27 +56,59 @@ defmodule Jido.Action.Error do
     ],
     unknown_error: __MODULE__.Internal.UnknownError
 
+  # Error class modules for Splode - these are for classification/aggregation only.
+  # Use the concrete exception structs (ending in `Error`) for raising/matching.
+
   defmodule Invalid do
-    @moduledoc "Invalid input error class"
+    @moduledoc """
+    Invalid input error class for Splode.
+
+    This module is used by Splode to classify invalid-input errors when
+    aggregating or analyzing multiple errors. Do not raise or match on this
+    module directly — use `Jido.Action.Error.InvalidInputError` and helpers like
+    `validation_error/2` instead.
+    """
     use Splode.ErrorClass, class: :invalid
   end
 
   defmodule Execution do
-    @moduledoc "Execution error class"
+    @moduledoc """
+    Execution error class for Splode.
+
+    This module is used by Splode to classify execution-related errors when
+    aggregating or analyzing multiple errors. Do not raise or match on this
+    module directly — use `Jido.Action.Error.ExecutionFailureError` and helpers like
+    `execution_error/2` instead.
+    """
     use Splode.ErrorClass, class: :execution
   end
 
   defmodule Config do
-    @moduledoc "Configuration error class"
+    @moduledoc """
+    Configuration error class for Splode.
+
+    This module is used by Splode to classify configuration-related errors when
+    aggregating or analyzing multiple errors. Do not raise or match on this
+    module directly — use `Jido.Action.Error.ConfigurationError` and helpers like
+    `config_error/2` instead.
+    """
     use Splode.ErrorClass, class: :config
   end
 
   defmodule Internal do
-    @moduledoc "Internal error class"
+    @moduledoc """
+    Internal error class for Splode.
+
+    This module is used by Splode to classify internal/unexpected errors when
+    aggregating or analyzing multiple errors. Do not raise or match on this
+    module directly — use `Jido.Action.Error.InternalError` and helpers like
+    `internal_error/2` instead.
+    """
     use Splode.ErrorClass, class: :internal
 
     defmodule UnknownError do
-      @moduledoc "Unknown internal error"
+      @moduledoc false
+      # This module exists only to satisfy Splode's unknown_error requirement.
       defexception [:message, :details]
 
       @type t :: %__MODULE__{

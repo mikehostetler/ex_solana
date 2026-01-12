@@ -23,6 +23,7 @@ defmodule Jido.Agent.Directive.CronCancel do
   @enforce_keys Zoi.Struct.enforce_keys(@schema)
   defstruct Zoi.Struct.struct_fields(@schema)
 
+  @doc "Returns the Zoi schema for CronCancel."
   def schema, do: @schema
 end
 

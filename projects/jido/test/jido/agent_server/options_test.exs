@@ -89,7 +89,7 @@ defmodule JidoTest.AgentServer.OptionsTest do
     end
 
     test "raises on error" do
-      assert_raise Jido.Error.InvalidInputError, fn ->
+      assert_raise Jido.Error.ValidationError, fn ->
         Options.new!(@base_opts ++ [agent: nil])
       end
     end

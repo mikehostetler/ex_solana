@@ -376,19 +376,34 @@ defmodule Jido.Agent do
       # Aggregate actions from skills
       @skill_actions @skill_specs |> Enum.flat_map(& &1.actions) |> Enum.uniq()
 
-      # Metadata accessors
+      @doc "Returns the agent's name."
       def name, do: @validated_opts.name
+
+      @doc "Returns the agent's description."
       def description, do: @validated_opts[:description]
+
+      @doc "Returns the agent's category."
       def category, do: @validated_opts[:category]
+
+      @doc "Returns the agent's tags."
       def tags, do: @validated_opts[:tags] || []
+
+      @doc "Returns the agent's version."
       def vsn, do: @validated_opts[:vsn]
+
+      @doc "Returns the merged schema (base + skill schemas)."
       def schema, do: @merged_schema
 
-      # Skill introspection functions
+      @doc "Returns the list of skill specs attached to this agent."
       def skills, do: @skill_specs
+
+      @doc "Returns the list of skill specs attached to this agent."
       def skill_specs, do: @skill_specs
+
+      @doc "Returns the list of actions from all attached skills."
       def actions, do: @skill_actions
 
+      @doc "Returns the configuration for a specific skill module, or nil if not found."
       def skill_config(skill_mod) do
         case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
           nil -> nil
@@ -396,6 +411,7 @@ defmodule Jido.Agent do
         end
       end
 
+      @doc "Returns the state slice for a specific skill module, or nil if not found."
       def skill_state(agent, skill_mod) do
         case Enum.find(@skill_specs, &(&1.module == skill_mod)) do
           nil -> nil
@@ -403,7 +419,7 @@ defmodule Jido.Agent do
         end
       end
 
-      # Strategy accessors
+      @doc "Returns the execution strategy module for this agent."
       def strategy do
         case @validated_opts[:strategy] do
           {mod, _opts} -> mod
@@ -411,6 +427,7 @@ defmodule Jido.Agent do
         end
       end
 
+      @doc "Returns the strategy options for this agent."
       def strategy_opts do
         case @validated_opts[:strategy] do
           {_mod, opts} -> opts
