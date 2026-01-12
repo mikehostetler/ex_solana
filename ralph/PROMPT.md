@@ -2,6 +2,10 @@
 
 ## Your Task
 
+Split the large package of ExSolana (in projects/ex_solana_v1) into smaller packages, modernized to Agent Jido ecosystem standards - see the `GENERIC_PACKAGE_QA.md` for quality standards. Maintain test coverage and quality. Utilize the foundational packages of `zoi`, `req` and `splode`. Reference other Jido ecosystem package for examples as needed.
+
+See /home/sprite/jido_workspace/notes/solana-split/research.md and /home/sprite/jido_workspace/notes/solana-split/plan.md
+
 1. Read `ralph/prd.json`
 2. Read `ralph/progress.txt`
    (check Codebase Patterns first)
