@@ -251,9 +251,9 @@ defmodule ExSolana.RPC.Request.Helpers do
 
   """
   def encode_opts(opts, defaults \\ %{}) do
-    opts
+    defaults
     |> to_keyword_list()
-    |> Keyword.merge(to_keyword_list(defaults))
+    |> Keyword.merge(to_keyword_list(opts))
     |> Map.new(fn {k, v} -> {camelize(to_string(k)), encode_value(v)} end)
   end
 
@@ -347,7 +347,7 @@ defmodule ExSolana.RPC.Request.Helpers do
   defp encode_value(v) do
     cond do
       match?({:ok, _}, ExSolana.Key.check(v)) -> B58.encode58(v)
-      match?({:ok, _}, ExSolana.Transaction.check(v)) -> B58.encode58(v)
+      match?({:ok, _}, ExSolana.Signature.check(v)) -> B58.encode58(v)
       true -> v
     end
   end

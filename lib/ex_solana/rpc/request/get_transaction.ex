@@ -39,9 +39,11 @@ defmodule ExSolana.RPC.Request.GetTransaction do
   """
   @spec get_transaction(String.t(), keyword()) :: {String.t(), list()} | {:error, String.t()}
   def get_transaction(signature, opts \\ []) do
+    defaults = [commitment: "confirmed", encoding: "base64"]
+
     with {:ok, validated_opts} <- validate(opts, @get_transaction_options),
          {:ok, encoded_signature} <- encode_signature(signature) do
-      {"getTransaction", [encoded_signature, encode_opts(validated_opts)]}
+      {"getTransaction", [encoded_signature, encode_opts(validated_opts, defaults)]}
     end
   end
 end

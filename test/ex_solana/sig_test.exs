@@ -1,7 +1,7 @@
 defmodule ExSolana.SignatureTest do
   use ExUnit.Case, async: true
 
-  alias ExSolana.Signature
+  alias ExSolana.{Error, Signature}
 
   doctest ExSolana.Signature
 
@@ -16,11 +16,11 @@ defmodule ExSolana.SignatureTest do
     end
 
     test "returns error tuple for invalid signature" do
-      assert {:error, :invalid_signature} == Signature.check(@invalid_signature)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.check(@invalid_signature)
     end
 
     test "returns error tuple for non-binary input" do
-      assert {:error, :invalid_signature} == Signature.check(123)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.check(123)
     end
   end
 
@@ -31,11 +31,11 @@ defmodule ExSolana.SignatureTest do
     end
 
     test "returns error for invalid base58 encoded signature" do
-      assert {:error, :invalid_signature} == Signature.decode(@invalid_encoded_signature)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.decode(@invalid_encoded_signature)
     end
 
     test "returns error for non-binary input" do
-      assert {:error, :invalid_signature} == Signature.decode(123)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.decode(123)
     end
   end
 
@@ -67,11 +67,11 @@ defmodule ExSolana.SignatureTest do
     end
 
     test "returns error for invalid signature" do
-      assert {:error, _} = Signature.encode(@invalid_signature)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.encode(@invalid_signature)
     end
 
     test "returns error for non-binary input" do
-      assert {:error, _} = Signature.encode(123)
+      assert {:error, %Error.InvalidKeyError{}} = Signature.encode(123)
     end
   end
 

@@ -63,8 +63,9 @@ defmodule ExSolana.Signature do
       {:ok, <<1::512>>}
 
       iex> invalid_sig = <<1::256>>
-      iex> ExSolana.Signature.check(invalid_sig)
-      {:error, %ExSolana.Error.InvalidKeyError{}}
+      iex> {:error, error} = ExSolana.Signature.check(invalid_sig)
+      iex> error.reason
+      :length
 
   """
   @spec check(binary()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
@@ -99,8 +100,9 @@ defmodule ExSolana.Signature do
       iex> byte_size(decoded)
       64
 
-      iex> ExSolana.Signature.decode("invalid_base58")
-      {:error, %ExSolana.Error.InvalidKeyError{}}
+      iex> {:error, error} = ExSolana.Signature.decode("invalid_base58")
+      iex> error.reason
+      :decode
 
   """
   @spec decode(binary()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
@@ -138,8 +140,12 @@ defmodule ExSolana.Signature do
       iex> byte_size(decoded)
       64
 
-      iex> ExSolana.Signature.decode!("invalid_base58")
-      ** (ArgumentError) "invalid public key"
+      iex> try do
+      iex>   ExSolana.Signature.decode!("invalid_base58")
+      iex> rescue
+      iex>   ArgumentError -> :raised
+      iex> end
+      :raised
 
   """
   @spec decode!(binary()) :: t()
@@ -210,8 +216,12 @@ defmodule ExSolana.Signature do
       iex> String.length(encoded) > 0
       true
 
-      iex> ExSolana.Signature.encode!(<<1, 2, 3>>)
-      ** (ArgumentError) "Invalid signature length"
+      iex> try do
+      iex>   ExSolana.Signature.encode!(<<1, 2, 3>>)
+      iex> rescue
+      iex>   ArgumentError -> :raised
+      iex> end
+      :raised
 
   """
   @spec encode!(t()) :: String.t()

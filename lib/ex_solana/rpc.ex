@@ -442,6 +442,32 @@ defmodule ExSolana.RPC do
   end
 
   # ============================================================================
+  # Send Helper
+  # ============================================================================
+
+  @doc """
+  Sends a JSON-RPC request using a request tuple.
+
+  This is a helper function for compatibility with code that creates
+  request tuples using `ExSolana.RPC.Request.*` functions.
+
+  ## Parameters
+
+  - `client` - RPC client
+  - `request_tuple` - Request tuple in the format `{method, params}`
+
+  ## Examples
+
+      request = ExSolana.RPC.Request.get_slot()
+      {:ok, slot} = ExSolana.RPC.send(client, request)
+
+  """
+  @spec send(client(), {String.t(), list()}) :: {:ok, any()} | {:error, Error.t()}
+  def send(%__MODULE__{} = client, {method, params}) when is_binary(method) and is_list(params) do
+    request(client, method, params)
+  end
+
+  # ============================================================================
   # Helper Modules
   # ============================================================================
 
