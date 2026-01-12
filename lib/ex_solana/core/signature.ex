@@ -104,8 +104,10 @@ defmodule ExSolana.Signature do
 
   """
   @spec decode(binary()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
+  def decode(_), do: {:error, Error.invalid_key_error("invalid signature input", reason: :invalid_input)}
+
   def decode(encoded) when is_binary(encoded) do
-    case BaseFiftyEight.decode58(encoded) do
+    case B58.decode58(encoded) do
       {:ok, decoded} ->
         check(decoded)
 
@@ -175,7 +177,7 @@ defmodule ExSolana.Signature do
   def encode(signature) do
     case check(signature) do
       {:ok, valid_signature} ->
-        {:ok, BaseFiftyEight.encode58(valid_signature)}
+        {:ok, B58.encode58(valid_signature)}
 
       error ->
         error

@@ -189,12 +189,41 @@ defmodule ExSolana.Key do
   """
   @spec decode(String.t()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
   def decode(encoded) when is_binary(encoded) do
-    with {:ok, decoded} <- BaseFiftyEight.decode58(encoded),
+    with {:ok, decoded} <- B58.decode58(encoded),
          true <- byte_size(decoded) == 32 do
       {:ok, decoded}
     else
       _ ->
         {:error, Error.invalid_key_error("Invalid public key", key: encoded)}
+    end
+  end
+
+  @doc """
+  Decodes a Base58 encoded public key, raising on error.
+
+  ## Parameters
+
+  - `encoded` - Base58 encoded public key string
+
+  ## Returns
+
+  - 32-byte binary public key
+
+  ## Raises
+
+  - `ArgumentError` - If the encoded string is invalid
+
+  ## Examples
+
+      key = ExSolana.Key.decode!("7mfY3uUuQoJLoQV3wYnTkn6H3Y3NQYjWXxZHFUkgHqE")
+
+  """
+  @spec decode!(String.t()) :: t() | no_return()
+  def decode!(encoded) when is_binary(encoded) do
+    case decode(encoded) do
+      {:ok, key} -> key
+      {:error, %Error.InvalidKeyError{message: message}} ->
+        raise ArgumentError, message: message
     end
   end
 
@@ -217,7 +246,7 @@ defmodule ExSolana.Key do
   """
   @spec encode(t()) :: String.t()
   def encode(key) when is_binary(key) and byte_size(key) == 32 do
-    BaseFiftyEight.encode58(key)
+    B58.encode58(key)
   end
 
   @doc """
@@ -247,6 +276,38 @@ defmodule ExSolana.Key do
   end
 
   @doc """
+  Derives a public key from another key, a seed, and a program ID.
+
+  The program ID will also serve as the owner of the public key, giving it
+  permission to write data to the account.
+
+  ## Parameters
+
+  - `base` - Base public key (32 bytes)
+  - `seed` - Seed string
+  - `program_id` - Program ID (32 bytes)
+
+  ## Returns
+
+  - `{:ok, derived_key}` - Successfully derived key
+  - `{:error, error}` - Invalid base or program_id
+
+  ## Examples
+
+      {:ok, key} = ExSolana.Key.with_seed(base, "seed", program_id)
+
+  """
+  @spec with_seed(t(), String.t(), t()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
+  def with_seed(base, seed, program_id) do
+    with {:ok, base} <- check(base),
+         {:ok, program_id} <- check(program_id) do
+      [base, seed, program_id]
+      |> hash()
+      |> check()
+    end
+  end
+
+  @doc """
   Validates a public key.
 
   ## Parameters
@@ -267,4 +328,140 @@ defmodule ExSolana.Key do
   @spec valid?(any()) :: boolean()
   def valid?(key) when is_binary(key), do: byte_size(key) == 32
   def valid?(_), do: false
+
+  @doc """
+  Checks if a value is a valid public key.
+
+  ## Parameters
+
+  - `key` - Any value
+
+  ## Returns
+
+  - `{:ok, key}` - Valid 32-byte public key
+  - `{:error, error}` - Invalid
+
+  ## Examples
+
+      {:ok, key} = ExSolana.Key.check(<<1, 2, 3, ...>>)
+
+  """
+  @spec check(any()) :: {:ok, t()} | {:error, Error.InvalidKeyError.t()}
+  def check(<<key::binary-32>>), do: {:ok, key}
+  def check(_), do: {:error, Error.invalid_key_error("invalid public key")}
+
+  @doc """
+  Derives a program address from seeds and a program ID.
+
+  ## Parameters
+
+  - `seeds` - List of binary seeds (each <= 32 bytes or byte 0-255)
+  - `program_id` - 32-byte program ID
+
+  ## Returns
+
+  - `{:ok, address}` - Successfully derived program-derived address
+  - `{:error, :invalid_seeds}` - Seeds are invalid or address is on curve
+
+  ## Examples
+
+      {:ok, pda} = ExSolana.Key.derive_address(["seed"], program_id)
+
+  """
+  @spec derive_address([binary()], t()) :: {:ok, t()} | {:error, :invalid_seeds}
+  def derive_address(seeds, program_id) do
+    with {:ok, program_id} <- check(program_id),
+         true <- Enum.all?(seeds, &is_valid_seed?/1) do
+      [seeds, program_id, "ProgramDerivedAddress"]
+      |> hash()
+      |> verify_off_curve()
+    else
+      {:error, _} = err -> err
+      false -> {:error, :invalid_seeds}
+    end
+  end
+
+  @doc """
+  Finds a valid program address.
+
+  Valid addresses must fall off the ed25519 curve; generate a series of nonces,
+  then combine each one with the given seeds and program ID until a valid
+  address is found.
+
+  ## Parameters
+
+  - `seeds` - List of binary seeds
+  - `program_id` - 32-byte program ID
+
+  ## Returns
+
+  - `{:ok, address, nonce}` - Valid address and nonce used
+  - `{:error, :no_nonce}` - Could not find valid address
+
+  ## Examples
+
+      {:ok, pda, nonce} = ExSolana.Key.find_address(["seed"], program_id)
+
+  """
+  @spec find_address([binary()], t()) :: {:ok, t(), byte()} | {:error, :no_nonce}
+  def find_address(seeds, program_id) do
+    case check(program_id) do
+      {:ok, program_id} ->
+        Enum.reduce_while(255..1//-1, {:error, :no_nonce}, fn nonce, acc ->
+          case derive_address(List.flatten([seeds, nonce]), program_id) do
+            {:ok, address} -> {:halt, {:ok, address, nonce}}
+            _err -> {:cont, acc}
+          end
+        end)
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Loads a keypair from a file system wallet.
+
+  Reads a Solana [file system
+  wallet](https://docs.solana.com/wallet-guide/file-system-wallet) in the format
+  `{private_key, public_key}`. Returns `{:ok, pair}` if successful, or `{:error,
+  reason}` if not.
+
+  ## Parameters
+
+  - `path` - Path to the wallet file
+
+  ## Returns
+
+  - `{:ok, {secret_key, public_key}}` - Successfully loaded keypair
+  - `{:error, reason}` - File read or format error
+
+  ## Examples
+
+      {:ok, {sk, pk}} = ExSolana.Key.pair_from_file("wallet.json")
+
+  """
+  @spec pair_from_file(String.t()) :: {:ok, {t(), t()}} | {:error, term()}
+  def pair_from_file(path) do
+    with {:ok, contents} <- File.read(path),
+         {:ok, list} when is_list(list) <- Jason.decode(contents),
+         <<sk::binary-size(32), pk::binary-size(32)>> <- :erlang.list_to_binary(list) do
+      {:ok, {sk, pk}}
+    else
+      {:error, _} = error -> error
+      _contents -> {:error, "invalid wallet format"}
+    end
+  end
+
+  # Private helpers
+
+  defp is_valid_seed?(seed) do
+    (is_binary(seed) && byte_size(seed) <= 32) || seed in 0..255
+  end
+
+  defp hash(data), do: :crypto.hash(:sha256, data)
+
+  defp verify_off_curve(hash) do
+    if Ed25519.on_curve?(hash), do: {:error, :invalid_seeds}, else: {:ok, hash}
+  end
 end

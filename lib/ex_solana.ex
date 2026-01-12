@@ -81,6 +81,17 @@ defmodule ExSolana do
   # ============================================================================
 
   @doc """
+  Generates a new random keypair.
+
+  ## Examples
+
+      keypair = ExSolana.keypair()
+
+  """
+  @spec keypair() :: Key.Keypair.t()
+  defdelegate keypair, to: Key.Keypair, as: :generate
+
+  @doc """
   Extracts the public key from a keypair.
 
   For a keypair tuple or struct, returns the public key.

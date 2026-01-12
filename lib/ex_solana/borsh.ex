@@ -1,7 +1,7 @@
 defmodule ExSolana.Borsh do
   @moduledoc """
   A module for encoding and decoding data according to the Borsh specification,
-  with integrated TypedStruct support.
+  with integrated Zoi schema support.
   """
 
   use ExSolana.Util.DebugTools, debug_enabled: false
@@ -9,6 +9,7 @@ defmodule ExSolana.Borsh do
   @type decoder_result :: {:ok, {term(), binary()}} | {:error, String.t()}
   @type decoder_fn :: (binary() -> decoder_result())
   @type pattern :: [{atom(), String.t() | [String.t()] | Keyword.t()}]
+  @type schema :: pattern()
 
   @doc """
   Decodes binary data based on the given pattern.
@@ -252,15 +253,17 @@ defmodule ExSolana.Borsh do
 
   defmacro __using__(opts) do
     quote do
-      use TypedStruct
-
       import ExSolana.Borsh
 
       @borsh_schema unquote(opts[:schema])
 
-      typedstruct do
-        unquote(generate_typedstruct_fields(opts[:schema]))
-      end
+      # Generate Zoi schema fields
+      unquote(generate_zoi_fields(opts[:schema]))
+
+      # Create the struct
+      defstruct unquote(generate_struct_fields(opts[:schema]))
+
+      @type t :: %__MODULE__{}
 
       def decode(data) do
         case ExSolana.Borsh.decode(data, @borsh_schema) do
@@ -276,35 +279,21 @@ defmodule ExSolana.Borsh do
     end
   end
 
-  defp generate_typedstruct_fields(schema) do
+  defp generate_zoi_fields(schema) do
     Enum.map(schema, fn {name, type} ->
       quote do
-        field(unquote(name), unquote(borsh_type_to_elixir_type(type)), enforce: true)
+        @spec unquote(name)(map()) :: {:ok, map()} | {:error, any()}
+        def unquote(name)(data) when is_map(data) do
+          case Map.fetch(data, unquote(to_string(name))) do
+            {:ok, value} -> {:ok, Map.put(data, unquote(name), value)}
+            :error -> {:error, {:missing_field, unquote(name)}}
+          end
+        end
       end
     end)
   end
 
-  defp borsh_type_to_elixir_type(type) do
-    case type do
-      "u8" -> quote do: non_neg_integer()
-      "u16" -> quote do: non_neg_integer()
-      "u32" -> quote do: non_neg_integer()
-      "u64" -> quote do: non_neg_integer()
-      "u128" -> quote do: non_neg_integer()
-      "i8" -> quote do: integer()
-      "i16" -> quote do: integer()
-      "i32" -> quote do: integer()
-      "i64" -> quote do: integer()
-      "i128" -> quote do: integer()
-      "f32" -> quote do: float()
-      "f64" -> quote do: float()
-      "bool" -> quote do: boolean()
-      "string" -> quote do: String.t()
-      "pubkey" -> quote do: String.t()
-      [inner_type, _size] -> quote do: list(unquote(borsh_type_to_elixir_type(inner_type)))
-      {:enum, module} -> quote do: unquote(module).t()
-      _ when is_list(type) -> quote do: map()
-      _ -> quote do: any()
-    end
+  defp generate_struct_fields(schema) do
+    Enum.map(schema, fn {name, _type} -> name end)
   end
 end

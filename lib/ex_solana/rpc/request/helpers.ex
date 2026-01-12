@@ -180,10 +180,10 @@ defmodule ExSolana.RPC.Request.Helpers do
   def encode_key(key) when is_binary(key) do
     case byte_size(key) do
       32 ->
-        {:ok, BaseFiftyEight.encode58(key)}
+        {:ok, B58.encode58(key)}
 
       _ ->
-        case BaseFiftyEight.decode58(key) do
+        case B58.decode58(key) do
           {:ok, _decoded} -> {:ok, key}
           _ -> {:error, "Invalid key: not a 32-byte binary or valid base58 string"}
         end
@@ -193,7 +193,7 @@ defmodule ExSolana.RPC.Request.Helpers do
   def encode_key(key) do
     # Try to validate the key
     case ExSolana.Key.check(key) do
-      {:ok, validated_key} -> {:ok, BaseFiftyEight.encode58(validated_key)}
+      {:ok, validated_key} -> {:ok, B58.encode58(validated_key)}
       {:error, reason} -> {:error, "Invalid key: #{reason}"}
     end
   rescue
@@ -213,10 +213,10 @@ defmodule ExSolana.RPC.Request.Helpers do
   def encode_signature(signature) when is_binary(signature) do
     case byte_size(signature) do
       64 ->
-        {:ok, BaseFiftyEight.encode58(signature)}
+        {:ok, B58.encode58(signature)}
 
       _ ->
-        case BaseFiftyEight.decode58(signature) do
+        case B58.decode58(signature) do
           {:ok, decoded} ->
             if byte_size(decoded) == 64 do
               {:ok, signature}
@@ -232,7 +232,7 @@ defmodule ExSolana.RPC.Request.Helpers do
 
   def encode_signature(signature) do
     case ExSolana.Signature.check(signature) do
-      {:ok, validated_signature} -> {:ok, BaseFiftyEight.encode58(validated_signature)}
+      {:ok, validated_signature} -> {:ok, B58.encode58(validated_signature)}
       {:error, reason} -> {:error, "Invalid signature: #{reason}"}
     end
   rescue
@@ -309,7 +309,7 @@ defmodule ExSolana.RPC.Request.Helpers do
     case check_encoding(value) do
       {:ok, :string} ->
         try do
-          {:ok, BaseFiftyEight.decode58!(value)}
+          {:ok, B58.decode58!(value)}
         rescue
           e in ArgumentError ->
             Logger.warning("Failed to decode base58 string: #{inspect(e)}")
@@ -346,8 +346,8 @@ defmodule ExSolana.RPC.Request.Helpers do
 
   defp encode_value(v) do
     cond do
-      match?({:ok, _}, ExSolana.Key.check(v)) -> BaseFiftyEight.encode58(v)
-      match?({:ok, _}, ExSolana.Transaction.check(v)) -> BaseFiftyEight.encode58(v)
+      match?({:ok, _}, ExSolana.Key.check(v)) -> B58.encode58(v)
+      match?({:ok, _}, ExSolana.Transaction.check(v)) -> B58.encode58(v)
       true -> v
     end
   end
