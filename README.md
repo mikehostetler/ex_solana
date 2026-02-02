@@ -146,6 +146,165 @@ Built-in decoders and helpers for:
 - **System Program**: Account creation, transfers
 - **Compute Budget**: Priority fees, compute limits
 - **Pump.fun**: Token creation and trading (see below)
+- **Jupiter**: DEX aggregator swaps (see below)
+
+---
+
+# Jupiter Integration
+
+Support for interacting with [Jupiter](https://jup.ag), the leading DEX aggregator on Solana.
+
+## Features
+
+- **Best Route Finding**: Automatically finds optimal swap routes across multiple DEXes
+- **Swap Modes**: Support for ExactIn and ExactOut swap modes
+- **DEX Filtering**: Include/exclude specific DEXes from routes
+- **Price Impact**: Calculate price impact and fees before swapping
+- **Swap Tracking**: Monitor transaction status with built-in tracker
+- **Priority Fees**: Automatic compute budget management
+
+## Quick Start
+
+```elixir
+# Configuration
+config :ex_solana,
+  jupiter: [
+    api_key: System.get_env("JUPITER_API_KEY")  # Get from https://portal.jup.ag
+  ]
+
+# Get a quote
+alias ExSolana.Jup
+
+client = Jup.client()
+
+{:ok, quote} = Jup.quote_v1(
+  client,
+  "So11111111111111111111111111111111111111112",  # SOL
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
+  1_000_000_000,  # 1 SOL
+  50  # 0.5% slippage
+)
+
+# Build and execute swap
+alias ExSolana.Transaction.Builder
+alias ExSolana.Ix.JupiterSwap
+
+builder = Builder.new()
+|> Builder.payer(your_public_key)
+|> Builder.add_signers([your_keypair])
+|> JupiterSwap.jupiter_swap(
+  "So11111111111111111111111111111111111111112",
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  1_000_000_000,
+  50,
+  swap_mode: :ExactIn
+)
+|> Builder.blockhash()
+
+{:ok, tx} = Builder.build(builder)
+{:ok, signature} = ExSolana.send(tx, client: rpc_client)
+
+# Track swap status
+alias ExSolana.Jupiter.SwapStatus
+
+{:ok, _pid} = SwapStatus.start_link()
+:ok = SwapStatus.track(signature)
+
+case SwapStatus.get_status(signature) do
+  {:ok, :completed} -> IO.puts("Swap completed!")
+  {:ok, {:failed, reason}} -> IO.puts("Swap failed: #{reason}")
+  {:ok, :pending} -> IO.puts("Swap pending...")
+end
+```
+
+## Advanced Usage
+
+### DEX Filtering
+
+```elixir
+# Only use specific DEXes
+builder
+|> JupiterSwap.jupiter_swap(
+  from_mint,
+  to_mint,
+  amount,
+  slippage,
+  dexes: "Orca,Raydium,Meteora DLMM"
+)
+
+# Exclude specific DEXes
+builder
+|> JupiterSwap.jupiter_swap(
+  from_mint,
+  to_mint,
+  amount,
+  slippage,
+  exclude_dexes: "Serum"
+)
+```
+
+### ExactOut Mode
+
+```elixir
+# Get exact output amount
+builder
+|> JupiterSwap.jupiter_swap(
+  from_mint,
+  to_mint,
+  1_000_000,  # Exactly 1 USDC output
+  slippage,
+  swap_mode: :ExactOut
+)
+```
+
+### Platform Fees
+
+```elixir
+# Add platform fee for revenue sharing
+builder
+|> JupiterSwap.jupiter_swap(
+  from_mint,
+  to_mint,
+  amount,
+  slippage,
+  platform_fee_bps: 100  # 1% fee
+)
+```
+
+## Price Impact and Fees
+
+```elixir
+# Calculate price impact
+{:ok, quote} = Jup.quote_v1(client, from_mint, to_mint, amount, slippage)
+impact = Jup.calculate_price_impact(quote)
+IO.puts("Price impact: #{Float.round(impact * 100, 4)}%")
+
+# Calculate fees
+fees = Jup.calculate_fees(quote)
+IO.puts("Total fees: #{fees.total} lamports")
+```
+
+## Getting Token Prices
+
+```elixir
+# Single token
+{:ok, price} = Jup.price_v2("So11111111111111111111111111111111111112")
+
+# Multiple tokens
+{:ok, prices} = Jup.price_v2([
+  "So11111111111111111111111111111111111111112",
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+])
+```
+
+## Documentation
+
+See [Jupiter Swap Guide](guides/jupiter_swap.md) for comprehensive documentation including:
+- Configuration options
+- All available parameters
+- Error handling
+- Testing strategies
+- Best practices
 
 ---
 
