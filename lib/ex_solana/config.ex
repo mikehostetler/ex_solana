@@ -83,6 +83,11 @@ defmodule ExSolana.Config do
   def default({:default, :transaction_details}), do: "full"
   def default({:default, :max_supported_transaction_version}), do: 0
   def default({:default, :show_rewards}), do: true
+  def default({:jupiter, :api_key}), do: nil
+  def default({:jupiter, :base_url}), do: "https://api.jup.ag"
+  def default({:jupiter, :swap_base_url}), do: "https://api.jup.ag/swap/v1"
+  def default({:jupiter, :price_base_url}), do: "https://api.jup.ag/price"
+  def default({:jupiter, :token_list_base_url}), do: "https://tokens.jup.ag"
   def default(_), do: nil
 
   @doc """
@@ -116,6 +121,7 @@ defmodule ExSolana.Config do
       geyser: get_section(:geyser),
       cache: get_section(:cache),
       default: get_section(:default),
+      jupiter: get_section(:jupiter),
       verbose: get(:verbose)
     }
   end
